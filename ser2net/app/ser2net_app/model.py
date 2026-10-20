@@ -231,6 +231,11 @@ class Settings:
     notify_ser2net: bool = True
     notify_language: str = "de"
     no_client_minutes: int = 2
+    # entities in Home Assistant over MQTT discovery
+    mqtt_enabled: bool = True  # only with a broker in Home Assistant
+    mqtt_prefix: str = "homeassistant"
+    mqtt_base: str = "ser2net"
+    mqtt_interval: int = 10  # seconds between state updates
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -273,6 +278,11 @@ class Settings:
             e["notify_language"] = "de or en"
         if not 1 <= settings.no_client_minutes <= 1440:
             e["no_client_minutes"] = "1 to 1440 minutes"
+        for key in ("mqtt_prefix", "mqtt_base"):
+            if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
+                e[key] = "an MQTT topic without wildcards"
+        if not 2 <= settings.mqtt_interval <= 3600:
+            e["mqtt_interval"] = "2 to 3600 seconds"
         if e:
             raise ValidationError(e)
         return settings

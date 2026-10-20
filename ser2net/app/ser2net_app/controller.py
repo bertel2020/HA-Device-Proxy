@@ -30,6 +30,7 @@ from .config import blocks, changed, readable_alias, render
 from .detect import detect
 from .devices import Device, device_for, line_counters, scan, set_low_latency
 from .events import EventLog
+from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .meter import analyze
 from .model import AppConfig, Connection, ValidationError, new_id
@@ -48,6 +49,7 @@ STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
 TRACE_POLL = 0.5  # seconds between reads of the traces
 NOTIFY_POLL = 5  # seconds between checks for notifications
+MQTT_KEYS = ("mqtt_enabled", "mqtt_prefix", "mqtt_base")
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
 NOTES = {
     "de": {
@@ -170,6 +172,8 @@ class Controller:
         self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
         self._line_rise: dict[str, float] = {}  # connection id → last rise of line errors
         self._paused: set[str] = set()  # connections a tool has taken over
+        self.mqtt = HaBridge(self)
+        self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
 
@@ -249,6 +253,7 @@ class Controller:
         self._apply_latency()
         self.lan_ip = await asyncio.to_thread(host_lan_ip)
         self.ser2net_version = await self.ser2net.version()
+        self._start_mqtt()
         try:
             await asyncio.gather(
                 self.ser2net.run(stop),
@@ -262,6 +267,8 @@ class Controller:
         finally:
             for task in self._keepers.values():
                 task.cancel()
+            if self._mqtt_task is not None:
+                await self._mqtt_task
 
     async def apply(self, new: AppConfig, source: str) -> ApplyResult:
         """Save and use a new configuration (already validated)."""
@@ -273,6 +280,10 @@ class Controller:
             touched = changed(before, self._written)
             self.apply_log_level()
             self._apply_latency()
+            if [getattr(old.settings, k) for k in MQTT_KEYS] != [
+                getattr(new.settings, k) for k in MQTT_KEYS
+            ]:
+                await self._restart_mqtt()
             disconnected: list[str] = []
             if touched and self.ser2net.running:
                 disconnected = await self._reload(touched)
@@ -511,6 +522,21 @@ class Controller:
             self._line_rise[c.id] = time.time()
         self.line_errors[c.id] = delta
 
+    # MQTT
+
+    def _start_mqtt(self) -> None:
+        self.mqtt = HaBridge(self)
+        self._mqtt_task = asyncio.create_task(self.mqtt.run(self._stop))
+
+    async def _restart_mqtt(self) -> None:
+        if self._mqtt_task is not None:
+            self._mqtt_task.cancel()
+            try:
+                await self._mqtt_task
+            except asyncio.CancelledError:
+                pass
+        self._start_mqtt()
+
     # notifications
 
     def _lasting(
@@ -713,6 +739,7 @@ class Controller:
             else [],
             "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
             "trace_files": self.trace.files(),
+            "mqtt": self.mqtt.state,
         }
 
     async def _check_stuck(self, c: Connection, port: PortStatus, now: float) -> None:

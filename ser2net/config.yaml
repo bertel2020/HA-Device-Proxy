@@ -28,6 +28,9 @@ backup_pre: python3 -m ser2net_app.backup
 hassio_api: true
 # notifications in Home Assistant
 homeassistant_api: true
+# the MQTT broker for the entities, when there is one
+services:
+  - mqtt:want
 # everything is set in the app's web interface
 options: {}
 schema: {}

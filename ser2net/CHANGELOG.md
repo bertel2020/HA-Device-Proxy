@@ -37,6 +37,8 @@
 - Notifications in Home Assistant (and optionally a notify service) for missing devices,
   missing clients, silent devices, stuck clients, rising line errors, ser2net restarts.
 - Diagnostics ZIP without IP addresses.
+- Entities in Home Assistant over MQTT discovery (with a broker such as Mosquitto): one
+  device per connection with its state and a switch.
 - Keep open: the app stays connected to a connection itself, so the device is open even
   without clients.
 - A client that stops reading (and so slows down all others) is reported; optionally the

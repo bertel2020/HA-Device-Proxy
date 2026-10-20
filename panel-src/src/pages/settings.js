@@ -121,7 +121,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -179,6 +179,22 @@ export class SettingsPage extends Page {
             html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
           <p class="hint">${t("notifyPerConnection")}</p>
           <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+        </section>
+
+        <section id="mqtt" class="card" aria-labelledby="t-mqtt">
+          <div class="row"><div><h2 id="t-mqtt">${t("sMqtt")}</h2><p class="hint" style="margin-top:4px">${t("sMqttSub")}</p></div>
+            ${s.mqtt.broker ? html`<span class="chip ${s.mqtt.connected ? "ok" : "warn"}">${s.mqtt.connected ? t("mqttConnected") : t("mqttDisconnected")}</span>` : ""}</div>
+          ${s.mqtt.broker ? html`<p class="hint">${t("mqttBroker", { b: s.mqtt.broker })}${s.mqtt.error ? ` · ${s.mqtt.error}` : ""}</p>`
+            : s.settings.mqtt_enabled ? html`<div class="note warn">${t("mqttNoBroker")}</div>` : ""}
+          <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_enabled} @change=${(e) => { this.draft = { ...this.draft, mqtt_enabled: e.target.checked }; }}><span>${t("mqttOn")}</span></label>
+          <div class="grid2">
+            ${[["mqtt_prefix", "mqttPrefix"], ["mqtt_base", "mqttBase"]].map(([k, l]) => html`<label class="fld"><span class="lbl">${t(l)}</span>
+              <input class="inp mono" .value=${d[k]} @input=${(e) => { this.draft = { ...this.draft, [k]: e.target.value }; }}></label>`)}
+            <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)}
+              @input=${(e) => { this.draft = { ...this.draft, mqtt_interval: Number(e.target.value || 0) }; }}></label>
+          </div>
+          <p class="hint">${t("mqttNames")}</p>
+          <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">

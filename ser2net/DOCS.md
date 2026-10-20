@@ -82,6 +82,27 @@ Optionally a notify service (e.g. the companion app on a phone) gets them too.
 A problem is reported only after it lasted the grace time (30 s by default), and not in the
 first minute after the app started.
 
+## Entities in Home Assistant (MQTT)
+
+With an MQTT broker in Home Assistant (e.g. the Mosquitto add-on) the app creates one device
+per connection through MQTT discovery – no setup needed, the broker comes from the
+Supervisor:
+
+| Entity | Content |
+|---|---|
+| Device connected | the device is plugged in |
+| Clients | connected clients |
+| Data rate | bytes per second from the device |
+| Data from the device | bytes since ser2net started (total) |
+| Last data | when the device last sent something |
+| Line errors | errors counted by the driver since the start |
+| Active (switch) | turns the connection on and off |
+
+Plus one device **Ser2Net** with "ser2net running". Without a broker nothing changes; the
+rest of the app works as before. Prefix (`homeassistant`), base topic (`ser2net`) and the
+update interval are in the settings; the entity names follow the language of the
+notifications.
+
 ## Diagnostics
 
 **Settings → Diagnostics** downloads a ZIP with versions, configuration, status, devices and
