@@ -24,13 +24,16 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from . import custom
+from .addresses import addresses, host_lan_ip
 from .admin import AdminClient, AdminError, PortStatus
-from .config import blocks, changed, render
+from .config import blocks, changed, readable_alias, render
+from .devices import Device, device_for, line_counters, scan, set_low_latency
 from .events import EventLog
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .model import AppConfig, Connection, ValidationError
 from .process import Ser2Net
 from .store import Change, Store, summary
+from .trace import Chunk, TraceHub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +43,7 @@ HOUSEKEEPING = 6 * 3600  # seconds between history clean-ups
 STUCK_BYTES = 4096  # a client with this much waiting ...
 STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
+TRACE_POLL = 0.5  # seconds between reads of the traces
 IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
 
 
@@ -78,6 +82,7 @@ class Controller:
         *,
         custom_file: Path = custom.PATH,
         import_dir: Path = IMPORT_DIR,
+        trace: TraceHub | None = None,
     ) -> None:
         self.store = store
         self.events = events
@@ -93,6 +98,14 @@ class Controller:
         self.activity: dict[str, Activity] = {}  # connection id → activity
         self.internal: set[str] = set()  # addresses of the app's own clients
         self._keepers: dict[str, asyncio.Task[None]] = {}
+        self.trace = trace or TraceHub()
+        self.devices: list[Device] = []
+        self.lan_ip: str | None = None
+        self.client_since: dict[tuple[str, str], float] = {}  # (alias, address) → time
+        self.rates: dict[str, tuple[float, int, int, float, float]] = {}  # alias → t, rx, tx, r/s
+        self.line_errors: dict[str, dict[str, int] | None] = {}  # connection id → since start
+        self._line_base: dict[str, dict[str, int]] = {}
+        self.latency: dict[str, str] = {}  # connection id → result of set_low_latency
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
 
@@ -144,6 +157,7 @@ class Controller:
     async def start(self, stop: asyncio.Event) -> None:
         self._stop = stop
         self.apply_log_level()
+        self.trace.prepare()
         self.write_config()
         await self.import_folder()
         active = [c for c in self.config.connections if c.enabled]
@@ -164,10 +178,14 @@ class Controller:
                 max_clients=c.max_clients,
             )
         self._reconcile_keepers()
+        self.devices = scan()
+        self._apply_latency()
+        self.lan_ip = await asyncio.to_thread(host_lan_ip)
         try:
             await asyncio.gather(
                 self.ser2net.run(stop),
                 self.admin.run(stop),
+                self._loop(stop, TRACE_POLL, self._trace_tick),
                 self._loop(stop, DEVICE_POLL, self._device_tick),
                 self._loop(stop, STATUS_POLL, self.read_status),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
@@ -185,6 +203,7 @@ class Controller:
             self.write_config()
             touched = changed(before, self._written)
             self.apply_log_level()
+            self._apply_latency()
             disconnected: list[str] = []
             if touched and self.ser2net.running:
                 disconnected = await self._reload(touched)
@@ -301,6 +320,10 @@ class Controller:
             _LOGGER.debug("Own client %s: %s on %s", address, kind, alias)
             return
         connection_id, name = self._names(alias)
+        if kind == "new connection":
+            self.client_since[(alias, address)] = time.time()
+        else:
+            self.client_since.pop((alias, address), None)
         event = "client_connected" if kind == "new connection" else "client_disconnected"
         self.events.emit("info", event, connection=connection_id, name=name, address=address)
 
@@ -335,8 +358,37 @@ class Controller:
                 )
 
     async def _device_tick(self) -> None:
+        self.devices = await asyncio.to_thread(scan)
         self.check_devices()
         self.events.flush_bursts()
+
+    def _apply_latency(self) -> None:
+        for c in self.active:
+            if not (c.enabled and c.low_latency):
+                self.latency.pop(c.id, None)
+                continue
+            result = set_low_latency(c.device)
+            if result != self.latency.get(c.id) and result == "read_only":
+                self.events.emit("warning", "latency_read_only", connection=c.id, name=c.name)
+            self.latency[c.id] = result
+
+    # traces
+
+    async def _trace_tick(self) -> None:
+        settings = self.config.settings
+        taken: set[str] = set()
+        aliases = {
+            c.alias: (readable_alias(c.name, taken), c.trace) for c in self.active if c.enabled
+        }
+        await asyncio.to_thread(
+            self.trace.poll, aliases, settings.trace_file_mb << 20, settings.trace_keep
+        )
+
+    def live(self, connection_id: str, limit: int = 200) -> list[Chunk]:
+        c = self.config.connection(connection_id)
+        if c is None:
+            return []
+        return list(self.trace.live.get(c.alias, ()))[-limit:]
 
     # status and stuck clients
 
@@ -351,9 +403,103 @@ class Controller:
         self.status = {p.alias: p for p in ports}
         now = time.monotonic()
         for port in ports:
+            self._rate(port, now)
             c = self._connection(port.alias)
             if c is not None:
                 await self._check_stuck(c, port, now)
+                if port.clients and self.present.get(c.id):
+                    await self._read_line_errors(c)
+
+    def _rate(self, port: PortStatus, now: float) -> None:
+        rx, tx = port.bytes_from_device, port.bytes_to_device
+        before = self.rates.get(port.alias)
+        if before is None or rx < before[1] or tx < before[2]:
+            self.rates[port.alias] = (now, rx, tx, 0.0, 0.0)
+            return
+        seconds = max(now - before[0], 0.001)
+        self.rates[port.alias] = (
+            now,
+            rx,
+            tx,
+            (rx - before[1]) / seconds,
+            (tx - before[2]) / seconds,
+        )
+
+    async def _read_line_errors(self, c: Connection) -> None:
+        counters = await asyncio.to_thread(line_counters, c.device)
+        if counters is None:
+            self.line_errors[c.id] = None
+            return
+        base = self._line_base.get(c.id)
+        if base is None or any(counters[k] < base[k] for k in counters):
+            base = self._line_base[c.id] = counters  # first read or the adapter came back
+        delta = {k: counters[k] - base[k] for k in counters}
+        before = self.line_errors.get(c.id) or {}
+        if sum(delta.values()) > sum(before.values()):
+            self.events.emit("warning", "line_errors", connection=c.id, name=c.name, **delta)
+        self.line_errors[c.id] = delta
+
+    # the state for the web interface
+
+    def snapshot(self) -> dict[str, object]:
+        """Everything the status pages show, in one JSON-ready structure."""
+        settings = self.config.settings
+        connections = []
+        for c in self.config.connections:
+            port = self.status.get(c.alias)
+            flow = self.trace.flow.get(c.alias)
+            rate = self.rates.get(c.alias)
+            activity = self.activity.get(c.id)
+            device = device_for(c.device, self.devices) if self.present.get(c.id) else None
+            clients = [
+                {
+                    "address": cl.address,
+                    "since": self.client_since.get((c.alias, cl.address)),
+                    "bytes_to_client": cl.bytes_to_client,
+                    "bytes_from_client": cl.bytes_from_client,
+                    "queued": cl.queued,
+                    "stuck": bool(activity and cl.address in activity.stuck_reported),
+                }
+                for cl in (port.clients if port else [])
+                if cl.address not in self.internal
+            ]
+            connections.append(
+                {
+                    **c.to_dict(),
+                    "alias": c.alias,
+                    "present": self.present.get(c.id),
+                    "tty": device.tty if device else None,
+                    "usb": device.to_dict() if device else None,
+                    "running": bool(port and port.enabled) and not self.uses_custom,
+                    "pending": port.pending if port else None,
+                    "clients": clients,
+                    "kept_open": bool(activity and activity.kept_open),
+                    "bytes_from_device": port.bytes_from_device if port else 0,
+                    "bytes_to_device": port.bytes_to_device if port else 0,
+                    "rate_from_device": rate[3] if rate else 0.0,
+                    "rate_to_device": rate[4] if rate else 0.0,
+                    "last_data": flow.last_rx if flow else None,
+                    "line_errors": self.line_errors.get(c.id),
+                    "latency": self.latency.get(c.id),
+                    "addresses": addresses(c, settings, self.lan_ip),
+                }
+            )
+        used = {os.path.realpath(c.device): c.name for c in self.config.connections}
+        return {
+            "ser2net_running": self.ser2net.running and self.admin.connected.is_set(),
+            "source": settings.source,
+            "settings": settings.to_dict(),
+            "lan_ip": self.lan_ip,
+            "connections": connections,
+            "custom_ports": [
+                {"alias": p.alias, "clients": [cl.address for cl in p.clients]}
+                for p in self.status.values()
+            ]
+            if self.uses_custom
+            else [],
+            "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
+            "trace_files": self.trace.files(),
+        }
 
     async def _check_stuck(self, c: Connection, port: PortStatus, now: float) -> None:
         activity = self.activity.setdefault(c.id, Activity())

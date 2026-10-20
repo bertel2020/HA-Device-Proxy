@@ -20,6 +20,13 @@
   preview of what is taken over, what collides and what cannot be; or from the config
   folder at start. Export of the connections as a ser2net.yaml.
 - Your own ser2net.yaml can be used as it is instead of the forms.
+- Status per connection: device and adapter (USB vendor, product, serial number, driver),
+  clients with address, time and bytes, data rate, last data, line errors from the driver.
+- Traces: always read along from ser2net in memory; recording to rotating files is switched
+  per connection without disconnecting clients.
+- Serial devices listed with their stable names; adapters without a serial number that
+  cannot be told apart are marked.
+- FTDI latency 1 ms per connection.
 - Keep open: the app stays connected to a connection itself, so the device is open even
   without clients.
 - A client that stops reading (and so slows down all others) is reported; optionally the

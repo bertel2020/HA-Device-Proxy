@@ -13,6 +13,7 @@ file: it needs ser2net, socat and root, which only the image has.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import subprocess
@@ -30,6 +31,7 @@ from ser2net_app.db import Database  # noqa: E402
 from ser2net_app.events import EventLog  # noqa: E402
 from ser2net_app.model import AppConfig, Connection, Settings  # noqa: E402
 from ser2net_app.store import Store  # noqa: E402
+from ser2net_app.trace import TraceHub  # noqa: E402
 
 PAIRS = (("/dev/ttyV0", "/dev/ttyV1"), ("/dev/ttyV2", "/dev/ttyV3"))
 A_PORT, B_PORT = 4100, 4101
@@ -86,6 +88,7 @@ async def main() -> None:
         data / "ser2net.yaml",
         custom_file=data / "own.yaml",
         import_dir=data / "import",
+        trace=TraceHub(record_dir=data / "trace"),
     )
     stop = asyncio.Event()
     task = asyncio.create_task(controller.start(stop))
@@ -117,6 +120,27 @@ async def main() -> None:
         assert await device_read(dev_a, 4) == b"ping"
         await until(lambda: controller.activity[a.id].bytes_kept >= 5, "keep-open client reads")
         print("ok: data both ways, keep-open client counts the device's data")
+
+        def traced() -> set[tuple[str, bytes]]:
+            return {(c.direction, c.data) for c in controller.live(a.id)}
+
+        await until(lambda: {("rx", b"hello"), ("tx", b"ping")} <= traced(), "trace read along")
+        result = await controller.apply(
+            controller.config.with_connection(replace(a, trace="both")), "test"
+        )
+        assert result.disconnected == [] and result.rebuilt == [], result
+        os.write(dev_a, b"rec")
+        assert await asyncio.wait_for(reader_a.readexactly(3), 5) == b"rec"
+        await until(
+            lambda: (
+                (data / "trace" / "a.log").exists()
+                and " RX 72 65 63" in (data / "trace" / "a.log").read_text()
+            ),
+            "recording written",
+        )
+        snapshot = controller.snapshot()
+        json.dumps(snapshot)
+        print("ok: trace live and recorded; switching the recording disconnected nobody")
 
         await controller.read_status()
         port_a = controller.status[a.alias]

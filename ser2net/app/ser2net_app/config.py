@@ -13,6 +13,7 @@ import time
 import unicodedata
 
 from .model import ADMIN_SOCKET, PRIVATE_NETWORKS, AppConfig, Connection, parse_networks
+from .trace import trace_path
 
 HEADER = "# Written by the Ser2Net app. Changes here are overwritten on the next save."
 
@@ -70,8 +71,8 @@ def remaddr(c: Connection, listen: str) -> str:
     return ";".join(f"{n},0" for n in networks)
 
 
-def block(c: Connection, listen: str) -> str:
-    """The connection's part of ser2net.yaml."""
+def block(c: Connection, listen: str, *, trace: bool = True) -> str:
+    """The connection's part of ser2net.yaml; trace: the app's always-on trace (trace.py)."""
     lines = [
         f"connection: &{c.alias}",
         f"  accepter: {scalar(accepter(c, listen))}",
@@ -93,6 +94,12 @@ def block(c: Connection, listen: str) -> str:
         if value := getattr(c, key):
             options.append((key, value))
     options += list(c.extra)
+    if trace:
+        options += [
+            ("trace-both", str(trace_path(c.alias))),
+            ("trace-hexdump", "true"),
+            ("trace-timestamp", "true"),
+        ]
     lines += [f"    {key}: {scalar(value)}" for key, value in options]
     return "\n".join(lines) + "\n"
 
@@ -138,6 +145,6 @@ def export(config: AppConfig, *, include_disabled: bool = True) -> str:
     taken: set[str] = set()
     for c in config.connections:
         if c.enabled or include_disabled:
-            text = block(c, config.settings.listen)
+            text = block(c, config.settings.listen, trace=False)
             parts.append(text.replace(f"&{c.alias}", f"&{readable_alias(c.name, taken)}", 1))
     return "\n".join(parts)

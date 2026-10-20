@@ -46,6 +46,20 @@ When one client stops reading, ser2net slows down all clients of that connection
 reports such a client; optionally it disconnects the connection's clients (ser2net cannot
 disconnect a single one), and they connect again.
 
+## Status, traces and line errors
+
+- **Status per connection**: device present (and which adapter it is), clients with address,
+  time and bytes, data rate, last data from the device.
+- **Traces**: ser2net traces every connection into memory and the app reads along, so the live
+  view and the last data work at any time. Recording to files (from the device, to the
+  device or both) is switched per connection without touching ser2net: no client is
+  disconnected. Files: `/addon_configs/<…>_ser2net/trace/<name>.log`, rotated by size.
+- **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
+  device is open; rising numbers usually mean a wrong baud rate or format. Not every driver
+  counts them.
+- **FTDI latency**: FTDI adapters wait 16 ms before passing data on; "low latency" sets 1 ms
+  (better for Z-Wave). If the system does not let the app change it, the app says so.
+
 ## Taking over an existing ser2net.yaml
 
 A ser2net 4 file (version 1 or 2) or an old ser2net 3 `ser2net.conf` can be imported: in
