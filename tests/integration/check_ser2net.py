@@ -80,7 +80,13 @@ async def main() -> None:
     data = Path(tempfile.mkdtemp())
     db = Database(data / "history.db")
     events = EventLog(db)
-    controller = Controller(Store(db, data / "config.json"), events, data / "ser2net.yaml")
+    controller = Controller(
+        Store(db, data / "config.json"),
+        events,
+        data / "ser2net.yaml",
+        custom_file=data / "own.yaml",
+        import_dir=data / "import",
+    )
     stop = asyncio.Event()
     task = asyncio.create_task(controller.start(stop))
     try:
@@ -148,6 +154,25 @@ async def main() -> None:
         assert not ports[b.alias].enabled, ports[b.alias]
         print("ok: disabling a connection")
         writer_a.close()
+
+        own_file = f"""%YAML 1.1
+---
+connections:
+  mine:
+    accepter: tcp,{B_PORT + 1}
+    connector: serialdev,{PAIRS[1][0]},9600n81,local
+"""
+        await controller.save_custom(own_file, use=True)
+        reader_d, writer_d = await asyncio.open_connection("127.0.0.1", B_PORT + 1)
+        await until(
+            lambda: any(e.kind == "client_connected" and e.name == "mine" for e in events.live),
+            "client event with the own file's connection name",
+        )
+        os.write(dev_b, b"own")
+        assert await asyncio.wait_for(reader_d.readexactly(3), 5) == b"own"
+        assert {p.alias for p in await controller.admin.showport()} == {"mine"}
+        writer_d.close()
+        print("ok: own ser2net.yaml (version 2) with the app's admin socket added")
     finally:
         stop.set()
         await task

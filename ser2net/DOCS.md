@@ -46,6 +46,28 @@ When one client stops reading, ser2net slows down all clients of that connection
 reports such a client; optionally it disconnects the connection's clients (ser2net cannot
 disconnect a single one), and they connect again.
 
+## Taking over an existing ser2net.yaml
+
+A ser2net 4 file (version 1 or 2) or an old ser2net 3 `ser2net.conf` can be imported: in
+the web interface with a preview, or by putting it into the app's config folder as
+`import/ser2net.yaml` or `import/ser2net.conf` (`/addon_configs/<…>_ser2net/import/`); at the
+next start the app takes over its connections, skips those whose port, device or name is
+already used and renames the file to `….imported-<time>`. The connections can be exported as
+a ser2net 4 `ser2net.yaml` again. The app log lists what could not be taken over (e.g. SSL or
+other accepters than TCP, unknown serial options) and what became a further option.
+
+Keep the ports of the old file and the clients need no change. Stop the old ser2net first:
+both cannot listen on the same port.
+
+Note: ser2net ignores the modem lines only with `local`; the app's forms set it for new
+connections, an import keeps what the file says.
+
+## Using your own ser2net.yaml
+
+For setups the forms cannot express, the app can use your own file as it is
+(`/addon_configs/<…>_ser2net/ser2net.yaml`). It must not contain an admin section: the app
+adds its own. Status, events and history keep working, with ser2net's connection names.
+
 ## Configuration
 
 Everything is set in the app's web interface; the app has no options of its own.

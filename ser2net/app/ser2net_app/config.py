@@ -9,18 +9,27 @@ a Unix socket readable by the container's root only.
 from __future__ import annotations
 
 import re
+import time
+import unicodedata
 
 from .model import ADMIN_SOCKET, PRIVATE_NETWORKS, AppConfig, Connection, parse_networks
 
 HEADER = "# Written by the Ser2Net app. Changes here are overwritten on the next save."
 
 
+ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t"}
+
+
 def scalar(value: str) -> str:
-    """A YAML scalar; quoted when a plain one would be read differently."""
+    """A YAML scalar; double-quoted with escapes when a plain one would be read differently."""
     if value and re.fullmatch(r"[A-Za-z0-9_./,()=+@-][A-Za-z0-9_./,:()=+@ -]*", value):
         if ": " not in value and not value.endswith(" "):
             return value
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    quoted = "".join(
+        ESCAPES.get(ch, f"\\x{ord(ch):02x}" if ord(ch) < 0x20 or ord(ch) == 0x7F else ch)
+        for ch in value
+    )
+    return f'"{quoted}"'
 
 
 def accepter(c: Connection, listen: str) -> str:
@@ -106,3 +115,29 @@ def render(config: AppConfig, admin_socket: str = ADMIN_SOCKET) -> str:
 def changed(old: dict[str, str], new: dict[str, str]) -> set[str]:
     """Aliases whose block differs, including added and removed ones."""
     return {alias for alias in old.keys() | new.keys() if old.get(alias) != new.get(alias)}
+
+
+UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def readable_alias(name: str, taken: set[str]) -> str:
+    """A ser2net name for an exported connection: its name, made safe and unique."""
+    text = unicodedata.normalize("NFKD", name.lower().translate(UMLAUTS))
+    base = re.sub(r"[^a-z0-9]+", "_", text.encode("ascii", "ignore").decode()).strip("_")
+    candidate, number = base or "connection", 2
+    while candidate in taken:
+        candidate, number = f"{base or 'connection'}_{number}", number + 1
+    taken.add(candidate)
+    return candidate
+
+
+def export(config: AppConfig, *, include_disabled: bool = True) -> str:
+    """The connections as a ser2net.yaml for any ser2net 4 (without the app's admin socket)."""
+    stamp = time.strftime("%Y-%m-%d %H:%M")
+    parts = [f"%YAML 1.1\n---\n# Exported from the Ser2Net app on {stamp}\n"]
+    taken: set[str] = set()
+    for c in config.connections:
+        if c.enabled or include_disabled:
+            text = block(c, config.settings.listen)
+            parts.append(text.replace(f"&{c.alias}", f"&{readable_alias(c.name, taken)}", 1))
+    return "\n".join(parts)

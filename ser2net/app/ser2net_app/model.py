@@ -194,13 +194,11 @@ class Connection:
                 ipaddress.ip_address(self.bind)
             except ValueError:
                 e["bind"] = "an IP address of this host"
-        for key, value in self.extra:
+        for key, _ in self.extra:
             if not OPTION_KEY.fullmatch(key):
                 e["extra"] = f"{key!r} is not an option name"
             elif key in MANAGED_OPTIONS:
                 e["extra"] = f"{key} has its own field"
-            elif "\n" in value:
-                e["extra"] = f"{key}: one line only"
         for name in ("banner", "openstr", "closestr"):
             if len(getattr(self, name)) > 1000:
                 e[name] = "at most 1000 characters"

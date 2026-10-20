@@ -15,6 +15,11 @@
   and back, clients connected and disconnected (reported by ser2net itself), configuration
   changes, ser2net restarts. Repeating events are summed up.
 - The last 20 configurations are kept for undo.
+- Import of a ser2net 4 ser2net.yaml (version 1 and 2, with defines and defaults) or an
+  old ser2net 3 ser2net.conf: with a
+  preview of what is taken over, what collides and what cannot be; or from the config
+  folder at start. Export of the connections as a ser2net.yaml.
+- Your own ser2net.yaml can be used as it is instead of the forms.
 - Keep open: the app stays connected to a connection itself, so the device is open even
   without clients.
 - A client that stops reading (and so slows down all others) is reported; optionally the

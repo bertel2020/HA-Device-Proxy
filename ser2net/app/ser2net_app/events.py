@@ -50,6 +50,10 @@ MESSAGES = {
     "device_missing": "Device missing: {device}",
     "keep_open_failed": "Could not keep the device open: {error}",
     "ser2net_restart": "ser2net ended (exit code {code}), starting again in {delay} s",
+    "custom_saved": "Own ser2net.yaml saved ({connections} connections)",
+    "custom_invalid": "Own ser2net.yaml cannot be used, nothing is shared: {errors}",
+    "imported": "Import: {taken} connections taken over, {skipped} skipped, {notes} notes",
+    "import_failed": "Import failed: {error}",
 }
 
 

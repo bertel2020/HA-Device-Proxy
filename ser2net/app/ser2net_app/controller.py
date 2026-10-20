@@ -7,6 +7,9 @@ the changed connections) are disconnected so the change takes effect, the others
 ser2net slows all clients of a connection down when one of them stops reading; a client
 whose queue stays full is reported (and its connection's clients disconnected, if set).
 ser2net opens a device only while a client is connected; "keep open" makes the app one.
+
+With the settings' source "custom" the user's own ser2net.yaml is used instead of the forms;
+the form connections stay saved but unused (no device checks, no keep open).
 """
 
 from __future__ import annotations
@@ -17,13 +20,15 @@ import os
 import socket
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from . import custom
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, render
 from .events import EventLog
-from .model import AppConfig, Connection
+from .importer import ImportResult, ReadError, conflicts, merge, read
+from .model import AppConfig, Connection, ValidationError
 from .process import Ser2Net
 from .store import Change, Store, summary
 
@@ -35,6 +40,7 @@ HOUSEKEEPING = 6 * 3600  # seconds between history clean-ups
 STUCK_BYTES = 4096  # a client with this much waiting ...
 STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
+IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
 
 
 @dataclass
@@ -42,6 +48,14 @@ class ApplyResult:
     changes: list[Change]
     rebuilt: list[str]  # names of the connections ser2net set up again
     disconnected: list[str]  # names of the connections whose clients had to reconnect
+
+
+class CustomError(ValueError):
+    """The user's ser2net.yaml cannot be used; .check has the errors."""
+
+    def __init__(self, check: custom.CustomCheck) -> None:
+        super().__init__(", ".join(e["code"] for e in check.errors))
+        self.check = check
 
 
 @dataclass
@@ -56,11 +70,22 @@ class Activity:
 
 
 class Controller:
-    def __init__(self, store: Store, events: EventLog, config_file: Path) -> None:
+    def __init__(
+        self,
+        store: Store,
+        events: EventLog,
+        config_file: Path,
+        *,
+        custom_file: Path = custom.PATH,
+        import_dir: Path = IMPORT_DIR,
+    ) -> None:
         self.store = store
         self.events = events
         self.config_file = config_file
+        self.custom_file = custom_file
+        self.import_dir = import_dir
         self.config = store.load()
+        self._written: dict[str, str] = {}  # what ser2net got last: alias → block
         self.ser2net = Ser2Net(config_file, on_exit=self._ser2net_ended)
         self.admin = AdminClient(self._admin_event)
         self.present: dict[str, bool] = {}
@@ -73,8 +98,33 @@ class Controller:
 
     # configuration
 
+    @property
+    def uses_custom(self) -> bool:
+        return self.config.settings.source == "custom"
+
+    @property
+    def active(self) -> tuple[Connection, ...]:
+        """The form connections in use (none while the user's own file is used)."""
+        return () if self.uses_custom else self.config.connections
+
+    def _runtime(self) -> tuple[str, dict[str, str]]:
+        if not self.uses_custom:
+            return render(self.config), blocks(self.config)
+        try:
+            text = self.custom_file.read_text(encoding="utf-8")
+        except OSError as err:
+            self.events.emit(
+                "error", "custom_invalid", errors=[{"code": "unreadable", "error": str(err)}]
+            )
+            return render(AppConfig()), {}
+        check = custom.check(text)
+        if not check.ok:
+            self.events.emit("error", "custom_invalid", errors=check.errors)
+            return render(AppConfig()), {}  # admin socket only, nothing shared
+        return custom.runtime(text, check.version), custom.blocks(text)
+
     def write_config(self) -> None:
-        text = render(self.config)
+        text, self._written = self._runtime()
         tmp = self.config_file.with_suffix(".tmp")
         tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, self.config_file)
@@ -88,13 +138,14 @@ class Controller:
         return next((c for c in self.config.connections if c.alias == alias), None)
 
     def _names(self, alias: str) -> tuple[str | None, str]:
-        c = self._connection(alias)
+        c = None if self.uses_custom else self._connection(alias)
         return (c.id, c.name) if c else (None, alias)
 
     async def start(self, stop: asyncio.Event) -> None:
         self._stop = stop
         self.apply_log_level()
         self.write_config()
+        await self.import_folder()
         active = [c for c in self.config.connections if c.enabled]
         self.events.emit(
             "info", "app_started", connections=len(self.config.connections), active=len(active)
@@ -128,22 +179,95 @@ class Controller:
     async def apply(self, new: AppConfig, source: str) -> ApplyResult:
         """Save and use a new configuration (already validated)."""
         async with self._lock:
-            old = self.config
-            touched = changed(blocks(old), blocks(new))
+            old, before = self.config, self._written
             items = self.store.save(old, new, source)
             self.config = new
             self.write_config()
+            touched = changed(before, self._written)
             self.apply_log_level()
             disconnected: list[str] = []
             if touched and self.ser2net.running:
                 disconnected = await self._reload(touched)
             self._reconcile_keepers()
-            names = [c.name for c in new.connections if c.alias in touched]
-            names += [
+            names = sorted(self._names(alias)[1] for alias in touched if alias in self._written)
+            names += sorted(
                 c.name for c in old.connections if c.alias in touched and not new.connection(c.id)
-            ]
-            self.events.emit("info", "config_changed", summary=summary(items), changes=items)
-            return ApplyResult(items, sorted(names), disconnected)
+            )
+            if items:
+                self.events.emit("info", "config_changed", summary=summary(items), changes=items)
+            return ApplyResult(items, names, disconnected)
+
+    async def save_custom(self, text: str, *, use: bool) -> ApplyResult:
+        """Save the user's own ser2net.yaml; with use=True switch to it."""
+        check = custom.check(text)
+        if not check.ok:
+            raise CustomError(check)
+        self.custom_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.custom_file.with_suffix(".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, self.custom_file)
+        self.events.emit("info", "custom_saved", connections=len(check.connections))
+        settings = replace(self.config.settings, source="custom") if use else self.config.settings
+        return await self.apply(replace(self.config, settings=settings), "custom")
+
+    # import
+
+    def preview(self, text: str) -> tuple[ImportResult, dict[str, dict[str, str]]]:
+        """What an import would bring, and the existing connections each item collides with."""
+        result = read(text)
+        return result, {item.alias: conflicts(self.config, item) for item in result.items}
+
+    async def run_import(
+        self,
+        text: str,
+        *,
+        replace_all: bool,
+        take: set[str] | None = None,
+        on_conflict: dict[str, str] | None = None,
+    ) -> ApplyResult:
+        result = read(text)
+        wanted = take if take is not None else {i.alias for i in result.items if i.connection}
+        new = merge(
+            self.config, result, replace_all=replace_all, take=wanted, on_conflict=on_conflict or {}
+        )
+        before = {c.id for c in self.config.connections}
+        applied = await self.apply(new, "import")
+        added = [c for c in new.connections if c.id not in before]
+        self.events.emit(
+            "info",
+            "imported",
+            taken=len(added),
+            skipped=len(result.items) - len(added),
+            notes=sum(len(i.notes) for i in result.items),
+        )
+        return applied
+
+    async def import_folder(self) -> None:
+        """Take over a ser2net.yaml or old ser2net.conf put into the config folder's import/
+        (merge, no overwrite)."""
+        found = [self.import_dir / n for n in ("ser2net.yaml", "ser2net.conf")]
+        source = next((f for f in found if f.is_file()), None)
+        if source is None:
+            return
+        try:
+            text = source.read_text(encoding="utf-8")
+            result, collisions = self.preview(text)
+            for item in result.items:
+                for note in item.notes:
+                    _LOGGER.info("Import %s: %s", item.alias, note)
+                if collisions.get(item.alias):
+                    _LOGGER.warning(
+                        "Import %s: skipped, collides with %s", item.alias, collisions[item.alias]
+                    )
+            for note in result.notes:
+                _LOGGER.info("Import: %s", note)
+            await self.run_import(text, replace_all=False)
+        except (OSError, ReadError, ValidationError) as err:
+            note = err.note if isinstance(err, ReadError) else {"code": "error", "error": str(err)}
+            self.events.emit("error", "import_failed", error=note)
+            return
+        done = source.with_name(f"{source.name}.imported-{int(time.time())}")
+        source.replace(done)
 
     async def _reload(self, touched: set[str]) -> list[str]:
         try:
@@ -186,7 +310,7 @@ class Controller:
     # devices
 
     def check_devices(self) -> None:
-        for c in self.config.connections:
+        for c in self.active:
             if not c.enabled:
                 self.present.pop(c.id, None)
                 continue
@@ -275,7 +399,7 @@ class Controller:
     # keeping devices open
 
     def _reconcile_keepers(self) -> None:
-        wanted = {c.id for c in self.config.connections if c.enabled and c.keep_open}
+        wanted = {c.id for c in self.active if c.enabled and c.keep_open}
         for connection_id in list(self._keepers):
             if connection_id not in wanted:
                 self._keepers.pop(connection_id).cancel()
