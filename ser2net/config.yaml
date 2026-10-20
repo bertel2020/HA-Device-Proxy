@@ -1,0 +1,24 @@
+name: Ser2Net
+version: "0.1.0"
+slug: ser2net
+description: Shares serial and USB devices over TCP with several programs (ser2net 4)
+url: https://github.com/bertel2020/HA-Ser2Net
+arch:
+  - aarch64
+  - amd64
+init: false
+# before the apps that connect to the devices (e.g. Z-Wave JS UI)
+startup: services
+# the TCP ports are chosen per connection, so the app listens on the host directly
+host_network: true
+uart: true
+usb: true
+# devices that are plugged in again while the app runs
+udev: true
+map:
+  - type: addon_config
+    read_only: false
+options:
+  log_level: info
+schema:
+  log_level: list(debug|info|warning|error)

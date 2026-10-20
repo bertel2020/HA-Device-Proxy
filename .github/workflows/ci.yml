@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: python -m pip install -r requirements_test.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+      - run: python -m pytest -q
+
+  lint:
+    name: App linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: frenck/action-addon-linter@v2
+        with:
+          path: ./ser2net
+
+  build:
+    name: Test build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the app image (not pushed; the Supervisor builds it on install)
+        uses: docker/build-push-action@v6
+        with:
+          context: ser2net
+          platforms: ${{ matrix.platform }}
+          push: false
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.14-alpine3.24
+
+  publish:
+    # Prebuilt images, so the Supervisor pulls instead of building on the device. Runs on
+    # main for a version not published yet; config.yaml's "image" points here once the
+    # packages are public (GitHub → Packages → Package settings → Change visibility).
+    name: Publish image (${{ matrix.arch }})
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [tests, lint, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v7
+      - name: Version from config.yaml
+        id: version
+        run: |
+          version=$(sed -n 's/^version: "\(.*\)"/\1/p' ser2net/config.yaml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Already published?
+        id: exists
+        run: |
+          image=ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net
+          if docker manifest inspect "$image:${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-qemu-action@v3
+        if: steps.exists.outputs.skip != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.exists.outputs.skip != 'true'
+      - name: Build and push
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ser2net
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net:latest
+          labels: |
+            io.hass.name=Ser2Net
+            io.hass.type=addon
+            io.hass.version=${{ steps.version.outputs.version }}
+            io.hass.arch=${{ matrix.arch }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.14-alpine3.24
+            BUILD_VERSION=${{ steps.version.outputs.version }}

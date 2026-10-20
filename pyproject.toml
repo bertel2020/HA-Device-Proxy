@@ -1,0 +1,20 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ser2net_app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["ser2net/app"]
+timeout = 30
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["ser2net/app/ser2net_app"]
