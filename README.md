@@ -15,21 +15,33 @@ Deutsch: [README.de.md](README.de.md)
 
 1. Add this repository with the button, or in Home Assistant under **Settings → Apps → App
    store → ⋮ → Repositories** with `https://github.com/bertel2020/HA-Ser2Net`.
-2. Install **Ser2Net** and start it.
+2. Install **Ser2Net**, start it and open **Ser2Net** in the sidebar. Until prebuilt images
+   are published, Home Assistant builds the app on install (gensio and ser2net included),
+   which takes a few minutes the first time.
 
 Details: [ser2net/DOCS.md](ser2net/DOCS.md).
 
-## Planned
+## What it does
 
-- Connections set up in a web interface: device from a list, templates (smart meter SML or
-  D0, Z-Wave stick), the important ser2net options, switched on and off one by one; a change
-  rebuilds only that connection.
-- Import and export of a ser2net 4 `ser2net.yaml`, or using one as it is.
-- Status per connection: device present, clients with address and byte counts, line errors.
-- Event log, a 30-day history and traces of the data, rotated.
-- Tools: test a connection by reading along, detect the baud rate of a smart meter, check
-  SML telegrams.
-- Entities over MQTT and notifications in Home Assistant.
+- **Connections in a web interface**: device from a list (stable names, adapters without a
+  serial number marked), templates (smart meter SML or D0, Z-Wave stick), all important
+  ser2net options, a live `ser2net.yaml` preview. Saving rebuilds only that connection; the
+  others keep their clients.
+- **Import** of a ser2net 4 `ser2net.yaml` (version 1 and 2) or an old ser2net 3
+  `ser2net.conf`, with a preview; **export** as `ser2net.yaml`; or use your own file as it is.
+- **Status**: device present, clients with address and bytes, data rate, last data, line
+  errors from the driver; clients that stop reading are spotted.
+- **Live data and traces** without taking a client place; recording to rotating files
+  without disconnecting anyone.
+- **Smart meter tools**: SML (with CRC check) and D0 decoded, baud rate detection.
+- **Events and history** (30 days, drops and availability), configuration history with
+  restore.
+- **Notifications** in Home Assistant, optionally to a phone.
+- **Entities** over MQTT discovery (with a broker such as Mosquitto): one device per
+  connection with its state and a switch.
+- Clients limited to private networks by default; ser2net's admin interface reachable from
+  inside the app only.
+- German and English, light and dark, phone width.
 
 ## Development
 

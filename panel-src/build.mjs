@@ -24,6 +24,17 @@ const result = await esbuild.build({
 });
 const built = HEADER + result.outputFiles[0].text;
 
+// Both languages need the same texts (a missing one would show its key).
+const { LANGUAGES } = await import("./src/i18n.js");
+for (const [name, table] of Object.entries(LANGUAGES)) {
+  const de = new Set(Object.keys(table.de)), en = new Set(Object.keys(table.en));
+  const missing = [...[...de].filter((k) => !en.has(k)).map((k) => `en.${k}`), ...[...en].filter((k) => !de.has(k)).map((k) => `de.${k}`)];
+  if (missing.length) {
+    console.error(`${name}: missing ${missing.join(", ")}`);
+    process.exit(1);
+  }
+}
+
 if (process.argv.includes("--check")) {
   const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
   if (current !== built) {

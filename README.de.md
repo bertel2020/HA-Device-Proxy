@@ -16,22 +16,34 @@ English: [README.md](README.md)
 1. Dieses Repository über den Button hinzufügen, oder in Home Assistant unter
    **Einstellungen → Apps → App-Store → ⋮ → Repositories** mit
    `https://github.com/bertel2020/HA-Ser2Net`.
-2. **Ser2Net** installieren und starten.
+2. **Ser2Net** installieren, starten und in der Seitenleiste **Ser2Net** öffnen. Solange es
+   keine fertigen Images gibt, baut Home Assistant die App bei der Installation selbst (mit
+   gensio und ser2net) – das dauert beim ersten Mal einige Minuten.
 
 Details: [ser2net/DOCS.md](ser2net/DOCS.md).
 
-## Geplant
+## Was sie kann
 
-- Verbindungen in einer Weboberfläche anlegen: Gerät aus einer Liste, Vorlagen (Zähler SML
-  oder D0, Z-Wave-Stick), die wichtigen ser2net-Optionen, einzeln ein- und ausschaltbar; eine
-  Änderung baut nur diese Verbindung neu auf.
-- Import und Export einer ser2net-4-`ser2net.yaml` oder deren direkte Verwendung.
-- Status je Verbindung: Gerät vorhanden, Clients mit Adresse und Byte-Zählern,
-  Leitungsfehler.
-- Ereignis-Log, Historie über 30 Tage und rotierende Mitschnitte der Daten.
-- Werkzeuge: Verbindung mitlesend testen, Baudrate eines Zählers erkennen, SML-Telegramme
-  prüfen.
-- Entitäten über MQTT und Benachrichtigungen in Home Assistant.
+- **Verbindungen in einer Weboberfläche**: Gerät aus einer Liste (stabile Namen, Adapter
+  ohne Seriennummer markiert), Vorlagen (Zähler SML oder D0, Z-Wave-Stick), alle wichtigen
+  ser2net-Optionen, Vorschau der `ser2net.yaml` beim Tippen. Speichern baut nur diese
+  Verbindung neu auf; die anderen behalten ihre Clients.
+- **Import** einer ser2net-4-`ser2net.yaml` (Version 1 und 2) oder einer alten
+  ser2net-3-`ser2net.conf` mit Vorschau; **Export** als `ser2net.yaml`; oder die eigene Datei
+  direkt verwenden.
+- **Status**: Gerät vorhanden, Clients mit Adresse und Bytes, Datenrate, letzte Daten,
+  Leitungsfehler vom Treiber; Clients, die nicht mehr lesen, werden erkannt.
+- **Live-Daten und Mitschnitt** ohne Client-Platz; Aufzeichnung in rotierende Dateien, ohne
+  jemanden zu trennen.
+- **Werkzeuge für Zähler**: SML (mit CRC-Prüfung) und D0 auswerten, Baudrate erkennen.
+- **Ereignisse und Historie** (30 Tage, Abbrüche und Verfügbarkeit), Konfig-Historie mit
+  Wiederherstellen.
+- **Benachrichtigungen** in Home Assistant, optional aufs Handy.
+- **Entitäten** über MQTT-Discovery (mit einem Broker wie Mosquitto): ein Gerät je
+  Verbindung mit Zustand und Schalter.
+- Clients standardmäßig nur aus privaten Netzen; die Admin-Schnittstelle von ser2net ist nur
+  innerhalb der App erreichbar.
+- Deutsch und Englisch, hell und dunkel, Handy-tauglich.
 
 ## Entwicklung
 

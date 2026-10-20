@@ -283,8 +283,14 @@ export function fieldError(message) {
   return message;
 }
 
-const stored = (() => { try { return localStorage.getItem("ser2net.lang"); } catch { return null; } })();
-export let lang = stored || ((navigator.language || "en").toLowerCase().startsWith("de") ? "de" : "en");
+/** For the build's check that both languages have the same texts. */
+export const LANGUAGES = { TEXT, NOTES };
+
+const stored = (() => {
+  if (typeof window === "undefined") return null; // the build's check runs in Node
+  try { return localStorage.getItem("ser2net.lang"); } catch { return null; }
+})();
+export let lang = stored || ((globalThis.navigator?.language || "en").toLowerCase().startsWith("de") ? "de" : "en");
 
 export function setLang(value) {
   lang = value;
