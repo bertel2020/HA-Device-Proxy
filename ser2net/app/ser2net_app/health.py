@@ -1,16 +1,18 @@
-"""Docker HEALTHCHECK: ser2net answers on its admin port."""
+"""Docker HEALTHCHECK: ser2net answers on its admin socket."""
 
 from __future__ import annotations
 
 import socket
 import sys
 
-from .config import ADMIN_PORT
+from .model import ADMIN_SOCKET
 
 
-def healthy(port: int = ADMIN_PORT) -> bool:
+def healthy(path: str = ADMIN_SOCKET) -> bool:
     try:
-        socket.create_connection(("127.0.0.1", port), timeout=3).close()
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(3)
+            sock.connect(path)
     except OSError:
         return False
     return True

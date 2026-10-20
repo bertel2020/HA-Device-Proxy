@@ -1,76 +1,18 @@
 """The ser2net.yaml the app hands to ser2net, built from its connections.
 
-ser2net reads it at start and again on SIGHUP; a reload only touches the connections that
-changed, so the others keep their clients. The admin port is bound to the loopback address
-only: the app reads status from it, nobody else can reach it.
+ser2net reads it at start and again on reload; a reload only touches the connections whose
+block changed, so the others keep their clients. Each connection is named by its stable
+alias (c_<id>), so renaming it changes nothing for ser2net. The admin interface listens on
+a Unix socket readable by the container's root only.
 """
 
 from __future__ import annotations
 
 import re
-import unicodedata
-from dataclasses import dataclass, field
 
-ADMIN_PORT = 18398
-UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
-MODES = ("raw", "rfc2217", "telnet")
-PARITIES = ("n", "e", "o")
-HEADER = "# Written by the Ser2Net app. Changes here are overwritten on the next save.\n"
+from .model import ADMIN_SOCKET, PRIVATE_NETWORKS, AppConfig, Connection, parse_networks
 
-
-@dataclass(frozen=True)
-class Connection:
-    name: str
-    device: str
-    port: int
-    baud: int = 9600
-    data_bits: int = 8
-    parity: str = "n"
-    stop_bits: int = 1
-    mode: str = "raw"
-    max_clients: int = 1
-    enabled: bool = True
-    bind: str | None = None  # None: all addresses
-    serial_flags: tuple[str, ...] = ("local",)
-    options: tuple[tuple[str, str], ...] = field(default_factory=tuple)
-
-    def __post_init__(self) -> None:
-        if not 1 <= self.port <= 65535:
-            raise ValueError(f"{self.name}: port {self.port} is not between 1 and 65535")
-        if self.mode not in MODES:
-            raise ValueError(f"{self.name}: mode {self.mode!r} is not one of {', '.join(MODES)}")
-        if self.parity not in PARITIES:
-            raise ValueError(f"{self.name}: parity {self.parity!r} is not n, e or o")
-        if self.data_bits not in (5, 6, 7, 8) or self.stop_bits not in (1, 2):
-            raise ValueError(f"{self.name}: format {self.serial_format} is not valid")
-        if self.max_clients < 1:
-            raise ValueError(f"{self.name}: max_clients must be at least 1")
-
-    @property
-    def serial_format(self) -> str:
-        return f"{self.baud}{self.parity}{self.data_bits}{self.stop_bits}"
-
-    @property
-    def accepter(self) -> str:
-        stack = {"raw": "", "rfc2217": "telnet(rfc2217),", "telnet": "telnet,"}[self.mode]
-        address = f"{self.bind}," if self.bind else ""
-        return f"{stack}tcp,{address}{self.port}"
-
-    @property
-    def connector(self) -> str:
-        return ",".join(["serialdev", self.device, self.serial_format, *self.serial_flags])
-
-
-def alias(name: str, taken: set[str]) -> str:
-    """A YAML anchor for the connection name, unique among the ones already taken."""
-    text = name.lower().translate(UMLAUTS)
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
-    base = re.sub(r"[^a-z0-9]+", "_", text).strip("_") or "connection"
-    candidate, number = base, 2
-    while candidate in taken:
-        candidate, number = f"{base}_{number}", number + 1
-    taken.add(candidate)
-    return candidate
+HEADER = "# Written by the Ser2Net app. Changes here are overwritten on the next save."
 
 
 def scalar(value: str) -> str:
@@ -81,22 +23,86 @@ def scalar(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def render(connections: list[Connection], admin_port: int = ADMIN_PORT) -> str:
-    ports = [c.port for c in connections]
-    if len(set(ports)) != len(ports):
-        raise ValueError("two connections use the same port")
-    lines = ["%YAML 1.1", "---", HEADER.rstrip("\n"), ""]
-    lines += ["admin:", f"  accepter: tcp,127.0.0.1,{admin_port}", ""]
-    taken: set[str] = set()
-    for c in connections:
-        lines += [
-            f"connection: &{alias(c.name, taken)}",
-            f"  accepter: {scalar(c.accepter)}",
-            f"  enable: {'on' if c.enabled else 'off'}",
-            f"  connector: {scalar(c.connector)}",
-            "  options:",
-            f"    max-connections: {c.max_clients}",
-        ]
-        lines += [f"    {key}: {scalar(value)}" for key, value in c.options]
-        lines.append("")
-    return "\n".join(lines)
+def accepter(c: Connection, listen: str) -> str:
+    stack = {"raw": "", "rfc2217": "telnet(rfc2217),", "telnet": "telnet,"}[c.mode]
+    tcp = "tcp(nodelay)" if c.nodelay else "tcp"
+    bind = c.bind or ("127.0.0.1" if listen == "local" else "")
+    return f"{stack}{tcp},{bind + ',' if bind else ''}{c.port}"
+
+
+def connector(c: Connection) -> str:
+    flags = [
+        name
+        for name, on in (
+            ("local", c.local),
+            ("rtscts", c.rtscts),
+            ("xonxoff", c.xonxoff),
+            ("hangup-when-done", c.hangup_when_done),
+            ("nobreak", c.nobreak),
+        )
+        if on
+    ]
+    flags += [f"{line}={state}" for line, state in (("dtr", c.dtr), ("rts", c.rts)) if state]
+    if c.rs485:
+        flags.append(f"rs485={c.rs485}")
+    return ",".join(["serialdev", c.device, c.serial_format, *flags])
+
+
+def remaddr(c: Connection, listen: str) -> str:
+    """ser2net's remaddr: networks with port 0 (any client port), or "" for no limit."""
+    if c.remaddr:
+        networks = [str(n) for n in parse_networks(c.remaddr)]
+        if c.keep_open and not any(n.startswith("127.") for n in networks):
+            networks.append("127.0.0.1/32")  # the app's own client
+    elif listen == "lan":
+        networks = list(PRIVATE_NETWORKS)
+    else:
+        return ""  # "local" is limited by the bind address, "all" has no limit
+    return ";".join(f"{n},0" for n in networks)
+
+
+def block(c: Connection, listen: str) -> str:
+    """The connection's part of ser2net.yaml."""
+    lines = [
+        f"connection: &{c.alias}",
+        f"  accepter: {scalar(accepter(c, listen))}",
+        f"  enable: {'on' if c.enabled else 'off'}",
+    ]
+    if c.timeout:
+        lines.append(f"  timeout: {c.timeout}")
+    lines += [f"  connector: {scalar(connector(c))}", "  options:"]
+    options: list[tuple[str, str]] = [("max-connections", str(c.max_clients))]
+    if c.kickolduser:
+        options.append(("kickolduser", "true"))
+    if not c.chardelay:
+        options.append(("chardelay", "false"))
+    if c.connector_retry_time:
+        options.append(("connector-retry-time", str(c.connector_retry_time)))
+    if limit := remaddr(c, listen):
+        options.append(("remaddr", limit))
+    for key in ("banner", "openstr", "closestr"):
+        if value := getattr(c, key):
+            options.append((key, value))
+    options += list(c.extra)
+    lines += [f"    {key}: {scalar(value)}" for key, value in options]
+    return "\n".join(lines) + "\n"
+
+
+def blocks(config: AppConfig) -> dict[str, str]:
+    """Alias → block, to tell which connections a change touches."""
+    return {c.alias: block(c, config.settings.listen) for c in config.connections}
+
+
+def render(config: AppConfig, admin_socket: str = ADMIN_SOCKET) -> str:
+    unix = f"unix(delsock,umode=6,gmode=0,omode=0),{admin_socket}"
+    parts = [
+        "%YAML 1.1\n---\n" + HEADER + "\n",
+        f"admin:\n  accepter: {scalar(unix)}\n",
+        *blocks(config).values(),
+    ]
+    return "\n".join(parts)
+
+
+def changed(old: dict[str, str], new: dict[str, str]) -> set[str]:
+    """Aliases whose block differs, including added and removed ones."""
+    return {alias for alias in old.keys() | new.keys() if old.get(alias) != new.get(alias)}

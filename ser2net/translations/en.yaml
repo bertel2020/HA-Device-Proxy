@@ -1,4 +1,0 @@
-configuration:
-  log_level:
-    name: Log level
-    description: debug also shows the configuration handed to ser2net.

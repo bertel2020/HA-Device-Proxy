@@ -1,4 +1,0 @@
-configuration:
-  log_level:
-    name: Protokollstufe
-    description: debug zeigt zusätzlich die an ser2net übergebene Konfiguration.

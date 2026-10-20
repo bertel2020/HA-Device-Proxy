@@ -1,0 +1,225 @@
+"""Events of the app: written to the app log, kept for the live log and stored as history.
+
+An event is a kind plus values (`client_connected`, {"address": "192.168.1.20:50114"}); the
+web interface words it in its own language, MESSAGES gives the English line for the app
+log. The same event repeating quickly (a stick that keeps dropping out) is summed up: after
+debounce_count of one kind for one connection within debounce_minutes, further ones only
+raise the count of the last entry and are logged once more when the burst is over.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+from .db import Database
+
+_LOGGER = logging.getLogger("ser2net_app")
+
+LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
+LIVE_SIZE = 1000
+SUMMED = {"device_missing", "device_back", "client_connected", "client_disconnected"}
+APP = "App"  # the name of events that belong to no connection
+
+MESSAGES = {
+    "app_started": "Started with {connections} connections, {active} active",
+    "connection_loaded": (
+        "{state}: {device} · {format} · {mode} · port {port} · up to {max_clients} clients"
+    ),
+    "config_changed": "Configuration saved: {summary}",
+    "clients_reconnect": "{count} client(s) disconnected so the change takes effect",
+    "client_connected": "Client connected: {address}",
+    "client_disconnected": "Client disconnected: {address}",
+    "client_stuck": (
+        "Client {address} does not read ({queued} bytes waiting); "
+        "all clients of this connection are slowed down"
+    ),
+    "stuck_disconnected": "Clients disconnected because {address} did not read",
+    "device": "Device found: {device} → {target}",
+    "device_back": "Device back: {device} → {target}",
+    "device_missing": "Device missing: {device}",
+    "keep_open_failed": "Could not keep the device open: {error}",
+    "ser2net_restart": "ser2net ended (exit code {code}), starting again in {delay} s",
+}
+
+
+def message(kind: str, params: dict[str, Any]) -> str:
+    try:
+        return MESSAGES[kind].format(**params)
+    except (KeyError, IndexError, ValueError):
+        return f"{kind} {params}"
+
+
+@dataclass
+class Event:
+    ts: float
+    level: str
+    connection: str | None  # connection id, None for the app itself
+    name: str  # connection name at the time, APP for the app itself
+    kind: str
+    params: dict[str, Any]
+    count: int = 1
+    id: int | None = None
+
+    @property
+    def message(self) -> str:
+        return message(self.kind, self.params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "ts": self.ts,
+            "level": self.level,
+            "connection": self.connection,
+            "name": self.name,
+            "kind": self.kind,
+            "params": self.params,
+            "message": self.message,
+            "count": self.count,
+        }
+
+
+@dataclass
+class _Burst:
+    times: deque[float] = field(default_factory=deque)
+    row: int | None = None
+    summed: int = 0
+    last: Event | None = None
+
+
+class EventLog:
+    def __init__(
+        self,
+        db: Database | None,
+        *,
+        debounce_count: int = 3,
+        debounce_minutes: int = 5,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self.db = db
+        self.debounce_count = debounce_count
+        self.window = debounce_minutes * 60
+        self.clock = clock
+        self.live: deque[Event] = deque(maxlen=LIVE_SIZE)
+        self.listeners: list[Callable[[Event], None]] = []
+        self._bursts: dict[tuple[str | None, str], _Burst] = {}
+
+    def emit(
+        self,
+        level: str,
+        kind: str,
+        *,
+        connection: str | None = None,
+        name: str = APP,
+        **params: Any,
+    ) -> Event:
+        now = self.clock()
+        event = Event(now, level, connection, name, kind, params)
+        burst = self._burst(connection, kind, now) if kind in SUMMED else None
+        if burst is not None:
+            burst.last = event
+        if burst is not None and len(burst.times) > self.debounce_count and burst.row:
+            burst.summed += 1
+            event.count = burst.summed
+            event.id = burst.row
+            self._store_count(burst.row, now, burst.summed)
+        else:
+            _LOGGER.log(LEVELS.get(level, logging.INFO), "[%s] %s", name, event.message)
+            event.id = self._store(event)
+            if burst is not None:
+                burst.row, burst.summed = event.id, 1
+        self.live.append(event)
+        for listener in self.listeners:
+            listener(event)
+        return event
+
+    def _burst(self, connection: str | None, kind: str, now: float) -> _Burst:
+        burst = self._bursts.setdefault((connection, kind), _Burst())
+        while burst.times and now - burst.times[0] > self.window:
+            burst.times.popleft()
+        if not burst.times:
+            burst.summed = 0
+        burst.times.append(now)
+        return burst
+
+    def flush_bursts(self) -> None:
+        """Log bursts that are over with their total; called now and then."""
+        now = self.clock()
+        for burst in self._bursts.values():
+            if burst.times and now - burst.times[-1] > self.window and burst.summed > 1:
+                if burst.last is not None:
+                    _LOGGER.info(
+                        "[%s] %s (%s× in a row, summed up)",
+                        burst.last.name,
+                        burst.last.message,
+                        burst.summed,
+                    )
+                burst.summed = 0
+                burst.times.clear()
+
+    def _store(self, event: Event) -> int | None:
+        if self.db is None:
+            return None
+        cursor = self.db.execute(
+            "INSERT INTO events (ts, level, connection, name, kind, params, count, last_ts)"
+            " VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+            (
+                event.ts,
+                event.level,
+                event.connection,
+                event.name,
+                event.kind,
+                json.dumps(event.params, ensure_ascii=False),
+                event.ts,
+            ),
+        )
+        return cursor.lastrowid
+
+    def _store_count(self, row: int, now: float, count: int) -> None:
+        if self.db is not None:
+            self.db.execute(
+                "UPDATE events SET count = ?, last_ts = ? WHERE id = ?", (count, now, row)
+            )
+
+    def history(
+        self, *, connection: str | None = None, since: float = 0, limit: int = 500
+    ) -> list[Event]:
+        if self.db is None:
+            return []
+        sql = (
+            "SELECT id, ts, level, connection, name, kind, params, count FROM events WHERE ts >= ?"
+        )
+        args: list[object] = [since]
+        if connection is not None:
+            sql += " AND connection = ?"
+            args.append(connection)
+        sql += " ORDER BY ts DESC, id DESC LIMIT ?"
+        args.append(limit)
+        events = []
+        for row_id, ts, level, conn, name, kind, params, count in self.db.execute(sql, tuple(args)):
+            try:
+                values = json.loads(params)
+            except ValueError:
+                values = {}
+            events.append(Event(ts, level, conn, name, kind, values, count, row_id))
+        return events
+
+    def prune(self, days: int) -> int:
+        """Remove history older than this many days; returns how many rows went."""
+        if self.db is None:
+            return 0
+        cutoff = self.clock() - days * 86400
+        removed = self.db.execute("DELETE FROM events WHERE ts < ?", (cutoff,)).rowcount
+        if removed > 1000:
+            self.db.execute("VACUUM")
+        return removed

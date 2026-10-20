@@ -18,7 +18,10 @@ udev: true
 map:
   - type: addon_config
     read_only: false
-options:
-  log_level: info
-schema:
-  log_level: list(debug|info|warning|error)
+# the history is SQLite with a WAL: write it into the main file first
+backup_pre: python3 -m ser2net_app.backup
+# the host's LAN address for the addresses shown to clients
+hassio_api: true
+# everything is set in the app's web interface
+options: {}
+schema: {}

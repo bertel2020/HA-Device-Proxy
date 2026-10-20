@@ -25,8 +25,27 @@ without a serial number (many CH340 ones) can only be told apart when they are p
 by USB port, not by vendor and product ID. If a stick keeps disconnecting, try switching the
 USB3 option of the passed-through device.
 
+## Addresses
+
+- **Home Assistant** (its integrations): `127.0.0.1` and the port.
+- **Other apps** (e.g. Z-Wave JS UI): `172.30.32.1` and the port – they run in the Supervisor
+  network, where 127.0.0.1 is the app itself.
+- **Other computers**: the host's LAN address and the port.
+
+With "only this host" a connection is reachable from Home Assistant only.
+
+## Keeping a device open
+
+ser2net opens a device only while a client is connected. With **keep open** the app stays
+connected itself, so missing data, line errors and the test tools work without a client.
+It takes one of the connection's client places.
+
+## A client that stops reading
+
+When one client stops reading, ser2net slows down all clients of that connection. The app
+reports such a client; optionally it disconnects the connection's clients (ser2net cannot
+disconnect a single one), and they connect again.
+
 ## Configuration
 
-| Option | Meaning |
-|---|---|
-| `log_level` | `info` (default) or `debug`, which also shows the configuration handed to ser2net |
+Everything is set in the app's web interface; the app has no options of its own.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+from collections.abc import Callable
 from pathlib import Path
 
 _LOGGER = logging.getLogger(__name__)
@@ -14,9 +15,15 @@ STABLE_AFTER = 60  # a run this long resets the delay
 
 
 class Ser2Net:
-    def __init__(self, config: Path, binary: str = "ser2net") -> None:
+    def __init__(
+        self,
+        config: Path,
+        binary: str = "ser2net",
+        on_exit: Callable[[int | None, float], None] | None = None,
+    ) -> None:
         self.config = config
         self.binary = binary
+        self.on_exit = on_exit  # (exit code, seconds until the next start)
         self.restarts = 0
         self._proc: asyncio.subprocess.Process | None = None
 
@@ -37,7 +44,10 @@ class Ser2Net:
             delay = RESTART_DELAYS[min(failures, len(RESTART_DELAYS) - 1)]
             failures += 1
             self.restarts += 1
-            _LOGGER.warning("ser2net ended (exit code %s), starting again in %s s", code, delay)
+            if self.on_exit is not None:
+                self.on_exit(code, delay)
+            else:
+                _LOGGER.warning("ser2net ended (exit code %s), starting again in %s s", code, delay)
             try:
                 await asyncio.wait_for(stop.wait(), delay)
             except TimeoutError:
