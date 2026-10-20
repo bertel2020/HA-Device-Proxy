@@ -1,0 +1,184 @@
+import { css, html, svg } from "lit";
+import { api } from "../api.js";
+import { Page } from "../app.js";
+import { eventText, t } from "../i18n.js";
+import { connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, toggle } from "../ui.js";
+
+const LIVE_MS = 1000;
+const SAMPLES = 90; // 3 minutes of state polls
+
+export class DetailPage extends Page {
+  static properties = {
+    state: { attribute: false }, events: { attribute: false }, connectionId: {},
+    chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
+  };
+
+  static styles = [...Page.styles, css`
+    .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
+    .kv > :nth-child(odd) { color: var(--muted); }
+    .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
+    .counters b { display: block; font-size: 20px; font-weight: 500; }
+    .live { max-height: 340px; overflow: auto; }
+    .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
+    .live td { border: none; padding: 2px 8px; white-space: pre; }
+    .dir { display: inline-block; min-width: 30px; text-align: center; border-radius: 6px; padding: 0 6px; }
+    .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
+    ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
+  `];
+
+  constructor() {
+    super();
+    this.chunks = [];
+    this.paused = false;
+    this.ascii = true;
+    this._samples = [];
+    this._after = 0;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._timer = setInterval(() => this._poll(), LIVE_MS);
+    this._poll();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._timer);
+  }
+
+  willUpdate(changed) {
+    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._samples = []; }
+    if (changed.has("state")) {
+      const c = this.connection(this.connectionId);
+      if (c) this._samples = [...this._samples, c.rate_from_device].slice(-SAMPLES);
+    }
+  }
+
+  async _poll() {
+    if (this.paused || !this.connectionId) return;
+    try {
+      const fresh = await api(`api/live/${this.connectionId}?after=${this._after}`);
+      if (fresh.length) {
+        this._after = fresh[fresh.length - 1].seq;
+        this.chunks = [...this.chunks, ...fresh].slice(-300);
+      }
+    } catch { /* shown by the frame */ }
+  }
+
+  async _enable(c, enabled) {
+    try {
+      await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _copy(key, text) {
+    if (await copyText(text)) { this.copied = key; setTimeout(() => { if (this.copied === key) this.copied = ""; }, 2000); }
+  }
+
+  _live() {
+    const rows = this.chunks.slice(-120).reverse(); // newest first, like the event log
+    return html`<section class="card" aria-labelledby="t-live">
+      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t("liveSub")}</p></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>
+          <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
+        </div></div>
+      ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
+        ${rows.map((ch) => html`<tr>
+          <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
+          <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
+          <td>${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex}</td>
+          ${this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
+        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t("liveEmpty")}</div>`}
+    </section>`;
+  }
+
+  _sparkline() {
+    const values = this._samples.length > 1 ? this._samples : [0, 0];
+    const max = Math.max(...values, 1);
+    const step = 300 / (values.length - 1);
+    const points = values.map((v, i) => `${(i * step).toFixed(1)},${(66 - (v / max) * 56).toFixed(1)}`);
+    return html`<svg viewBox="0 0 300 70" width="100%" height="70" role="img" aria-label=${t("dataFromDevice")}>
+      ${svg`<path d="M0,70 L${points.join(" L")} L300,70 Z" fill="var(--accent-soft)"></path>
+      <path d="M${points.join(" L")}" fill="none" stroke="var(--accent)" stroke-width="2"></path>`}</svg>`;
+  }
+
+  render() {
+    const s = this.state;
+    const c = this.connection(this.connectionId);
+    if (!c) return html`<p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a></p><p>${t("error")}</p>`;
+    const [stateKey, stateClass] = connectionState(c, s.ser2net_running);
+    const recent = this.events.filter((e) => e.connection === c.id).slice(-6).reverse();
+    const le = c.line_errors;
+    const usb = c.usb;
+    return html`
+      <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
+      <div class="head" style="margin-top:12px">
+        <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
+          <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
+          ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}</div>
+        <div class="row">
+          <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
+          <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>
+          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom")}
+        </div>
+      </div>
+      <div class="cols">
+        <div class="main-col">
+          ${this._live()}
+          <section class="card" aria-labelledby="t-clients">
+            <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
+            ${c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+              <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
+              <tbody>${c.clients.map((cl) => html`<tr>
+                <td class="mono" style="font-size:12px">${cl.address} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
+                <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
+                <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
+              : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
+          </section>
+          <section class="card" aria-labelledby="t-addr">
+            <h2 id="t-addr">${t("addresses")}</h2>
+            ${c.addresses.map((a) => html`<div class="well row">
+              <div style="min-width:0"><div class="hint">${t(`target_${a.target}`)}</div>
+                ${a.reachable ? Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="justify-content:flex-start;gap:4px">
+                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
+                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)
+                  : html`<div class="hint">${a.host ? t("notReachable") : t("lanUnknown")}</div>`}
+              </div></div>`)}
+          </section>
+          <section class="card" aria-labelledby="t-conf">
+            <div class="row"><h2 id="t-conf">${t("configuration")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
+            <div class="kv">
+              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
+              <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
+              ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
+              <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? " · local" : ""}</span>
+              <span>${t("network")}</span><span>${c.mode} · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+            </div>
+          </section>
+        </div>
+        <aside class="side-col">
+          <section class="card" aria-labelledby="t-line">
+            <div class="row"><h2 id="t-line">${t("line")}</h2>
+              ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
+            ${le ? html`<div class="counters">
+              ${[["frame", le.frame], ["parity", le.parity], ["overrun", le.overrun], ["brk", le.break], ["bufOverrun", le.buffer_overrun]].map(([k, v]) =>
+                html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
+              : html`<p class="hint">${c.line_errors === null && c.clients.length ? t("lineUnsupported") : t("lineClosed")}</p>`}
+          </section>
+          <section class="card" aria-labelledby="t-rate">
+            <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
+            ${this._sparkline()}
+            <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${fmtBytes(c.bytes_from_device)}</span></div>
+          </section>
+          <section class="card" aria-labelledby="t-recent">
+            <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events" style="font-size:13px">${t("allEvents")}</a></div>
+            <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
+              <div><div>${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</div><div class="hint">${fmtTime(e.ts)}</div></div></li>`)}</ol>
+          </section>
+        </aside>
+      </div>`;
+  }
+}

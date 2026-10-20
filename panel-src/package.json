@@ -1,0 +1,14 @@
+{
+  "name": "ser2net-panel",
+  "private": true,
+  "type": "module",
+  "description": "Web interface of the Ser2Net app (built into ser2net/app/ser2net_app/web/app.js)",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "lit": "3.2.1"
+  }
+}

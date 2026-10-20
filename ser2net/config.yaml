@@ -15,6 +15,10 @@ uart: true
 usb: true
 # devices that are plugged in again while the app runs
 udev: true
+ingress: true
+ingress_port: 18399
+panel_icon: mdi:serial-port
+panel_title: Ser2Net
 map:
   - type: addon_config
     read_only: false

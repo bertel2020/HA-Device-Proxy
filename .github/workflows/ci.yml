@@ -24,6 +24,19 @@ jobs:
       - run: mypy
       - run: python -m pytest -q
 
+  panel:
+    name: Web interface bundle up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+        working-directory: panel-src
+      - run: node build.mjs --check
+        working-directory: panel-src
+
   lint:
     name: App linter
     runs-on: ubuntu-latest
@@ -81,7 +94,7 @@ jobs:
     # packages are public (GitHub → Packages → Package settings → Change visibility).
     name: Publish image (${{ matrix.arch }})
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [tests, lint, build, integration]
+    needs: [tests, panel, lint, build, integration]
     runs-on: ubuntu-latest
     permissions:
       contents: read

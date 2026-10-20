@@ -4,7 +4,7 @@ Eine Home-Assistant-App (früher Add-on), die serielle und USB-Geräte über TCP
 Programmen teilt – mit [ser2net 4](https://github.com/cminyard/ser2net) und einer
 Weboberfläche in der Seitenleiste.
 
-> In Arbeit: Version 0.1.0 ist nur das Grundgerüst. Braucht Home Assistant OS oder
+> In Arbeit, noch nicht auf Home Assistant getestet. Braucht Home Assistant OS oder
 > Supervised (Apps laufen unter dem Supervisor).
 
 English: [README.md](README.md)
@@ -42,8 +42,10 @@ mypy
 python -m pytest
 ```
 
-`tools/render_images.py` zeichnet `icon.png` und `logo.png`.
+`tools/render_images.py` zeichnet `icon.png` und `logo.png`. Die Weboberfläche wird aus
+`panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf
+einem Desktop mit Beispielverbindungen.
 
 ## Lizenz
 
-MIT. ser2net selbst steht unter GPL-2.0 und kommt aus dem Alpine-Paket.
+MIT. ser2net und gensio (beide GPL-2.0, siehe deren Repositories) werden aus ihren Releases ins Image gebaut.

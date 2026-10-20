@@ -1,0 +1,120 @@
+import { css, html } from "lit";
+import { api } from "../api.js";
+import { Page } from "../app.js";
+import { t } from "../i18n.js";
+import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, primaryAddress, toggle } from "../ui.js";
+
+export class ConnectionsPage extends Page {
+  static properties = { state: { attribute: false }, copied: { state: true }, busy: { state: true } };
+
+  static styles = [...Page.styles, css`
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; }
+    .tile b { display: block; font-size: 28px; font-weight: 500; margin-top: 4px; }
+    .tile small { font-size: 15px; color: var(--muted); font-weight: 400; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+    .conn.off { background: var(--surface-2); }
+    .conn.missing { border-color: var(--bad-line); }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .title h2 { font-size: 18px; }
+    .dev { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .client { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+    .foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+    .addr { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 2px 2px 2px 12px; min-width: 0; max-width: 100%; }
+    .addr .mono { font-size: 13px; overflow-wrap: anywhere; }
+    .empty { text-align: center; padding: 48px 20px; align-items: center; }
+  `];
+
+  async _enable(c, enabled) {
+    this.busy = c.id;
+    try {
+      await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
+      this.refresh();
+    } catch (err) {
+      this.toast(`${t("error")}: ${err.message}`);
+    } finally {
+      this.busy = "";
+    }
+  }
+
+  async _copy(c) {
+    if (await copyText(primaryAddress(c))) {
+      this.copied = c.id;
+      setTimeout(() => { if (this.copied === c.id) this.copied = ""; }, 2000);
+    }
+  }
+
+  _card(c, running, own) {
+    const [stateKey, stateClass] = connectionState(c, running);
+    const off = !c.enabled, missing = c.enabled && c.present === false;
+    const errors = c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0;
+    const chips = [fmtSerial(c), c.mode, `Port ${c.port}`];
+    if (c.nodelay) chips.push("nodelay");
+    if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
+    if (c.trace !== "off") chips.push(t("recording", { m: t(`tr_${c.trace}`) }));
+    const stuck = c.clients.filter((cl) => cl.stuck);
+    return html`<section class="card conn ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name}>
+      <div class="top">
+        <div style="min-width:0">
+          <div class="title"><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
+          <div class="dev mono">${c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
+        </div>
+        ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), own || this.busy === c.id)}
+      </div>
+      <div class="chips">
+        ${chips.map((x) => html`<span class="chip">${x}</span>`)}
+        ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
+        ${errors ? html`<span class="chip warn">${t("lineErrors", { n: errors })}</span>` : ""}
+        ${c.latency === "read_only" ? html`<span class="chip warn">${t("latencyRO")}</span>` : ""}
+        ${stuck.map((cl) => html`<span class="chip bad">${t("stuck", { a: cl.address })}</span>`)}
+      </div>
+      <div class="clients">
+        <div class="row hint" style="font-weight:500"><span>${t("clients")}</span>
+          <span>${t("clientsOf", { n: c.clients.length, m: c.max_clients })}${c.enabled && c.present ? html` · ${fmtRate(c.rate_from_device)}` : ""}</span></div>
+        ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span></span>
+          <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
+        ${c.clients.length ? "" : html`<div class="hint" style="font-size:14px">${off ? t("disabledText") : missing ? t("missingText") : t("noClients")}</div>`}
+      </div>
+      <div class="foot">
+        <div class="addr"><span class="mono">${primaryAddress(c)}</span>
+          <button class="btn btn-g" style="min-height:36px" @click=${() => this._copy(c)} aria-label=${t("copy")}>${icon("copy", 16)}${this.copied === c.id ? t("copied") : t("copy")}</button></div>
+        <div style="display:flex;gap:4px"><a class="btn btn-g" href="#/edit/${c.id}">${t("edit")}</a><a class="btn btn-s" href="#/connection/${c.id}">${t("details")}</a></div>
+      </div>
+    </section>`;
+  }
+
+  render() {
+    const s = this.state;
+    const own = s.source === "custom";
+    const list = s.connections;
+    const active = list.filter((c) => c.enabled).length;
+    const clients = list.reduce((n, c) => n + c.clients.length, 0);
+    const errors = list.reduce((n, c) => n + (c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0), 0);
+    return html`
+      <div class="head">
+        <div><h1>${t("connectionsTitle")}</h1><p class="sub">${t("connectionsSub")}</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <a class="btn btn-s" href="#/import">${icon("upload")}${t("importExport")}</a>
+          <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a>
+        </div>
+      </div>
+      ${own ? html`<div class="note info" style="margin-bottom:20px">
+        <b>${t("customActive")}</b> · ${t("customActiveText")}
+        ${s.custom_ports.map((p) => html` <span class="chip">${p.alias} · ${p.clients.length}</span>`)}
+        · <a href="#/settings">${t("toSettings")}</a></div>` : ""}
+      <div class="tiles">
+        <div class="tile"><span class="lbl">${t("tileActive")}</span><b>${active} <small>${t("tileOf", { n: list.length })}</small></b></div>
+        <div class="tile"><span class="lbl">${t("tileClients")}</span><b>${clients}</b></div>
+        <div class="tile"><span class="lbl">${t("tileErrors")}</span><b style=${errors ? "color:var(--warn)" : ""}>${errors}</b></div>
+        <div class="tile"><span class="lbl">${t("tileReach")}</span><b style="font-size:16px;margin-top:10px">${t(`listen_${s.settings.listen}`)}</b></div>
+      </div>
+      ${list.length ? html`<div class="cards">${list.map((c) => this._card(c, s.ser2net_running, own))}</div>` : html`
+        <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size:14px">${t("emptyText")}</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+            <a class="btn btn-s" href="#/import">${icon("upload")}${t("emptyImport")}</a>
+            <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a></div></section>`}`;
+  }
+}

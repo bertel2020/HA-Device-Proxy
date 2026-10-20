@@ -2,7 +2,12 @@
 
 ## 0.1.0
 
-- First version, a foundation without a web interface yet.
+- First version.
+- Web interface in the sidebar (ingress), German and English, light and dark: connections
+  with status and switch, details with live data, a form with templates, device list,
+  advanced options and a live ser2net.yaml preview, import with preview, export, events
+  (live and history with drops and availability), traces, settings with your own
+  ser2net.yaml and the configuration history with differences and restore.
 - ser2net 4.6.8 with gensio 3.0.4, built from their release tarballs (Alpine's gensio is too
   old to limit clients to networks).
 - Connections are kept in the app's own configuration (versioned, checked field by field);

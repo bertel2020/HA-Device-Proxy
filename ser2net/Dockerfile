@@ -29,6 +29,10 @@ RUN wget -q "https://github.com/cminyard/ser2net/releases/download/v${SER2NET_VE
     && make -j"$(nproc)" \
     && make install DESTDIR=/out \
     && rm -rf /out/usr/include /out/usr/share/man /out/usr/lib/*.la /out/usr/lib/pkgconfig
+# Python packages as wheels here, where a compiler is: no prebuilt ones may exist for this
+# Python on Alpine
+COPY requirements.txt /src/requirements.txt
+RUN pip3 wheel --no-cache-dir --wheel-dir /wheels -r /src/requirements.txt
 
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION
@@ -38,8 +42,8 @@ RUN apk add --no-cache libyaml libssl3 libcrypto3
 COPY --from=build /out/ /
 RUN ser2net -v
 
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+COPY --from=build /wheels /tmp/wheels
+RUN pip3 install --no-cache-dir --no-index /tmp/wheels/*.whl && rm -rf /tmp/wheels
 
 COPY app /app
 WORKDIR /app

@@ -4,7 +4,7 @@ A Home Assistant app (formerly add-on) that shares serial and USB devices over T
 several programs, using [ser2net 4](https://github.com/cminyard/ser2net), and manages it from
 a web interface in the sidebar.
 
-> Work in progress: version 0.1.0 is the foundation only. Needs Home Assistant OS or
+> Work in progress, not tested on Home Assistant yet. Needs Home Assistant OS or
 > Supervised (apps run under the Supervisor).
 
 Deutsch: [README.de.md](README.de.md)
@@ -40,8 +40,10 @@ mypy
 python -m pytest
 ```
 
-`tools/render_images.py` draws `icon.png` and `logo.png`.
+`tools/render_images.py` draws `icon.png` and `logo.png`. The web interface is built from
+`panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop
+with example connections.
 
 ## License
 
-MIT. ser2net itself is GPL-2.0 and comes from the Alpine package.
+MIT. ser2net and gensio (both GPL-2.0, see their repositories) are built from their releases into the image.

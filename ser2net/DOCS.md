@@ -6,9 +6,8 @@ programs elsewhere in the network connect to these ports instead of opening the 
 themselves, for example Z-Wave JS (`tcp://host:port`), ZHA or other pyserial-based
 integrations (`socket://host:port`) or a smart meter reader (host and port).
 
-> Version 0.1.0 is the foundation: ser2net runs, but connections cannot be set up yet. The
-> web interface for connections, import of an existing `ser2net.yaml`, logs, history and
-> traces follows in the next versions.
+Everything is set up in the app's page in the sidebar (**Ser2Net**): connections, import
+and export, events and history, traces and settings.
 
 ## Several clients on one device
 

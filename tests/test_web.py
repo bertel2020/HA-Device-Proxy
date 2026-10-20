@@ -1,0 +1,67 @@
+import asyncio
+import json
+from pathlib import Path
+
+from ser2net_app.controller import Controller
+from ser2net_app.db import Database
+from ser2net_app.events import EventLog
+from ser2net_app.store import Store
+from ser2net_app.trace import TraceHub
+from ser2net_app.web import WebServer
+
+
+async def request(port: int, method: str, path: str, body: object = None) -> tuple[int, object]:
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    data = b"" if body is None else json.dumps(body).encode()
+    writer.write(
+        f"{method} /{path} HTTP/1.1\r\nHost: x\r\nContent-Length: {len(data)}\r\n\r\n".encode()
+        + data
+    )
+    await writer.drain()
+    head = await reader.readuntil(b"\r\n\r\n")
+    status = int(head.split(b" ")[1])
+    length = int(
+        next(
+            line for line in head.split(b"\r\n") if line.lower().startswith(b"content-length")
+        ).split(b":")[1]
+    )
+    payload = await reader.readexactly(length)
+    writer.close()
+    return status, json.loads(payload) if payload.startswith((b"{", b"[")) else payload
+
+
+async def test_api_creates_checks_and_lists(tmp_path: Path) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+
+    status, created = await request(
+        port,
+        "POST",
+        "api/connections",
+        {"connection": {"name": "eHZ", "device": "/dev/null", "port": 3335}},
+    )
+    assert status == 200 and isinstance(created, dict) and created["rebuilt"] == ["eHZ"]
+    status, refused = await request(
+        port,
+        "POST",
+        "api/connections",
+        {"connection": {"name": "x", "device": "/dev/null", "port": 0}},
+    )
+    assert status == 400 and isinstance(refused, dict) and set(refused["errors"]) == {"port"}
+    status, state = await request(port, "GET", "api/state")
+    assert status == 200 and isinstance(state, dict)
+    assert [c["name"] for c in state["connections"]] == ["eHZ"]
+    status, page = await request(port, "GET", "")
+    assert status == 200 and b"<ser2net-app>" in page  # type: ignore[operator]
+    assert (await request(port, "GET", "api/nothing"))[0] == 404
+    await web.stop()

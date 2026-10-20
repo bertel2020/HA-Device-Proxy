@@ -16,7 +16,8 @@ SCHEMA = 1
 # ser2net's admin interface: a socket inside the container only, so no other program on the
 # host (the app runs in the host network) can reach it; it has no authentication
 ADMIN_SOCKET = "/run/ser2net-admin.sock"
-RESERVED_PORTS: dict[int, str] = {}
+INGRESS_PORT = 18399  # the web interface (config.yaml ingress_port)
+RESERVED_PORTS = {INGRESS_PORT: "the app's web interface"}
 LOG_LEVELS = ("info", "debug")
 
 MODES = ("raw", "rfc2217", "telnet")

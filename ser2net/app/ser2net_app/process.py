@@ -84,6 +84,18 @@ class Ser2Net:
             if line:
                 _LOGGER.info("ser2net: %s", line)
 
+    async def version(self) -> str:
+        """ser2net's version, e.g. "4.6.8"; "" when it cannot be asked."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self.binary, "-v", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), 10)
+        except (OSError, TimeoutError):
+            return ""
+        text = out.decode(errors="replace").strip()
+        return text.split()[-1] if text else ""
+
     def reload(self) -> bool:
         """Reread the configuration; only changed connections are rebuilt."""
         if not self.running:

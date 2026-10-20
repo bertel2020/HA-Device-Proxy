@@ -13,6 +13,7 @@ from .controller import Controller
 from .db import Database
 from .events import EventLog
 from .store import Store
+from .web import WebServer
 
 CONFIG_FILE = Path("/data/ser2net.yaml")
 
@@ -20,7 +21,8 @@ CONFIG_FILE = Path("/data/ser2net.yaml")
 async def main() -> int:
     # the log level is a setting of the app (web interface); applied once it is loaded
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    logging.info("Ser2Net app %s", os.environ.get("APP_VERSION", "dev"))
+    version = os.environ.get("APP_VERSION", "dev")
+    logging.info("Ser2Net app %s", version)
     db = Database()
     store = Store(db)
     settings = store.load().settings
@@ -32,9 +34,12 @@ async def main() -> int:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
+    web = WebServer(controller, version=version)
+    await web.start()
     try:
         await controller.start(stop)
     finally:
+        await web.stop()
         db.checkpoint()
         db.close()
     logging.info("Stopped")

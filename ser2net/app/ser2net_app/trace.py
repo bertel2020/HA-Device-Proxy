@@ -60,6 +60,16 @@ class Chunk:
     direction: str  # "rx" from the device, "tx" to the device, "open" / "close"
     data: bytes = b""
     text: str = ""  # for open / close: what ser2net wrote
+    seq: int = 0  # set by the TraceHub, increases per connection
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "ts": self.ts,
+            "direction": self.direction,
+            "hex": self.data.hex(" ").upper(),
+            "text": self.text or self.data.decode("latin-1"),
+            "seq": self.seq,
+        }
 
     def line(self) -> str:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts))
@@ -164,6 +174,7 @@ class Flow:
     tx_bytes: int = 0
     last_rx: float = 0.0
     last_tx: float = 0.0
+    seq: int = 0
 
 
 class TraceHub:
@@ -195,6 +206,8 @@ class TraceHub:
                 continue
             flow = self.flow.setdefault(alias, Flow())
             for c in chunks:
+                flow.seq += 1
+                c.seq = flow.seq
                 if c.direction == "rx":
                     flow.rx_bytes += len(c.data)
                     flow.last_rx = c.ts

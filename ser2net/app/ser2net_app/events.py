@@ -79,6 +79,7 @@ class Event:
     params: dict[str, Any]
     count: int = 1
     id: int | None = None
+    seq: int = 0  # increases with every emit (also when a summed-up entry is counted on)
 
     @property
     def message(self) -> str:
@@ -95,6 +96,7 @@ class Event:
             "params": self.params,
             "message": self.message,
             "count": self.count,
+            "seq": self.seq,
         }
 
 
@@ -122,6 +124,7 @@ class EventLog:
         self.live: deque[Event] = deque(maxlen=LIVE_SIZE)
         self.listeners: list[Callable[[Event], None]] = []
         self._bursts: dict[tuple[str | None, str], _Burst] = {}
+        self.seq = 0
 
     def emit(
         self,
@@ -133,7 +136,8 @@ class EventLog:
         **params: Any,
     ) -> Event:
         now = self.clock()
-        event = Event(now, level, connection, name, kind, params)
+        self.seq += 1
+        event = Event(now, level, connection, name, kind, params, seq=self.seq)
         burst = self._burst(connection, kind, now) if kind in SUMMED else None
         if burst is not None:
             burst.last = event
@@ -222,6 +226,37 @@ class EventLog:
                 values = {}
             events.append(Event(ts, level, conn, name, kind, values, count, row_id))
         return events
+
+    def since(self, seq: int) -> list[Event]:
+        """Live events after the given sequence number (for the web interface)."""
+        return [e for e in self.live if e.seq > seq]
+
+    def stats(self, days: int, now: float | None = None) -> dict[str, dict[str, Any]]:
+        """Per connection over the last days: drops, time without device, drops per day."""
+        now = self.clock() if now is None else now
+        start = now - days * 86400
+        result: dict[str, dict[str, Any]] = {}
+        missing_since: dict[str, float] = {}
+        for e in reversed(self.history(since=start - 86400 * 365, limit=100000)):
+            if e.connection is None or e.kind not in ("device_missing", "device_back", "device"):
+                continue
+            entry = result.setdefault(
+                e.connection, {"drops": 0, "missing_seconds": 0.0, "per_day": [0] * days}
+            )
+            if e.kind == "device_missing":
+                missing_since.setdefault(e.connection, e.ts)
+                if e.ts >= start:
+                    entry["drops"] += e.count
+                    day = min(int((e.ts - start) // 86400), days - 1)
+                    entry["per_day"][day] += e.count
+            elif e.connection in missing_since:
+                began = max(missing_since.pop(e.connection), start)
+                entry["missing_seconds"] += max(0.0, e.ts - began)
+        for connection, began in missing_since.items():
+            result[connection]["missing_seconds"] += now - max(began, start)
+        for entry in result.values():
+            entry["availability"] = max(0.0, 1 - entry["missing_seconds"] / (days * 86400))
+        return result
 
     def prune(self, days: int) -> int:
         """Remove history older than this many days; returns how many rows went."""

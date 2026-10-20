@@ -106,6 +106,7 @@ class Controller:
         self.line_errors: dict[str, dict[str, int] | None] = {}  # connection id → since start
         self._line_base: dict[str, dict[str, int]] = {}
         self.latency: dict[str, str] = {}  # connection id → result of set_low_latency
+        self.ser2net_version = ""
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
 
@@ -181,6 +182,7 @@ class Controller:
         self.devices = scan()
         self._apply_latency()
         self.lan_ip = await asyncio.to_thread(host_lan_ip)
+        self.ser2net_version = await self.ser2net.version()
         try:
             await asyncio.gather(
                 self.ser2net.run(stop),
