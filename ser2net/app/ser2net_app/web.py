@@ -20,11 +20,13 @@ from importlib import resources
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from . import diagnostics
 from .config import block, export
 from .controller import Controller, CustomError
 from .custom import check as check_custom
 from .importer import ReadError
 from .model import INGRESS_PORT, AppConfig, Connection, Settings, ValidationError, new_id
+from .notify import notify_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,6 +125,11 @@ class WebServer:
         self._route("POST", r"api/versions/(?P<id>\d+)/restore", self.restore)
         self._route("GET", r"api/trace/(?P<name>[^/]+)", self.trace_file)
         self._route("DELETE", r"api/trace/(?P<name>[^/]+)", self.delete_trace)
+        self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/detect", self.detect)
+        self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
+        self._route("GET", r"api/notify/services", self.notify_services)
+        self._route("GET", r"api/diagnostics", self.diagnostics)
 
     def _route(self, method: str, pattern: str, handler: Handler) -> None:
         self.routes.append((method, re.compile(pattern + "$"), handler))
@@ -424,6 +431,47 @@ class WebServer:
             path.read_bytes(),
             "text/plain; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="{path.name}"'},
+        )
+
+    async def meter(self, request: Request) -> Response:
+        if self.c.config.connection(request.params["id"]) is None:
+            raise HttpError(404, "no such connection")
+        return ok(self.c.analyze(request.params["id"]))
+
+    async def detect(self, request: Request) -> Response:
+        try:
+            return ok({"job": self.c.start_detect(request.params["id"])})
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def job(self, request: Request) -> Response:
+        job = self.c.jobs.get(request.params["job"])
+        if job is None:
+            raise HttpError(404, "no such job")
+        return ok(job)
+
+    async def notify_services(self, request: Request) -> Response:
+        return ok(await asyncio.to_thread(notify_services))
+
+    async def diagnostics(self, request: Request) -> Response:
+        try:
+            runtime = self.c.config_file.read_text(encoding="utf-8")
+        except OSError:
+            runtime = ""
+        data = diagnostics.build(
+            version=self.version,
+            ser2net_version=self.c.ser2net_version,
+            snapshot=self.c.snapshot(),
+            config=self.c.config.to_dict(),
+            runtime_yaml=runtime,
+            events=[e.to_dict() for e in self.c.events.history(limit=500)],
+        )
+        stamp = time.strftime("%Y%m%d-%H%M")
+        return Response(
+            200,
+            data,
+            "application/zip",
+            {"Content-Disposition": f'attachment; filename="ser2net-diagnostics-{stamp}.zip"'},
         )
 
     async def delete_trace(self, request: Request) -> Response:

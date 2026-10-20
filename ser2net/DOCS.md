@@ -59,6 +59,35 @@ disconnect a single one), and they connect again.
 - **FTDI latency**: FTDI adapters wait 16 ms before passing data on; "low latency" sets 1 ms
   (better for Z-Wave). If the system does not let the app change it, the app says so.
 
+## Tools for smart meters
+
+- **Check meter data** reads the last 30 seconds of a connection as SML (binary, checks each
+  telegram's CRC) or D0 (text) and shows the readings, e.g. the import total.
+- **Detect baud rate** listens at each speed and format in turn and shows the best matches,
+  to take over with one click. ser2net lets go of the device for this (up to about a
+  minute), so the connection's clients are disconnected and connect again afterwards.
+  Nothing is sent to the device: it works with meters that push their data.
+
+## Notifications
+
+Problems appear under Home Assistant's bell, one notification per connection and problem,
+updated instead of repeated and removed once the problem is gone (can be switched off).
+Optionally a notify service (e.g. the companion app on a phone) gets them too.
+
+- Per connection: device missing, no client connected (after a few minutes), no data from
+  the device for a set time (only while the device is open).
+- For all connections: a client stops reading, line errors rise, ser2net keeps restarting,
+  your own ser2net.yaml cannot be used.
+
+A problem is reported only after it lasted the grace time (30 s by default), and not in the
+first minute after the app started.
+
+## Diagnostics
+
+**Settings → Diagnostics** downloads a ZIP with versions, configuration, status, devices and
+the recent events. IP addresses are replaced and clients only counted, so it can be attached
+to an issue as it is.
+
 ## Taking over an existing ser2net.yaml
 
 A ser2net 4 file (version 1 or 2) or an old ser2net 3 `ser2net.conf` can be imported: in

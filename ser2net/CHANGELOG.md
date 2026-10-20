@@ -32,6 +32,11 @@
 - Serial devices listed with their stable names; adapters without a serial number that
   cannot be told apart are marked.
 - FTDI latency 1 ms per connection.
+- Tools for smart meters: SML (with CRC check) and D0 decoded from the trace; baud rate and
+  format detected by listening.
+- Notifications in Home Assistant (and optionally a notify service) for missing devices,
+  missing clients, silent devices, stuck clients, rising line errors, ser2net restarts.
+- Diagnostics ZIP without IP addresses.
 - Keep open: the app stays connected to a connection itself, so the device is open even
   without clients.
 - A client that stops reading (and so slows down all others) is reported; optionally the

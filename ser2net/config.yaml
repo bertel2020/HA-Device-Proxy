@@ -26,6 +26,8 @@ map:
 backup_pre: python3 -m ser2net_app.backup
 # the host's LAN address for the addresses shown to clients
 hassio_api: true
+# notifications in Home Assistant
+homeassistant_api: true
 # everything is set in the app's web interface
 options: {}
 schema: {}

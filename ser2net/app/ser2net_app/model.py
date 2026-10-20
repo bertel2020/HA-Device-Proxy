@@ -221,6 +221,16 @@ class Settings:
     trace_keep: int = 3
     debounce_count: int = 3  # this many of one event within debounce_minutes ...
     debounce_minutes: int = 5  # ... are summed up into one
+    # notifications in Home Assistant
+    notify_grace: int = 30  # seconds a problem must last
+    notify_dismiss: bool = True  # remove the notification when the problem is gone
+    notify_service: str = ""  # e.g. mobile_app_phone, "" for none
+    notify_resolved: bool = False  # also tell the notify service when it is over
+    notify_stuck: bool = True
+    notify_line_errors: bool = False
+    notify_ser2net: bool = True
+    notify_language: str = "de"
+    no_client_minutes: int = 2
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -255,6 +265,14 @@ class Settings:
             e["debounce_count"] = "2 to 100"
         if not 1 <= settings.debounce_minutes <= 120:
             e["debounce_minutes"] = "1 to 120 minutes"
+        if not 0 <= settings.notify_grace <= 3600:
+            e["notify_grace"] = "0 to 3600 seconds"
+        if settings.notify_service and not re.fullmatch(r"[a-z0-9_]+", settings.notify_service):
+            e["notify_service"] = "a notify service name like mobile_app_phone"
+        if settings.notify_language not in ("de", "en"):
+            e["notify_language"] = "de or en"
+        if not 1 <= settings.no_client_minutes <= 1440:
+            e["no_client_minutes"] = "1 to 1440 minutes"
         if e:
             raise ValidationError(e)
         return settings

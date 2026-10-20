@@ -1,8 +1,8 @@
 import { css, html, svg } from "lit";
-import { api } from "../api.js";
+import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { eventText, t } from "../i18n.js";
-import { connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 const SAMPLES = 90; // 3 minutes of state polls
@@ -11,6 +11,7 @@ export class DetailPage extends Page {
   static properties = {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
+    meter: { state: true }, job: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -73,6 +74,60 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  async _checkMeter() {
+    try { this.meter = await api(`api/tools/${this.connectionId}/meter`); } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _detect() {
+    if (!(await confirmDialog(this, t("baudConfirm"), t("start")))) return;
+    try {
+      const { job } = await api(`api/tools/${this.connectionId}/detect`, { method: "POST" });
+      this.job = { state: "running", done: 0, total: 0 };
+      const poll = setInterval(async () => {
+        try {
+          this.job = await api(`api/jobs/${job}`);
+          if (this.job.state !== "running") clearInterval(poll);
+        } catch { clearInterval(poll); }
+      }, 1000);
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _useCandidate(c, r) {
+    try {
+      await saveConnection({ ...toConnection(c), baud: r.baud, data_bits: r.data_bits, parity: r.parity, stop_bits: r.stop_bits });
+      this.toast(t("saved"));
+      this.job = null;
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  _tools(c) {
+    const m = this.meter, job = this.job;
+    const best = job && job.state === "done" ? job.results.filter((r) => r.score >= 0.6) : [];
+    const fmt = (r) => `${r.baud} ${r.data_bits}${r.parity.toUpperCase()}${r.stop_bits}`;
+    const value = (r) => typeof r.value === "number" && r.unit === "Wh" ? `${(r.value / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} kWh` : `${r.value} ${r.unit}`;
+    return html`<section class="card" aria-labelledby="t-tools">
+      <h2 id="t-tools">${t("tools")}</h2>
+      <div class="row"><div><b style="font-weight:500">${t("meterCheck")}</b><p class="hint">${t("meterCheckSub")}</p></div>
+        <button class="btn btn-s" @click=${this._checkMeter}>${t("meterCheck")}</button></div>
+      ${m ? m.bytes ? html`<div class="well" style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip ${m.protocol === "unknown" ? "warn" : "info"}">${t(`proto_${m.protocol}`)}</span>
+            ${m.telegrams ? html`<span class="chip">${t("telegrams", { n: m.telegrams })}</span>
+              <span class="chip ${m.valid === m.telegrams ? "ok" : "warn"}">${t(m.protocol === "sml" ? "validCrc" : "validD0", { n: m.valid })}</span>` : ""}</div>
+          ${m.readings.length ? html`<table><tbody>${m.readings.slice(0, 12).map((r) => html`<tr><td class="mono" style="font-size:12px">${r.obis}</td><td>${r.name ? t(`obis_${r.obis}`) : ""}</td><td style="text-align:right">${value(r)}</td></tr>`)}</tbody></table>` : ""}
+        </div>` : html`<p class="hint">${t("noData30")}</p>` : ""}
+      <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("baudDetect")}</b><p class="hint">${t("baudDetectSub")}</p></div>
+        <button class="btn btn-s" ?disabled=${job && job.state === "running"} @click=${this._detect}>${t("baudDetect")}</button></div>
+      ${job ? job.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: job.done, t: job.total || "…" })}</p>`
+        : job.state === "failed" ? html`<div class="note bad">${t("error")}: ${job.error}</div>`
+        : best.length ? html`<div class="note ok"><b>${t("detected", { b: best[0].baud, f: fmt(best[0]).split(" ")[1] })}</b> · ${t(`proto_${best[0].protocol}`)}</div>
+          <div class="hint">${t("candidates")}:</div>
+          ${best.slice(0, 3).map((r) => html`<div class="row well"><span class="mono">${fmt(r)}</span><span class="hint">${t("score")} ${Math.round(r.score * 100)} %</span>
+            <button class="btn btn-g" @click=${() => this._useCandidate(c, r)}>${t("applyThis")}</button></div>`)}`
+        : html`<div class="note warn">${t("noDetect")}</div>` : ""}
+    </section>`;
+  }
+
   async _copy(key, text) {
     if (await copyText(text)) { this.copied = key; setTimeout(() => { if (this.copied === key) this.copied = ""; }, 2000); }
   }
@@ -128,6 +183,7 @@ export class DetailPage extends Page {
       <div class="cols">
         <div class="main-col">
           ${this._live()}
+          ${this.state.source === "custom" ? "" : this._tools(c)}
           <section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>

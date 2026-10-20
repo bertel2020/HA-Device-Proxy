@@ -1,5 +1,5 @@
 import { css, html } from "lit";
-import { api } from "../api.js";
+import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, lang, noteText, t } from "../i18n.js";
 import { confirmDialog, fmtTime } from "../ui.js";
@@ -20,7 +20,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, diffs: { state: true },
+    versions: { state: true }, open: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -41,6 +41,7 @@ export class SettingsPage extends Page {
     this.diffs = {};
     this._loadVersions();
     this._loadCustom();
+    api("api/notify/services").then((list) => { this.services = list; }).catch(() => { this.services = []; });
   }
 
   willUpdate() {
@@ -120,7 +121,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -161,6 +162,25 @@ export class SettingsPage extends Page {
           </li>`)}</ol>
         </section>
 
+        <section id="notify" class="card" aria-labelledby="t-notify">
+          <div><h2 id="t-notify">${t("sNotify")}</h2><p class="hint" style="margin-top:4px">${t("sNotifySub")}</p></div>
+          <div class="grid2">
+            <label class="fld"><span class="lbl">${t("notifyGrace")}</span><input class="inp" inputmode="numeric" .value=${String(d.notify_grace)}
+              @input=${(e) => { this.draft = { ...d, notify_grace: Number(e.target.value || 0) }; }}></label>
+            <label class="fld"><span class="lbl">${t("noClientMinutes")}</span><input class="inp" inputmode="numeric" .value=${String(d.no_client_minutes)}
+              @input=${(e) => { this.draft = { ...d, no_client_minutes: Number(e.target.value || 0) }; }}></label>
+            <label class="fld"><span class="lbl">${t("notifyService")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_service: e.target.value }; }}>
+              <option value="" ?selected=${!d.notify_service}>${t("notifyNone")}</option>
+              ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} ?selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
+            <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
+              <option value="de" ?selected=${d.notify_language === "de"}>Deutsch</option><option value="en" ?selected=${d.notify_language === "en"}>English</option></select></label>
+          </div>
+          <div class="grid2" style="gap:6px 16px">${[["notify_dismiss", "notifyDismiss"], ["notify_resolved", "notifyResolved"], ["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) =>
+            html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
+          <p class="hint">${t("notifyPerConnection")}</p>
+          <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+        </section>
+
         <section id="log" class="card" aria-labelledby="t-log">
           <h2 id="t-log">${t("sLogging")}</h2>
           <div class="grid2">
@@ -172,6 +192,11 @@ export class SettingsPage extends Page {
               <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select></label>
           </div>
           <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
+        </section>
+
+        <section id="diag" class="card" aria-labelledby="t-diag">
+          <div class="row"><div><h2 id="t-diag">${t("sDiag")}</h2><p class="hint" style="margin-top:4px">${t("sDiagSub")}</p></div>
+            <a class="btn btn-s" href=${url("api/diagnostics")} download>${t("diagDownload")}</a></div>
         </section>
 
         <section id="about" class="card" aria-labelledby="t-about">

@@ -27,10 +27,13 @@ from . import custom
 from .addresses import addresses, host_lan_ip
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
+from .detect import detect
 from .devices import Device, device_for, line_counters, scan, set_low_latency
 from .events import EventLog
 from .importer import ImportResult, ReadError, conflicts, merge, read
-from .model import AppConfig, Connection, ValidationError
+from .meter import analyze
+from .model import AppConfig, Connection, ValidationError, new_id
+from .notify import Notifier
 from .process import Ser2Net
 from .store import Change, Store, summary
 from .trace import Chunk, TraceHub
@@ -44,6 +47,59 @@ STUCK_BYTES = 4096  # a client with this much waiting ...
 STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
 TRACE_POLL = 0.5  # seconds between reads of the traces
+NOTIFY_POLL = 5  # seconds between checks for notifications
+ANALYZE_SECONDS = 30  # of trace the meter check looks at
+NOTES = {
+    "de": {
+        "missing": (
+            "Ser2Net: {name} – Gerät fehlt",
+            "{device} ist nicht angeschlossen (seit {since}).",
+        ),
+        "no_client": ("Ser2Net: {name} – kein Client", "Seit {since} ist kein Client verbunden."),
+        "silence": ("Ser2Net: {name} – keine Daten", "Seit {since} kommen keine Daten vom Gerät."),
+        "stuck": (
+            "Ser2Net: {name} – Client liest nicht",
+            "{address} liest nicht mehr; alle Clients dieser Verbindung werden gebremst.",
+        ),
+        "line_errors": (
+            "Ser2Net: {name} – Leitungsfehler",
+            "Die Leitungsfehler steigen ({count} seit Start) – Baudrate oder Format prüfen.",
+        ),
+        "ser2net": (
+            "Ser2Net: ser2net startet immer wieder neu",
+            "ser2net ist in den letzten 10 Minuten {count}× beendet worden. Siehe Log der App.",
+        ),
+        "custom": (
+            "Ser2Net: eigene ser2net.yaml unbrauchbar",
+            "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
+            "Siehe Einstellungen der App.",
+        ),
+    },
+    "en": {
+        "missing": (
+            "Ser2Net: {name} – device missing",
+            "{device} is not plugged in (since {since}).",
+        ),
+        "no_client": ("Ser2Net: {name} – no client", "No client connected since {since}."),
+        "silence": ("Ser2Net: {name} – no data", "No data from the device since {since}."),
+        "stuck": (
+            "Ser2Net: {name} – client does not read",
+            "{address} stopped reading; all clients of this connection are slowed down.",
+        ),
+        "line_errors": (
+            "Ser2Net: {name} – line errors",
+            "Line errors are rising ({count} since start) – check baud rate and format.",
+        ),
+        "ser2net": (
+            "Ser2Net: ser2net keeps restarting",
+            "ser2net ended {count}× in the last 10 minutes. See the app log.",
+        ),
+        "custom": (
+            "Ser2Net: own ser2net.yaml unusable",
+            "Your own ser2net.yaml is not used, nothing is shared. See the app's settings.",
+        ),
+    },
+}
 IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
 
 
@@ -107,6 +163,13 @@ class Controller:
         self._line_base: dict[str, dict[str, int]] = {}
         self.latency: dict[str, str] = {}  # connection id → result of set_low_latency
         self.ser2net_version = ""
+        self.notifier = Notifier()
+        self.jobs: dict[str, dict[str, object]] = {}  # tool runs: id → state
+        self._restarts: list[float] = []
+        self._custom_invalid = False
+        self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
+        self._line_rise: dict[str, float] = {}  # connection id → last rise of line errors
+        self._paused: set[str] = set()  # connections a tool has taken over
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
 
@@ -130,11 +193,14 @@ class Controller:
             self.events.emit(
                 "error", "custom_invalid", errors=[{"code": "unreadable", "error": str(err)}]
             )
+            self._custom_invalid = True
             return render(AppConfig()), {}
         check = custom.check(text)
         if not check.ok:
             self.events.emit("error", "custom_invalid", errors=check.errors)
+            self._custom_invalid = True
             return render(AppConfig()), {}  # admin socket only, nothing shared
+        self._custom_invalid = False
         return custom.runtime(text, check.version), custom.blocks(text)
 
     def write_config(self) -> None:
@@ -189,6 +255,7 @@ class Controller:
                 self.admin.run(stop),
                 self._loop(stop, TRACE_POLL, self._trace_tick),
                 self._loop(stop, DEVICE_POLL, self._device_tick),
+                self._loop(stop, NOTIFY_POLL, self._notify_tick),
                 self._loop(stop, STATUS_POLL, self.read_status),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
             )
@@ -331,6 +398,8 @@ class Controller:
 
     def _ser2net_ended(self, code: int | None, delay: float) -> None:
         self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
+        now = time.time()
+        self._restarts = [t for t in self._restarts if now - t < 600] + [now]
 
     # devices
 
@@ -439,7 +508,150 @@ class Controller:
         before = self.line_errors.get(c.id) or {}
         if sum(delta.values()) > sum(before.values()):
             self.events.emit("warning", "line_errors", connection=c.id, name=c.name, **delta)
+            self._line_rise[c.id] = time.time()
         self.line_errors[c.id] = delta
+
+    # notifications
+
+    def _lasting(
+        self, connection_id: str, condition: str, active: bool, now: float
+    ) -> float | None:
+        """Since when the condition holds (None when it does not)."""
+        key = (connection_id, condition)
+        if not active:
+            self._since.pop(key, None)
+            return None
+        return self._since.setdefault(key, now)
+
+    def problems(self, now: float | None = None) -> dict[str, tuple[str, str]]:
+        """The notifications there should be right now: id → (title, message)."""
+        now = time.time() if now is None else now
+        settings = self.config.settings
+        texts = NOTES[settings.notify_language]
+        found: dict[str, tuple[str, str]] = {}
+
+        def add(key: str, kind: str, **values: object) -> None:
+            title, message = texts[kind]
+            found[key] = (title.format(**values), message.format(**values))
+
+        def clock(ts: float) -> str:
+            return time.strftime("%d.%m. %H:%M", time.localtime(ts))
+
+        for c in self.active:
+            if not c.enabled:
+                continue
+            port = self.status.get(c.alias)
+            activity = self.activity.get(c.id)
+            clients = [
+                cl for cl in (port.clients if port else []) if cl.address not in self.internal
+            ]
+            device_open = bool(port and port.clients)
+            missing = self.present.get(c.id) is False
+            if c.notify_missing and (since := self._lasting(c.id, "missing", missing, now)):
+                add(
+                    f"ser2net_{c.id}_missing",
+                    "missing",
+                    name=c.name,
+                    device=c.device,
+                    since=clock(since),
+                )
+            idle = not missing and self.ser2net.running and not clients
+            since = self._lasting(c.id, "no_client", idle, now)
+            if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
+                add(f"ser2net_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
+            flow = self.trace.flow.get(c.alias)
+            last = flow.last_rx if flow and flow.last_rx else None
+            opened = self._lasting(c.id, "open", device_open, now)
+            if c.silence_minutes and opened:
+                quiet_since = max(last or opened, opened)
+                if now - quiet_since >= c.silence_minutes * 60:
+                    add(f"ser2net_{c.id}_silence", "silence", name=c.name, since=clock(quiet_since))
+            if settings.notify_stuck and activity and activity.stuck_reported:
+                address = sorted(activity.stuck_reported)[0]
+                add(f"ser2net_{c.id}_stuck", "stuck", name=c.name, address=address)
+            rise = self._line_rise.get(c.id)
+            if settings.notify_line_errors and rise and now - rise < 600:
+                count = sum((self.line_errors.get(c.id) or {}).values())
+                add(f"ser2net_{c.id}_line_errors", "line_errors", name=c.name, count=count)
+        recent = [t for t in self._restarts if now - t < 600]
+        if settings.notify_ser2net and len(recent) >= 3:
+            add("ser2net_restarts", "ser2net", count=len(recent))
+        if self.uses_custom and self._custom_invalid:
+            add("ser2net_custom_invalid", "custom")
+        return found
+
+    async def _notify_tick(self) -> None:
+        settings = self.config.settings
+        await self.notifier.update(
+            self.problems(),
+            grace=settings.notify_grace,
+            dismiss=settings.notify_dismiss,
+            service=settings.notify_service,
+            resolved_message=settings.notify_resolved,
+        )
+
+    # tools
+
+    def analyze(self, connection_id: str) -> dict[str, object]:
+        """What the device sent in the last seconds, read as a smart meter (SML or D0)."""
+        c = self.config.connection(connection_id)
+        if c is None:
+            return {}
+        cutoff = time.time() - ANALYZE_SECONDS
+        data = b"".join(
+            ch.data
+            for ch in self.trace.live.get(c.alias, ())
+            if ch.direction == "rx" and ch.ts >= cutoff
+        )
+        return analyze(data).to_dict()
+
+    def start_detect(self, connection_id: str) -> str:
+        """Find the baud rate of a pushing meter; ser2net lets go of the device meanwhile."""
+        c = self.config.connection(connection_id)
+        if c is None:
+            raise ValueError("no such connection")
+        if any(
+            j.get("connection") == connection_id and j["state"] == "running"
+            for j in self.jobs.values()
+        ):
+            raise ValueError("already running")
+        job_id = new_id()
+        self.jobs[job_id] = {
+            "connection": connection_id,
+            "state": "running",
+            "done": 0,
+            "total": 0,
+            "results": [],
+        }
+        asyncio.create_task(self._detect(job_id, c))
+        return job_id
+
+    async def _detect(self, job_id: str, c: Connection) -> None:
+        job = self.jobs[job_id]
+        self._paused.add(c.id)
+        keeper = self._keepers.pop(c.id, None)
+        if keeper is not None:
+            keeper.cancel()
+        try:
+            await self.admin.command(f"setportenable {c.alias} off")
+            await asyncio.sleep(0.5)  # let ser2net close the device
+
+            def progress(done: int, total: int, candidate: object) -> None:
+                job["done"], job["total"] = done, total
+
+            results = await asyncio.to_thread(detect, c.device, progress)
+            job["results"] = [r.to_dict() for r in results]
+            job["state"] = "done"
+        except (OSError, AdminError) as err:
+            job["state"], job["error"] = "failed", str(err)
+        finally:
+            self._paused.discard(c.id)
+            if c.enabled:
+                try:
+                    await self.admin.command(f"setportenable {c.alias} on")
+                except AdminError as err:
+                    _LOGGER.warning("Could not switch %s on again: %s", c.name, err)
+            self._reconcile_keepers()
 
     # the state for the web interface
 
@@ -547,7 +759,9 @@ class Controller:
     # keeping devices open
 
     def _reconcile_keepers(self) -> None:
-        wanted = {c.id for c in self.active if c.enabled and c.keep_open}
+        wanted = {
+            c.id for c in self.active if c.enabled and c.keep_open and c.id not in self._paused
+        }
         for connection_id in list(self._keepers):
             if connection_id not in wanted:
                 self._keepers.pop(connection_id).cancel()

@@ -23,15 +23,22 @@ from ser2net_app import process  # noqa: E402
 from ser2net_app.controller import Controller  # noqa: E402
 from ser2net_app.db import Database  # noqa: E402
 from ser2net_app.events import EventLog  # noqa: E402
+from ser2net_app.meter import crc_x25  # noqa: E402
 from ser2net_app.model import AppConfig, Connection  # noqa: E402
 from ser2net_app.store import Store  # noqa: E402
 from ser2net_app.trace import TraceHub  # noqa: E402
 from ser2net_app.web import WebServer  # noqa: E402
 
-SML = bytes.fromhex(
-    "1b1b1b1b01010101760509b0ae6c62006200726301017601010509b0ae6b0b0a01454d48000075ef1a"
-    "000000001b1b1b1b1a00a3c4"
-)
+
+def _sml() -> bytes:
+    """One SML telegram with a meter reading (1.8.0 = 18 450 282.7 Wh) and a right CRC."""
+    body = bytes.fromhex("7707 0100010800ff 6500 1c0104 01 621e 52ff 69000000000aff4a2b 01")
+    data = bytes.fromhex("1b1b1b1b01010101") + body + bytes.fromhex("1b1b1b1b1a00")
+    crc = crc_x25(data)
+    return data + bytes([crc & 0xFF, crc >> 8])
+
+
+SML = _sml()
 
 
 async def meter(trace: TraceHub, alias: str, stop: asyncio.Event) -> None:
