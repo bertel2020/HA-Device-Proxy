@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0
+
+- **EnOcean gateways** (taken over from the EnOcean Proxy app, which this replaces)
+  - A third kind of connection: one FAM-USB, FAM14, FGW14-USB, USB300/TCM310, MGW-ETH or
+    Symcon LAN gateway for several programs, over USB or TCP, ESP2 or ESP3, with templates.
+  - Whole frames in turn with a pause, the gateway's answers to the program that asked, no
+    echo to the others, slow programs disconnected, reconnecting by itself.
+  - Replay for the EnOcean Eltako integration (`EOPX REPLAY`, with reception times),
+    optionally kept on disk over a restart of the app.
+  - Discovery by the integration and a read-only status for its gateway cards (port 9199,
+    Home Assistant and the apps only); settings under **Settings → EnOcean**.
+  - Detail page: issues in plain words, live frames with sender and kind (search,
+    direction, filter by sender, copy, take over into send), air time against the 1 % limit,
+    counters, replay buffer, base ID; tools: gateway test, sending a checked frame (checksum
+    added or fixed), captures as JSON lines with a lock for PCT14.
+  - New gateways take Home Assistant and the apps only (the app runs in the host network).
+  - Notification at 80 % air time; MQTT entities: reachable, telegrams, air time.
+  - Moving: the EnOcean Proxy app's options are fetched from Home Assistant, pasted or put
+    into `import/enocean_proxy.yaml`.
+- **For all connections**: filter chips by kind above the list; a running capture shows in
+  the header.
+- Fixed: a Modbus TCP connection saved without a device field could not be loaded.
+
+
 ## 0.1.0
 
 First version.

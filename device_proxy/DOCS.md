@@ -168,6 +168,65 @@ SolarEdge Modbus Multi) only need host and port.
 Saving restarts only Modbus connections whose device or proxy settings changed; their
 clients connect again. Name, trace and notifications change without a restart.
 
+## EnOcean gateways
+
+An EnOcean connection shares one EnOcean gateway (FAM-USB, FAM14, FGW14-USB, USB300/TCM310,
+PioTek MGW-ETH, Symcon LAN …) with several programs: the
+[EnOcean Eltako integration](https://github.com/bertel2020/HA-Enocean-Eltako), the old
+`eltako` integration, eo_man or PCT14 over the network. It takes over everything the
+[EnOcean Proxy app](https://github.com/bertel2020/HA-Enocean-Proxy) did. The app opens the
+gateway itself (not through ser2net) and offers it on a TCP port as raw ESP2 or ESP3 frames,
+like ser2net would.
+
+- Every telegram from the gateway goes to every program. Frames a program sends are queued
+  and go to the gateway one at a time, whole, with a short pause (**Pause between frames
+  sent**), so two programs never interleave. Frames are not echoed to the other programs.
+- The gateway's answer to a command (base ID, settings …) goes back to the program that
+  asked; FAM14 bus traffic (ESP2 ORG ≥ F0) goes to all.
+- While the gateway is away, programs stay connected and their frames are dropped; the app
+  reconnects by itself (1, 2, 5, 10, 30 s).
+- A program that stops reading is disconnected before its data piles up (256 KiB).
+
+**Templates** set protocol, baud rate and kind of connection; everything stays changeable:
+
+| Template | Protocol | Connection |
+|---|---|---|
+| FAM-USB | ESP2 | USB, 9600 baud |
+| FAM14, FGW14-USB | ESP2 | USB, 57600 baud |
+| USB300 / TCM310 | ESP3 | USB, 57600 baud |
+| PioTek MGW-ETH | ESP3 | TCP, port 5100 (one session only: share it through this app) |
+| Symcon LAN | ESP3 | TCP, port 5000 |
+
+**Who may connect**: new gateways take Home Assistant and the other apps only
+(`127.0.0.1, 172.30.32.0/23`). The app runs in the host network, so add the address of a PC
+with eo_man or PCT14 under **Access** when it should connect too.
+
+**Replay**: the EnOcean Eltako integration asks for it (`EOPX REPLAY TS`) after every
+connect. Radio telegrams that arrive while no such program is connected, e.g. during a Home
+Assistant restart, are kept (1000 telegrams, 15 minutes by default) and handed over with their
+reception time. **Keep the buffer on disk** keeps them over a restart of this app too
+(`/data/replay`).
+
+**Discovery and status**: the app announces its active gateways to the EnOcean Eltako
+integration, which offers each one for setup with replay switched on. A read-only status
+(port 9199, Home Assistant and the apps only) feeds the integration's gateway cards. Both are
+under **Settings → EnOcean**.
+
+**The detail page** shows what is wrong in plain words (gateway away, port taken, air time,
+frames dropped or held back, programs refused or disconnected, no program connected), every
+frame live with its kind and sender (search, direction, a click on an ID shows only that
+sender, copy, take over into "send"), the air time of the last hour against the 1 % limit
+(a notification at 80 %), counters and the replay buffer, and the base ID once the gateway
+told it. Tools:
+
+- **Gateway test**: reads the base ID ten times; nothing goes over the air.
+- **Send a frame**: one whole frame as hex, checked while you type (sync, length, ESP2
+  checksum, ESP3 CRCs), with a button to add or fix the checksum; the answer is shown.
+- **Capture**: every frame in both directions as JSON lines (time, gateway, direction, kind,
+  program, hex) into the trace folder, at most 50 MB; listed, downloaded and deleted on the
+  **Trace** page. Optionally only one program may send meanwhile, e.g. PCT14 reading a FAM14:
+  the frames of the others are held back and the app's own tools wait.
+
 ## Status, traces and line errors
 
 - **Status**: device present (and which adapter it is), clients with address, time and bytes,
@@ -211,7 +270,7 @@ Optionally a notify service (e.g. the companion app on a phone) gets them too.
 - Per connection (in the connection's form): device missing (for Modbus also: not
   reachable), no client connected (after a few minutes), no data from the device for a set
   time (serial devices, only while the device is open). A Modbus port that cannot be opened
-  is always reported.
+  is always reported. An EnOcean gateway: not reachable, and air time at 80 % of the limit.
 - For all (**Settings → Notifications**): a client stops reading, line errors rise, ser2net
   keeps restarting, your own `ser2net.yaml` cannot be used.
 
@@ -235,7 +294,8 @@ Supervisor.
 | Active (switch) | turns the connection on and off |
 
 A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
-time and the switch.
+time and the switch. An EnOcean gateway has: gateway reachable, clients, telegrams from the
+gateway, air time (share of the 1 % limit) and the switch.
 
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
 (`homeassistant`), base topic (`ser2net`) and the update interval are in **Settings → MQTT
@@ -252,6 +312,19 @@ too. At the start a file
 
 **Stop ha-modbusproxy first**: both apps listen on the host's network, so only one can have
 port 502. The clients (e.g. the Modbus integration) need no change when the ports stay.
+
+## Coming from the EnOcean Proxy app
+
+**Connections → Import / Export → Fetch from the EnOcean Proxy app** reads its options from
+Home Assistant. If that is not possible, copy its options (**Configuration** tab → ⋮ →
+**Edit in YAML**) and paste them there, or put them as `import/enocean_proxy.yaml` into the
+app's config folder. Each gateway becomes an EnOcean connection with the same port, protocol
+and baud rate; the old global options (pause, replay) go to every gateway, and only Home
+Assistant, the apps and the addresses allowed before may connect.
+
+**Stop the EnOcean Proxy app first**: both cannot open the same gateway. The EnOcean Eltako
+integration then gets the gateways announced again, finds each entry by its base ID and only
+changes the address: devices and entities stay.
 
 ## Taking over an existing configuration
 
@@ -320,6 +393,6 @@ to an issue as it is.
 | Path | Content |
 |---|---|
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
-| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
-| `/addon_configs/<…>_device_proxy/trace/` | recorded traces |
+| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`, `enocean_proxy.yaml`) |
+| `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`) |
 | app data (in the backup) | connections, settings, history, configuration versions |
