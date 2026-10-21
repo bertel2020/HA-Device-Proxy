@@ -1,6 +1,8 @@
 """Runs the Modbus proxy for a while under load against a device that misbehaves.
 
-    .venv/bin/python tools/soak_test.py [minutes] [link]     (default 10, tcp; or rtu_tcp)
+    .venv/bin/python tools/soak_test.py [minutes] [link]   (default 10, tcp; rtu_tcp or rtu)
+
+rtu runs over a pseudo terminal as the serial device (Linux, see tools/linux_check.py).
 
 The device answers after a random delay, sometimes not at all, sometimes late, now and then
 drops the connection or sends garbage. Clients poll in random patterns, write, ask the same
@@ -41,6 +43,50 @@ def open_files() -> int:
     return -1
 
 
+def reply(unit: int, pdu: bytes) -> bytes:
+    if pdu[0] in (5, 6):
+        return pdu  # a write is echoed
+    address, count = struct.unpack(">HH", pdu[1:5])
+    return bytes([pdu[0], count * 2]) + b"".join(
+        struct.pack(">H", (unit * 1000 + address + i) & 0xFFFF) for i in range(count)
+    )
+
+
+def serial_device(master: int) -> None:
+    """The device on the other end of a pseudo terminal: no answer, late, garbage, as below."""
+    loop = asyncio.get_running_loop()
+    buffer = bytearray()
+
+    def readable() -> None:
+        try:
+            buffer.extend(os.read(master, 4096))
+        except OSError:  # the proxy has the serial side closed right now
+            loop.remove_reader(master)
+            loop.call_later(0.1, loop.add_reader, master, readable)
+            return
+        while len(buffer) >= 8:  # every request here is 8 bytes
+            frame = bytes(buffer[:8])
+            del buffer[:8]
+            roll = RNG.random()
+            if roll < 0.04:
+                continue  # no answer
+            data = (
+                os.urandom(RNG.randint(1, 20))
+                if roll < 0.05
+                else rtu_frame(frame[0], reply(frame[0], frame[1:6]))
+            )
+            delay = RNG.uniform(0.002, 0.04) if roll > 0.06 else 0.5
+            loop.call_later(delay, write, data)
+
+    def write(data: bytes) -> None:
+        try:
+            os.write(master, data)
+        except OSError:
+            pass
+
+    loop.add_reader(master, readable)
+
+
 async def device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, rtu: bool) -> None:
     try:
         while True:
@@ -57,13 +103,7 @@ async def device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, rtu
             if roll < 0.04:
                 continue  # no answer
             await asyncio.sleep(RNG.uniform(0.002, 0.04) if roll > 0.06 else 0.5)  # or late
-            if pdu[0] in (5, 6):
-                body = pdu  # a write is echoed
-            else:
-                address, count = struct.unpack(">HH", pdu[1:5])
-                body = bytes([pdu[0], count * 2]) + b"".join(
-                    struct.pack(">H", (unit * 1000 + address + i) & 0xFFFF) for i in range(count)
-                )
+            body = reply(unit, pdu)
             if roll < 0.05:
                 writer.write(os.urandom(RNG.randint(1, 20)))  # garbage
             elif rtu:
@@ -127,12 +167,19 @@ async def client(port: int, stop: asyncio.Event, stats: dict[str, int]) -> None:
 async def main(minutes: float, link: str) -> int:
     rtu = link == "rtu_tcp"
     server = await asyncio.start_server(lambda r, w: device(r, w, rtu), "127.0.0.1", 0)
+    path = ""
+    if link == "rtu":
+        master, slave = os.openpty()
+        path = os.ttyname(slave)
+        os.close(slave)  # the proxy opens it, exclusively
+        serial_device(master)
     c = Connection(
         "Soak",
-        "",
+        path,
         0,
         kind="modbus",
         link=link,
+        baud=115200,
         host="127.0.0.1",
         host_port=server.sockets[0].getsockname()[1],
         bind="127.0.0.1",
@@ -141,7 +188,7 @@ async def main(minutes: float, link: str) -> int:
         retries=1,
         cache_ms=300,
         probe_seconds=5,
-        device_connections=1 if rtu else 2,
+        device_connections=2 if link == "tcp" else 1,
         write_access="listed",
         write_clients="127.0.0.1",
     )
