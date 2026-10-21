@@ -23,7 +23,6 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from . import diagnostics
 from .config import block, export
 from .controller import Controller, CustomError
-from .custom import check as check_custom
 from .importer import ReadError
 from .model import INGRESS_PORT, AppConfig, Connection, Settings, ValidationError, new_id
 from .notify import notify_services
@@ -75,6 +74,16 @@ def ok(data: Any = None, status: int = 200) -> Response:
 
 
 Handler = Callable[[Request], Awaitable[Response]]
+
+
+def _number(query: dict[str, str], name: str, default: Any, kind: Callable[[str], Any]) -> Any:
+    """A number from the query string; a bad one is the caller's mistake (400)."""
+    try:
+        return kind(query.get(name) or "") if query.get(name) else default
+    except ValueError:
+        raise HttpError(400, f"{name} must be a number") from None
+
+
 REASONS = {
     200: "OK",
     400: "Bad Request",
@@ -193,7 +202,12 @@ class WebServer:
             name, sep, value = line.partition(":")
             if sep:
                 headers[name.strip().lower()] = value.strip()
-        length = int(headers.get("content-length", "0") or 0)
+        try:
+            length = int(headers.get("content-length", "0") or 0)
+        except ValueError:
+            raise HttpError(400, "bad Content-Length") from None
+        if length < 0:
+            raise HttpError(400, "bad Content-Length")
         if length > MAX_BODY:
             raise HttpError(413, "body too large")
         body = await reader.readexactly(length) if length else b""
@@ -251,23 +265,23 @@ class WebServer:
         return ok(data)
 
     async def events(self, request: Request) -> Response:
-        after = int(request.query.get("after", "0") or 0)
+        after = _number(request.query, "after", 0, int)
         return ok([e.to_dict() for e in self.c.events.since(after)])
 
     async def history(self, request: Request) -> Response:
         events = self.c.events.history(
             connection=request.query.get("connection") or None,
-            since=float(request.query.get("since", "0") or 0),
-            limit=min(int(request.query.get("limit", "500") or 500), 5000),
+            since=_number(request.query, "since", 0.0, float),
+            limit=min(_number(request.query, "limit", 500, int), 5000),
         )
         return ok([e.to_dict() for e in events])
 
     async def stats(self, request: Request) -> Response:
-        days = min(max(int(request.query.get("days", "30") or 30), 1), 365)
+        days = min(max(_number(request.query, "days", 30, int), 1), 365)
         return ok({"days": days, "connections": self.c.events.stats(days)})
 
     async def live(self, request: Request) -> Response:
-        after = int(request.query.get("after", "0") or 0)
+        after = _number(request.query, "after", 0, int)
         chunks = [ch.to_dict() for ch in self.c.live(request.params["id"], limit=400)]
         return ok([ch for ch in chunks if int(str(ch["seq"])) > after])
 
@@ -403,13 +417,13 @@ class WebServer:
         return ok(
             {
                 "text": text,
-                "check": asdict(check_custom(text)),
+                "check": asdict(self.c.check_custom(text)),
                 "exists": self.c.custom_file.exists(),
             }
         )
 
     async def check_custom(self, request: Request) -> Response:
-        return ok(asdict(check_custom(str(request.json().get("text", "")))))
+        return ok(asdict(self.c.check_custom(str(request.json().get("text", "")))))
 
     async def put_custom(self, request: Request) -> Response:
         data = request.json()
@@ -515,7 +529,7 @@ class WebServer:
             200,
             data,
             "application/zip",
-            {"Content-Disposition": f'attachment; filename="ser2net-diagnostics-{stamp}.zip"'},
+            {"Content-Disposition": f'attachment; filename="device-proxy-diagnostics-{stamp}.zip"'},
         )
 
     async def delete_trace(self, request: Request) -> Response:

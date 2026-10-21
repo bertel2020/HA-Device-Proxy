@@ -108,7 +108,7 @@ class Store:
             os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
         os.replace(tmp, self.path)
         items = changes(old, new)
-        if self.db is not None:
+        if self.db is not None and items:  # saving without a change is no new version
             self.db.execute(
                 "INSERT INTO config_versions (ts, source, summary, changes, config)"
                 " VALUES (?, ?, ?, ?, ?)",

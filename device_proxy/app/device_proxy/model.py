@@ -24,7 +24,7 @@ MODES = ("raw", "rfc2217", "telnet")
 PARITIES = ("n", "e", "o", "m", "s")
 LINE_STATES = ("", "on", "off")
 TRACE_MODES = ("off", "rx", "tx", "both")
-LISTEN = ("local", "lan", "all")
+LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
 TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus")
 KINDS = ("serial", "modbus")  # shared by ser2net, or by the app's Modbus proxy (modbus.py)
@@ -41,6 +41,8 @@ PRIVATE_NETWORKS = (
     "fc00::/7",
     "fe80::/10",
 )
+# Home Assistant itself and the other apps (the Supervisor's network)
+APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23")
 # options the forms set; "weitere Optionen" may not set them a second time
 MANAGED_OPTIONS = {
     "max-connections",
@@ -287,6 +289,8 @@ class Connection:
             e["probe_seconds"] = "0 or 5 to 3600 seconds"
         if not 0 <= self.probe_unit <= 255:
             e["probe_unit"] = "0 to 255"
+        elif self.probe_unit == 0 and self.link != "tcp":
+            e["probe_unit"] = "not 0 on RTU: a broadcast, nothing answers it"
         if self.probe_function not in (3, 4):
             e["probe_function"] = "3 or 4"
         if not 0 <= self.probe_address <= 65535:
@@ -475,8 +479,11 @@ def client_allowed(remaddr: str, listen: str, address: str) -> bool:
     """May a client from this address connect (remaddr, else the global listen setting)?"""
     if remaddr:
         networks = parse_networks(remaddr)
-    elif listen == "lan":
-        networks = [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+    elif listen in ("apps", "lan"):
+        networks = [
+            ipaddress.ip_network(n)
+            for n in (APPS_NETWORKS if listen == "apps" else PRIVATE_NETWORKS)
+        ]
     else:
         return True
     try:

@@ -45,6 +45,9 @@ EXC_PATH = 0x0A  # gateway path unavailable
 EXC_TARGET = 0x0B  # gateway target device failed to respond
 LISTEN_RETRY = 10  # seconds between attempts to open the port
 LINK_RETRY = 30  # seconds between attempts to reach a device that is not reachable
+FAIL_FAST = (
+    10  # s a device that could not be connected is not tried again; clients get 0x0A at once
+)
 SERIAL_RETRY = 5  # seconds between attempts to open a missing serial device
 DOWN_AFTER = 3  # requests in a row without an answer: the device counts as not reachable
 QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
@@ -640,6 +643,7 @@ class ModbusProxy:
         self.reachable_since = time.time()
         self._failures = 0  # requests in a row without an answer
         self._down_on_connect = False  # not reachable because connecting failed
+        self._connect_failed_at = float("-inf")  # loop time of the last failed attempt
 
         self._server: asyncio.Server | None = None
         self._workers: list[asyncio.Task[None]] = []
@@ -765,6 +769,8 @@ class ModbusProxy:
     def _down(self, error: str, *, connect: bool = False) -> None:
         self.stats.last_error, self.stats.last_error_at = error, time.time()
         self._down_on_connect = connect
+        if connect:
+            self._connect_failed_at = asyncio.get_running_loop().time()
         if self.reachable is not False:
             self.reachable, self.reachable_since = False, time.time()
             self.on_event("warning", "modbus_down", target=self.c.upstream, error=error)
@@ -864,6 +870,16 @@ class ModbusProxy:
         code = EXC_TARGET
         trace = self._trace(client.address)
         error = ""
+        if (
+            not path.link.is_open
+            and self._down_on_connect
+            and not (probe or tool)
+            and loop.time() - self._connect_failed_at < FAIL_FAST
+        ):  # the device was just tried: do not make the client wait for it again
+            stats.failed += 1
+            client.failed += 1
+            per_unit.failed += 1
+            return exception(pdu, EXC_PATH)
         for _ in range(1 + retries):
             if not path.link.is_open:
                 try:
@@ -871,7 +887,7 @@ class ModbusProxy:
                 except (OSError, TimeoutError) as err:
                     self._down(_text(err), connect=True)
                     code = EXC_PATH
-                    continue
+                    break  # connecting again at once would only make the client wait longer
             started, error = loop.time(), ""
             try:
                 answer = await path.framer.exchange(unit, pdu, timeout, trace, settle)

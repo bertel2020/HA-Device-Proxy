@@ -1,23 +1,16 @@
 import { css } from "lit";
 
-// One look for all pages: the mockup's light theme, and a dark one when the system asks for it.
+// One look for all pages: the mockup's light theme, and a dark one (light-dark(); html's color-scheme is set from the Home Assistant theme, else the system's).
 export const tokens = css`
   :host {
-    --bg: #f3f4f6; --surface: #ffffff; --surface-2: #f5f7f9; --line: #e1e5ea; --line-2: #eef0f3;
-    --text: #1b1f24; --muted: #5b6270; --accent: #0a6aa8; --accent-hover: #07507f; --accent-soft: #eaf3fa;
-    --ok: #1e6b34; --ok-soft: #e6f4ea; --warn: #8a4b00; --warn-soft: #fff1de; --warn-line: #f3d19e;
-    --bad: #a1261b; --bad-soft: #fdecea; --bad-line: #f2b8b5; --neutral-soft: #eef1f4; --neutral: #3a414c;
-    --code-bg: #14181d; --code-text: #d7dee6; --focus: #7db8e0; --input-line: #c3cbd5; --on-accent: #ffffff;
+    --bg: light-dark(#f3f4f6, #111418); --surface: light-dark(#ffffff, #1b1f24); --surface-2: light-dark(#f5f7f9, #22272e); --line: light-dark(#e1e5ea, #2d333b);
+    --line-2: light-dark(#eef0f3, #262c33); --text: light-dark(#1b1f24, #e6e9ed); --muted: light-dark(#5b6270, #9aa4b1); --accent: light-dark(#0a6aa8, #5bb2ea);
+    --accent-hover: light-dark(#07507f, #8ccaf2); --accent-soft: light-dark(#eaf3fa, #16324a); --ok: light-dark(#1e6b34, #7fd49a); --ok-soft: light-dark(#e6f4ea, #173a24);
+    --warn: light-dark(#8a4b00, #f2c27a); --warn-soft: light-dark(#fff1de, #3a2a12); --warn-line: light-dark(#f3d19e, #6b4a1c); --bad: light-dark(#a1261b, #f2a29a);
+    --bad-soft: light-dark(#fdecea, #3d1c19); --bad-line: light-dark(#f2b8b5, #6e2f2a); --neutral-soft: light-dark(#eef1f4, #2a3038); --neutral: light-dark(#3a414c, #c5ccd5);
+    --code-bg: light-dark(#14181d, #0b0e11); --code-text: #d7dee6; --focus: #7db8e0; --input-line: light-dark(#c3cbd5, #3a424c);
+    --on-accent: light-dark(#ffffff, #0b1a26);
     color: var(--text); font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; font-size: 14px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :host {
-      --bg: #111418; --surface: #1b1f24; --surface-2: #22272e; --line: #2d333b; --line-2: #262c33;
-      --text: #e6e9ed; --muted: #9aa4b1; --accent: #5bb2ea; --accent-hover: #8ccaf2; --accent-soft: #16324a;
-      --ok: #7fd49a; --ok-soft: #173a24; --warn: #f2c27a; --warn-soft: #3a2a12; --warn-line: #6b4a1c;
-      --bad: #f2a29a; --bad-soft: #3d1c19; --bad-line: #6e2f2a; --neutral-soft: #2a3038; --neutral: #c5ccd5;
-      --code-bg: #0b0e11; --input-line: #3a424c; --on-accent: #0b1a26;
-    }
   }
 `;
 

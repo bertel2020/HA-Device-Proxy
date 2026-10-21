@@ -1,7 +1,8 @@
 """A ZIP for bug reports: versions, configuration, status, devices, recent events.
 
 IP addresses are replaced (of clients and the host; only the default private ranges and
-loopback stay), and clients are counted, not listed, so the file can be attached to an issue.
+loopback stay), host names of Modbus devices and the notify service are replaced, and
+clients are counted, not listed, so the file can be attached to an issue.
 """
 
 from __future__ import annotations
@@ -43,6 +44,19 @@ def redact(value: Any) -> Any:
     return value
 
 
+def private_names(config: dict[str, Any]) -> dict[str, str]:
+    """Host names of Modbus devices and the notify service → what stands in the file."""
+    names: dict[str, str] = {}
+    for c in config.get("connections", []):
+        host = str(c.get("host") or "")
+        if host and not re.fullmatch(r"[0-9A-Fa-f:.\[\]]+", host):  # not an address
+            names.setdefault(host, f"host-{len(names) + 1}")
+    service = str((config.get("settings") or {}).get("notify_service") or "")
+    if service:
+        names[service] = "notify-service"
+    return names
+
+
 def build(
     *,
     version: str,
@@ -72,11 +86,17 @@ def build(
         "config.json": config,
         "events.json": events,
     }
+    names = private_names(config)
+
+    def clean(text: str) -> str:
+        for private in sorted(names, key=len, reverse=True):
+            text = re.sub(rf"(?<![\w.-]){re.escape(private)}(?![\w-])", names[private], text)
+        return text
+
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, data in files.items():
-            archive.writestr(
-                name, json.dumps(redact(data), ensure_ascii=False, indent=1, default=str)
-            )
-        archive.writestr("ser2net.yaml", redact(runtime_yaml))
+            text = json.dumps(redact(data), ensure_ascii=False, indent=1, default=str)
+            archive.writestr(name, clean(text))
+        archive.writestr("ser2net.yaml", clean(redact(runtime_yaml)))
     return buffer.getvalue()

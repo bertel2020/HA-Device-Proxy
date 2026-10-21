@@ -305,3 +305,36 @@ def test_an_unusual_baud_rate_is_an_error_not_a_crash() -> None:
         configure(0, 12345, 8, "n", 1)
     with pytest.raises(OSError, match="parity"):
         configure(0, 9600, 8, "m", 1)
+
+
+async def test_clients_get_an_answer_at_once_while_the_device_is_not_reachable() -> None:
+    probe = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
+    closed_port = probe.sockets[0].getsockname()[1]
+    probe.close()
+    await probe.wait_closed()  # nothing listens here now
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        retries=3,
+        host_port=closed_port,
+        request_timeout_ms=100,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    for _ in range(3):  # the first request finds out, the others are turned away at once
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(struct.pack(">HHHBBHH", 1, 0, 6, 1, 3, 0, 1))
+        assert await asyncio.wait_for(reader.readexactly(9), 2) == struct.pack(
+            ">HHHB", 1, 0, 3, 1
+        ) + bytes([0x83, 0x0A])
+        writer.close()
+    assert proxy.reachable is False and proxy.stats.failed == 3
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)

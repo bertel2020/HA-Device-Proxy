@@ -62,7 +62,7 @@ export class DetailPage extends Page {
   }
 
   async _poll() {
-    if (this.paused || !this.connectionId) return;
+    if (this.paused || !this.connectionId || document.hidden) return;
     try {
       const fresh = await api(`api/live/${this.connectionId}?after=${this._after}`);
       if (fresh.length) {

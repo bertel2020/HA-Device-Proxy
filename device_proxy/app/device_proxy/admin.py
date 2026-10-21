@@ -212,6 +212,8 @@ class AdminClient:
             try:
                 response = await asyncio.wait_for(future, timeout)
             except TimeoutError:
+                if self._writer is not None:  # a late answer would pass for the next one's
+                    self._writer.close()
                 raise AdminError(f"no answer to {line.split()[0]!r}") from None
         error = get(response, "error")
         if error is not None and error != "reload done":

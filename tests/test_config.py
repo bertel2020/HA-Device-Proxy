@@ -129,3 +129,24 @@ def test_a_damaged_config_file_falls_back_to_the_latest_version(tmp_path: Path) 
     (tmp_path / "c.json").unlink()
     assert store.load() == config
     assert Store(None, tmp_path / "none.json").load() == AppConfig()
+
+
+def test_listen_apps_limits_clients_to_home_assistant_and_the_apps() -> None:
+    from device_proxy.model import client_allowed
+
+    assert client_allowed("", "apps", "127.0.0.1")
+    assert client_allowed("", "apps", "172.30.33.2")
+    assert client_allowed("", "apps", "::ffff:172.30.32.1")
+    assert not client_allowed("", "apps", "192.168.1.20")
+    assert client_allowed("", "lan", "192.168.1.20")
+
+
+def test_saving_without_a_change_makes_no_new_version(tmp_path: Path) -> None:
+    from device_proxy.db import Database
+    from device_proxy.store import Store
+
+    store = Store(Database(tmp_path / "h.db"), tmp_path / "c.json")
+    config = AppConfig(connections=(Connection("a", "/dev/null", 3335, id="0000000a"),))
+    store.save(AppConfig(), config, "test")
+    store.save(config, config, "ui")
+    assert len(store.versions()) == 1

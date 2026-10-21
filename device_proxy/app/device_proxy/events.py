@@ -13,7 +13,7 @@ import json
 import logging
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -224,7 +224,12 @@ class EventLog:
             )
 
     def history(
-        self, *, connection: str | None = None, since: float = 0, limit: int = 500
+        self,
+        *,
+        connection: str | None = None,
+        since: float = 0,
+        limit: int = 500,
+        kinds: Collection[str] | None = None,
     ) -> list[Event]:
         if self.db is None:
             return []
@@ -235,6 +240,9 @@ class EventLog:
         if connection is not None:
             sql += " AND connection = ?"
             args.append(connection)
+        if kinds is not None:
+            sql += f" AND kind IN ({', '.join('?' * len(kinds))})"
+            args.extend(kinds)
         sql += " ORDER BY ts DESC, id DESC LIMIT ?"
         args.append(limit)
         events = []
@@ -256,7 +264,7 @@ class EventLog:
         start = now - days * 86400
         result: dict[str, dict[str, Any]] = {}
         missing_since: dict[str, float] = {}
-        for e in reversed(self.history(since=start - 86400 * 365, limit=100000)):
+        for e in reversed(self.history(since=start - 86400 * 365, limit=100000, kinds=GONE | BACK)):
             if e.connection is None or e.kind not in GONE | BACK:
                 continue
             entry = result.setdefault(

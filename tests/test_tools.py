@@ -48,8 +48,9 @@ def test_notifications_wait_and_go_away(tmp_path: Path, monkeypatch: Any) -> Non
     notifier = Notifier(clock=lambda: now[0])
     notifier.available = True
 
-    async def fake_call(path: str, data: dict[str, Any]) -> None:
+    async def fake_call(path: str, data: dict[str, Any]) -> bool:
         sent.append((path, data))
+        return True
 
     monkeypatch.setattr(notifier, "_send", fake_call)
 
@@ -76,3 +77,67 @@ def test_diagnostics_hide_addresses() -> None:
         "client": "x.x.x.x:50114",
         "v6": "x:x::x",
     }
+
+
+def test_diagnostics_hide_host_names_and_the_notify_service() -> None:
+    import io
+    import zipfile
+
+    from device_proxy.diagnostics import build
+
+    config = {
+        "settings": {"notify_service": "mobile_app_anna"},
+        "connections": [{"kind": "modbus", "host": "wechselrichter.fritz.box", "name": "WR"}],
+    }
+    data = build(
+        version="1",
+        ser2net_version="4",
+        snapshot={"connections": [{"upstream": "wechselrichter.fritz.box:502", "clients": []}]},
+        config=config,
+        runtime_yaml="",
+        events=[{"message": "mobile_app_anna told"}],
+    )
+    text = "".join(
+        zipfile.ZipFile(io.BytesIO(data)).read(n).decode()
+        for n in zipfile.ZipFile(io.BytesIO(data)).namelist()
+    )
+    assert "wechselrichter" not in text and "anna" not in text
+    assert "host-1:502" in text and "notify-service" in text
+
+
+def test_notifications_update_retry_and_follow_the_language() -> None:
+    from device_proxy.notify import RETRY_AFTER
+
+    sent: list[tuple[str, dict[str, Any]]] = []
+    now = [1000.0]
+    notifier = Notifier(clock=lambda: now[0])
+    notifier.available = True
+    ok = [False]
+
+    async def fake(path: str, data: dict[str, Any]) -> bool:
+        sent.append((path, data))
+        return ok[0]
+
+    notifier._send = fake  # type: ignore[method-assign]
+
+    async def run() -> None:
+        now[0] += 90
+        kwargs: dict[str, Any] = {"grace": 0, "dismiss": True, "service": "phone"}
+        await notifier.update({"k": ("T", "one")}, **kwargs)
+        assert len(sent) == 1  # failed
+        await notifier.update({"k": ("T", "one")}, **kwargs)
+        assert len(sent) == 1  # not again at once
+        now[0] += RETRY_AFTER
+        ok[0] = True
+        await notifier.update({"k": ("T", "one")}, **kwargs)
+        assert [p for p, _ in sent[1:]] == [
+            "services/persistent_notification/create",
+            "services/notify/phone",
+        ]
+        await notifier.update({"k": ("T", "two")}, **kwargs)
+        assert sent[-1][0] == "services/persistent_notification/create"
+        assert sent[-1][1]["message"] == "two"
+        await notifier.update({}, **kwargs, resolved_message=True, language="en")
+        assert sent[-1][1]["message"] == "OK again"
+
+    asyncio.run(run())

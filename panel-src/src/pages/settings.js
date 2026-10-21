@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
-import { changesText, lang, noteText, t } from "../i18n.js";
+import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { confirmDialog, fmtTime } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
@@ -67,7 +67,7 @@ export class SettingsPage extends Page {
       this.refresh();
       this._loadVersions();
     } catch (err) {
-      this.toast(err.data.errors ? Object.values(err.data.errors).join("; ") : `${t("error")}: ${err.message}`);
+      this.toast(err.data.errors ? Object.values(err.data.errors).map(fieldError).join("; ") : `${t("error")}: ${err.message}`);
     }
   }
 
@@ -139,7 +139,7 @@ export class SettingsPage extends Page {
       <div class="content">
         <section id="net" class="card" aria-labelledby="t-net">
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
-          <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
+          <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
             <b style="font-weight:500">${t(`net_${v}`)}</b><span class="hint">${t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}

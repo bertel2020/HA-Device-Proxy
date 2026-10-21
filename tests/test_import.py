@@ -188,3 +188,24 @@ def test_modbus_proxy_file_yaml_and_toml() -> None:
         c = item.connection
         assert c and (c.host, c.host_port, c.port, c.bind) == ("plc1.acme.org", 502, 5020, "")
         assert (c.request_timeout_ms, c.unit_map) == (2000, "1=0")
+
+
+def test_next_free_port_skips_the_reserved_one_and_the_end_of_the_range() -> None:
+    from device_proxy.model import INGRESS_PORT
+
+    text = "connection: &a\n  accepter: tcp,%d\n  connector: serialdev,/dev/ttyUSB0,9600n81\n"
+    current = AppConfig(
+        connections=(Connection("x", "/dev/ttyX", INGRESS_PORT - 1, id="0000000a"),)
+    )
+    result = read(text % (INGRESS_PORT - 1))
+    alias = result.items[0].alias
+    merged = merge(
+        current, result, replace_all=False, take={alias}, on_conflict={alias: "new_port"}
+    )
+    assert INGRESS_PORT not in {c.port for c in merged.connections}
+    assert len(merged.connections) == 2
+    top = AppConfig(connections=(Connection("x", "/dev/ttyX", 65535, id="0000000a"),))
+    result = read(text % 65535)
+    alias = result.items[0].alias
+    merged = merge(top, result, replace_all=False, take={alias}, on_conflict={alias: "new_port"})
+    assert len(merged.connections) == 1  # skipped, not an error

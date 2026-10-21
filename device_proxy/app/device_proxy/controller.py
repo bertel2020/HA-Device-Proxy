@@ -361,9 +361,13 @@ class Controller:
                 self.events.emit("info", "config_changed", summary=summary(items), changes=items)
             return ApplyResult(items, names, disconnected)
 
+    def check_custom(self, text: str) -> custom.CustomCheck:
+        """The file as it is, and the ports the app's Modbus proxies hold already."""
+        return custom.check(text, {c.port: c.name for c in self.config.modbus if c.enabled})
+
     async def save_custom(self, text: str, *, use: bool) -> ApplyResult:
         """Save the user's own ser2net.yaml; with use=True switch to it."""
-        check = custom.check(text)
+        check = self.check_custom(text)
         if not check.ok:
             raise CustomError(check)
         self.custom_file.parent.mkdir(parents=True, exist_ok=True)
@@ -806,6 +810,7 @@ class Controller:
             dismiss=settings.notify_dismiss,
             service=settings.notify_service,
             resolved_message=settings.notify_resolved,
+            language=settings.notify_language,
         )
 
     # tools

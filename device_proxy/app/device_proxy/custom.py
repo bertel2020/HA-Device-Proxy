@@ -39,7 +39,8 @@ def _port(accepter: str) -> int | None:
     return int(numbers[-1]) if numbers else None
 
 
-def check(text: str) -> CustomCheck:
+def check(text: str, taken: dict[int, str] | None = None) -> CustomCheck:
+    """taken: ports the app's Modbus proxies hold → their names."""
     result = CustomCheck()
     if looks_legacy(text):
         result.errors.append({"code": "legacy_format"})  # ser2net 4 reads YAML only
@@ -61,6 +62,10 @@ def check(text: str) -> CustomCheck:
             result.errors.append({"code": "port_twice", "port": port, "names": [seen[port], alias]})
         if port is not None and port in RESERVED_PORTS:
             result.errors.append({"code": "port_reserved", "port": port, "name": alias})
+        if port is not None and taken and port in taken:
+            result.errors.append(
+                {"code": "port_modbus", "port": port, "name": alias, "modbus": taken[port]}
+            )
         if port is not None:
             seen.setdefault(port, alias)
         enabled = definition.get("enable", "on").lower() not in ("off", "false", "0")

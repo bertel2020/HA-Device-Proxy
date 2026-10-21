@@ -23,6 +23,7 @@ from . import legacy
 from .model import (
     MANAGED_OPTIONS,
     OPTION_KEY,
+    RESERVED_PORTS,
     AppConfig,
     Connection,
     ValidationError,
@@ -469,10 +470,12 @@ def merge(
         if choice == "new_port":
             if set(found) - {"port", "name"}:
                 continue  # a device can serve one connection only
-            used = {x.port for x in connections}
+            used = {x.port for x in connections} | RESERVED_PORTS.keys()
             port = c.port
             while port in used:
                 port += 1
+            if port > 65535:
+                continue  # no free port above: skipped, the rest of the import still goes
             c = replace(c, port=port)
         elif choice == "replace":
             gone = [

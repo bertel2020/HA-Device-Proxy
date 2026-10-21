@@ -12,7 +12,14 @@ import re
 import time
 import unicodedata
 
-from .model import ADMIN_SOCKET, PRIVATE_NETWORKS, AppConfig, Connection, parse_networks
+from .model import (
+    ADMIN_SOCKET,
+    APPS_NETWORKS,
+    PRIVATE_NETWORKS,
+    AppConfig,
+    Connection,
+    parse_networks,
+)
 from .trace import trace_path
 
 HEADER = "# Written by the Device Proxy app. Changes here are overwritten on the next save."
@@ -64,8 +71,8 @@ def remaddr(c: Connection, listen: str) -> str:
         networks = [str(n) for n in parse_networks(c.remaddr)]
         if c.keep_open and not any(n.startswith("127.") for n in networks):
             networks.append("127.0.0.1/32")  # the app's own client
-    elif listen == "lan":
-        networks = list(PRIVATE_NETWORKS)
+    elif listen in ("apps", "lan"):
+        networks = list(APPS_NETWORKS if listen == "apps" else PRIVATE_NETWORKS)
     else:
         return ""  # "local" is limited by the bind address, "all" has no limit
     return ";".join(f"{n},0" for n in networks)

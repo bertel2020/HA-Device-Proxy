@@ -44,7 +44,7 @@ export class TracePage extends Page {
   }
 
   async _poll() {
-    if (this.paused || !this.selected) return;
+    if (this.paused || !this.selected || document.hidden) return;
     try {
       const fresh = await api(`api/live/${this.selected}?after=${this._after}`);
       if (fresh.length) { this._after = fresh[fresh.length - 1].seq; this.chunks = [...this.chunks, ...fresh].slice(-400); }

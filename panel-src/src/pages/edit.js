@@ -18,10 +18,12 @@ const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 1
   write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
 
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
+// the Z-Wave stick has no login and takes commands: by default only Home Assistant and the other apps
+const ZWAVE_CLIENTS = "127.0.0.1, 172.30.32.0/23";
 const TEMPLATES = {
   ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
   ehz_d0: { baud: 9600, data_bits: 7, parity: "e", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
-  zwave: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 2, chardelay: false, nodelay: true },
+  zwave: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 2, chardelay: false, nodelay: true, remaddr: ZWAVE_CLIENTS },
   generic: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: true, nodelay: false },
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
@@ -310,7 +312,7 @@ export class EditPage extends Page {
         <section class="card" aria-labelledby="t-tpl">
           <div><h2 id="t-tpl">${t("template")}</h2><p class="hint" style="margin-top:4px">${t("templateSub")}</p></div>
           <div class="choices">${Object.keys(TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
-            @click=${() => this._set({ template: k, ...TEMPLATES[k] })}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
+            @click=${() => this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) })}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
         </section>
 
         <section class="card" aria-labelledby="t-base">

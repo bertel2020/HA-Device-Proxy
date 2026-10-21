@@ -1,9 +1,10 @@
 // The page frame: header with the sections, the router (#/…), and the app state every page reads.
-// The state is polled every 2 s; events since the last seen one come with it.
+// The state is polled every 2 s while the page is visible; events since the last seen one come with it.
 import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
+import { applyTheme } from "./theme.js";
 import { connectionState, logo } from "./ui.js";
 
 const POLL_MS = 2000;
@@ -55,12 +56,16 @@ export class DeviceProxyApp extends LitElement {
     document.documentElement.lang = lang;
     this._loadHistory();
     this.refresh();
-    this._timer = setInterval(() => this.refresh(), POLL_MS);
+    this._onVisible = () => { if (!document.hidden) { applyTheme(); this.refresh(); } };
+    document.addEventListener("visibilitychange", this._onVisible);
+    applyTheme();
+    this._timer = setInterval(() => { if (!document.hidden) { applyTheme(); this.refresh(); } }, POLL_MS);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("hashchange", this._onHash);
+    document.removeEventListener("visibilitychange", this._onVisible);
     clearInterval(this._timer);
   }
 
