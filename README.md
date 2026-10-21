@@ -26,7 +26,7 @@
 
 Device Proxy is a Home Assistant app (formerly add-on) that makes a device usable by several programs at once. Serial and USB devices (smart meter reading heads, Z-Wave or Zigbee sticks, RS232 devices) are shared over TCP with [ser2net 4](https://github.com/cminyard/ser2net). Modbus devices (Modbus TCP, Modbus RTU on RS485, RTU over TCP) are shared with several Modbus TCP clients through the app's own Modbus proxy. EnOcean gateways (FAM-USB, FAM14, USB300, MGW-ETH …) are shared through its own EnOcean proxy, with replay for Home Assistant restarts.
 
-Everything is set up in a web interface in the sidebar: no YAML, no command line. Status, live data, traces and events show what is happening on the line.
+Everything is set up in a web interface in the sidebar: no YAML, no command line. The app's **Configuration** tab in the Supervisor stays empty on purpose; everything is in the sidebar entry **Device Proxy**. Status, live data, traces and events show what is happening on the line.
 
 > Work in progress, not tested on Home Assistant yet. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
 

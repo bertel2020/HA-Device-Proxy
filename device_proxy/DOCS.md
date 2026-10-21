@@ -13,7 +13,8 @@ The app shares devices with several programs at once:
   ha-modbusproxy app, plus Modbus RTU (see [Modbus devices](#modbus-devices)).
 
 Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
-of its own.
+of its own, so its **Configuration** tab in the Supervisor is empty on purpose: open **Device Proxy**
+in the sidebar instead.
 
 ## Getting started
 
