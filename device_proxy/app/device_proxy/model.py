@@ -128,6 +128,7 @@ class Connection:
     request_gap_ms: int = 0  # extra pause between two requests
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
+    cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
 
     @property
     def uses_device(self) -> bool:
@@ -266,6 +267,8 @@ class Connection:
             e["retries"] = "0 to 5"
         if not 0 <= self.request_gap_ms <= 10000:
             e["request_gap_ms"] = "0 to 10000 ms"
+        if not 0 <= self.cache_ms <= 60000:
+            e["cache_ms"] = "0 to 60000 ms"
         if self.write_access not in WRITE_ACCESS:
             e["write_access"] = f"one of {', '.join(WRITE_ACCESS)}"
         elif self.write_access == "listed":

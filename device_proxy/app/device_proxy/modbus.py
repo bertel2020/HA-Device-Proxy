@@ -50,6 +50,8 @@ QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
 BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
 # functions that change the device; 8 (diagnostics) only with a sub-function other than 0
 WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
+READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
+CACHE_SIZE = 2000  # answers kept at most
 
 FUNCTIONS = {
     1: "read coils",
@@ -425,6 +427,7 @@ class Stats:
     errors: int = 0  # broken answers and lost connections
     failed: int = 0  # requests the clients got 0x0A / 0x0B for
     blocked: int = 0  # writes refused by the write protection
+    cached: int = 0  # reads answered from the cache or together with the same request
     bytes_to_device: int = 0
     bytes_from_device: int = 0
     time_avg: float = 0.0  # seconds, moving average
@@ -461,6 +464,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         remaddr=f"{c.remaddr}|{listen}",
         write_access="all",
         write_clients="",
+        cache_ms=0,
     )
 
 
@@ -494,6 +498,8 @@ class ModbusProxy:
         self._server: asyncio.Server | None = None
         self._lock = asyncio.Lock()
         self._last_request = 0.0
+        self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
+        self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
 
     # running
 
@@ -582,7 +588,50 @@ class ModbusProxy:
         return write
 
     async def request(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
-        """The device's answer (PDU) to a request; None for a broadcast."""
+        """The device's answer (PDU) to a request; None for a broadcast.
+
+        With the cache on, a read is answered from an answer to the same read that is at
+        most cache_ms old, and the same read while one is on its way waits for that one.
+        A write empties the cache."""
+        if not (self.c.cache_ms and pdu and pdu[0] in READ_FUNCTIONS):
+            answer = await self._queued(unit, pdu, client)
+            if self._cache and is_write(pdu):
+                self._cache.clear()
+            return answer
+        key = (unit, pdu)
+        now = asyncio.get_running_loop().time()
+        hit = self._cache.get(key)
+        if hit is not None and now - hit[0] <= self.c.cache_ms / 1000:
+            self.stats.cached += 1
+            client.requests += 1
+            return hit[1]
+        pending = self._inflight.get(key)
+        if pending is not None:
+            try:
+                answer = await asyncio.shield(pending)
+            except asyncio.CancelledError:
+                if not pending.cancelled():
+                    raise  # this client went away
+            else:
+                self.stats.cached += 1
+                client.requests += 1
+                return answer
+        future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
+        self._inflight[key] = future
+        try:
+            answer = await self._queued(unit, pdu, client)
+            future.set_result(answer)
+        finally:
+            if not future.done():
+                future.cancel()
+            self._inflight.pop(key, None)
+        if answer and not answer[0] & 0x80:
+            if len(self._cache) >= CACHE_SIZE:
+                self._cache.clear()
+            self._cache[key] = (asyncio.get_running_loop().time(), answer)
+        return answer
+
+    async def _queued(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
         self.stats.queue += 1
         self.stats.queue_max = max(self.stats.queue_max, self.stats.queue)
         queued = True
@@ -742,6 +791,7 @@ class ModbusProxy:
             "errors": s.errors,
             "failed": s.failed,
             "blocked": s.blocked,
+            "cached": s.cached,
             "time_avg_ms": round(s.time_avg * 1000, 1),
             "time_max_ms": round(s.time_max * 1000, 1),
             "queue": s.queue,

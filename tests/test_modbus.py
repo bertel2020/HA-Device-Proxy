@@ -129,3 +129,30 @@ async def test_writes_are_refused_without_write_access() -> None:
     assert proxy.stats.blocked == 1 and proxy.stats.requests == 0
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_cache_answers_the_same_read_once() -> None:
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        max_clients=10,
+        host_port=device.sockets[0].getsockname()[1],
+        cache_ms=1000,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    answers = await asyncio.gather(*(_read(port, n, 1, 4) for n in range(5)))  # at once
+    answers.append(await _read(port, 9, 1, 4))  # a moment later
+    assert len(set(answers)) == 1
+    assert proxy.stats.requests == 1 and proxy.stats.cached == 5
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()

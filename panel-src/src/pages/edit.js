@@ -11,7 +11,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "",
+  write_access: "all", write_clients: "", cache_ms: 0,
 };
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
@@ -205,6 +205,8 @@ export class EditPage extends Page {
           ${this._input("retries", t("mbRetries"), { number: true })}
           ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
           ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
+          ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
+
         </div>
       </section>
 

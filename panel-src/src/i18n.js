@@ -130,7 +130,8 @@ const TEXT = {
     wasub_all: "Lesen und Schreiben für jeden Client, wie bei ha-modbusproxy.", wasub_listed: "Lesen für alle, schreiben nur für die genannten Adressen.",
     wasub_none: "Nur lesen. Schreibbefehle bekommen die Ausnahme 0x01 (unzulässige Funktion).",
     mbWriteClients: "Dürfen schreiben", mbWriteClientsHint: "Adressen oder Netze. Home Assistant: 127.0.0.1, andere Apps: 172.30.32.0/23.",
-    mbBlocked: "abgewiesen",
+    mbBlocked: "abgewiesen", mbCached: "aus Zwischenspeicher", mbCacheShort: "Zwischenspeicher",
+    mbCache: "Lesewerte zwischenspeichern (ms, 0 = aus)", mbCacheHint: "Gleiche Leseanfragen mehrerer Clients innerhalb dieser Zeit fragen das Gerät nur einmal. Schreiben leert den Speicher.",
     mbTime: "Antwortzeit Ø / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Letzte Antwort", mbListenError: "Port kann nicht geöffnet werden: {e}", mbLastError: "Letzter Fehler",
     // generic
     error: "Fehler", loading: "Lädt …", confirm: "Bestätigen", yes: "Ja", no: "Nein", close: "Schließen", language: "Sprache",
@@ -256,7 +257,9 @@ const TEXT = {
     wasub_all: "Read and write for every client, as with ha-modbusproxy.", wasub_listed: "Read for all, write only for the addresses given.",
     wasub_none: "Read only. Writes get exception 0x01 (illegal function).",
     mbWriteClients: "May write", mbWriteClientsHint: "Addresses or networks. Home Assistant: 127.0.0.1, other apps: 172.30.32.0/23.",
-    mbBlocked: "refused",
+    mbBlocked: "refused", mbCached: "from cache", mbCacheShort: "Cache",
+    mbCache: "Cache reads (ms, 0 = off)", mbCacheHint: "The same read from several clients within this time asks the device once. A write empties the cache.",
+
     mbTime: "Answer time avg / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Last answer", mbListenError: "Port cannot be opened: {e}", mbLastError: "Last error",
     error: "Error", loading: "Loading …", confirm: "Confirm", yes: "Yes", no: "No", close: "Close", language: "Language",
     connectionLost: "No connection to the app – showing the last state.",

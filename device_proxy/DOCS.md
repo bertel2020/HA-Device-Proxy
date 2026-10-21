@@ -102,7 +102,13 @@ devices. Under **Advanced**: disconnect idle clients, replace the oldest client 
 places are taken, allowed clients and a bind address – the network setting applies as for
 serial devices.
 
-**Write access**: Modbus has no login – whoever reaches the port could change registers. Per
+**Cache**: when several clients read the same registers (Home Assistant, evcc, a SolarEdge
+integration …), a cache time of e.g. 500 ms lets the device answer each read only once in
+that time; the same read while one is on its way waits for that answer. Only reads
+(functions 1–4) are cached, never exceptions; a write empties the cache. Off by default.
+
+**Write access**:
+ Modbus has no login – whoever reaches the port could change registers. Per
 connection: all clients may write (as with ha-modbusproxy), only listed addresses or
 networks (e.g. `127.0.0.1` for Home Assistant, `172.30.32.0/23` for other apps), or nobody.
 Refused writes (functions 5, 6, 15, 16, 21, 22, 23 and diagnostics other than the echo) get
