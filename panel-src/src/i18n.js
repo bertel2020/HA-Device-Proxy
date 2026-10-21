@@ -2,7 +2,7 @@
 // they are worded here, so the history reads in the viewer's language.
 const TEXT = {
   de: {
-    appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht",
+    appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht", appRunning: "Läuft", problems: "{n} mit Problem",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche", breadcrumb: "Pfad",
     connectionsTitle: "Verbindungen", connectionsSub: "Serielle Geräte und Modbus-Geräte, geteilt über das Netzwerk.",
@@ -152,7 +152,8 @@ const TEXT = {
     connectionLost: "Keine Verbindung zur App – zeige den letzten Stand.",
   },
   en: {
-    appTitle: "Device Proxy", running: "ser2net running", notRunning: "ser2net not running",
+    appTitle: "Device Proxy", running: "ser2net running", notRunning: "ser2net not running", appRunning: "Running", problems: "{n} with a problem",
+
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
     navMain: "Sections", breadcrumb: "Path",
     connectionsTitle: "Connections", connectionsSub: "Serial and Modbus devices, shared over the network.",

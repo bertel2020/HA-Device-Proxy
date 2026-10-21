@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { logo } from "./ui.js";
+import { connectionState, logo } from "./ui.js";
 
 const POLL_MS = 2000;
 const EVENTS_KEPT = 1500;
@@ -128,12 +128,18 @@ export class DeviceProxyApp extends LitElement {
     const section = ["connection", "edit", "import"].includes(page) ? "connections" : page;
     const tab = (key, label) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${t(label)}</a>`;
     const running = s && s.ser2net_running;
+    // ser2net only matters with serial connections (or the own ser2net.yaml)
+    const serial = s && (s.source === "custom" || s.connections.some((c) => c.kind !== "modbus"));
+    const problems = s ? s.connections.filter((c) => connectionState(c, running)[1] === "bad").length : 0;
     return html`
       <header><div class="bar">
         <div class="brand">${logo()}<div><b>${t("appTitle")}</b>
-          <span class="hint">${s ? `App ${s.version} · ser2net ${s.ser2net_version || "?"}` : ""}</span></div>
-          ${s ? html`<span class="chip ${running ? "ok" : "bad"}"><span class="dot"></span>${t(running ? "running" : "notRunning")}</span>` : ""}
+          <span class="hint">${s ? `App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}` : ""}</span></div>
+          ${s && serial ? html`<span class="chip ${running ? "ok" : "bad"}"><span class="dot"></span>${t(running ? "running" : "notRunning")}</span>` : ""}
+          ${s && problems ? html`<a class="chip warn" href="#/connections" style="text-decoration:none"><span class="dot"></span>${t("problems", { n: problems })}</a>`
+            : s && !serial ? html`<span class="chip ok"><span class="dot"></span>${t("appRunning")}</span>` : ""}
         </div>
+
         <nav aria-label=${t("navMain")}>
           ${tab("connections", "navConnections")}${tab("events", "navEvents")}${tab("trace", "navTrace")}${tab("settings", "navSettings")}
         </nav>
