@@ -1,4 +1,5 @@
-"""The kinds of connection beside ser2net's "serial" ones: each runs a proxy in the app.
+"""The kinds of connection beside ser2net's "serial" ones (Modbus, EnOcean): each runs a
+proxy in the app.
 
 A kind says how its proxy is built, which changes restart it, and what it adds to the
 state, the start events and Home Assistant's entities. The controller and the MQTT bridge
@@ -11,7 +12,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from . import modbus
+from . import enocean, modbus
 from .model import Connection
 from .trace import Chunk
 
@@ -70,5 +71,15 @@ PROXIED: dict[str, Kind] = {
         client_row=modbus.client_row,
         mqtt_entities=modbus.mqtt_entities,
         mqtt_state=modbus.mqtt_state,
+    ),
+    "enocean": Kind(
+        model="EnOcean gateway",
+        icon="mdi:radio-tower",
+        build=enocean.EnOceanProxy,
+        restart_key=enocean.restart_key,
+        loaded=enocean.loaded,
+        client_row=enocean.client_row,
+        mqtt_entities=enocean.mqtt_entities,
+        mqtt_state=enocean.mqtt_state,
     ),
 }

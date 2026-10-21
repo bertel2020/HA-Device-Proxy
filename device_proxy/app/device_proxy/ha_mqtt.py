@@ -41,6 +41,8 @@ NAMES = {
         "requests": "Anfragen",
         "failed": "Anfragen ohne Antwort",
         "answer_time": "Antwortzeit",
+        "telegrams": "Telegramme vom Gateway",
+        "duty_cycle": "Funkzeit (Anteil am 1-%-Limit)",
     },
     "en": {
         "present": "Device connected",
@@ -55,6 +57,8 @@ NAMES = {
         "requests": "Requests",
         "failed": "Unanswered requests",
         "answer_time": "Answer time",
+        "telegrams": "Telegrams from the gateway",
+        "duty_cycle": "Air time (share of the 1 % limit)",
     },
 }
 

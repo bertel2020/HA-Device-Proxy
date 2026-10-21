@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from pathlib import Path
 
@@ -65,6 +66,37 @@ async def test_proxies_start_from_the_table(tmp_path: Path) -> None:
             config, connections=(config.connections[0], replace(modbus, name="Wechselrichter"))
         )
         assert await controller._reconcile_proxies() == []
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()
+
+
+async def test_an_enocean_gateway_in_the_controller(tmp_path: Path) -> None:
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    mgw = Connection(
+        "MGW", "", 15021, id="0000000c", kind="enocean", link="tcp", host="127.0.0.1", host_port=9
+    )
+    config = AppConfig(connections=(mgw,))
+    store.save(AppConfig(), config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    try:
+        assert await controller._reconcile_proxies() == ["MGW"]
+        proxy = controller.proxies["0000000c"]
+        async with asyncio.timeout(5):
+            while proxy.reachable is not False:
+                await asyncio.sleep(0.01)
+        (row,) = controller.snapshot()["connections"]  # type: ignore[misc]
+        assert row["enocean"]["protocol"] == "esp2" and row["running"]
+        assert row["addresses"][0]["urls"]["tcp"] == "tcp://127.0.0.1:15021"
+        problems = controller.problems()
+        assert "device_proxy_0000000c_unreachable" in problems
+        assert "127.0.0.1:9" in problems["device_proxy_0000000c_unreachable"][1]
+        topics = controller.mqtt.configs()
+        assert any(t.endswith("device_proxy_0000000c/duty_cycle/config") for t in topics)
     finally:
         controller.config = AppConfig()
         await controller._reconcile_proxies()

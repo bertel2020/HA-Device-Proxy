@@ -26,9 +26,15 @@ LINE_STATES = ("", "on", "off")
 TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
-TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus")
-KINDS = ("serial", "modbus")  # shared by ser2net, or by a proxy in the app (kinds.py)
-LINKS = ("tcp", "rtu", "rtu_tcp")  # how the Modbus proxy reaches the device
+ENOCEAN_TEMPLATES = ("fam_usb", "fam14", "fgw14_usb", "usb300", "mgw_eth", "symcon_lan", "enocean")
+TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus", *ENOCEAN_TEMPLATES)
+KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
+LINKS = {  # how a proxy reaches its device
+    "modbus": ("tcp", "rtu", "rtu_tcp"),
+    "enocean": ("serial", "tcp"),
+}
+SERIAL_LINKS = {"rtu", "serial"}  # the links that open a serial device of this host
+ESP_PROTOCOLS = ("esp2", "esp3")
 WRITE_ACCESS = ("all", "none", "listed")
 
 HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?|\[?[0-9A-Fa-f:.]+\]?")
@@ -137,11 +143,16 @@ class Connection:
     probe_unit: int = 1
     probe_function: int = 3  # 3 holding or 4 input registers
     probe_address: int = 0
+    # EnOcean gateway (kind "enocean", enocean.py)
+    esp_protocol: str = "esp2"
+    send_gap_ms: int = 10  # pause after each frame sent to the gateway
+    replay_size: int = 1000  # radio telegrams kept while no replaying client is connected
+    replay_max_age_s: int = 900
 
     @property
     def uses_device(self) -> bool:
         """Has a serial device: ser2net's connections and a proxy's on a local adapter."""
-        return self.kind == "serial" or self.link == "rtu"
+        return self.kind == "serial" or self.link in SERIAL_LINKS
 
     @property
     def remote(self) -> bool:
@@ -150,8 +161,8 @@ class Connection:
 
     @property
     def upstream(self) -> str:
-        """Where a Modbus connection's device is, for messages."""
-        if self.link == "rtu":
+        """Where a proxy's device is, for messages."""
+        if self.uses_device:
             return f"{self.device} {self.serial_format}"
         host = f"[{self.host}]" if ":" in self.host else self.host
         return f"{host}:{self.host_port}"
@@ -259,21 +270,38 @@ class Connection:
             e["trace"] = f"one of {', '.join(TRACE_MODES)}"
         if not 0 <= self.silence_minutes <= 1440:
             e["silence_minutes"] = "0 to 1440 minutes"
+        if self.kind != "serial":
+            self._validate_link(e)
         if self.kind == "modbus":
             self._validate_modbus(e)
+        elif self.kind == "enocean":
+            self._validate_enocean(e)
         if e:
             raise ValidationError(e)
 
-    def _validate_modbus(self, e: dict[str, str]) -> None:
-        if self.link not in LINKS:
-            e["link"] = f"one of {', '.join(LINKS)}"
-        elif self.link != "rtu":
+    def _validate_link(self, e: dict[str, str]) -> None:
+        links = LINKS.get(self.kind, ())
+        if self.link not in links:
+            e["link"] = f"one of {', '.join(links)}"
+        elif self.remote:
             if not HOST.fullmatch(self.host) or len(self.host) > 253:
                 e["host"] = "a host name or IP address"
             elif self.host in ("127.0.0.1", "localhost", "::1") and self.host_port == self.port:
                 e["host_port"] = "is this connection's own port"
         if not 1 <= self.host_port <= 65535:
             e["host_port"] = "between 1 and 65535"
+
+    def _validate_enocean(self, e: dict[str, str]) -> None:
+        if self.esp_protocol not in ESP_PROTOCOLS:
+            e["esp_protocol"] = "esp2 or esp3"
+        if not 0 <= self.send_gap_ms <= 1000:
+            e["send_gap_ms"] = "0 to 1000 ms"
+        if not 0 <= self.replay_size <= 100000:
+            e["replay_size"] = "0 to 100000 telegrams"
+        if not 0 <= self.replay_max_age_s <= 86400:
+            e["replay_max_age_s"] = "0 to 86400 seconds"
+
+    def _validate_modbus(self, e: dict[str, str]) -> None:
         if not 100 <= self.request_timeout_ms <= 60000:
             e["request_timeout_ms"] = "100 to 60000 ms"
         if not 0 <= self.connect_delay_ms <= 10000:
@@ -458,7 +486,7 @@ class AppConfig:
 
     @property
     def proxied(self) -> tuple[Connection, ...]:
-        """The connections of the app's own proxies (Modbus, ...)."""
+        """The connections of the app's own proxies (Modbus, EnOcean)."""
         return tuple(c for c in self.connections if c.kind != "serial")
 
     @property

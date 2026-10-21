@@ -238,6 +238,14 @@ class Link:
             raise TimeoutError
         await asyncio.wait_for(self._data.wait(), left)
 
+    async def read_some(self, deadline: float) -> bytes:
+        """What came in, waiting until something does."""
+        while not self.buffer:
+            await self._wait(deadline)
+        data = bytes(self.buffer)
+        self.buffer.clear()
+        return data
+
     async def read_exactly(self, count: int, deadline: float) -> bytes:
         while len(self.buffer) < count:
             await self._wait(deadline)

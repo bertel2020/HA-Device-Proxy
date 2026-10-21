@@ -11,7 +11,7 @@ ser2net opens a device only while a client is connected; "keep open" makes the a
 With the settings' source "custom" the user's own ser2net.yaml is used instead of the forms;
 the form connections stay saved but unused (no device checks, no keep open).
 
-The other kinds (Modbus, kinds.py) are not ser2net's: each such connection runs a proxy in
+The other kinds (Modbus, EnOcean; kinds.py) are not ser2net's: each such connection runs a proxy in
 the app, whatever the source. Saving restarts only the proxies whose settings changed.
 """
 

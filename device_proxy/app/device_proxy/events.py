@@ -35,11 +35,13 @@ SUMMED = {
     "client_disconnected",
     "modbus_down",
     "modbus_back",
+    "enocean_down",
+    "enocean_back",
     "client_refused",
     "write_blocked",
 }
-GONE = {"device_missing", "modbus_down"}  # the device is away (for the history) ...
-BACK = {"device_back", "device", "modbus_back"}  # ... and there again
+GONE = {"device_missing", "modbus_down", "enocean_down"}  # the device is away (for the history) ...
+BACK = {"device_back", "device", "modbus_back", "enocean_back"}  # ... and there again
 APP = "App"  # the name of events that belong to no connection
 
 MESSAGES = {
@@ -75,6 +77,13 @@ MESSAGES = {
     ),
     "modbus_down": "Device not reachable: {target} ({error})",
     "modbus_back": "Device reachable again: {target}",
+    "enocean_loaded": (
+        "{state}: EnOcean {protocol} {target} · port {port} · up to {max_clients} clients"
+    ),
+    "enocean_down": "Gateway not reachable: {target} ({error})",
+    "enocean_back": "Gateway reachable again: {target}",
+    "duty_cycle_high": "{of_limit} % of the 1 % duty cycle used in the last hour",
+    "client_dropped": "Client {address} stopped reading and was disconnected ({queued} bytes)",
     "listen_failed": "Port {port} cannot be opened: {error}",
     "client_refused": "Client refused, all places taken: {address}",
     "write_blocked": "Write refused (function {function}) from {address}",
