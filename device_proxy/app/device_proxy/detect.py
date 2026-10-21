@@ -7,6 +7,7 @@ sent, so it works for meters that push their data (SML, D0 in push mode).
 
 from __future__ import annotations
 
+import errno
 import os
 import select
 import termios
@@ -36,8 +37,12 @@ class Candidate:
 
 
 def configure(fd: int, baud: int, data_bits: int, parity: str, stop_bits: int) -> None:
+    speed = getattr(termios, f"B{baud}", None)
+    if speed is None:
+        raise OSError(errno.EINVAL, f"the serial port has no baud rate {baud}")
+    if parity not in ("n", "e", "o"):
+        raise OSError(errno.EINVAL, "the serial port supports no mark or space parity")
     attrs = termios.tcgetattr(fd)
-    speed = getattr(termios, f"B{baud}")
     attrs[0] = termios.IGNBRK  # iflag: raw, no flow control
     attrs[1] = 0  # oflag
     cflag = (

@@ -1,4 +1,5 @@
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -74,3 +75,43 @@ def test_validation_names_the_fields() -> None:
         "connections.1.device",
         "connections.1.name",
     }
+
+
+async def test_changes_at_the_same_time_do_not_overwrite_each_other(tmp_path: Path) -> None:
+    import asyncio
+    from dataclasses import replace
+
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.model import AppConfig, Connection
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    start = AppConfig(
+        connections=(
+            Connection("a", "/dev/null", 3335, id="0000000a"),
+            Connection("b", "/dev/null", 3336, id="0000000b"),
+        )
+    )
+    store.save(AppConfig(), start, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = start
+
+    def switch_off(connection_id: str):  # type: ignore[no-untyped-def]
+        def build(config: AppConfig) -> AppConfig:
+            current = config.connection(connection_id)
+            assert current is not None
+            return config.with_connection(replace(current, enabled=False))
+
+        return build
+
+    await asyncio.gather(
+        controller.apply(switch_off("0000000a"), "test"),
+        controller.apply(switch_off("0000000b"), "test"),
+    )
+    assert [c.enabled for c in controller.config.connections] == [False, False]

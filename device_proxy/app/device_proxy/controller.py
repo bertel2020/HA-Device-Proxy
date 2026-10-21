@@ -326,10 +326,16 @@ class Controller:
             if self._mqtt_task is not None:
                 await self._mqtt_task
 
-    async def apply(self, new: AppConfig, source: str) -> ApplyResult:
-        """Save and use a new configuration (already validated)."""
+    async def apply(
+        self, new: AppConfig | Callable[[AppConfig], AppConfig], source: str
+    ) -> ApplyResult:
+        """Save and use a new configuration (already validated). A function builds it from
+        the configuration as it is once this change has its turn, so changes made at the
+        same time do not overwrite each other."""
         async with self._lock:
             old, before = self.config, self._written
+            if callable(new):
+                new = new(old)
             items = self.store.save(old, new, source)
             self.config = new
             self.write_config()
@@ -366,7 +372,7 @@ class Controller:
         os.replace(tmp, self.custom_file)
         self.events.emit("info", "custom_saved", connections=len(check.connections))
         settings = replace(self.config.settings, source="custom") if use else self.config.settings
-        return await self.apply(replace(self.config, settings=settings), "custom")
+        return await self.apply(lambda config: replace(config, settings=settings), "custom")
 
     # import
 
@@ -385,12 +391,18 @@ class Controller:
     ) -> ApplyResult:
         result = read(text)
         wanted = take if take is not None else {i.alias for i in result.items if i.connection}
-        new = merge(
-            self.config, result, replace_all=replace_all, take=wanted, on_conflict=on_conflict or {}
-        )
+        built: list[AppConfig] = []
+
+        def build(config: AppConfig) -> AppConfig:
+            merged = merge(
+                config, result, replace_all=replace_all, take=wanted, on_conflict=on_conflict or {}
+            )
+            built.append(merged)
+            return merged
+
         before = {c.id for c in self.config.connections}
-        applied = await self.apply(new, "import")
-        added = [c for c in new.connections if c.id not in before]
+        applied = await self.apply(build, "import")
+        added = [c for c in built[-1].connections if c.id not in before]
         self.events.emit(
             "info",
             "imported",

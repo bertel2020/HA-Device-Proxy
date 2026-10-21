@@ -85,3 +85,54 @@ async def test_discovery_and_switch_over_a_broker(tmp_path: Path, monkeypatch: o
     assert controller.config.connections[0].enabled is False
     assert "homeassistant/switch/device_proxy_0000000a/enabled/config" in published
     assert published["device_proxy/status"] == b"offline"  # said on a clean stop
+
+
+def _controller(tmp_path: Path, **settings: object) -> Controller:
+    from dataclasses import replace
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    base = AppConfig()
+    config = AppConfig(
+        replace(base.settings, **settings),
+        (Connection("eHZ", "/dev/null", 3335, id="0000000a"),),
+    )
+    store.save(base, config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    return controller
+
+
+async def test_switch_works_with_slashes_in_the_base(tmp_path: Path) -> None:
+    controller = _controller(tmp_path, mqtt_base="a/b")
+    applied: list[AppConfig] = []
+
+    async def apply(new: object, source: str) -> None:
+        assert callable(new)
+        applied.append(new(controller.config))
+
+    controller.apply = apply  # type: ignore[method-assign,assignment]
+    bridge = ha_mqtt.HaBridge(controller)
+    bridge.publish_states = lambda **_: asyncio.sleep(0)  # type: ignore[method-assign,assignment]
+    await bridge._message("a/b/0000000a/enabled/set", b"OFF")
+    await bridge._message("device_proxy/0000000a/enabled/set", b"OFF")  # another base
+    assert [c.connections[0].enabled for c in applied] == [False]
+
+
+async def test_stale_retained_configs_of_the_app_are_cleared(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+    bridge = ha_mqtt.HaBridge(controller)
+    sent: list[tuple[str, bytes]] = []
+
+    async def publish(topic: str, payload: object, retain: bool = False) -> None:
+        sent.append((topic, payload))  # type: ignore[arg-type]
+
+    bridge.client.publish = publish  # type: ignore[method-assign,assignment]
+    live = "homeassistant/switch/device_proxy_0000000a/enabled/config"
+    await bridge._message(live, b"{}")
+    await bridge._message("homeassistant/switch/device_proxy_0000dead/enabled/config", b"{}")
+    await bridge._message("homeassistant/switch/other_app/x/config", b"{}")
+    await bridge._message("homeassistant/switch/device_proxy_0000beef/enabled/config", b"")
+    assert sent == [("homeassistant/switch/device_proxy_0000dead/enabled/config", b"")]

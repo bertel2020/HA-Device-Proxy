@@ -50,8 +50,9 @@ DOWN_AFTER = 3  # requests in a row without an answer: the device counts as not 
 QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
 SETTLE_MAX = 0.5  # s an RTU line gets after a timeout or a broken answer, for late bytes
 BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
-# functions that change the device; 8 (diagnostics) only with a sub-function other than 0
-WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
+# functions that only read; anything else (also a vendor's own, like 0x41) counts as a write.
+# 8 (diagnostics) is one only with sub-function 0 (an echo), 43 only as 14 (read device id)
+READ_ONLY_FUNCTIONS = {1, 2, 3, 4, 7, 11, 12, 17, 20, 24}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
 CACHE_SIZE = 2000  # answers kept at most
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
@@ -161,7 +162,9 @@ def is_write(pdu: bytes) -> bool:
         return False
     if pdu[0] == 8:
         return pdu[1:3] != b"\x00\x00"  # 0: return query data (an echo)
-    return pdu[0] in WRITE_FUNCTIONS
+    if pdu[0] == 43:
+        return pdu[1:2] != b"\x0e"
+    return pdu[0] not in READ_ONLY_FUNCTIONS
 
 
 def read_result(function: int, count: int, answer: bytes | None) -> dict[str, Any]:

@@ -18,6 +18,7 @@ import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from .model import AppConfig
 from .mqtt import Broker, MqttClient, supervisor_broker
 
 if TYPE_CHECKING:
@@ -99,6 +100,8 @@ class HaBridge:
         self._last.clear()
         await self.client.publish(f"{self.base}/status", "online", retain=True)
         await self.client.subscribe(f"{self.base}/+/enabled/set")
+        # what an earlier run left behind (retained) comes back here and is cleared if stale
+        await self.client.subscribe(f"{self.c.config.settings.mqtt_prefix}/+/+/+/config")
         await self.announce()
         await self.publish_states(force=True)
 
@@ -290,16 +293,42 @@ class HaBridge:
                 await self.client.publish(f"{self.base}/{c['id']}/state", text, retain=True)
                 self._last[key] = text
 
-    async def _message(self, topic: str, payload: bytes) -> None:
+    async def _stale_config(self, topic: str, payload: bytes) -> None:
+        """A retained discovery config of this app for an entity that no longer exists."""
         parts = topic.split("/")
-        if len(parts) != 4 or parts[2:] != ["enabled", "set"]:
+        if not payload or len(parts) != 5 or parts[4] != "config" or topic in self.configs():
             return
-        current = self.c.config.connection(parts[1])
+        if parts[0] == self.c.config.settings.mqtt_prefix and (
+            parts[2] == "device_proxy" or parts[2].startswith("device_proxy_")
+        ):
+            await self.client.publish(topic, b"", retain=True)
+            self._last.pop(topic, None)
+
+    async def _message(self, topic: str, payload: bytes) -> None:
+        if topic.endswith("/config"):
+            await self._stale_config(topic, payload)
+            return
+        # <base>/<id>/enabled/set, and the base may have slashes of its own
+        head = f"{self.base}/"
+        parts = topic.removeprefix(head).split("/") if topic.startswith(head) else []
+        if len(parts) != 3 or parts[1:] != ["enabled", "set"]:
+            return
+        connection_id = parts[0]
+        current = self.c.config.connection(connection_id)
         if current is None or (self.c.uses_custom and current.kind == "serial"):
             return
         enabled = payload.strip().upper() in (b"ON", b"1", b"TRUE")
         if enabled == current.enabled:
             return
         _LOGGER.info("MQTT: %s switched %s", current.name, "on" if enabled else "off")
-        await self.c.apply(self.c.config.with_connection(replace(current, enabled=enabled)), "mqtt")
+
+        def build(config: AppConfig) -> AppConfig:
+            latest = config.connection(connection_id)
+            return (
+                config
+                if latest is None
+                else config.with_connection(replace(latest, enabled=enabled))
+            )
+
+        await self.c.apply(build, "mqtt")
         await self.publish_states()

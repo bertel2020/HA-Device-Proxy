@@ -276,14 +276,18 @@ class WebServer:
             raise HttpError(400, "a connection object is needed")
         return Connection.from_dict({**data, "id": connection_id})
 
-    async def _save(self, config: AppConfig, source: str = "ui") -> Response:
-        config.validate()
-        result = await self.c.apply(config, source)
+    async def _save(self, build: Callable[[AppConfig], AppConfig], source: str = "ui") -> Response:
+        def checked(current: AppConfig) -> AppConfig:
+            config = build(current)
+            config.validate()
+            return config
+
+        result = await self.c.apply(checked, source)
         return ok(asdict(result))
 
     async def create(self, request: Request) -> Response:
         connection = self._connection_from(request.json().get("connection"), new_id())
-        response = await self._save(self.c.config.with_connection(connection))
+        response = await self._save(lambda config: config.with_connection(connection))
         response.body = json.dumps({**json.loads(response.body), "id": connection.id}).encode()
         return response
 
@@ -292,20 +296,27 @@ class WebServer:
         if self.c.config.connection(connection_id) is None:
             raise HttpError(404, "no such connection")
         connection = self._connection_from(request.json().get("connection"), connection_id)
-        return await self._save(self.c.config.with_connection(connection))
+        return await self._save(lambda config: config.with_connection(connection))
 
     async def delete(self, request: Request) -> Response:
         connection_id = request.params["id"]
         if self.c.config.connection(connection_id) is None:
             raise HttpError(404, "no such connection")
-        return await self._save(self.c.config.without_connection(connection_id))
+        return await self._save(lambda config: config.without_connection(connection_id))
 
     async def enable(self, request: Request) -> Response:
-        current = self.c.config.connection(request.params["id"])
-        if current is None:
+        connection_id = request.params["id"]
+        if self.c.config.connection(connection_id) is None:
             raise HttpError(404, "no such connection")
         enabled = bool(request.json().get("enabled"))
-        return await self._save(self.c.config.with_connection(replace(current, enabled=enabled)))
+
+        def build(config: AppConfig) -> AppConfig:
+            current = config.connection(connection_id)
+            if current is None:
+                raise HttpError(404, "no such connection")
+            return config.with_connection(replace(current, enabled=enabled))
+
+        return await self._save(build)
 
     async def preview(self, request: Request) -> Response:
         data = request.json().get("connection") or {}
@@ -337,7 +348,7 @@ class WebServer:
         settings = Settings.from_dict({**self.c.config.settings.to_dict(), **data})
         if settings.source == "custom" and not self.c.custom_file.exists():
             raise HttpError(409, "save your own ser2net.yaml first")
-        return await self._save(replace(self.c.config, settings=settings))
+        return await self._save(lambda config: replace(config, settings=settings))
 
     async def import_preview(self, request: Request) -> Response:
         text = str(request.json().get("text", ""))
@@ -421,7 +432,7 @@ class WebServer:
         config = self.c.store.version(int(request.params["id"]))
         if config is None:
             raise HttpError(404, "no such version")
-        return await self._save(config, "restore")
+        return await self._save(lambda _: config, "restore")
 
     def _trace_path(self, name: str) -> Any:
         if "/" in name or name.startswith(".") or ".log" not in name:

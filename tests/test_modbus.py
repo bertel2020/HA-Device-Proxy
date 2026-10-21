@@ -282,3 +282,26 @@ async def test_a_late_rtu_answer_is_not_taken_for_the_next_one() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+def test_only_known_reads_pass_without_write_access() -> None:
+    from device_proxy.modbus import is_write
+
+    assert not is_write(bytes.fromhex("030000000a"))
+    assert not is_write(bytes.fromhex("08000012"))  # diagnostics: echo
+    assert not is_write(bytes.fromhex("2b0e0100"))  # read device identification
+    assert is_write(bytes.fromhex("06000100ff"))
+    assert is_write(bytes.fromhex("0800010000"))  # diagnostics: restart
+    assert is_write(bytes.fromhex("41000100"))  # a vendor's own function
+    assert is_write(bytes.fromhex("2b0d0000"))  # MEI type other than 14
+
+
+def test_an_unusual_baud_rate_is_an_error_not_a_crash() -> None:
+    import pytest
+
+    from device_proxy.detect import configure
+
+    with pytest.raises(OSError, match="baud rate 12345"):
+        configure(0, 12345, 8, "n", 1)
+    with pytest.raises(OSError, match="parity"):
+        configure(0, 9600, 8, "m", 1)
