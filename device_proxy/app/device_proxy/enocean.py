@@ -148,6 +148,7 @@ class EnOceanProxy:
         self.reachable_since = time.time()
         self.connected_since: float | None = None
         self.base_id: str | None = None  # learnt from the gateway's answers
+        self.ask_base_id = True  # read it once per connection (tests switch it off)
         self.exclusive_peer: str | None = None  # only this host may send (PCT14 capture)
         # (direction, frame, client address) of every frame, e.g. for a capture
         self.observers: list[Callable[[str, bytes, str], None]] = []
@@ -227,6 +228,7 @@ class EnOceanProxy:
             attempt = 0
             self._up()
             splitter = esp.Splitter(self.protocol)
+            ask = asyncio.create_task(self._ask_base_id()) if self.ask_base_id else None
             try:
                 while True:
                     try:
@@ -239,10 +241,18 @@ class EnOceanProxy:
             except ConnectionError as err:
                 self._down(str(err) or "connection lost")
             finally:
+                if ask:
+                    ask.cancel()
                 await self.link.close()
                 self.connected_since = None
                 self._awaiting.clear()
             await asyncio.sleep(RECONNECT_DELAYS[0])
+
+    async def _ask_base_id(self) -> None:
+        """Read the base ID once per connection (harmless, nothing goes over the air), so it
+        shows without anyone asking; _learn picks it from the answer."""
+        with contextlib.suppress(ConnectionError, ValueError):
+            await self.request(esp.base_id_request(self.protocol))
 
     def _up(self) -> None:
         self.connected_since = time.time()

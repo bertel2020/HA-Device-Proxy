@@ -16,6 +16,8 @@
     counters, replay buffer, base ID; tools: gateway test, sending a checked frame (checksum
     added or fixed), captures as JSON lines with a lock for PCT14.
   - New gateways take Home Assistant and the apps only (the app runs in the host network).
+  - The base ID is read from the gateway once after each connection (nothing goes over the air),
+    so it shows in the list and on the detail page without anyone asking.
   - Notification at 80 % air time; MQTT entities: reachable, telegrams, air time.
   - Moving: the EnOcean Proxy app's options are fetched from Home Assistant, pasted or put
     into `import/enocean_proxy.yaml`.

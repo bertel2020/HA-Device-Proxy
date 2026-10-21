@@ -178,6 +178,7 @@ async def setup() -> AsyncIterator[Setup]:
         events.append((kind, params))
 
     proxy = EnOceanProxy(c, "all", on_event, lambda chunk: None)
+    proxy.ask_base_id = False  # the gateway counts every byte it gets
     task = asyncio.create_task(proxy.run())
     await _until(lambda: proxy.listening and proxy.link.is_open and bool(gateway.writers))
     result = Setup(gateway, proxy)
@@ -735,3 +736,27 @@ async def test_fetching_the_options_from_the_supervisor(monkeypatch: pytest.Monk
     monkeypatch.delenv("SUPERVISOR_TOKEN")
     with pytest.raises(LookupError):
         await enocean_import.fetch_options()
+
+
+async def test_the_base_id_is_read_once_after_connecting() -> None:
+    class Answering(FakeGateway):
+        async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            self.writers.append(writer)
+            while data := await reader.read(1024):
+                self.received += data
+                if BASE_ID_READ in data:
+                    writer.write(BASE_ID_ANSWER)
+
+    gateway = await Answering().start()
+    c = Connection(
+        "FAM", "", 0, kind="enocean", link="tcp", host="127.0.0.1", host_port=gateway.port
+    )
+    proxy = EnOceanProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    task = asyncio.create_task(proxy.run())
+    try:
+        await _until(lambda: proxy.base_id is not None)
+        assert gateway.received.count(BASE_ID_READ) == 1
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await gateway.stop()
