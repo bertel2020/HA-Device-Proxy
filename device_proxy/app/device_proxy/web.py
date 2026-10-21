@@ -20,7 +20,7 @@ from importlib import resources
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from . import diagnostics
+from . import diagnostics, enocean_import
 from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
@@ -126,6 +126,7 @@ class WebServer:
         self._route("POST", r"api/import/preview", self.import_preview)
         self._route("POST", r"api/import", self.run_import)
         self._route("GET", r"api/export", self.export)
+        self._route("GET", r"api/import/enocean_proxy", self.enocean_proxy_options)
         self._route("GET", r"api/custom", self.get_custom)
         self._route("POST", r"api/custom/check", self.check_custom)
         self._route("PUT", r"api/custom", self.put_custom)
@@ -535,6 +536,13 @@ class WebServer:
             "application/zip",
             {"Content-Disposition": f'attachment; filename="device-proxy-diagnostics-{stamp}.zip"'},
         )
+
+    async def enocean_proxy_options(self, request: Request) -> Response:
+        """The EnOcean Proxy app's options, for the import dialog."""
+        try:
+            return ok(await enocean_import.fetch_options())
+        except LookupError as err:
+            raise HttpError(409, str(err)) from None
 
     async def enocean_send(self, request: Request) -> Response:
         data = request.json()

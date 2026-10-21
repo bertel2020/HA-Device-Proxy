@@ -652,3 +652,85 @@ def test_air_time_notification(tmp_path: Path) -> None:
     (key,) = controller.problems()
     assert key == "device_proxy_00000012_duty"
     assert esp.describe("esp2", BASE_ID_READ) == "command"
+
+
+# moving from the EnOcean Proxy app (enocean_import.py)
+
+OLD_OPTIONS = """
+gateways:
+  - name: FAM-USB
+    device: /dev/serial/by-id/usb-FTDI_FAM-if00-port0
+    baudrate: 9600
+    protocol: esp2
+    port: 9100
+  - name: MGW
+    device: tcp://192.168.79.138:5100
+    protocol: esp3
+    port: 9101
+send_gap_ms: 20
+replay_size: 500
+replay_max_age_s: 600
+allowed_clients:
+  - 192.168.79.40
+log_level: info
+"""
+
+
+def test_import_of_the_enocean_proxy_options() -> None:
+    from device_proxy.importer import read
+
+    result = read(OLD_OPTIONS)
+    assert result.version == 12
+    assert {n["code"] for n in result.notes} == {"enocean_stop_old", "enocean_lan"}
+    fam, mgw = (item.connection for item in result.items)
+    assert fam is not None and mgw is not None
+    assert (fam.kind, fam.link, fam.esp_protocol, fam.baud, fam.port, fam.template) == (
+        "enocean",
+        "serial",
+        "esp2",
+        9600,
+        9100,
+        "fam_usb",
+    )
+    assert (mgw.link, mgw.host, mgw.host_port, mgw.esp_protocol, mgw.template) == (
+        "tcp",
+        "192.168.79.138",
+        5100,
+        "esp3",
+        "mgw_eth",
+    )
+    assert (fam.send_gap_ms, fam.replay_size, fam.replay_max_age_s) == (20, 500, 600)
+    assert fam.remaddr == "127.0.0.1, 172.30.32.0/23, 192.168.79.40"
+
+    plain = read("gateways:\n  - {name: A, device: /dev/ttyUSB0, protocol: esp3, port: 9100}\n")
+    (item,) = plain.items
+    assert item.connection is not None
+    assert item.connection.remaddr == "127.0.0.1, 172.30.32.0/23"  # was not on the LAN
+    assert item.connection.baud == 57600 and item.connection.template == "usb300"
+    broken = read("gateways:\n  - {name: B, device: nowhere, protocol: esp2, port: 9100}\n")
+    assert broken.items[0].connection is None
+
+
+async def test_fetching_the_options_from_the_supervisor(monkeypatch: pytest.MonkeyPatch) -> None:
+    import urllib.error
+
+    from device_proxy import enocean_import
+
+    asked: list[str] = []
+
+    def supervisor(path: str) -> Any:
+        asked.append(path)
+        if path == "/addons":  # an app may not list the others
+            raise urllib.error.HTTPError(path, 403, "forbidden", {}, None)  # type: ignore[arg-type]
+        if path == f"/addons/{enocean_import.candidates()[0]}/info":
+            return {"data": {"state": "started", "options": {"gateways": [], "send_gap_ms": 10}}}
+        raise urllib.error.HTTPError(path, 404, "not found", {}, None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(enocean_import, "_supervisor", supervisor)
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "t")
+    found = await enocean_import.fetch_options()
+    assert found["state"] == "started" and "send_gap_ms: 10" in found["text"]
+    assert asked[0] == "/addons" and len(enocean_import.candidates()[0]) == 8 + 1 + 13
+    monkeypatch.delenv("SUPERVISOR_TOKEN")
+    with pytest.raises(LookupError):
+        await enocean_import.fetch_options()

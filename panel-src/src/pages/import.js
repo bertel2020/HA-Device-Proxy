@@ -38,6 +38,18 @@ export class ImportPage extends Page {
     this._preview();
   }
 
+  async _fromEnOceanProxy() {
+    this.error = "";
+    try {
+      const found = await api("api/import/enocean_proxy");
+      this.text = found.text;
+      if (found.state === "started") this.toast(t("eoImportRunning"));
+      this._preview();
+    } catch (err) {
+      this.error = t("eoImportFailed", { e: err.message });
+    }
+  }
+
   async _preview() {
     this.error = "";
     try {
@@ -80,6 +92,9 @@ export class ImportPage extends Page {
         <textarea class="inp mono" rows="6" .value=${this.text} @input=${(e) => { this.text = e.target.value; }}></textarea></label>
       ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}
       <div><button class="btn btn-s" ?disabled=${!this.text.trim()} @click=${this._preview}>${t("readPreview")}</button></div>
+      <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
+        <div><b style="font-weight:500">${t("eoImportTitle")}</b><p class="hint">${t("eoImportSub")}</p></div>
+        <button class="btn btn-s" @click=${this._fromEnOceanProxy}>${icon("enocean")}${t("eoImportBtn")}</button></div>
     </section>`;
   }
 
