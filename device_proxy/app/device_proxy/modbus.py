@@ -147,7 +147,23 @@ def is_write(pdu: bytes) -> bool:
     return pdu[0] in WRITE_FUNCTIONS
 
 
+def read_result(function: int, count: int, answer: bytes | None) -> dict[str, Any]:
+    """What a read (functions 1–4) brought, for the tools."""
+    if not answer:
+        return {"ok": False, "exception": None}
+    if answer[0] & 0x80:
+        code = answer[1] if len(answer) > 1 else 0
+        return {"ok": False, "exception": code, "name": EXCEPTIONS.get(code, "")}
+    data = answer[2 : 2 + answer[1]] if len(answer) > 1 else b""
+    if function in (3, 4):
+        values = [int.from_bytes(data[i : i + 2], "big") for i in range(0, len(data) - 1, 2)]
+    else:
+        values = [(data[i // 8] >> (i % 8)) & 1 for i in range(min(count, len(data) * 8))]
+    return {"ok": True, "values": values, "hex": data.hex(" ").upper()}
+
+
 def exception(pdu: bytes, code: int) -> bytes:
+
     return bytes([(pdu[0] if pdu else 0) | 0x80, code])
 
 
@@ -479,6 +495,8 @@ class _Job:
     pdu: bytes
     client: ClientInfo
     future: asyncio.Future[bytes | None]
+    timeout: float | None = None  # seconds, instead of the connection's
+    retries: int | None = None
 
 
 class Scheduler:
@@ -556,6 +574,7 @@ class ModbusProxy:
         self._server: asyncio.Server | None = None
         self._workers: list[asyncio.Task[None]] = []
         self._probe = ClientInfo("probe", time.time())  # the app's own client for probes
+        self.tool = ClientInfo("app", time.time())  # ... and for the tools
         self._last_exchange = 0.0
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
@@ -603,7 +622,7 @@ class ModbusProxy:
                 continue
             if job.future.done():
                 continue  # the client went away meanwhile
-            answer = await self._exchange(path, job.unit, job.pdu, job.client)
+            answer = await self._exchange(path, job)
             if not job.future.done():
                 job.future.set_result(answer)
 
@@ -727,9 +746,17 @@ class ModbusProxy:
             self._cache[key] = (asyncio.get_running_loop().time(), answer)
         return answer
 
-    async def _queued(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
+    async def _queued(
+        self,
+        unit: int,
+        pdu: bytes,
+        client: ClientInfo,
+        *,
+        timeout: float | None = None,
+        retries: int | None = None,
+    ) -> bytes | None:
         future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
-        self.scheduler.put(client.address, _Job(unit, pdu, client, future))
+        self.scheduler.put(client.address, _Job(unit, pdu, client, future, timeout, retries))
         self.stats.queue_max = max(self.stats.queue_max, self.scheduler.size)
         try:
             return await future
@@ -737,23 +764,25 @@ class ModbusProxy:
             if not future.done():
                 future.cancel()  # the worker skips it
 
-    async def _exchange(
-        self, path: _Path, unit: int, pdu: bytes, client: ClientInfo
-    ) -> bytes | None:
+    async def _exchange(self, path: _Path, job: _Job) -> bytes | None:
+        """One request to the device, with the retries. The app's own requests (probe,
+        tools) are not counted as the clients'; the tools' do not change the state."""
         loop = asyncio.get_running_loop()
-        stats = self.stats
-        probe = client is self._probe
+        stats, client, unit, pdu = self.stats, job.client, job.unit, job.pdu
+        probe, tool = client is self._probe, client is self.tool
         if probe:
             stats.probes += 1
-        else:
+        elif not tool:
             stats.requests += 1
             client.requests += 1
         if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
-        timeout = self.c.request_timeout_ms / 1000
+        timeout = job.timeout or self.c.request_timeout_ms / 1000
+        retries = self.c.retries if job.retries is None else job.retries
         code = EXC_TARGET
         trace = self._trace(client.address)
-        for _ in range(1 + self.c.retries):
+        error = ""
+        for _ in range(1 + retries):
             if not path.link.is_open:
                 try:
                     await self._connect(path)
@@ -761,48 +790,57 @@ class ModbusProxy:
                     self._down(_text(err), connect=True)
                     code = EXC_PATH
                     continue
-            started = loop.time()
+            started, error = loop.time(), ""
             try:
                 answer = await path.framer.exchange(unit, pdu, timeout, trace)
+
             except TimeoutError:
-                stats.timeouts += 1
-                self._error("no answer")
-                if self.c.link == "tcp":
+                stats.timeouts += not tool
+                error, code = "no answer", EXC_TARGET
+                if self.c.link == "tcp" and not tool:
                     await path.link.close()  # start over with a fresh connection
-                code = EXC_TARGET
                 continue
             except FrameError as err:
                 stats.errors += 1
-                self._error(str(err))
-                code = EXC_TARGET
+                error, code = str(err), EXC_TARGET
                 continue
             except (OSError, ConnectionError) as err:
                 stats.errors += 1
-                self._error(_text(err))
+                error, code = _text(err), EXC_PATH
                 await path.link.close()
-                code = EXC_PATH
                 continue
             finally:
                 path.last_request = self._last_exchange = loop.time()
+                if error and not tool:
+                    self._error(error)
             elapsed = loop.time() - started
-            stats.last_answer = time.time()
-            stats.time_avg = elapsed if not stats.time_avg else stats.time_avg * 0.9 + elapsed * 0.1
-            stats.time_max = max(stats.time_max, elapsed)
-            if not probe:
+            if not tool:
+                stats.last_answer = time.time()
+                stats.time_avg = (
+                    elapsed if not stats.time_avg else stats.time_avg * 0.9 + elapsed * 0.1
+                )
+                stats.time_max = max(stats.time_max, elapsed)
+            if not (probe or tool):
                 stats.answered += 1
                 if answer and answer[0] & 0x80:
                     stats.exceptions += 1
-
             self._up()
             return answer
+        if tool:
+            return exception(pdu, code)
         if not probe:
             stats.failed += 1
             client.failed += 1
         self._failures += 1
         if probe or self._failures >= DOWN_AFTER:  # a probe has had its retries already
-
             self._down(stats.last_error or "no answer")
         return exception(pdu, code)
+
+    async def ask(
+        self, unit: int, pdu: bytes, *, timeout: float | None = None, retries: int | None = None
+    ) -> bytes | None:
+        """A request of the app's tools: in turn with the clients, not counted for them."""
+        return await self._queued(unit, pdu, self.tool, timeout=timeout, retries=retries)
 
     def _error(self, text: str) -> None:
         self.stats.last_error, self.stats.last_error_at = text, time.time()

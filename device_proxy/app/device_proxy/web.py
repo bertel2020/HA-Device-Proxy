@@ -127,6 +127,8 @@ class WebServer:
         self._route("DELETE", r"api/trace/(?P<name>[^/]+)", self.delete_trace)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/detect", self.detect)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/read", self.modbus_read)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("GET", r"api/diagnostics", self.diagnostics)
@@ -446,7 +448,33 @@ class WebServer:
         except ValueError as err:
             raise HttpError(409, str(err)) from None
 
+    @staticmethod
+    def _ints(data: Any, *keys: str) -> list[int]:
+        try:
+            return [int(data[k]) for k in keys]
+        except (KeyError, TypeError, ValueError):
+            raise HttpError(400, f"numbers needed: {', '.join(keys)}") from None
+
+    async def modbus_read(self, request: Request) -> Response:
+        unit, function, address, count = self._ints(
+            request.json(), "unit", "function", "address", "count"
+        )
+        try:
+            return ok(
+                await self.c.modbus_read(request.params["id"], unit, function, address, count)
+            )
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def modbus_scan(self, request: Request) -> Response:
+        first, last, timeout_ms = self._ints(request.json(), "first", "last", "timeout_ms")
+        try:
+            return ok({"job": self.c.start_scan(request.params["id"], first, last, timeout_ms)})
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
     async def job(self, request: Request) -> Response:
+
         job = self.c.jobs.get(request.params["job"])
         if job is None:
             raise HttpError(404, "no such job")

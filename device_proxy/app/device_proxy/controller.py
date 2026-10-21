@@ -21,6 +21,7 @@ import asyncio
 import logging
 import os
 import socket
+import struct
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -36,7 +37,7 @@ from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .meter import analyze
-from .modbus import ModbusProxy, restart_key
+from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result, restart_key
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
@@ -771,6 +772,67 @@ class Controller:
             if ch.direction == "rx" and ch.ts >= cutoff
         )
         return analyze(data).to_dict()
+
+    async def modbus_read(
+        self, connection_id: str, unit: int, function: int, address: int, count: int
+    ) -> dict[str, object]:
+        """Read registers or coils through a Modbus connection's proxy (in turn with the
+        clients)."""
+        proxy = self.proxies.get(connection_id)
+        if proxy is None:
+            raise ValueError("the connection is not active")
+        limit = 125 if function in (3, 4) else 2000
+        if function not in (1, 2, 3, 4) or not 1 <= count <= limit:
+            raise ValueError(f"function 1 to 4, 1 to {limit} values")
+        if not 1 <= unit <= 255 or not 0 <= address <= 65535 or address + count > 65536:
+            raise ValueError("unit 1 to 255, address 0 to 65535")
+        started = time.monotonic()
+        answer = await proxy.ask(unit, struct.pack(">BHH", function, address, count))
+        result = read_result(function, count, answer)
+        return {**result, "time_ms": round((time.monotonic() - started) * 1000, 1)}
+
+    def start_scan(self, connection_id: str, first: int, last: int, timeout_ms: int) -> str:
+        """Find the unit ids that answer, e.g. on an RS485 bus."""
+        proxy = self.proxies.get(connection_id)
+        if proxy is None:
+            raise ValueError("the connection is not active")
+        if not 1 <= first <= last <= 247 or not 50 <= timeout_ms <= 5000:
+            raise ValueError("units 1 to 247, timeout 50 to 5000 ms")
+        if any(
+            j.get("connection") == connection_id and j["state"] == "running"
+            for j in self.jobs.values()
+        ):
+            raise ValueError("already running")
+        job_id = new_id()
+        self.jobs[job_id] = {
+            "connection": connection_id,
+            "state": "running",
+            "done": 0,
+            "total": last - first + 1,
+            "results": [],
+        }
+        asyncio.create_task(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
+        return job_id
+
+    async def _scan(self, job_id: str, proxy: ModbusProxy, units: range, timeout: float) -> None:
+        job = self.jobs[job_id]
+        found: list[dict[str, object]] = []
+        job["results"] = found
+        try:
+            for unit in units:
+                answer = await proxy.ask(unit, b"\x03\x00\x00\x00\x01", timeout=timeout, retries=0)
+                job["done"] = int(str(job["done"])) + 1
+                code = answer[1] if answer and answer[0] & 0x80 and len(answer) > 1 else None
+                if code == EXC_PATH:
+                    raise ConnectionError(proxy.stats.last_error or "device not reachable")
+                if answer and code != EXC_TARGET:
+                    found.append({"unit": unit, "exception": code})
+            job["state"] = "done"
+        except (OSError, ConnectionError) as err:
+            job["state"], job["error"] = "failed", str(err)
+        except asyncio.CancelledError:
+            job["state"], job["error"] = "failed", "stopped"
+            raise
 
     def start_detect(self, connection_id: str) -> str:
         """Find the baud rate of a pushing meter; ser2net lets go of the device meanwhile."""

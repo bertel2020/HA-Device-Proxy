@@ -135,7 +135,18 @@ timeouts, errors, queue and answer time (average and maximum), the last error. T
 view and the recordings show each request and answer as hex with unit, function, register
 and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
-Saving restarts only Modbus connections whose device or proxy settings changed; their
+**Tools** on a Modbus connection's details:
+
+- **Read registers**: unit, function (holding or input registers, coils, discrete inputs),
+  address (from 0, as in the frame) and count; the values as unsigned, signed and hex. The
+  request waits its turn with the clients' and does not use the cache.
+- **Scan the bus**: which unit ids answer (it reads register 0, an exception counts as an
+  answer too). The units found can be taken over into "read registers".
+
+Tool requests are not counted as the clients' and do not change the device's state.
+
+Saving restarts only Modbus connections
+ whose device or proxy settings changed; their
 clients connect again. Name, trace and notifications change without a restart.
 
 ## Status, traces and line errors

@@ -12,6 +12,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, scan: { state: true }, scanForm: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -26,6 +27,8 @@ export class DetailPage extends Page {
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
+    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+
   `];
 
   constructor() {
@@ -35,6 +38,8 @@ export class DetailPage extends Page {
     this.ascii = true;
     this._samples = [];
     this._after = 0;
+    this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
+    this.scanForm = { first: 1, last: 247, timeout_ms: 200 };
   }
 
   connectedCallback() {
@@ -99,6 +104,67 @@ export class DetailPage extends Page {
       this.job = null;
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _mbRead() {
+    try {
+      this.mbResult = { ...(await api(`api/tools/${this.connectionId}/modbus/read`, { method: "POST", body: this.mbForm })), form: { ...this.mbForm } };
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _mbScan() {
+    try {
+      const { job } = await api(`api/tools/${this.connectionId}/modbus/scan`, { method: "POST", body: this.scanForm });
+      this.scan = { state: "running", done: 0, total: this.scanForm.last - this.scanForm.first + 1, results: [] };
+      const poll = setInterval(async () => {
+        try {
+          this.scan = await api(`api/jobs/${job}`);
+          if (this.scan.state !== "running") clearInterval(poll);
+        } catch { clearInterval(poll); }
+      }, 1000);
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  _num(form, key, label, prop) {
+    return html`<label class="fld"><span class="lbl">${label}</span><input class="inp" inputmode="numeric" .value=${String(form[key])}
+      @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
+  }
+
+  _modbusTools(c) {
+    const f = this.mbForm, r = this.mbResult, sc = this.scan;
+    const signed = (v) => (v > 32767 ? v - 65536 : v);
+    const hex4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, "0")}`;
+    const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: t(`ex_${code}`) });
+    return html`<section class="card" aria-labelledby="t-mtools">
+      <h2 id="t-mtools">${t("tools")}</h2>
+      <div><b style="font-weight:500">${t("mbReadTitle")}</b><p class="hint">${t("mbReadSub")}</p></div>
+      <div class="grid4">
+        ${this._num(f, "unit", t("mbUnit"), "mbForm")}
+        <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.mbForm = { ...f, function: Number(e.target.value) }; }}>
+          ${[3, 4, 1, 2].map((v) => html`<option value=${v} ?selected=${f.function === v}>${t(`fc_${v}`)}</option>`)}</select></label>
+        ${this._num(f, "address", t("mbAddress"), "mbForm")}
+        ${this._num(f, "count", t("mbCount"), "mbForm")}
+      </div>
+      <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button></div>
+      ${r ? r.ok ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th>
+          ${r.form.function >= 3 ? html`<th style="text-align:right">${t("mbUnsigned")}</th><th style="text-align:right">${t("mbSigned")}</th><th style="text-align:right">Hex</th>` : html`<th style="text-align:right">${t("mbBit")}</th>`}</tr></thead>
+          <tbody>${r.values.map((v, i) => html`<tr><td class="mono">${r.form.address + i}</td>
+            ${r.form.function >= 3 ? html`<td style="text-align:right">${v}</td><td style="text-align:right">${signed(v)}</td><td class="mono" style="text-align:right">${hex4(v)}</td>` : html`<td style="text-align:right">${v}</td>`}</tr>`)}</tbody></table></div>
+          <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>`
+        : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
+      <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
+      <div class="grid4">
+        ${this._num(this.scanForm, "first", t("mbFirst"), "scanForm")}
+        ${this._num(this.scanForm, "last", t("mbLast"), "scanForm")}
+        ${this._num(this.scanForm, "timeout_ms", t("mbScanTimeout"), "scanForm")}
+        <div class="fld"><span class="lbl">&nbsp;</span><button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button></div>
+      </div>
+      ${sc ? html`${sc.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: sc.done, t: sc.total })}</p>` : ""}
+        ${sc.state === "failed" ? html`<div class="note bad">${t("error")}: ${sc.error}</div>` : ""}
+        ${sc.results.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${sc.results.map((u) => html`<button class="chip ${u.exception === null ? "ok" : "info"}" style="cursor:pointer;border:none"
+          title=${u.exception === null ? "" : exText(u.exception)} @click=${() => { this.mbForm = { ...this.mbForm, unit: u.unit }; }}>Unit ${u.unit}</button>`)}</div>`
+          : sc.state === "done" ? html`<p class="hint">${t("mbScanNone")}</p>` : ""}` : ""}
+    </section>`;
   }
 
   _tools(c) {
@@ -202,7 +268,7 @@ export class DetailPage extends Page {
       <div class="cols">
         <div class="main-col">
           ${this._live(modbus)}
-          ${this.state.source === "custom" || modbus ? "" : this._tools(c)}
+          ${modbus ? this._modbusTools(c) : this.state.source === "custom" ? "" : this._tools(c)}
           <section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>

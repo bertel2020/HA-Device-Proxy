@@ -58,12 +58,15 @@ async def meter(trace: TraceHub, alias: str, stop: asyncio.Event) -> None:
 
 
 async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    """Holding registers: n holds n * 10 (an inverter's power, say)."""
+    """Units 1 and 2; holding register n holds n * 10 (an inverter's power, say)."""
     try:
         while True:
             tid, _, length, unit = struct.unpack(">HHHB", await reader.readexactly(7))
             pdu = await reader.readexactly(length - 1)
+            if unit not in (1, 2):
+                continue  # nobody there
             address, count = struct.unpack(">HH", pdu[1:5])
+
             body = bytes([3, count * 2]) + b"".join(
                 struct.pack(">H", (address + i) * 10 % 65536) for i in range(count)
             )
