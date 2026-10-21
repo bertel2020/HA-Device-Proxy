@@ -1,7 +1,7 @@
 name: Device Proxy
 version: "0.1.0"
 slug: device_proxy
-description: Shares serial, USB and Modbus devices with several programs (ser2net 4, Modbus proxy)
+description: Shares serial, USB, Modbus and EnOcean devices with several programs (ser2net 4, Modbus and EnOcean proxy)
 url: https://github.com/bertel2020/HA-Device-Proxy
 arch:
   - aarch64
@@ -29,6 +29,9 @@ backup_pre: python3 -m device_proxy.backup
 hassio_api: true
 # notifications in Home Assistant
 homeassistant_api: true
+# EnOcean gateways are offered to the EnOcean Eltako integration
+discovery:
+  - enocean_eltako
 # the MQTT broker for the entities, when there is one
 services:
   - mqtt:want

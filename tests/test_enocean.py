@@ -1,9 +1,11 @@
 """The EnOcean proxy against a fake gateway reached over TCP (like ser2net or an MGW)."""
 
 import asyncio
+import json
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -396,3 +398,137 @@ async def test_state_and_mqtt_values(setup: Setup) -> None:
     row = enocean.client_row(client)
     assert row["replay"] and row["bytes_to_client"] == 14 and row["bytes_from_client"] == 12
     writer.close()
+
+
+# what the EnOcean Eltako integration gets (enocean_ha.py)
+
+
+async def test_replay_buffer_kept_over_a_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(enocean, "REPLAY_DIR", tmp_path)
+    c = Connection("FAM", "/dev/null", 9100, id="0000000d", kind="enocean", link="serial")
+    first = EnOceanProxy(replace(c, replay_persist=True), "all", lambda *a, **k: None, print)
+    first._replay.append((first._clock(), time.time() - 30, FRAME_A))
+    first._replay.append((first._clock(), time.time() - 5000, FRAME_B))  # too old by then
+    first._save_replay()
+    second = EnOceanProxy(replace(c, replay_persist=True), "all", lambda *a, **k: None, print)
+    assert [frame for _r, _w, frame in second._replay] == [FRAME_A]
+    assert not (tmp_path / "0000000d.json").exists()  # read once
+    second._save_replay()
+    plain = EnOceanProxy(c, "all", lambda *a, **k: None, print)  # off: nothing read, file goes
+    assert not plain._replay
+    plain._save_replay()
+    assert not (tmp_path / "0000000d.json").exists()
+
+
+async def test_status_and_discovery_for_the_integration(
+    setup: Setup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from device_proxy import enocean_ha
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.model import AppConfig
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    gateway, proxy = setup.gateway, setup.proxy
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )
+    c = replace(proxy.c, id="0000000e", port=proxy.port)
+    controller.config = AppConfig(
+        replace(AppConfig().settings, enocean_status_port=0), (c,)
+    )  # 0: a free port, for the test
+    controller.proxies[c.id] = proxy
+    calls: list[tuple[str, Any, str]] = []
+
+    def supervisor(path: str, payload: Any = None, method: str = "") -> Any:
+        calls.append((path, payload, method))
+        if path == "/addons/self/info":
+            return {"data": {"hostname": "abc-device-proxy"}}
+        return {"data": {"uuid": "u1"}}
+
+    monkeypatch.setattr(enocean_ha, "_supervisor", supervisor)
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "t")
+    monkeypatch.setenv("APP_VERSION", "0.2.0")
+    ha = controller.enocean_ha
+    await ha.update()
+    assert calls[-1] == (
+        "/discovery",
+        {
+            "service": "enocean_eltako",
+            "config": {
+                "host": "abc-device-proxy",
+                "status_port": 0,
+                "replay": True,
+                "gateways": [{"name": "FAM", "port": proxy.port, "protocol": "esp2"}],
+            },
+        },
+        "",
+    )
+    await ha.update()  # nothing changed: not sent again
+    assert len(calls) == 2
+
+    reader, writer = await _connect(proxy, replay=True)
+    await _until(lambda: len(proxy.clients) == 1)
+    gateway.send(FRAME_A)
+    await reader.readexactly(14)
+    assert ha.port
+    r, w = await asyncio.open_connection("127.0.0.1", ha.port)
+    w.write(b"GET /api/status HTTP/1.1\r\nHost: x\r\n\r\n")
+    head, _, body = (await r.read()).partition(b"\r\n\r\n")
+    assert head.startswith(b"HTTP/1.1 200")
+    status = json.loads(body)
+    assert (status["app"], status["api"], status["version"]) == ("device_proxy", 1, "0.2.0")
+    (gw,) = status["gateways"]
+    # what the integration's proxy_status.summarize() reads
+    assert gw["port"] == proxy.port and gw["name"] == "FAM" and gw["connected"] is True
+    assert gw["clients"] == [{"peer": "127.0.0.1", "replay": True}]
+    assert gw["duty_cycle"]["of_limit"] == 0.0 and gw["duty_cycle"]["telegrams"] == 0
+    assert gw["stats"]["replayed"] == 0 and gw["exclusive_peer"] is None
+    r, w = await asyncio.open_connection("127.0.0.1", ha.port)
+    w.write(b"POST /api/send HTTP/1.1\r\n\r\n")
+    assert (await r.read()).startswith(b"HTTP/1.1 404")  # read only
+    writer.close()
+
+    monkeypatch.setattr(enocean_ha, "STATUS_PEERS", "192.0.2.0/24")
+    r, w = await asyncio.open_connection("127.0.0.1", ha.port)
+    w.write(b"GET /api/status HTTP/1.1\r\n\r\n")
+    try:
+        assert await r.read() == b""  # not Home Assistant or an app
+    except ConnectionResetError:
+        pass  # closed before the request was read
+
+    controller.config = AppConfig(controller.config.settings, (replace(c, enabled=False),))
+    await ha.update()  # no gateway left: discovery withdrawn, status closed
+    assert calls[-1] == ("/discovery/u1", None, "DELETE") and ha.port is None
+    controller.proxies.clear()
+
+
+def test_status_port_and_the_health_check(tmp_path: Path) -> None:
+    from device_proxy.health import enocean_ports
+    from device_proxy.model import AppConfig
+
+    gateway = Connection("FAM", "/dev/ttyUSB0", 9199, kind="enocean", link="serial")
+    with pytest.raises(ValidationError) as err:
+        AppConfig(connections=(gateway,)).validate()
+    assert "status for the EnOcean integration" in err.value.errors["connections.0.port"]
+    AppConfig(connections=(replace(gateway, kind="serial"),)).validate()  # only with EnOcean
+
+    config = AppConfig(
+        connections=(
+            replace(gateway, port=9100),
+            replace(gateway, name="B", port=9101, id="0000000f", bind="192.0.2.1"),
+            replace(gateway, name="C", port=9102, id="00000010", enabled=False),
+        )
+    )
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(config.to_dict()))
+    assert enocean_ports(path) == [("127.0.0.1", 9100), ("192.0.2.1", 9101)]
+    assert enocean_ports(tmp_path / "missing.json") == []

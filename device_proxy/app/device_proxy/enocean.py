@@ -19,6 +19,9 @@ replay_max_age_s. With "EOPX REPLAY TS" the replay comes as a text block with th
 reception time of each telegram ("EOPX TS <n>", n lines "<unix time> <hex>", "EOPX END"),
 then the binary stream continues.
 
+With replay_persist the buffer is written to /data when the app stops and read again at the
+next start, so telegrams received while Home Assistant restarts survive an app restart too.
+
 A client that stops reading is disconnected before its unsent data grows without bound.
 While a capture reserves the gateway for one program (exclusive_peer, PCT14 with a FAM14),
 the frames of the others are held back.
@@ -28,11 +31,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
+import os
+import socket
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 from . import esp
@@ -54,6 +61,7 @@ LISTEN_RETRY = 10  # seconds between attempts to open the port
 OPEN_TIMEOUT = 10.0  # seconds for connecting to a network gateway
 RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
 CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before it is dropped
+REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
 
 EventSink = Callable[..., None]  # (level, kind, **params)
 TraceSink = Callable[[Chunk], None]
@@ -107,6 +115,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         timeout=0,
         send_gap_ms=0,
         replay_max_age_s=0,
+        replay_persist=False,
     )
 
 
@@ -148,6 +157,8 @@ class EnOceanProxy:
         self._duty_warned = 0.0
         self._server: asyncio.Server | None = None
         self.port = c.port  # the port listened on (tests: the one the system picked for 0)
+        if c.replay_persist:
+            self._load_replay()
 
     # running
 
@@ -181,7 +192,7 @@ class EnOceanProxy:
         self._server = await asyncio.start_server(
             self._client, host, self.c.port, reuse_address=True
         )
-        self.port = self._server.sockets[0].getsockname()[1]
+        self.port = _port(self._server)
         self.listening, self.listen_error = True, ""
 
     async def _shutdown(self) -> None:
@@ -195,6 +206,7 @@ class EnOceanProxy:
             with contextlib.suppress(Exception):
                 await self._server.wait_closed()
         await self.link.close()
+        self._save_replay()
 
     # gateway side
 
@@ -387,6 +399,41 @@ class EnOceanProxy:
         self.stats.replayed += len(kept)
         _LOGGER.info("%s: replayed %d telegrams to %s", self.c.name, len(kept), client.address)
 
+    def _replay_file(self) -> Path:
+        return REPLAY_DIR / f"{self.c.id}.json"
+
+    def _load_replay(self) -> None:
+        """The buffer kept at the last stop, without what has grown too old meanwhile."""
+        path = self._replay_file()
+        try:
+            frames = json.loads(path.read_text(encoding="utf-8"))["frames"]
+            path.unlink()
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError, KeyError, TypeError) as err:
+            _LOGGER.warning("%s: kept replay buffer not read: %s", self.c.name, err)
+            return
+        now, wall_now = self._clock(), time.time()
+        for wall, text in frames:
+            age = wall_now - float(wall)
+            if 0 <= age <= self.c.replay_max_age_s:
+                self._replay.append((now - age, float(wall), bytes.fromhex(text)))
+        _LOGGER.info("%s: %d kept telegrams for the replay", self.c.name, len(self._replay))
+
+    def _save_replay(self) -> None:
+        path = self._replay_file()
+        try:
+            if not self.c.replay_persist or not self._replay:
+                path.unlink(missing_ok=True)
+                return
+            REPLAY_DIR.mkdir(parents=True, exist_ok=True)
+            frames = [[wall, frame.hex()] for _received, wall, frame in self._replay]
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"frames": frames}), encoding="utf-8")
+            os.replace(tmp, path)
+        except OSError as err:
+            _LOGGER.warning("%s: replay buffer not kept: %s", self.c.name, err)
+
     # duty cycle
 
     def _count_airtime(self, frame: bytes) -> None:
@@ -550,6 +597,12 @@ def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
         "telegrams": state["frames"]["from_gateway"],
         "duty_cycle": state["duty_cycle"]["of_limit"],
     }
+
+
+def _port(server: asyncio.Server) -> int:
+    """The port listened on; with port 0 (tests) IPv4 and IPv6 may get different ones."""
+    sockets = sorted(server.sockets, key=lambda s: s.family != socket.AF_INET)
+    return int(sockets[0].getsockname()[1])
 
 
 def _text(err: BaseException) -> str:

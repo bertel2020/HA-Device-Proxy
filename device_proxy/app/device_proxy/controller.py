@@ -36,6 +36,7 @@ from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
 from .devices import Device, device_for, line_counters, scan, set_low_latency
+from .enocean_ha import EnOceanHa
 from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
@@ -208,6 +209,7 @@ class Controller:
         self.proxies: dict[str, AppProxy] = {}  # connection id → running proxy
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self.mqtt = HaBridge(self)
+        self.enocean_ha = EnOceanHa(self)
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
@@ -299,6 +301,7 @@ class Controller:
             )
         self._reconcile_keepers()
         await self._reconcile_proxies()
+        await self.enocean_ha.update()
         self.devices = scan()
         self._apply_latency()
         self.lan_ip = await asyncio.to_thread(host_lan_ip)
@@ -321,6 +324,7 @@ class Controller:
             for task in self._proxy_tasks.values():
                 task.cancel()
             await asyncio.gather(*self._proxy_tasks.values(), return_exceptions=True)
+            await self.enocean_ha.stop()
             if self._mqtt_task is not None:
                 await self._mqtt_task
 
@@ -350,6 +354,7 @@ class Controller:
                 disconnected = await self._reload(touched)
             self._reconcile_keepers()
             restarted = await self._reconcile_proxies()
+            await self.enocean_ha.update()
             names = sorted(self._names(alias)[1] for alias in touched if alias in self._written)
             names += sorted(
                 c.name for c in old.connections if c.alias in touched and not new.connection(c.id)

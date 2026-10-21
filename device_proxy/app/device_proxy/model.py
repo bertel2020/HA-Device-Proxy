@@ -148,6 +148,7 @@ class Connection:
     send_gap_ms: int = 10  # pause after each frame sent to the gateway
     replay_size: int = 1000  # radio telegrams kept while no replaying client is connected
     replay_max_age_s: int = 900
+    replay_persist: bool = False  # keep the replay buffer over a restart of the app (/data)
 
     @property
     def uses_device(self) -> bool:
@@ -367,6 +368,9 @@ class Settings:
     mqtt_prefix: str = "homeassistant"
     mqtt_base: str = "device_proxy"
     mqtt_interval: int = 10  # seconds between state updates
+    # EnOcean gateways for the EnOcean Eltako integration (enocean_ha.py)
+    enocean_discovery: bool = True
+    enocean_status_port: int = 9199  # read-only status, for Home Assistant and the apps only
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -414,6 +418,10 @@ class Settings:
                 e[key] = "an MQTT topic without wildcards"
         if not 2 <= settings.mqtt_interval <= 3600:
             e["mqtt_interval"] = "2 to 3600 seconds"
+        if not 1024 <= settings.enocean_status_port <= 65535:
+            e["enocean_status_port"] = "1024 to 65535"
+        elif settings.enocean_status_port in RESERVED_PORTS:
+            e["enocean_status_port"] = f"used by {RESERVED_PORTS[settings.enocean_status_port]}"
         if e:
             raise ValidationError(e)
         return settings
@@ -461,7 +469,11 @@ class AppConfig:
             "id": {},
             "host": {},
         }
+        status_port = self.settings.enocean_status_port
+        enocean = any(c.kind == "enocean" for c in self.connections)
         for index, c in enumerate(self.connections):
+            if enocean and c.port == status_port:
+                e[f"connections.{index}.port"] = "used by the status for the EnOcean integration"
             checks: list[tuple[str, Any]] = [("port", c.port), ("id", c.id)]
             if c.uses_device:
                 checks.append(("device", c.device))
