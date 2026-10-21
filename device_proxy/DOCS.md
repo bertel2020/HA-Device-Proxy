@@ -104,7 +104,13 @@ devices. Under **Advanced**: disconnect idle clients, replace the oldest client 
 places are taken, allowed clients and a bind address – the network setting applies as for
 serial devices.
 
-**Cache**: when several clients read the same registers (Home Assistant, evcc, a SolarEdge
+**Probe**: optionally the app reads one register (unit, function 3 or 4, address) after a
+set time without requests. The state "reachable" is then right without clients, and devices
+that close idle connections keep theirs. A probe that gets no answer (after its retries)
+marks the device not reachable at once. Probes are counted on their own, not as requests.
+
+**Cache**:
+ when several clients read the same registers (Home Assistant, evcc, a SolarEdge
 integration …), a cache time of e.g. 500 ms lets the device answer each read only once in
 that time; the same read while one is on its way waits for that answer. Only reads
 (functions 1–4) are cached, never exceptions; a write empties the cache. Off by default.

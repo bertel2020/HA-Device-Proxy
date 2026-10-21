@@ -429,6 +429,7 @@ class Stats:
     failed: int = 0  # requests the clients got 0x0A / 0x0B for
     blocked: int = 0  # writes refused by the write protection
     cached: int = 0  # reads answered from the cache or together with the same request
+    probes: int = 0  # the app's own reads to see whether the device answers
     bytes_to_device: int = 0
     bytes_from_device: int = 0
     time_avg: float = 0.0  # seconds, moving average
@@ -465,6 +466,10 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_access="all",
         write_clients="",
         cache_ms=0,
+        probe_seconds=0,
+        probe_unit=1,
+        probe_function=3,
+        probe_address=0,
     )
 
 
@@ -546,8 +551,12 @@ class ModbusProxy:
         self.reachable: bool | None = None
         self.reachable_since = time.time()
         self._failures = 0  # requests in a row without an answer
+        self._down_on_connect = False  # not reachable because connecting failed
+
         self._server: asyncio.Server | None = None
         self._workers: list[asyncio.Task[None]] = []
+        self._probe = ClientInfo("probe", time.time())  # the app's own client for probes
+        self._last_exchange = 0.0
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
 
@@ -567,6 +576,7 @@ class ModbusProxy:
                         self.on_event("error", "listen_failed", port=self.c.port, error=str(err))
                     await asyncio.sleep(LISTEN_RETRY)
             self._workers = [asyncio.create_task(self._work(path)) for path in self.paths]
+            self._workers.append(asyncio.create_task(self._probe_loop()))
             await asyncio.gather(*self._workers)
         finally:
             for worker in self._workers:
@@ -597,6 +607,22 @@ class ModbusProxy:
             if not job.future.done():
                 job.future.set_result(answer)
 
+    async def _probe_loop(self) -> None:
+        """With probes on, read one register after probe_seconds without a request: the
+        state stays right without clients, and an idle connection is not closed."""
+        while True:
+            seconds = self.c.probe_seconds
+            if not seconds:
+                await asyncio.sleep(SERIAL_RETRY)  # look again: probes may be switched on
+                continue
+
+            quiet = asyncio.get_running_loop().time() - self._last_exchange
+            if quiet < seconds:
+                await asyncio.sleep(seconds - quiet)
+                continue
+            pdu = struct.pack(">BHH", self.c.probe_function, self.c.probe_address, 1)
+            await self._queued(self.c.probe_unit, pdu, self._probe)
+
     async def _keep_link(self, path: _Path) -> None:
         """Connect when the device is not known to be reachable (a serial device: always)."""
         if path.link.is_open or (self.c.link != "rtu" and self.reachable is True):
@@ -604,7 +630,7 @@ class ModbusProxy:
         try:
             await self._connect(path)
         except (OSError, TimeoutError) as err:
-            self._down(_text(err))
+            self._down(_text(err), connect=True)
 
     async def _shutdown(self) -> None:
         if self._server is not None:
@@ -628,8 +654,10 @@ class ModbusProxy:
         _LOGGER.debug("%s: connected to %s", self.c.name, self.c.upstream)
         if self.c.connect_delay_ms:
             await asyncio.sleep(self.c.connect_delay_ms / 1000)
-        if self.c.link != "rtu":
-            self._up()  # a serial device counts once it answers
+        if self.c.link != "rtu" and (self.reachable is None or self._down_on_connect):
+            # reachable again; a device that takes connections but does not answer only
+            # counts once it answers (a serial device: always)
+            self._up()
 
     def _up(self) -> None:
         self._failures = 0
@@ -638,8 +666,9 @@ class ModbusProxy:
                 self.on_event("info", "modbus_back", target=self.c.upstream)
             self.reachable, self.reachable_since = True, time.time()
 
-    def _down(self, error: str) -> None:
+    def _down(self, error: str, *, connect: bool = False) -> None:
         self.stats.last_error, self.stats.last_error_at = error, time.time()
+        self._down_on_connect = connect
         if self.reachable is not False:
             self.reachable, self.reachable_since = False, time.time()
             self.on_event("warning", "modbus_down", target=self.c.upstream, error=error)
@@ -713,8 +742,12 @@ class ModbusProxy:
     ) -> bytes | None:
         loop = asyncio.get_running_loop()
         stats = self.stats
-        stats.requests += 1
-        client.requests += 1
+        probe = client is self._probe
+        if probe:
+            stats.probes += 1
+        else:
+            stats.requests += 1
+            client.requests += 1
         if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
         timeout = self.c.request_timeout_ms / 1000
@@ -725,7 +758,7 @@ class ModbusProxy:
                 try:
                     await self._connect(path)
                 except (OSError, TimeoutError) as err:
-                    self._down(_text(err))
+                    self._down(_text(err), connect=True)
                     code = EXC_PATH
                     continue
             started = loop.time()
@@ -750,22 +783,24 @@ class ModbusProxy:
                 code = EXC_PATH
                 continue
             finally:
-                path.last_request = loop.time()
+                path.last_request = self._last_exchange = loop.time()
             elapsed = loop.time() - started
-            stats.answered += 1
             stats.last_answer = time.time()
-            stats.time_avg = (
-                elapsed if stats.answered == 1 else stats.time_avg * 0.9 + elapsed * 0.1
-            )
+            stats.time_avg = elapsed if not stats.time_avg else stats.time_avg * 0.9 + elapsed * 0.1
             stats.time_max = max(stats.time_max, elapsed)
-            if answer and answer[0] & 0x80:
-                stats.exceptions += 1
+            if not probe:
+                stats.answered += 1
+                if answer and answer[0] & 0x80:
+                    stats.exceptions += 1
+
             self._up()
             return answer
-        stats.failed += 1
-        client.failed += 1
+        if not probe:
+            stats.failed += 1
+            client.failed += 1
         self._failures += 1
-        if self._failures >= DOWN_AFTER:
+        if probe or self._failures >= DOWN_AFTER:  # a probe has had its retries already
+
             self._down(stats.last_error or "no answer")
         return exception(pdu, code)
 
@@ -858,6 +893,7 @@ class ModbusProxy:
             "failed": s.failed,
             "blocked": s.blocked,
             "cached": s.cached,
+            "probes": s.probes,
             "time_avg_ms": round(s.time_avg * 1000, 1),
             "time_max_ms": round(s.time_max * 1000, 1),
             "queue": self.scheduler.size,

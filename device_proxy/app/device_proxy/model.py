@@ -129,6 +129,10 @@ class Connection:
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
+    probe_seconds: int = 0  # read a register after this long without requests (0: off)
+    probe_unit: int = 1
+    probe_function: int = 3  # 3 holding or 4 input registers
+    probe_address: int = 0
 
     @property
     def uses_device(self) -> bool:
@@ -269,6 +273,14 @@ class Connection:
             e["request_gap_ms"] = "0 to 10000 ms"
         if not 0 <= self.cache_ms <= 60000:
             e["cache_ms"] = "0 to 60000 ms"
+        if self.probe_seconds and not 5 <= self.probe_seconds <= 3600:
+            e["probe_seconds"] = "0 or 5 to 3600 seconds"
+        if not 0 <= self.probe_unit <= 255:
+            e["probe_unit"] = "0 to 255"
+        if self.probe_function not in (3, 4):
+            e["probe_function"] = "3 or 4"
+        if not 0 <= self.probe_address <= 65535:
+            e["probe_address"] = "0 to 65535"
         if self.write_access not in WRITE_ACCESS:
             e["write_access"] = f"one of {', '.join(WRITE_ACCESS)}"
         elif self.write_access == "listed":

@@ -165,3 +165,31 @@ async def test_clients_take_turns() -> None:
         scheduler.put(key, _Job(n, b"", ClientInfo(key, 0), loop.create_future()))
     order = [(job.client.address, job.unit) for job in [await scheduler.get() for _ in range(4)]]
     assert order == [("busy", 1), ("other", 1), ("busy", 2), ("busy", 3)]
+
+
+async def test_probe_finds_a_device_that_stops_answering() -> None:
+    device = await _device(False, ignore={1})  # takes the connection, never answers unit 1
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        retries=0,
+        host_port=device.sockets[0].getsockname()[1],
+        request_timeout_ms=100,
+        probe_seconds=5,
+    )
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    task = asyncio.create_task(proxy.run())  # quiet since the start: probes at once
+    for _ in range(100):
+        if proxy.reachable is False:
+            break
+        await asyncio.sleep(0.05)
+    assert proxy.reachable is False and proxy.stats.probes == 1 and proxy.stats.requests == 0
+    assert "modbus_down" in events
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
