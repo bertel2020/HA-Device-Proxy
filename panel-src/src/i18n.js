@@ -2,6 +2,7 @@
 // they are worded here, so the history reads in the viewer's language.
 const TEXT = {
   de: {
+    portWarn: "Achtung: {w}. Speichern geht trotzdem; die Verbindung startet, sobald der Port frei ist.",
     appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht", appRunning: "Läuft", problems: "{n} mit Problem",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche", breadcrumb: "Pfad",
@@ -152,6 +153,7 @@ const TEXT = {
     connectionLost: "Keine Verbindung zur App – zeige den letzten Stand.",
   },
   en: {
+    portWarn: "Note: {w}. Saving still works; the connection starts as soon as the port is free.",
     appTitle: "Device Proxy", running: "ser2net running", notRunning: "ser2net not running", appRunning: "Running", problems: "{n} with a problem",
 
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
@@ -363,6 +365,8 @@ const FIELD_ERRORS_DE = [
   [/^(\d+) to (\d+) minutes$/, "$1 bis $2 Minuten"], [/^(\d+) to (\d+) days$/, "$1 bis $2 Tage"],
   [/^(\d+) to (\d+) characters$/, "$1 bis $2 Zeichen"], [/^(\d+) to (\d+) files$/, "$1 bis $2 Dateien"],
   [/^0 or (\d+) to (\d+) seconds$/, "0 oder $1 bis $2 Sekunden"], [/^'(.+)' is not unit=unit \(0 to 255\)$/, "„$1“ ist nicht Unit=Unit (0 bis 255)"], [/^unit (\d+) twice$/, "Unit $1 doppelt"], [/^1 for a serial device$/, "1 bei einem seriellen Gerät"],
+  [/^in use by another program$/, "von einem anderen Programm belegt"], [/^the bind address is not on this host$/, "die Bind-Adresse gibt es auf diesem Rechner nicht"],
+
 
  [/^(\d+) to (\d+) MB$/, "$1 bis $2 MB"],
  [/^(\d+) to (\d+) ms$/, "$1 bis $2 ms"],

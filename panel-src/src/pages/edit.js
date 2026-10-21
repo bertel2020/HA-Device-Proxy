@@ -36,7 +36,8 @@ export class EditPage extends Page {
   static properties = {
     state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
-    otherDevice: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true },
+    otherDevice: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
+
   };
 
   static styles = [...Page.styles, css`
@@ -104,6 +105,7 @@ export class EditPage extends Page {
       const result = await api("api/preview", { method: "POST", body: { connection: this.draft } });
       this.yaml = result.yaml;
       this.errors = fieldErrors(result.errors);
+      this.warnings = result.warnings || {};
     } catch { /* keep the last preview */ }
   }
 
@@ -137,7 +139,12 @@ export class EditPage extends Page {
 
   _shown() { return Object.fromEntries(Object.entries(this.errors).filter(([k]) => this.touched.has(k))); }
 
-  _err(key) { const e = this._shown(); return e[key] ? html`<span class="err" id="e-${key}">${fieldError(e[key])}</span>` : ""; }
+  _err(key) {
+    const e = this._shown();
+    if (e[key]) return html`<span class="err" id="e-${key}">${fieldError(e[key])}</span>`;
+    const w = (this.warnings || {})[key];
+    return w ? html`<span class="hint" id="e-${key}" style="color:var(--warn)">${t("portWarn", { w: fieldError(w) })}</span>` : "";
+  }
 
   _input(key, label, { type = "text", hint = "", mono = false, number = false } = {}) {
     const value = this.draft[key];

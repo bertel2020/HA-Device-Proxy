@@ -32,7 +32,10 @@ of its own.
 | Other apps (e.g. Z-Wave JS UI) | `172.30.32.1` and the port – in the Supervisor network 127.0.0.1 is the app itself |
 | Other computers | the host's LAN address and the port |
 
-Saving a connection rebuilds only that connection; all others keep their clients.
+Saving a connection rebuilds only that connection; all others keep their clients. The form
+warns when the chosen port is already taken by another program (e.g. a still running
+ha-modbusproxy); saving works anyway, the connection starts once the port is free.
+
 
 ## Connections
 

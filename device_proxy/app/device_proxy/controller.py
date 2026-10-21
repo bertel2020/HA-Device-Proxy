@@ -18,6 +18,7 @@ whatever the source. Saving restarts only the proxies whose settings changed.
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import os
 import socket
@@ -465,6 +466,33 @@ class Controller:
         self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
         now = time.time()
         self._restarts = [t for t in self._restarts if now - t < 600] + [now]
+
+    def port_problem(self, c: Connection) -> str | None:
+        """Why the connection's port cannot be opened right now (another program has it),
+        None when it can or when this app holds it for this connection already."""
+        current = self.config.connection(c.id)
+        if current and current.enabled and (current.port, current.bind) == (c.port, c.bind):
+            return None  # this connection's own port
+        host = c.bind or ("127.0.0.1" if self.config.settings.listen == "local" else "")
+        family = socket.AF_INET6 if ":" in host else socket.AF_INET
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # as the servers do
+            try:
+                sock.bind((host, c.port))
+            except PermissionError:
+                return None  # a low port, not the app's question here
+            except OSError as err:
+                if err.errno == errno.EADDRINUSE:
+                    return "in use by another program"
+                if err.errno == errno.EADDRNOTAVAIL:
+                    return "the bind address is not on this host"
+                return None
+        # a program listening on one address only may leave the bind above free
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.2)
+            if sock.connect_ex((host or "127.0.0.1", c.port)) == 0:
+                return "in use by another program"
+        return None
 
     # Modbus proxies
 

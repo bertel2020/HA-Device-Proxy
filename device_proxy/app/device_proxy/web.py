@@ -322,10 +322,13 @@ class WebServer:
             index = next(i for i, c in enumerate(others.connections) if c.id == connection_id)
             prefix = f"connections.{index}."
             errors = {k[len(prefix) :]: v for k, v in err.errors.items() if k.startswith(prefix)}
-        if connection.kind != "serial":
-            return ok({"yaml": "", "errors": errors})  # the app's Modbus proxy, not ser2net
+        warnings: dict[str, str] = {}
+        if "port" not in errors and (problem := self.c.port_problem(connection)):
+            warnings["port"] = problem
+        if connection.kind != "serial":  # the app's Modbus proxy, not ser2net
+            return ok({"yaml": "", "errors": errors, "warnings": warnings})
         text = block(connection, self.c.config.settings.listen, trace=False)
-        return ok({"yaml": text, "errors": errors})
+        return ok({"yaml": text, "errors": errors, "warnings": warnings})
 
     async def settings(self, request: Request) -> Response:
         data = request.json().get("settings")
