@@ -7,7 +7,7 @@ ARG GENSIO_VERSION=3.0.4
 ARG GENSIO_SHA256=e28c24fc5d9f3cb90005bc008fec8bb8eedce503753024ab650bed0ac250cbe3
 ARG SER2NET_VERSION=4.6.8
 ARG SER2NET_SHA256=e651adcc4cc0d0ceaa36e5997dab9ea7f8aea732b4c87ba6018d2dcc88fbe8e3
-RUN apk add --no-cache build-base linux-headers libyaml-dev openssl-dev
+RUN apk add --no-cache build-base linux-headers yaml-dev openssl-dev
 WORKDIR /src
 RUN wget -q "https://github.com/cminyard/gensio/releases/download/v${GENSIO_VERSION}/gensio-${GENSIO_VERSION}.tar.gz" \
     && echo "${GENSIO_SHA256}  gensio-${GENSIO_VERSION}.tar.gz" | sha256sum -c - \
@@ -38,7 +38,7 @@ FROM ${BUILD_FROM}
 ARG BUILD_VERSION
 ENV APP_VERSION=${BUILD_VERSION}
 
-RUN apk add --no-cache libyaml libssl3 libcrypto3
+RUN apk add --no-cache yaml libssl3 libcrypto3
 COPY --from=build /out/ /
 RUN ser2net -v
 
@@ -49,4 +49,6 @@ COPY app /app
 WORKDIR /app
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
     CMD ["python3", "-m", "device_proxy.health"]
-CMD ["python3", "-m", "device_proxy"]
+# the base image starts this through s6-overlay, which leaves out the container's environment
+# (SUPERVISOR_TOKEN, APP_VERSION) unless asked
+CMD ["/command/with-contenv", "python3", "-m", "device_proxy"]
