@@ -1,0 +1,33 @@
+#include <tunables/global>
+
+# The Supervisor renames the profile to the app's slug when it loads it.
+profile device_proxy flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # files: serial devices, /data, /config, /dev/shm (traces), /sys (USB details, FTDI
+  # latency), s6-overlay's /run; the app and ser2net use what the container maps in
+  file,
+  # the shared ports (also below 1024, e.g. 502), MQTT, the Supervisor's API
+  network,
+  unix,
+  # s6-overlay and the app stopping ser2net
+  signal,
+
+  # the capabilities s6-overlay, the app and ser2net need, nothing more
+  capability chown,
+  capability dac_override,
+  capability dac_read_search,
+  capability fowner,
+  capability fsetid,
+  capability kill,
+  capability net_bind_service,
+  capability setgid,
+  capability setuid,
+
+  deny mount,
+  deny umount,
+  deny pivot_root,
+  deny @{PROC}/sys/** w,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/kcore rwklx,
+}
