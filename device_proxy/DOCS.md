@@ -112,8 +112,7 @@ set time without requests. The state "reachable" is then right without clients, 
 that close idle connections keep theirs. A probe that gets no answer (after its retries)
 marks the device not reachable at once. Probes are counted on their own, not as requests.
 
-**Cache**:
- when several clients read the same registers (Home Assistant, evcc, a SolarEdge
+**Cache**: when several clients read the same registers (Home Assistant, evcc, a SolarEdge
 integration …), a cache time of e.g. 500 ms lets the device answer each read only once in
 that time; the same read while one is on its way waits for that answer. Only reads
 (functions 1–4) are cached, never exceptions; a write empties the cache. Off by default.
@@ -123,21 +122,19 @@ once (up to 4), the requests can run in parallel over that many connections – 
 many clients. Leave it at 1 for devices that take one connection only (most inverters);
 Modbus RTU always has one line.
 
-**Write access**:
-
- Modbus has no login – whoever reaches the port could change registers. Per
+**Write access**: Modbus has no login – whoever reaches the port could change registers. Per
 connection: all clients may write (as with ha-modbusproxy), only listed addresses or
-networks (e.g. `127.0.0.1` for Home Assistant, `172.30.32.0/23` for other apps), or nobody.
-Refused writes (functions 5, 6, 15, 16, 21, 22, 23 and diagnostics other than the echo) get
-exception 0x01 and are counted and logged; reading stays open to all allowed clients.
+networks, or nobody. A new connection starts with "only these": `127.0.0.1` (Home
+Assistant) and `172.30.32.0/23` (other apps); connections imported from ha-modbusproxy
+keep "all clients", so nothing changes for their clients. Refused writes (functions 5, 6,
+15, 16, 21, 22, 23 and diagnostics other than the echo) get exception 0x01 and are counted
+and logged; reading stays open to all allowed clients.
 
 **Unit ids**: under **Advanced** the unit a client asks for can be rewritten
 (`client=device`, e.g. `1=3, 2=5`), for clients that always ask unit 1 while the device
 answers on another one. Imported from modbus-proxy's `unit_id_remapping`.
 
-**When the device does not answer**
-
- the client gets Modbus exception 0x0B ("gateway target
+**When the device does not answer** the client gets Modbus exception 0x0B ("gateway target
 device failed to respond"), when it cannot be reached 0x0A ("gateway path unavailable") – the
 answers a Modbus gateway gives; the client stays connected. After three requests in a row
 without an answer the device counts as not reachable (event, notification, entity). A
@@ -147,9 +144,8 @@ connection is connected again with the next request.
 **Status**: reachable, clients with their requests, requests, answered, exceptions,
 timeouts, errors, queue and answer time (average and maximum), the last error; per unit id
 (each device on an RS485 bus) requests, exceptions, unanswered requests and answer time.
- The live
-view and the recordings show each request and answer as hex with unit, function, register
-and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
+The live view and the recordings show each request and answer as hex with unit, function,
+register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 **Tools** on a Modbus connection's details:
 
@@ -161,8 +157,7 @@ and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 Tool requests are not counted as the clients' and do not change the device's state.
 
-Saving restarts only Modbus connections
- whose device or proxy settings changed; their
+Saving restarts only Modbus connections whose device or proxy settings changed; their
 clients connect again. Name, trace and notifications change without a restart.
 
 ## Status, traces and line errors

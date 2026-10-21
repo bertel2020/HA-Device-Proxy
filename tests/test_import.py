@@ -166,3 +166,4 @@ def test_ha_modbusproxy_options_become_modbus_connections() -> None:
     assert first.port == 502 and first.request_timeout_ms == 10000
     assert second and (second.host_port, second.port) == (1502, 503)
     assert (second.request_timeout_ms, second.connect_delay_ms) == (5000, 100)
+    assert first.write_access == "all"  # as with ha-modbusproxy

@@ -13,7 +13,10 @@ const DEFAULTS = {
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
 };
-const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
+// new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write
+const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
+  write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
+
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
 const TEMPLATES = {
   ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
