@@ -89,3 +89,16 @@ def test_devices_with_and_without_serial_number(tmp_path: Path) -> None:
     assert found["ttyUSB0"].stable.endswith("by-id/usb-FTDI_FT232R_A10K3QF2-if00-port0")
     assert found["ttyUSB1"].ambiguous and found["ttyUSB2"].ambiguous
     assert found["ttyUSB1"].stable.endswith("by-path/usb-0:1.3:1.0-port0")
+
+
+async def test_poll_reads_in_a_thread_and_updates_state_in_the_loop(tmp_path: Path) -> None:
+    from device_proxy.trace import Chunk, TraceHub
+
+    hub = TraceHub(tmp_path / "rec", tmp_path / "shm")
+    hub.feed("a", Chunk(1.0, "rx", b"abc"))
+    new = await hub.poll({"a": ("a", "both")}, 1 << 20, 1)
+    assert [c.data for c in new["a"]] == [b"abc"]
+    assert hub.flow["a"].rx_bytes == 3 and [c.seq for c in hub.live["a"]] == [1]
+    assert (tmp_path / "rec" / "a.log").exists()
+    await hub.poll({}, 1 << 20, 1)
+    assert "a" not in hub.live

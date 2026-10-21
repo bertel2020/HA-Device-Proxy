@@ -115,3 +115,17 @@ async def test_changes_at_the_same_time_do_not_overwrite_each_other(tmp_path: Pa
         controller.apply(switch_off("0000000b"), "test"),
     )
     assert [c.enabled for c in controller.config.connections] == [False, False]
+
+
+def test_a_damaged_config_file_falls_back_to_the_latest_version(tmp_path: Path) -> None:
+    from device_proxy.db import Database
+    from device_proxy.store import Store
+
+    store = Store(Database(tmp_path / "h.db"), tmp_path / "c.json")
+    config = AppConfig(connections=(Connection("a", "/dev/null", 3335, id="0000000a"),))
+    store.save(AppConfig(), config, "test")
+    (tmp_path / "c.json").write_text('{"connections": [', encoding="utf-8")
+    assert store.load() == config
+    (tmp_path / "c.json").unlink()
+    assert store.load() == config
+    assert Store(None, tmp_path / "none.json").load() == AppConfig()

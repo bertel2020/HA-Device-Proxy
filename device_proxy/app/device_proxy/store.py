@@ -67,26 +67,45 @@ class Store:
         self.path = path
 
     def load(self) -> AppConfig:
-        """The saved configuration; an empty one when there is none or it cannot be read."""
+        """The saved configuration; when the file is missing, unreadable or invalid, the
+        latest saved version, and an empty one when there is none."""
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            return AppConfig()
+            return self._latest_version() or AppConfig()
         except (OSError, ValueError) as err:
-            _LOGGER.error("Configuration %s unreadable (%s), starting empty", self.path, err)
-            return AppConfig()
+            _LOGGER.error("Configuration %s unreadable (%s)", self.path, err)
+            return self._latest_version() or AppConfig()
         try:
             return AppConfig.from_dict(data)
         except ValidationError as err:
-            _LOGGER.error("Configuration %s invalid (%s), starting empty", self.path, err)
+            _LOGGER.error("Configuration %s invalid (%s)", self.path, err)
             self.path.replace(self.path.with_suffix(f".invalid-{int(time.time())}"))
-            return AppConfig()
+            return self._latest_version() or AppConfig()
+
+    def _latest_version(self) -> AppConfig | None:
+        if self.db is None:
+            return None
+        try:
+            row = self.db.execute(
+                "SELECT id FROM config_versions ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            config = self.version(row[0]) if row else None
+        except Exception as err:  # a damaged database must not keep the app from starting
+            _LOGGER.error("Latest saved version not readable (%s)", err)
+            return None
+        if config is not None:
+            _LOGGER.warning("Using the latest saved version of the configuration")
+        return config
 
     def save(self, old: AppConfig, new: AppConfig, source: str) -> list[Change]:
         """Write the configuration and keep it as a version; returns what changed."""
         text = json.dumps(new.to_dict(), ensure_ascii=False, indent=1)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(text, encoding="utf-8")
+        with tmp.open("w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
         os.replace(tmp, self.path)
         items = changes(old, new)
         if self.db is not None:

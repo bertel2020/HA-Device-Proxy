@@ -71,6 +71,18 @@ export class SettingsPage extends Page {
     }
   }
 
+  async _changeListen(v) {
+    if (v === this.state.settings.listen) return;
+    if (!(await confirmDialog(this, t("listenConfirm"), t("confirm")))) return;
+    this._saveSettings({ listen: v });
+  }
+
+  async _useOwn() {
+    if (this.state.settings.source === "custom") return;
+    if (!(await confirmDialog(this, t("ownConfirm"), t("confirm")))) return;
+    this._saveSettings({ source: "custom" });
+  }
+
   async _check() {
     try { this.customCheck = await api("api/custom/check", { method: "POST", body: { text: this.customText } }); } catch (err) { this.toast(err.message); }
   }
@@ -128,7 +140,7 @@ export class SettingsPage extends Page {
         <section id="net" class="card" aria-labelledby="t-net">
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
-            aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._saveSettings({ listen: v })}>
+            aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
             <b style="font-weight:500">${t(`net_${v}`)}</b><span class="hint">${t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
         </section>
@@ -137,7 +149,7 @@ export class SettingsPage extends Page {
           <div class="row"><div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
             <div class="seg" role="group" aria-labelledby="t-src">
               <button aria-pressed=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>${t("forms")}</button>
-              <button aria-pressed=${own ? "true" : "false"} ?disabled=${!this.custom?.exists} @click=${() => this._saveSettings({ source: "custom" })}>${t("own")}</button></div></div>
+              <button aria-pressed=${own ? "true" : "false"} ?disabled=${!this.custom?.exists} @click=${() => this._useOwn()}>${t("own")}</button></div></div>
           <div class="note warn" role="note">${t("ownWarn")}</div>
           <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => { this.customText = e.target.value; this.customCheck = null; }}></textarea>
           <div class="row">

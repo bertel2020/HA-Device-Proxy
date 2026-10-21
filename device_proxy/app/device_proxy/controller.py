@@ -618,9 +618,7 @@ class Controller:
             for c in self.active + self.config.modbus
             if c.enabled
         }
-        await asyncio.to_thread(
-            self.trace.poll, aliases, settings.trace_file_mb << 20, settings.trace_keep
-        )
+        await self.trace.poll(aliases, settings.trace_file_mb << 20, settings.trace_keep)
 
     def live(self, connection_id: str, limit: int = 200) -> list[Chunk]:
         c = self.config.connection(connection_id)
@@ -1140,15 +1138,18 @@ class Controller:
             host = c.bind if c.bind and c.bind not in ("0.0.0.0", "::") else "127.0.0.1"
             family = socket.AF_INET6 if ":" in host else socket.AF_INET
             sock = socket.socket(family, socket.SOCK_STREAM)
-            sock.setblocking(False)
-            sock.bind((host, 0))
-            own = sock.getsockname()
-            address = f"[{own[0]}]:{own[1]}" if family == socket.AF_INET6 else f"{own[0]}:{own[1]}"
-            self.internal.add(address)  # before connecting: ser2net reports it at once
+            address = ""
             try:
+                sock.setblocking(False)
+                sock.bind((host, 0))
+                own = sock.getsockname()
+                address = (
+                    f"[{own[0]}]:{own[1]}" if family == socket.AF_INET6 else f"{own[0]}:{own[1]}"
+                )
+                self.internal.add(address)  # before connecting: ser2net reports it at once
                 await asyncio.get_running_loop().sock_connect(sock, (host, c.port))
                 reader, writer = await asyncio.open_connection(sock=sock)
-            except OSError as err:
+            except OSError as err:  # also a bind address this host does not have
                 sock.close()
                 self.internal.discard(address)
                 if not failed:
@@ -1158,6 +1159,10 @@ class Controller:
                     )
                 await asyncio.sleep(KEEP_OPEN_RETRY)
                 continue
+            except BaseException:  # cancelled while connecting
+                sock.close()
+                self.internal.discard(address)
+                raise
             failed = False
             activity.kept_open = True
             try:

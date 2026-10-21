@@ -17,6 +17,7 @@ to the hub (feed), with a line on each in info.
 
 from __future__ import annotations
 
+import asyncio
 import ctypes
 import logging
 import os
@@ -202,23 +203,23 @@ class TraceHub:
         if len(pending) < LIVE_LINES * 10:
             pending.append(chunk)
 
-    def poll(
+    async def poll(
         self, aliases: dict[str, tuple[str, str]], max_bytes: int, keep: int
     ) -> dict[str, list[Chunk]]:
-        """Read all traces. aliases: alias → (file name for recordings, trace mode)."""
-        new: dict[str, list[Chunk]] = {}
+        """Read all traces. aliases: alias → (file name for recordings, trace mode).
+
+        The files are read and the recordings written in a thread; everything the rest of
+        the app reads (live lines, flows) is only touched here in the event loop."""
+        jobs: list[tuple[str, str, str, TraceTail | None, list[Chunk]]] = []
         for alias, (file_name, mode) in aliases.items():
             if alias in self.fed:
-                chunks = self.fed.pop(alias)
+                jobs.append((alias, file_name, mode, None, self.fed.pop(alias)))
             else:
                 tail = self.tails.setdefault(alias, TraceTail(self.shm_dir / f"{alias}.trace"))
-                try:
-                    chunks = tail.read()
-                except OSError as err:
-                    _LOGGER.debug("Trace of %s not read: %s", alias, err)
-                    continue
-            if not chunks:
-                continue
+                jobs.append((alias, file_name, mode, tail, []))
+        read = await asyncio.to_thread(self._read, jobs, max_bytes, keep)
+        new: dict[str, list[Chunk]] = {}
+        for alias, chunks in read:
             flow = self.flow.setdefault(alias, Flow())
             for c in chunks:
                 flow.seq += 1
@@ -230,9 +231,6 @@ class TraceHub:
                     flow.tx_bytes += len(c.data)
                     flow.last_tx = c.ts
             self.live.setdefault(alias, deque(maxlen=LIVE_LINES)).extend(chunks)
-            if mode != "off":
-                path = self.record_dir / f"{file_name}.log"
-                Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
             new[alias] = chunks
         for alias in {*self.tails, *self.live, *self.fed}:
             if alias not in aliases:
@@ -240,6 +238,29 @@ class TraceHub:
                 self.live.pop(alias, None)
                 self.fed.pop(alias, None)
         return new
+
+    def _read(
+        self,
+        jobs: list[tuple[str, str, str, TraceTail | None, list[Chunk]]],
+        max_bytes: int,
+        keep: int,
+    ) -> list[tuple[str, list[Chunk]]]:
+        """The thread's part: file reads and recordings, nothing shared with the loop."""
+        result: list[tuple[str, list[Chunk]]] = []
+        for alias, file_name, mode, tail, chunks in jobs:
+            if tail is not None:
+                try:
+                    chunks = tail.read()
+                except OSError as err:
+                    _LOGGER.debug("Trace of %s not read: %s", alias, err)
+                    continue
+            if not chunks:
+                continue
+            if mode != "off":
+                path = self.record_dir / f"{file_name}.log"
+                Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
+            result.append((alias, chunks))
+        return result
 
     def files(self) -> list[dict[str, object]]:
         if not self.record_dir.is_dir():
