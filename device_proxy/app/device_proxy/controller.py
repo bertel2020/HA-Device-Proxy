@@ -912,6 +912,7 @@ class Controller:
                     "bytes_to_client": cl.info.bytes_out,
                     "bytes_from_client": cl.info.bytes_in,
                     "requests": cl.info.requests,
+                    "blocked": cl.info.blocked,
                     "failed": cl.info.failed,
                     "queued": 0,
                     "stuck": False,

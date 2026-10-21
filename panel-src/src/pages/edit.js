@@ -11,6 +11,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
+  write_access: "all", write_clients: "",
 };
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
@@ -207,9 +208,18 @@ export class EditPage extends Page {
         </div>
       </section>
 
+      <section class="card" aria-labelledby="t-write">
+        <div><h2 id="t-write">${t("mbWrite")}</h2><p class="hint" style="margin-top:4px">${t("mbWriteSub")}</p></div>
+        <div class="seg" role="group" aria-labelledby="t-write">${["all", "listed", "none"].map((v) => html`<button type="button" aria-pressed=${d.write_access === v ? "true" : "false"}
+          @click=${() => this._set({ write_access: v })}>${t(`wa_${v}`)}</button>`)}</div>
+        <span class="hint">${t(`wasub_${d.write_access}`)}</span>
+        ${d.write_access === "listed" ? this._input("write_clients", t("mbWriteClients"), { mono: true, hint: t("mbWriteClientsHint") }) : ""}
+      </section>
+
       <section class="card" aria-labelledby="t-adv">
         <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
           <span><h2 id="t-adv">${t("advanced")}</h2><span class="hint">${t("advancedSubMb")}</span></span>
+
           <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
           <div class="opts">${this._check("kickolduser", true)}${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>

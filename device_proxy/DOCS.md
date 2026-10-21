@@ -102,7 +102,14 @@ devices. Under **Advanced**: disconnect idle clients, replace the oldest client 
 places are taken, allowed clients and a bind address – the network setting applies as for
 serial devices.
 
-**When the device does not answer** the client gets Modbus exception 0x0B ("gateway target
+**Write access**: Modbus has no login – whoever reaches the port could change registers. Per
+connection: all clients may write (as with ha-modbusproxy), only listed addresses or
+networks (e.g. `127.0.0.1` for Home Assistant, `172.30.32.0/23` for other apps), or nobody.
+Refused writes (functions 5, 6, 15, 16, 21, 22, 23 and diagnostics other than the echo) get
+exception 0x01 and are counted and logged; reading stays open to all allowed clients.
+
+**When the device does not answer**
+ the client gets Modbus exception 0x0B ("gateway target
 device failed to respond"), when it cannot be reached 0x0A ("gateway path unavailable") – the
 answers a Modbus gateway gives; the client stays connected. After three requests in a row
 without an answer the device counts as not reachable (event, notification, entity). A

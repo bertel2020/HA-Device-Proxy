@@ -103,3 +103,29 @@ async def test_modbus_tcp_device_for_several_clients() -> None:
 
 async def test_modbus_rtu_over_tcp() -> None:
     await _run("rtu_tcp")
+
+
+async def test_writes_are_refused_without_write_access() -> None:
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=1,
+        bind="127.0.0.1",
+        write_access="listed",
+        write_clients="192.168.1.5",
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(struct.pack(">HHHBBHH", 1, 0, 6, 1, 6, 100, 7))  # write register 100 = 7
+    assert await reader.readexactly(9) == struct.pack(">HHHB", 1, 0, 3, 1) + bytes([0x86, 1])
+    writer.close()
+    assert proxy.stats.blocked == 1 and proxy.stats.requests == 0
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)

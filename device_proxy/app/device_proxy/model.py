@@ -29,6 +29,8 @@ SOURCES = ("forms", "custom")
 TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus")
 KINDS = ("serial", "modbus")  # shared by ser2net, or by the app's Modbus proxy (modbus.py)
 LINKS = ("tcp", "rtu", "rtu_tcp")  # how the Modbus proxy reaches the device
+WRITE_ACCESS = ("all", "none", "listed")
+
 HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?|\[?[0-9A-Fa-f:.]+\]?")
 PRIVATE_NETWORKS = (
     "127.0.0.0/8",
@@ -124,6 +126,8 @@ class Connection:
     connect_delay_ms: int = 0  # wait after connecting before the first request
     retries: int = 1  # further attempts when the device does not answer
     request_gap_ms: int = 0  # extra pause between two requests
+    write_access: str = "all"  # which clients may write: "all", "none" or "listed"
+    write_clients: str = ""  # for "listed": addresses or networks
 
     @property
     def uses_device(self) -> bool:
@@ -262,6 +266,13 @@ class Connection:
             e["retries"] = "0 to 5"
         if not 0 <= self.request_gap_ms <= 10000:
             e["request_gap_ms"] = "0 to 10000 ms"
+        if self.write_access not in WRITE_ACCESS:
+            e["write_access"] = f"one of {', '.join(WRITE_ACCESS)}"
+        elif self.write_access == "listed":
+            try:
+                parse_networks(self.write_clients)
+            except ValueError as err:
+                e["write_clients"] = str(err)
 
 
 @dataclass(frozen=True)

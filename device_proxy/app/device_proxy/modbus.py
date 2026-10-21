@@ -39,6 +39,7 @@ from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
 
+EXC_FUNCTION = 0x01  # illegal function: the answer to a write that is not allowed
 EXC_PATH = 0x0A  # gateway path unavailable
 EXC_TARGET = 0x0B  # gateway target device failed to respond
 LISTEN_RETRY = 10  # seconds between attempts to open the port
@@ -47,6 +48,8 @@ SERIAL_RETRY = 5  # seconds between attempts to open a missing serial device
 DOWN_AFTER = 3  # requests in a row without an answer: the device counts as not reachable
 QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
 BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
+# functions that change the device; 8 (diagnostics) only with a sub-function other than 0
+WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
 
 FUNCTIONS = {
     1: "read coils",
@@ -131,6 +134,14 @@ def describe(unit: int, pdu: bytes, *, request: bool) -> str:
     elif not request and function in (1, 2, 3, 4, 23) and len(pdu) >= 2:
         text += f" · {pdu[1]} bytes"
     return text
+
+
+def is_write(pdu: bytes) -> bool:
+    if not pdu:
+        return False
+    if pdu[0] == 8:
+        return pdu[1:3] != b"\x00\x00"  # 0: return query data (an echo)
+    return pdu[0] in WRITE_FUNCTIONS
 
 
 def exception(pdu: bytes, code: int) -> bytes:
@@ -400,6 +411,7 @@ class ClientInfo:
     since: float
     requests: int = 0
     failed: int = 0
+    blocked: int = 0
     bytes_in: int = 0
     bytes_out: int = 0
 
@@ -412,6 +424,7 @@ class Stats:
     timeouts: int = 0
     errors: int = 0  # broken answers and lost connections
     failed: int = 0  # requests the clients got 0x0A / 0x0B for
+    blocked: int = 0  # writes refused by the write protection
     bytes_to_device: int = 0
     bytes_from_device: int = 0
     time_avg: float = 0.0  # seconds, moving average
@@ -446,6 +459,8 @@ def restart_key(c: Connection, listen: str) -> Connection:
         template="generic",
         low_latency=False,
         remaddr=f"{c.remaddr}|{listen}",
+        write_access="all",
+        write_clients="",
     )
 
 
@@ -664,7 +679,7 @@ class ModbusProxy:
         self.clients[address] = client
         self.on_event("info", "client_connected", address=address)
         try:
-            await self._serve(reader, writer, client.info)
+            await self._serve(reader, writer, client.info, host)
         except (asyncio.IncompleteReadError, ConnectionError, OSError, TimeoutError):
             pass
         except ValueError as err:
@@ -675,8 +690,18 @@ class ModbusProxy:
             writer.close()
             self.on_event("info", "client_disconnected", address=address)
 
+    def may_write(self, host: str) -> bool:
+        access = self.c.write_access
+        if access == "listed":
+            return bool(self.c.write_clients) and client_allowed(self.c.write_clients, "all", host)
+        return access == "all"
+
     async def _serve(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, info: ClientInfo
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        info: ClientInfo,
+        host: str,
     ) -> None:
         idle = self.c.timeout or None
         while True:
@@ -686,7 +711,13 @@ class ModbusProxy:
                 raise ValueError("not Modbus TCP")
             pdu = await reader.readexactly(length - 1)
             info.bytes_in += len(head) + len(pdu)
-            answer = await self.request(unit, pdu, info)
+            if is_write(pdu) and not self.may_write(host):
+                self.stats.blocked += 1
+                info.blocked += 1
+                self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
+                answer: bytes | None = exception(pdu, EXC_FUNCTION)
+            else:
+                answer = await self.request(unit, pdu, info)
             if answer is None:
                 continue
             frame = struct.pack(">HHHB", tid, 0, len(answer) + 1, unit) + answer
@@ -710,6 +741,7 @@ class ModbusProxy:
             "timeouts": s.timeouts,
             "errors": s.errors,
             "failed": s.failed,
+            "blocked": s.blocked,
             "time_avg_ms": round(s.time_avg * 1000, 1),
             "time_max_ms": round(s.time_max * 1000, 1),
             "queue": s.queue,

@@ -36,6 +36,7 @@ SUMMED = {
     "modbus_down",
     "modbus_back",
     "client_refused",
+    "write_blocked",
 }
 GONE = {"device_missing", "modbus_down"}  # the device is away (for the history) ...
 BACK = {"device_back", "device", "modbus_back"}  # ... and there again
@@ -76,6 +77,7 @@ MESSAGES = {
     "modbus_back": "Device reachable again: {target}",
     "listen_failed": "Port {port} cannot be opened: {error}",
     "client_refused": "Client refused, all places taken: {address}",
+    "write_blocked": "Write refused (function {function}) from {address}",
 }
 
 
