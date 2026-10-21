@@ -283,7 +283,16 @@ export class DetailPage extends Page {
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
           </section>
+          ${modbus && (m.units || []).length ? html`<section class="card" aria-labelledby="t-units">
+            <div class="row"><h2 id="t-units">${t("mbUnits")}</h2><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
+            <div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
+              <th style="text-align:right">${t("mbExceptions")}</th><th style="text-align:right">${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
+              <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
+                <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
+                <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div>
+          </section>` : ""}
           <section class="card" aria-labelledby="t-addr">
+
             <h2 id="t-addr">${t("addresses")}</h2>
             ${c.addresses.map((a) => html`<div class="well row">
               <div style="min-width:0"><div class="hint">${t(`target_${a.target}`)}</div>

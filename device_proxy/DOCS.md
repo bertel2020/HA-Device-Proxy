@@ -131,7 +131,9 @@ device that is not reachable is tried again every 30 seconds; a device that clos
 connection is connected again with the next request.
 
 **Status**: reachable, clients with their requests, requests, answered, exceptions,
-timeouts, errors, queue and answer time (average and maximum), the last error. The live
+timeouts, errors, queue and answer time (average and maximum), the last error; per unit id
+(each device on an RS485 bus) requests, exceptions, unanswered requests and answer time.
+ The live
 view and the recordings show each request and answer as hex with unit, function, register
 and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 

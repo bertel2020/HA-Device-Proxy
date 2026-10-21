@@ -457,6 +457,29 @@ class Stats:
 
 
 @dataclass
+class UnitStats:
+    """The clients' requests to one unit id (one device on an RS485 bus)."""
+
+    requests: int = 0
+    answered: int = 0
+    exceptions: int = 0
+    failed: int = 0
+    time_avg: float = 0.0
+    last_answer: float = 0.0
+
+    def to_dict(self, unit: int) -> dict[str, Any]:
+        return {
+            "unit": unit,
+            "requests": self.requests,
+            "answered": self.answered,
+            "exceptions": self.exceptions,
+            "failed": self.failed,
+            "time_avg_ms": round(self.time_avg * 1000, 1),
+            "last_answer": self.last_answer or None,
+        }
+
+
+@dataclass
 class _Client:
     info: ClientInfo
     writer: asyncio.StreamWriter
@@ -573,6 +596,7 @@ class ModbusProxy:
 
         self._server: asyncio.Server | None = None
         self._workers: list[asyncio.Task[None]] = []
+        self.units: dict[int, UnitStats] = {}
         self._probe = ClientInfo("probe", time.time())  # the app's own client for probes
         self.tool = ClientInfo("app", time.time())  # ... and for the tools
         self._last_exchange = 0.0
@@ -770,11 +794,14 @@ class ModbusProxy:
         loop = asyncio.get_running_loop()
         stats, client, unit, pdu = self.stats, job.client, job.unit, job.pdu
         probe, tool = client is self._probe, client is self.tool
+        counted = not (probe or tool)
+        per_unit = self.units.setdefault(unit, UnitStats()) if counted else UnitStats()
         if probe:
             stats.probes += 1
         elif not tool:
             stats.requests += 1
             client.requests += 1
+            per_unit.requests += 1
         if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
         timeout = job.timeout or self.c.request_timeout_ms / 1000
@@ -820,10 +847,16 @@ class ModbusProxy:
                     elapsed if not stats.time_avg else stats.time_avg * 0.9 + elapsed * 0.1
                 )
                 stats.time_max = max(stats.time_max, elapsed)
-            if not (probe or tool):
+            if counted:
                 stats.answered += 1
+                per_unit.answered += 1
+                per_unit.last_answer = time.time()
+                per_unit.time_avg = (
+                    elapsed if not per_unit.time_avg else per_unit.time_avg * 0.9 + elapsed * 0.1
+                )
                 if answer and answer[0] & 0x80:
                     stats.exceptions += 1
+                    per_unit.exceptions += 1
             self._up()
             return answer
         if tool:
@@ -831,6 +864,7 @@ class ModbusProxy:
         if not probe:
             stats.failed += 1
             client.failed += 1
+            per_unit.failed += 1
         self._failures += 1
         if probe or self._failures >= DOWN_AFTER:  # a probe has had its retries already
             self._down(stats.last_error or "no answer")
@@ -932,6 +966,7 @@ class ModbusProxy:
             "blocked": s.blocked,
             "cached": s.cached,
             "probes": s.probes,
+            "units": [self.units[u].to_dict(u) for u in sorted(self.units)],
             "time_avg_ms": round(s.time_avg * 1000, 1),
             "time_max_ms": round(s.time_max * 1000, 1),
             "queue": self.scheduler.size,

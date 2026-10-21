@@ -91,6 +91,7 @@ async def _run(link: str) -> None:
     assert await _read(port, 7, 9, 0) == bytes([0x83, 0x0B])
     assert (await _read(port, 8, 1, 5))[2:4] == struct.pack(">H", 50)
     assert proxy.stats.answered == 7 and proxy.stats.timeouts == 1
+    assert (proxy.units[1].answered, proxy.units[9].failed) == (7, 1)
     assert events.count("client_connected") == 8
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)

@@ -140,6 +140,7 @@ const TEXT = {
     ex_10: "Weg zum Gerät nicht verfügbar", ex_11: "Gerät antwortet nicht",
     mbScanTitle: "Bus scannen", mbScanSub: "Sucht, welche Unit-IDs antworten (liest Register 0). Bei 247 Units und 200 ms dauert das bis zu etwa einer Minute; die Clients kommen zwischendurch dran.",
     mbFirst: "Von Unit", mbLast: "Bis Unit", mbScanTimeout: "Warten je Unit (ms)", mbScanNone: "Keine Unit hat geantwortet.",
+    mbUnits: "Pro Unit-ID", mbUnitsSub: "Anfragen der Clients je Gerät am Bus", mbTimeShort: "Ø Antwort",
     mbBlocked: "abgewiesen", mbCached: "aus Zwischenspeicher", mbCacheShort: "Zwischenspeicher",
     mbCache: "Lesewerte zwischenspeichern (ms, 0 = aus)", mbCacheHint: "Gleiche Leseanfragen mehrerer Clients innerhalb dieser Zeit fragen das Gerät nur einmal. Schreiben leert den Speicher.",
     mbTime: "Antwortzeit Ø / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Letzte Antwort", mbListenError: "Port kann nicht geöffnet werden: {e}", mbLastError: "Letzter Fehler",
@@ -277,7 +278,9 @@ const TEXT = {
     ex_10: "gateway path unavailable", ex_11: "device does not answer",
     mbScanTitle: "Scan the bus", mbScanSub: "Finds the unit ids that answer (reads register 0). With 247 units and 200 ms this takes up to about a minute; the clients get their turns in between.",
     mbFirst: "From unit", mbLast: "To unit", mbScanTimeout: "Wait per unit (ms)", mbScanNone: "No unit answered.",
+    mbUnits: "Per unit id", mbUnitsSub: "The clients' requests per device on the bus", mbTimeShort: "avg answer",
     mbBlocked: "refused",
+
  mbCached: "from cache", mbCacheShort: "Cache",
     mbCache: "Cache reads (ms, 0 = off)", mbCacheHint: "The same read from several clients within this time asks the device once. A write empties the cache.",
 
