@@ -10,6 +10,9 @@ configuration, so switching them never disconnects clients.
 Lines look like "2026/10/20 10:44:01 term 1b 1b 1b 1b 01 01 01 01 |........|": "term" is
 data from the device (rx), "tcp " data from the clients to the device (tx). ser2net also
 writes OPEN (<address>) and CLOSE lines.
+
+The Modbus proxy (modbus.py) is the app itself: it hands its requests and answers straight
+to the hub (feed), with a line on each in info.
 """
 
 from __future__ import annotations
@@ -61,6 +64,7 @@ class Chunk:
     data: bytes = b""
     text: str = ""  # for open / close: what ser2net wrote
     seq: int = 0  # set by the TraceHub, increases per connection
+    info: str = ""  # Modbus: what the request or answer is
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -69,6 +73,7 @@ class Chunk:
             "hex": self.data.hex(" ").upper(),
             "text": self.text or self.data.decode("latin-1"),
             "seq": self.seq,
+            "info": self.info,
         }
 
     def line(self) -> str:
@@ -76,7 +81,8 @@ class Chunk:
         stamp += f".{int(self.ts * 1000) % 1000:03d}"
         if self.direction in ("open", "close"):
             return f"{stamp} {self.direction.upper()} {self.text}"
-        return f"{stamp} {self.direction.upper()} {self.data.hex(' ').upper()}"
+        line = f"{stamp} {self.direction.upper()} {self.data.hex(' ').upper()}"
+        return f"{line} | {self.info}" if self.info else line
 
 
 def _seconds(stamp: bytes, now: float) -> float:
@@ -186,9 +192,15 @@ class TraceHub:
         self.tails: dict[str, TraceTail] = {}
         self.live: dict[str, deque[Chunk]] = {}
         self.flow: dict[str, Flow] = {}
+        self.fed: dict[str, list[Chunk]] = {}  # from the Modbus proxy, until the next poll
 
     def prepare(self) -> None:
         self.shm_dir.mkdir(parents=True, exist_ok=True)
+
+    def feed(self, alias: str, chunk: Chunk) -> None:
+        pending = self.fed.setdefault(alias, [])
+        if len(pending) < LIVE_LINES * 10:
+            pending.append(chunk)
 
     def poll(
         self, aliases: dict[str, tuple[str, str]], max_bytes: int, keep: int
@@ -196,12 +208,15 @@ class TraceHub:
         """Read all traces. aliases: alias → (file name for recordings, trace mode)."""
         new: dict[str, list[Chunk]] = {}
         for alias, (file_name, mode) in aliases.items():
-            tail = self.tails.setdefault(alias, TraceTail(self.shm_dir / f"{alias}.trace"))
-            try:
-                chunks = tail.read()
-            except OSError as err:
-                _LOGGER.debug("Trace of %s not read: %s", alias, err)
-                continue
+            if alias in self.fed:
+                chunks = self.fed.pop(alias)
+            else:
+                tail = self.tails.setdefault(alias, TraceTail(self.shm_dir / f"{alias}.trace"))
+                try:
+                    chunks = tail.read()
+                except OSError as err:
+                    _LOGGER.debug("Trace of %s not read: %s", alias, err)
+                    continue
             if not chunks:
                 continue
             flow = self.flow.setdefault(alias, Flow())
@@ -219,10 +234,11 @@ class TraceHub:
                 path = self.record_dir / f"{file_name}.log"
                 Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
             new[alias] = chunks
-        for alias in list(self.tails):
+        for alias in list(self.tails) + list(self.live):
             if alias not in aliases:
-                self.tails.pop(alias)
+                self.tails.pop(alias, None)
                 self.live.pop(alias, None)
+                self.fed.pop(alias, None)
         return new
 
     def files(self) -> list[dict[str, object]]:

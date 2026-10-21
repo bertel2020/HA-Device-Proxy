@@ -35,7 +35,7 @@ class Candidate:
         return self.__dict__.copy()
 
 
-def _configure(fd: int, baud: int, data_bits: int, parity: str, stop_bits: int) -> None:
+def configure(fd: int, baud: int, data_bits: int, parity: str, stop_bits: int) -> None:
     attrs = termios.tcgetattr(fd)
     speed = getattr(termios, f"B{baud}")
     attrs[0] = termios.IGNBRK  # iflag: raw, no flow control
@@ -80,7 +80,7 @@ def detect(
     try:
         steps = [(b, f) for b in BAUDS for f in FORMATS]
         for index, (baud, (data_bits, parity, stop_bits)) in enumerate(steps):
-            _configure(fd, baud, data_bits, parity, stop_bits)
+            configure(fd, baud, data_bits, parity, stop_bits)
             data = listen(fd, LISTEN_SECONDS)
             candidate = Candidate(
                 baud,

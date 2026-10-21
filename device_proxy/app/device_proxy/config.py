@@ -106,7 +106,7 @@ def block(c: Connection, listen: str, *, trace: bool = True) -> str:
 
 def blocks(config: AppConfig) -> dict[str, str]:
     """Alias → block, to tell which connections a change touches."""
-    return {c.alias: block(c, config.settings.listen) for c in config.connections}
+    return {c.alias: block(c, config.settings.listen) for c in config.serial}
 
 
 def render(config: AppConfig, admin_socket: str = ADMIN_SOCKET) -> str:
@@ -143,7 +143,7 @@ def export(config: AppConfig, *, include_disabled: bool = True) -> str:
     stamp = time.strftime("%Y-%m-%d %H:%M")
     parts = [f"%YAML 1.1\n---\n# Exported from the Device Proxy app on {stamp}\n"]
     taken: set[str] = set()
-    for c in config.connections:
+    for c in config.serial:  # the Modbus proxy is the app's own, not ser2net's
         if c.enabled or include_disabled:
             text = block(c, config.settings.listen, trace=False)
             parts.append(text.replace(f"&{c.alias}", f"&{readable_alias(c.name, taken)}", 1))

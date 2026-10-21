@@ -1,0 +1,726 @@
+"""Modbus proxy: one Modbus device shared by several Modbus TCP clients.
+
+Many Modbus devices take only one connection at a time (inverters, heat pumps, energy
+meters), and a serial RS485 bus (Modbus RTU) can only be opened by one program. Each Modbus
+connection of the app listens on a TCP port of its own and speaks Modbus TCP to its clients.
+Their requests go to the device one after another over one connection; each answer goes back
+to the client that asked.
+
+Towards the device:
+- "tcp": Modbus TCP, like modbus-proxy. The app numbers the requests itself, so a late
+  answer to a request that timed out is never handed to the next one.
+- "rtu": Modbus RTU on a serial device (RS485 adapter), like mbusd.
+- "rtu_tcp": Modbus RTU over TCP, e.g. an RS485-to-Ethernet converter in transparent mode.
+
+A request the device does not answer gets Modbus exception 0x0B (gateway target device
+failed to respond), one that cannot be sent because the device is not reachable 0x0A
+(gateway path unavailable), as a Modbus gateway answers; the client stays connected.
+Unit 0 on RTU is a broadcast: it is sent, nobody answers.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import fcntl
+import logging
+import os
+import socket
+import struct
+import termios
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from typing import Any
+
+from .detect import configure
+from .model import Connection, client_allowed
+from .trace import Chunk
+
+_LOGGER = logging.getLogger(__name__)
+
+EXC_PATH = 0x0A  # gateway path unavailable
+EXC_TARGET = 0x0B  # gateway target device failed to respond
+LISTEN_RETRY = 10  # seconds between attempts to open the port
+LINK_RETRY = 30  # seconds between attempts to reach a device that is not reachable
+SERIAL_RETRY = 5  # seconds between attempts to open a missing serial device
+DOWN_AFTER = 3  # requests in a row without an answer: the device counts as not reachable
+QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
+BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
+
+FUNCTIONS = {
+    1: "read coils",
+    2: "read discrete inputs",
+    3: "read holding registers",
+    4: "read input registers",
+    5: "write coil",
+    6: "write register",
+    7: "read exception status",
+    8: "diagnostics",
+    11: "get comm event counter",
+    15: "write coils",
+    16: "write registers",
+    17: "report server id",
+    22: "mask write register",
+    23: "read/write registers",
+    43: "device identification",
+}
+EXCEPTIONS = {
+    1: "illegal function",
+    2: "illegal data address",
+    3: "illegal data value",
+    4: "server device failure",
+    5: "acknowledge",
+    6: "server device busy",
+    8: "memory parity error",
+    10: "gateway path unavailable",
+    11: "gateway target failed to respond",
+}
+
+
+class FrameError(Exception):
+    """The device sent something that is not the answer to the request."""
+
+
+def crc16(data: bytes) -> int:
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1
+    return crc
+
+
+def rtu_frame(unit: int, pdu: bytes) -> bytes:
+    body = bytes([unit]) + pdu
+    return body + crc16(body).to_bytes(2, "little")
+
+
+def rtu_length(head: bytes) -> int | None:
+    """The length of an RTU answer from its first three bytes; None when they do not tell."""
+    function = head[1]
+    if function & 0x80:
+        return 5
+    if function in (1, 2, 3, 4, 12, 17, 20, 21, 23):
+        return 3 + head[2] + 2  # byte count
+    if function in (5, 6, 8, 11, 15, 16):
+        return 8
+    if function == 22:
+        return 10
+    if function == 7:
+        return 5
+    return None
+
+
+def describe(unit: int, pdu: bytes, *, request: bool) -> str:
+    """One line on a request or answer for the trace."""
+    if not pdu:
+        return f"unit {unit}"
+    function = pdu[0]
+    if function & 0x80:
+        code = pdu[1] if len(pdu) > 1 else 0
+        name = EXCEPTIONS.get(code, "")
+        return f"unit {unit} · FC{function & 0x7F:02d} exception {code:02X} {name}".rstrip()
+    text = f"unit {unit} · FC{function:02d} {FUNCTIONS.get(function, '')}".rstrip()
+    if request and function in (1, 2, 3, 4, 15, 16) and len(pdu) >= 5:
+        address, count = struct.unpack(">HH", pdu[1:5])
+        text += f" · @{address} ×{count}"
+    elif request and function in (5, 6) and len(pdu) >= 5:
+        address, value = struct.unpack(">HH", pdu[1:5])
+        text += f" · @{address} = {value}"
+    elif not request and function in (1, 2, 3, 4, 23) and len(pdu) >= 2:
+        text += f" · {pdu[1]} bytes"
+    return text
+
+
+def exception(pdu: bytes, code: int) -> bytes:
+    return bytes([(pdu[0] if pdu else 0) | 0x80, code])
+
+
+# links: byte streams to the device
+
+
+class Link:
+    """A byte stream to the device with an input buffer the framers read from."""
+
+    def __init__(self) -> None:
+        self.buffer = bytearray()
+        self._data = asyncio.Event()
+        self.last_activity = 0.0  # loop time of the last byte in or out
+
+    @property
+    def is_open(self) -> bool:
+        raise NotImplementedError
+
+    async def open(self, timeout: float) -> None:
+        raise NotImplementedError
+
+    async def write(self, data: bytes) -> None:
+        raise NotImplementedError
+
+    async def close(self) -> None:
+        raise NotImplementedError
+
+    def _received(self, data: bytes) -> None:
+        self.buffer += data
+        self.last_activity = asyncio.get_running_loop().time()
+        self._data.set()
+
+    def _lost(self) -> None:
+        self._data.set()  # wakes up a waiting read, which then sees the link closed
+
+    def discard(self) -> int:
+        """Drop what came in without being asked for (a late answer, noise)."""
+        count = len(self.buffer)
+        self.buffer.clear()
+        return count
+
+    async def _wait(self, deadline: float) -> None:
+        if not self.is_open:
+            raise ConnectionError("connection to the device closed")
+        self._data.clear()
+        left = deadline - asyncio.get_running_loop().time()
+        if left <= 0:
+            raise TimeoutError
+        await asyncio.wait_for(self._data.wait(), left)
+
+    async def read_exactly(self, count: int, deadline: float) -> bytes:
+        while len(self.buffer) < count:
+            await self._wait(deadline)
+        data = bytes(self.buffer[:count])
+        del self.buffer[:count]
+        return data
+
+    async def read_quiet(self, gap: float, deadline: float) -> bytes:
+        """Everything until the line has been quiet for gap seconds."""
+        loop = asyncio.get_running_loop()
+        while not self.buffer:
+            await self._wait(deadline)
+        while True:
+            try:
+                await self._wait(min(deadline, loop.time() + gap))
+            except TimeoutError:
+                break
+        data = bytes(self.buffer)
+        self.buffer.clear()
+        return data
+
+
+class TcpLink(Link):
+    def __init__(self, host: str, port: int) -> None:
+        super().__init__()
+        self.host = host
+        self.port = port
+        self._writer: asyncio.StreamWriter | None = None
+        self._pump: asyncio.Task[None] | None = None
+
+    @property
+    def is_open(self) -> bool:
+        return self._writer is not None and self._pump is not None and not self._pump.done()
+
+    async def open(self, timeout: float) -> None:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(self.host, self.port), timeout
+        )
+        sock = writer.get_extra_info("socket")
+        if sock is not None:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.buffer.clear()
+        self._writer = writer
+        self._pump = asyncio.create_task(self._read(reader))
+
+    async def _read(self, reader: asyncio.StreamReader) -> None:
+        try:
+            while data := await reader.read(4096):
+                self._received(data)
+        except OSError:
+            pass
+        finally:
+            self._lost()
+
+    async def write(self, data: bytes) -> None:
+        if self._writer is None:
+            raise ConnectionError("not connected")
+        self._writer.write(data)
+        await self._writer.drain()
+        self.last_activity = asyncio.get_running_loop().time()
+
+    async def close(self) -> None:
+        if self._pump is not None:
+            self._pump.cancel()
+        if self._writer is not None:
+            self._writer.close()
+            with contextlib.suppress(OSError, asyncio.CancelledError):
+                await self._writer.wait_closed()
+        self._writer = self._pump = None
+
+
+class SerialLink(Link):
+    def __init__(self, device: str, baud: int, data_bits: int, parity: str, stop_bits: int) -> None:
+        super().__init__()
+        self.device = device
+        self.settings = (baud, data_bits, parity, stop_bits)
+        self.fd: int | None = None
+        bits = 1 + data_bits + (0 if parity == "n" else 1) + stop_bits
+        self.char_time = bits / baud
+        # Modbus RTU: 3.5 characters of silence between frames, fixed 1.75 ms above 19200 baud
+        self.frame_gap = 3.5 * self.char_time if baud <= 19200 else 0.00175
+
+    @property
+    def is_open(self) -> bool:
+        return self.fd is not None
+
+    async def open(self, timeout: float) -> None:
+        fd = os.open(self.device, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+        try:
+            fcntl.ioctl(fd, termios.TIOCEXCL)  # no other program opens it meanwhile
+            configure(fd, *self.settings)
+        except (OSError, AttributeError):
+            os.close(fd)
+            raise
+        self.buffer.clear()
+        self.fd = fd
+        asyncio.get_running_loop().add_reader(fd, self._readable)
+
+    def _readable(self) -> None:
+        if self.fd is None:
+            return
+        try:
+            data = os.read(self.fd, 4096)
+        except BlockingIOError:
+            return
+        except OSError:
+            data = b""
+        if data:
+            self._received(data)
+        else:  # unplugged
+            self._close_fd()
+            self._lost()
+
+    async def write(self, data: bytes) -> None:
+        view = memoryview(data)
+        while view:
+            if self.fd is None:
+                raise ConnectionError("device closed")
+            try:
+                view = view[os.write(self.fd, view) :]
+            except BlockingIOError:
+                await asyncio.sleep(0.001)
+        # the bytes are on their way: the line is busy until they are out
+        loop = asyncio.get_running_loop()
+        self.last_activity = loop.time() + len(data) * self.char_time
+
+    def _close_fd(self) -> None:
+        if self.fd is not None:
+            with contextlib.suppress(Exception):
+                asyncio.get_running_loop().remove_reader(self.fd)
+            with contextlib.suppress(OSError):
+                os.close(self.fd)
+            self.fd = None
+
+    async def close(self) -> None:
+        self._close_fd()
+
+
+# framers: Modbus over a link
+
+
+class TcpFramer:
+    """Modbus TCP towards the device, with the app's own transaction ids."""
+
+    def __init__(self, link: Link) -> None:
+        self.link = link
+        self.tid = 0
+
+    async def exchange(
+        self, unit: int, pdu: bytes, timeout: float, trace: Callable[[str, bytes, str], None]
+    ) -> bytes | None:
+        self.tid = (self.tid + 1) & 0xFFFF
+        frame = struct.pack(">HHHB", self.tid, 0, len(pdu) + 1, unit) + pdu
+        self.link.discard()
+        trace("tx", frame, describe(unit, pdu, request=True))
+        await self.link.write(frame)
+        deadline = asyncio.get_running_loop().time() + timeout
+        while True:
+            head = await self.link.read_exactly(7, deadline)
+            tid, protocol, length, answer_unit = struct.unpack(">HHHB", head)
+            if protocol != 0 or not 2 <= length <= 254:
+                raise ConnectionError("the device does not speak Modbus TCP")
+            body = await self.link.read_exactly(length - 1, deadline)
+            trace("rx", head + body, describe(answer_unit, body, request=False))
+            if tid == self.tid:
+                return body
+            # a late answer to an earlier request: wait for the right one
+
+
+class RtuFramer:
+    """Modbus RTU towards the device, over a serial device or a TCP connection."""
+
+    def __init__(self, link: Link, gap: float) -> None:
+        self.link = link
+        self.gap = gap  # silence before a request, seconds
+        self.char_time = getattr(link, "char_time", 0.0)
+
+    async def exchange(
+        self, unit: int, pdu: bytes, timeout: float, trace: Callable[[str, bytes, str], None]
+    ) -> bytes | None:
+        loop = asyncio.get_running_loop()
+        wait = self.link.last_activity + self.gap - loop.time()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        self.link.discard()
+        frame = rtu_frame(unit, pdu)
+        trace("tx", frame, describe(unit, pdu, request=True))
+        await self.link.write(frame)
+        if unit == 0:  # broadcast: no answer
+            await asyncio.sleep(BROADCAST_WAIT)
+            return None
+        deadline = loop.time() + len(frame) * self.char_time + timeout
+        head = await self.link.read_exactly(3, deadline)
+        length = rtu_length(head)
+        if length is None:
+            data = head + await self.link.read_quiet(max(QUIET_GAP, self.gap), deadline)
+        else:
+            data = head + await self.link.read_exactly(length - 3, deadline)
+        body = data[1:-2]
+        trace("rx", data, describe(data[0], body, request=False))
+        if len(data) < 5 or crc16(data[:-2]) != int.from_bytes(data[-2:], "little"):
+            raise FrameError("CRC wrong")
+        if data[0] != unit or data[1] & 0x7F != pdu[0]:
+            raise FrameError("answer to another request")
+        return body
+
+
+# the proxy
+
+
+@dataclass
+class ClientInfo:
+    address: str
+    since: float
+    requests: int = 0
+    failed: int = 0
+    bytes_in: int = 0
+    bytes_out: int = 0
+
+
+@dataclass
+class Stats:
+    requests: int = 0
+    answered: int = 0
+    exceptions: int = 0  # answered with a Modbus exception by the device
+    timeouts: int = 0
+    errors: int = 0  # broken answers and lost connections
+    failed: int = 0  # requests the clients got 0x0A / 0x0B for
+    bytes_to_device: int = 0
+    bytes_from_device: int = 0
+    time_avg: float = 0.0  # seconds, moving average
+    time_max: float = 0.0
+    queue: int = 0
+    queue_max: int = 0
+    last_answer: float = 0.0
+    last_error: str = ""
+    last_error_at: float = 0.0
+
+
+@dataclass
+class _Client:
+    info: ClientInfo
+    writer: asyncio.StreamWriter
+    task: asyncio.Task[Any] | None = field(default=None, repr=False)
+
+
+EventSink = Callable[..., None]  # (level, kind, **params)
+TraceSink = Callable[[Chunk], None]
+
+
+def restart_key(c: Connection, listen: str) -> Connection:
+    """What a running proxy depends on: a change of anything else does not restart it."""
+    return replace(
+        c,
+        name="",
+        trace="off",
+        notify_missing=False,
+        notify_no_client=False,
+        silence_minutes=0,
+        template="generic",
+        low_latency=False,
+        remaddr=f"{c.remaddr}|{listen}",
+    )
+
+
+class ModbusProxy:
+    def __init__(
+        self, c: Connection, listen: str, on_event: EventSink, on_trace: TraceSink
+    ) -> None:
+        self.c = c
+        self.listen = listen
+        self.key = restart_key(c, listen)
+        self.on_event = on_event
+        self.on_trace = on_trace
+        if c.link == "rtu":
+            self.link: Link = SerialLink(c.device, c.baud, c.data_bits, c.parity, c.stop_bits)
+        else:
+            self.link = TcpLink(c.host, c.host_port)
+        gap = c.request_gap_ms / 1000
+        if c.link == "tcp":
+            self.framer: TcpFramer | RtuFramer = TcpFramer(self.link)
+        else:
+            frame_gap = getattr(self.link, "frame_gap", 0.0)
+            self.framer = RtuFramer(self.link, frame_gap + gap)
+        self.gap = gap if c.link == "tcp" else 0.0
+        self.stats = Stats()
+        self.clients: dict[str, _Client] = {}
+        self.listening = False
+        self.listen_error = ""
+        self.reachable: bool | None = None
+        self.reachable_since = time.time()
+        self._failures = 0  # requests in a row without an answer
+        self._server: asyncio.Server | None = None
+        self._lock = asyncio.Lock()
+        self._last_request = 0.0
+
+    # running
+
+    async def run(self) -> None:
+        """Listen for clients and keep the device's connection; until cancelled."""
+        failed = False
+        try:
+            while self._server is None:
+                try:
+                    await self._start_server()
+                except OSError as err:
+                    self.listen_error = str(err)
+                    if not failed:
+                        failed = True
+                        self.on_event("error", "listen_failed", port=self.c.port, error=str(err))
+                    await asyncio.sleep(LISTEN_RETRY)
+            while True:
+                await self._keep_link()
+                await asyncio.sleep(SERIAL_RETRY if self.c.link == "rtu" else LINK_RETRY)
+        finally:
+            await self._shutdown()
+
+    async def _start_server(self) -> None:
+        host = self.c.bind or ("127.0.0.1" if self.listen == "local" else None)
+        self._server = await asyncio.start_server(
+            self._client, host, self.c.port, reuse_address=True
+        )
+        self.listening, self.listen_error = True, ""
+
+    async def _keep_link(self) -> None:
+        """Connect when the device is not known to be reachable (a serial device: always)."""
+        if self.link.is_open or (self.c.link != "rtu" and self.reachable is True):
+            return  # a device that closed an idle connection is connected on the next request
+        async with self._lock:
+            if not self.link.is_open:
+                try:
+                    await self._connect()
+                except (OSError, TimeoutError) as err:
+                    self._down(_text(err))
+
+    async def _shutdown(self) -> None:
+        if self._server is not None:
+            self._server.close()
+        for client in list(self.clients.values()):
+            client.writer.close()
+            if client.task is not None:
+                client.task.cancel()
+        if self._server is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(self._server.wait_closed(), 2)
+        self._server = None
+        self.listening = False
+        await self.link.close()
+
+    # the device
+
+    async def _connect(self) -> None:
+        await self.link.open(self.c.request_timeout_ms / 1000)
+        _LOGGER.debug("%s: connected to %s", self.c.name, self.c.upstream)
+        if self.c.connect_delay_ms:
+            await asyncio.sleep(self.c.connect_delay_ms / 1000)
+        if self.c.link != "rtu":
+            self._up()  # a serial device counts once it answers
+
+    def _up(self) -> None:
+        self._failures = 0
+        if self.reachable is not True:
+            if self.reachable is False:
+                self.on_event("info", "modbus_back", target=self.c.upstream)
+            self.reachable, self.reachable_since = True, time.time()
+
+    def _down(self, error: str) -> None:
+        self.stats.last_error, self.stats.last_error_at = error, time.time()
+        if self.reachable is not False:
+            self.reachable, self.reachable_since = False, time.time()
+            self.on_event("warning", "modbus_down", target=self.c.upstream, error=error)
+
+    def _trace(self, address: str) -> Callable[[str, bytes, str], None]:
+        def write(direction: str, data: bytes, info: str) -> None:
+            if direction == "tx":
+                self.stats.bytes_to_device += len(data)
+            else:
+                self.stats.bytes_from_device += len(data)
+            self.on_trace(Chunk(time.time(), direction, data, info=f"{info} · {address}"))
+
+        return write
+
+    async def request(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
+        """The device's answer (PDU) to a request; None for a broadcast."""
+        self.stats.queue += 1
+        self.stats.queue_max = max(self.stats.queue_max, self.stats.queue)
+        queued = True
+        try:
+            async with self._lock:
+                self.stats.queue -= 1
+                queued = False
+                return await self._exchange(unit, pdu, client)
+        finally:
+            if queued:
+                self.stats.queue -= 1
+
+    async def _exchange(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
+        loop = asyncio.get_running_loop()
+        stats = self.stats
+        stats.requests += 1
+        client.requests += 1
+        if self.gap and (wait := self._last_request + self.gap - loop.time()) > 0:
+            await asyncio.sleep(wait)
+        timeout = self.c.request_timeout_ms / 1000
+        code = EXC_TARGET
+        trace = self._trace(client.address)
+        for _ in range(1 + self.c.retries):
+            if not self.link.is_open:
+                try:
+                    await self._connect()
+                except (OSError, TimeoutError) as err:
+                    self._down(_text(err))
+                    code = EXC_PATH
+                    continue
+            started = loop.time()
+            try:
+                answer = await self.framer.exchange(unit, pdu, timeout, trace)
+            except TimeoutError:
+                stats.timeouts += 1
+                self._error("no answer")
+                if self.c.link == "tcp":
+                    await self.link.close()  # start over with a fresh connection
+                code = EXC_TARGET
+                continue
+            except FrameError as err:
+                stats.errors += 1
+                self._error(str(err))
+                code = EXC_TARGET
+                continue
+            except (OSError, ConnectionError) as err:
+                stats.errors += 1
+                self._error(_text(err))
+                await self.link.close()
+                code = EXC_PATH
+                continue
+            finally:
+                self._last_request = loop.time()
+            elapsed = loop.time() - started
+            stats.answered += 1
+            stats.last_answer = time.time()
+            stats.time_avg = (
+                elapsed if stats.answered == 1 else stats.time_avg * 0.9 + elapsed * 0.1
+            )
+            stats.time_max = max(stats.time_max, elapsed)
+            if answer and answer[0] & 0x80:
+                stats.exceptions += 1
+            self._up()
+            return answer
+        stats.failed += 1
+        client.failed += 1
+        self._failures += 1
+        if self._failures >= DOWN_AFTER:
+            self._down(stats.last_error or "no answer")
+        return exception(pdu, code)
+
+    def _error(self, text: str) -> None:
+        self.stats.last_error, self.stats.last_error_at = text, time.time()
+        _LOGGER.debug("%s: %s", self.c.name, text)
+
+    # the clients
+
+    async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        peer = writer.get_extra_info("peername") or ("?", 0)
+        host = str(peer[0])
+        address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
+        if not client_allowed(self.c.remaddr, self.listen, host):
+            _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
+            writer.close()
+            return
+        if len(self.clients) >= self.c.max_clients:
+            if not self.c.kickolduser:
+                self.on_event("warning", "client_refused", address=address)
+                writer.close()
+                return
+            oldest = min(self.clients.values(), key=lambda cl: cl.info.since)
+            oldest.writer.close()
+        client = _Client(ClientInfo(address, time.time()), writer, asyncio.current_task())
+        self.clients[address] = client
+        self.on_event("info", "client_connected", address=address)
+        try:
+            await self._serve(reader, writer, client.info)
+        except (asyncio.IncompleteReadError, ConnectionError, OSError, TimeoutError):
+            pass
+        except ValueError as err:
+            _LOGGER.info("%s: client %s closed: %s", self.c.name, address, err)
+        finally:
+            if self.clients.get(address) is client:
+                self.clients.pop(address)
+            writer.close()
+            self.on_event("info", "client_disconnected", address=address)
+
+    async def _serve(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, info: ClientInfo
+    ) -> None:
+        idle = self.c.timeout or None
+        while True:
+            head = await asyncio.wait_for(reader.readexactly(7), idle)
+            tid, protocol, length, unit = struct.unpack(">HHHB", head)
+            if protocol != 0 or not 2 <= length <= 254:
+                raise ValueError("not Modbus TCP")
+            pdu = await reader.readexactly(length - 1)
+            info.bytes_in += len(head) + len(pdu)
+            answer = await self.request(unit, pdu, info)
+            if answer is None:
+                continue
+            frame = struct.pack(">HHHB", tid, 0, len(answer) + 1, unit) + answer
+            writer.write(frame)
+            await writer.drain()
+            info.bytes_out += len(frame)
+
+    # state
+
+    def state(self) -> dict[str, Any]:
+        s = self.stats
+        return {
+            "listening": self.listening,
+            "listen_error": self.listen_error,
+            "reachable": self.reachable,
+            "reachable_since": self.reachable_since,
+            "linked": self.link.is_open,
+            "requests": s.requests,
+            "answered": s.answered,
+            "exceptions": s.exceptions,
+            "timeouts": s.timeouts,
+            "errors": s.errors,
+            "failed": s.failed,
+            "time_avg_ms": round(s.time_avg * 1000, 1),
+            "time_max_ms": round(s.time_max * 1000, 1),
+            "queue": s.queue,
+            "queue_max": s.queue_max,
+            "last_answer": s.last_answer or None,
+            "last_error": s.last_error,
+            "last_error_at": s.last_error_at or None,
+        }
+
+
+def _text(err: BaseException) -> str:
+    if isinstance(err, TimeoutError):
+        return "no answer"
+    return str(err) or type(err).__name__

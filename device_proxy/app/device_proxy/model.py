@@ -26,7 +26,10 @@ LINE_STATES = ("", "on", "off")
 TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "lan", "all")
 SOURCES = ("forms", "custom")
-TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave")
+TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus")
+KINDS = ("serial", "modbus")  # shared by ser2net, or by the app's Modbus proxy (modbus.py)
+LINKS = ("tcp", "rtu", "rtu_tcp")  # how the Modbus proxy reaches the device
+HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?|\[?[0-9A-Fa-f:.]+\]?")
 PRIVATE_NETWORKS = (
     "127.0.0.0/8",
     "10.0.0.0/8",
@@ -71,10 +74,11 @@ def new_id() -> str:
 @dataclass(frozen=True)
 class Connection:
     name: str
-    device: str
-    port: int
+    device: str  # the serial device ("" for a Modbus device reached over the network)
+    port: int  # the TCP port the clients connect to
     id: str = field(default_factory=new_id)
     enabled: bool = True
+    kind: str = "serial"
     template: str = "generic"
     baud: int = 9600
     data_bits: int = 8
@@ -112,6 +116,27 @@ class Connection:
     notify_missing: bool = True
     notify_no_client: bool = False
     silence_minutes: int = 0
+    # Modbus proxy (kind "modbus")
+    link: str = "tcp"  # Modbus TCP, Modbus RTU on the serial device, or RTU over TCP
+    host: str = ""  # the device's address for "tcp" and "rtu_tcp"
+    host_port: int = 502
+    request_timeout_ms: int = 3000  # for the device's answer
+    connect_delay_ms: int = 0  # wait after connecting before the first request
+    retries: int = 1  # further attempts when the device does not answer
+    request_gap_ms: int = 0  # extra pause between two requests
+
+    @property
+    def uses_device(self) -> bool:
+        """Has a serial device: ser2net's connections and Modbus RTU on a local adapter."""
+        return self.kind == "serial" or self.link == "rtu"
+
+    @property
+    def upstream(self) -> str:
+        """Where a Modbus connection's device is, for messages."""
+        if self.link == "rtu":
+            return f"{self.device} {self.serial_format}"
+        host = f"[{self.host}]" if ":" in self.host else self.host
+        return f"{host}:{self.host_port}"
 
     @property
     def alias(self) -> str:
@@ -139,7 +164,10 @@ class Connection:
                 values[f.name] = _coerce(f.name, raw, f.type)
             except (TypeError, ValueError):
                 errors[f.name] = "has the wrong type"
-        for required in ("name", "device", "port"):
+        required_fields = ["name", "port"]
+        if values.get("kind", "serial") == "serial" or values.get("link", "tcp") == "rtu":
+            required_fields.append("device")
+        for required in required_fields:
             if required not in values and required not in errors:
                 errors[required] = "is missing"
         if errors:
@@ -154,7 +182,11 @@ class Connection:
             e["name"] = "1 to 64 characters"
         if not re.fullmatch(r"[0-9a-f]{8}", self.id):
             e["id"] = "is not an id of this app"
-        if not self.device.startswith("/dev/") or re.search(r"[,\s]", self.device):
+        if self.kind not in KINDS:
+            e["kind"] = f"one of {', '.join(KINDS)}"
+        if self.uses_device and (
+            not self.device.startswith("/dev/") or re.search(r"[,\s]", self.device)
+        ):
             e["device"] = "a path under /dev without commas or spaces"
         if not 1 <= self.port <= 65535:
             e["port"] = "between 1 and 65535"
@@ -174,7 +206,7 @@ class Connection:
             e["mode"] = f"one of {', '.join(MODES)}"
         if not 1 <= self.max_clients <= 100:
             e["max_clients"] = "between 1 and 100"
-        elif self.keep_open and self.max_clients < 2:
+        elif self.keep_open and self.kind == "serial" and self.max_clients < 2:
             e["max_clients"] = "at least 2 when the device is kept open (the app uses one)"
         for name in ("dtr", "rts"):
             if getattr(self, name) not in LINE_STATES:
@@ -207,8 +239,29 @@ class Connection:
             e["trace"] = f"one of {', '.join(TRACE_MODES)}"
         if not 0 <= self.silence_minutes <= 1440:
             e["silence_minutes"] = "0 to 1440 minutes"
+        if self.kind == "modbus":
+            self._validate_modbus(e)
         if e:
             raise ValidationError(e)
+
+    def _validate_modbus(self, e: dict[str, str]) -> None:
+        if self.link not in LINKS:
+            e["link"] = f"one of {', '.join(LINKS)}"
+        elif self.link != "rtu":
+            if not HOST.fullmatch(self.host) or len(self.host) > 253:
+                e["host"] = "a host name or IP address"
+            elif self.host in ("127.0.0.1", "localhost", "::1") and self.host_port == self.port:
+                e["host_port"] = "is this connection's own port"
+        if not 1 <= self.host_port <= 65535:
+            e["host_port"] = "between 1 and 65535"
+        if not 100 <= self.request_timeout_ms <= 60000:
+            e["request_timeout_ms"] = "100 to 60000 ms"
+        if not 0 <= self.connect_delay_ms <= 10000:
+            e["connect_delay_ms"] = "0 to 10000 ms"
+        if not 0 <= self.retries <= 5:
+            e["retries"] = "0 to 5"
+        if not 0 <= self.request_gap_ms <= 10000:
+            e["request_gap_ms"] = "0 to 10000 ms"
 
 
 @dataclass(frozen=True)
@@ -323,9 +376,21 @@ class AppConfig:
 
     def validate(self) -> None:
         e: dict[str, str] = {}
-        seen: dict[str, dict[Any, str]] = {"port": {}, "device": {}, "name": {}, "id": {}}
+        seen: dict[str, dict[Any, str]] = {
+            "port": {},
+            "device": {},
+            "name": {},
+            "id": {},
+            "host": {},
+        }
         for index, c in enumerate(self.connections):
-            for key, value in (("port", c.port), ("device", c.device), ("id", c.id)):
+            checks: list[tuple[str, Any]] = [("port", c.port), ("id", c.id)]
+            if c.uses_device:
+                checks.append(("device", c.device))
+            if c.kind == "modbus" and c.link != "rtu":
+                # two proxies for one device would take its connections from each other
+                checks.append(("host", (c.host.lower(), c.host_port)))
+            for key, value in checks:
                 if value in seen[key]:
                     e[f"connections.{index}.{key}"] = f"also used by {seen[key][value]}"
                 seen[key].setdefault(value, c.name)
@@ -335,6 +400,16 @@ class AppConfig:
             seen["name"].setdefault(folded, c.name)
         if e:
             raise ValidationError(e)
+
+    @property
+    def serial(self) -> tuple[Connection, ...]:
+        """The connections ser2net shares."""
+        return tuple(c for c in self.connections if c.kind == "serial")
+
+    @property
+    def modbus(self) -> tuple[Connection, ...]:
+        """The connections of the app's Modbus proxy."""
+        return tuple(c for c in self.connections if c.kind == "modbus")
 
     def connection(self, connection_id: str) -> Connection | None:
         return next((c for c in self.connections if c.id == connection_id), None)
@@ -358,6 +433,23 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError({"schema": f"version {schema} is newer than this app knows"})
     # no older versions yet; lift them here one step at a time when SCHEMA grows
     return data
+
+
+def client_allowed(remaddr: str, listen: str, address: str) -> bool:
+    """May a client from this address connect (remaddr, else the global listen setting)?"""
+    if remaddr:
+        networks = parse_networks(remaddr)
+    elif listen == "lan":
+        networks = [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+    else:
+        return True
+    try:
+        ip = ipaddress.ip_address(address.split("%")[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return any(ip in n for n in networks if n.version == ip.version)
 
 
 def parse_networks(text: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:

@@ -7,14 +7,13 @@ host's LAN address. A connection limited to this host ("local") is only reachabl
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import os
 import urllib.request
 from typing import Any
 
-from .model import PRIVATE_NETWORKS, Connection, Settings, parse_networks
+from .model import Connection, Settings, client_allowed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,14 +22,7 @@ APP_SOURCE = "172.30.33.2"  # a typical source address of another app
 
 
 def _allowed(c: Connection, settings: Settings, source: str) -> bool:
-    if c.remaddr:
-        networks = parse_networks(c.remaddr)
-    elif settings.listen == "lan":
-        networks = [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
-    else:
-        return True
-    address = ipaddress.ip_address(source)
-    return any(address in n for n in networks if n.version == address.version)
+    return client_allowed(c.remaddr, settings.listen, source)
 
 
 def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dict[str, Any]]:
@@ -49,11 +41,12 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         if reachable and source:
             reachable = _allowed(c, settings, source)
         shown = f"[{host}]" if ":" in host else host
-        urls = (
-            {"rfc2217": f"rfc2217://{shown}:{c.port}"}
-            if c.mode == "rfc2217"
-            else {"tcp": f"tcp://{shown}:{c.port}", "socket": f"socket://{shown}:{c.port}"}
-        )
+        if c.kind == "modbus":
+            urls = {"modbus": f"{shown}:{c.port}"}
+        elif c.mode == "rfc2217":
+            urls = {"rfc2217": f"rfc2217://{shown}:{c.port}"}
+        else:
+            urls = {"tcp": f"tcp://{shown}:{c.port}", "socket": f"socket://{shown}:{c.port}"}
         result.append(
             {"target": target, "host": host, "port": c.port, "reachable": reachable, "urls": urls}
         )

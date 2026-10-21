@@ -10,6 +10,9 @@ ser2net opens a device only while a client is connected; "keep open" makes the a
 
 With the settings' source "custom" the user's own ser2net.yaml is used instead of the forms;
 the form connections stay saved but unused (no device checks, no keep open).
+
+Modbus connections are not ser2net's: each runs a ModbusProxy (modbus.py) in the app,
+whatever the source. Saving restarts only the proxies whose settings changed.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .meter import analyze
+from .modbus import ModbusProxy, restart_key
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
@@ -77,6 +81,14 @@ NOTES = {
             "Device Proxy: ser2net startet immer wieder neu",
             "ser2net ist in den letzten 10 Minuten {count}× beendet worden. Siehe Log der App.",
         ),
+        "unreachable": (
+            "Device Proxy: {name} – Gerät nicht erreichbar",
+            "{target} antwortet nicht (seit {since}): {error}.",
+        ),
+        "listen": (
+            "Device Proxy: {name} – Port belegt",
+            "Port {port} kann nicht geöffnet werden: {error}.",
+        ),
         "custom": (
             "Device Proxy: eigene ser2net.yaml unbrauchbar",
             "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
@@ -101,6 +113,14 @@ NOTES = {
         "ser2net": (
             "Device Proxy: ser2net keeps restarting",
             "ser2net ended {count}× in the last 10 minutes. See the app log.",
+        ),
+        "unreachable": (
+            "Device Proxy: {name} – device not reachable",
+            "{target} does not answer (since {since}): {error}.",
+        ),
+        "listen": (
+            "Device Proxy: {name} – port in use",
+            "Port {port} cannot be opened: {error}.",
         ),
         "custom": (
             "Device Proxy: own ser2net.yaml unusable",
@@ -178,6 +198,8 @@ class Controller:
         self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
         self._line_rise: dict[str, float] = {}  # connection id → last rise of line errors
         self._paused: set[str] = set()  # connections a tool has taken over
+        self.proxies: dict[str, ModbusProxy] = {}  # connection id → running Modbus proxy
+        self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self.mqtt = HaBridge(self)
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
@@ -191,8 +213,13 @@ class Controller:
 
     @property
     def active(self) -> tuple[Connection, ...]:
-        """The form connections in use (none while the user's own file is used)."""
-        return () if self.uses_custom else self.config.connections
+        """The form connections ser2net shares (none while the user's own file is used)."""
+        return () if self.uses_custom else self.config.serial
+
+    @property
+    def with_device(self) -> tuple[Connection, ...]:
+        """The connections in use that open a serial device (ser2net's and Modbus RTU)."""
+        return self.active + tuple(c for c in self.config.modbus if c.link == "rtu")
 
     def _runtime(self) -> tuple[str, dict[str, str]]:
         if not self.uses_custom:
@@ -241,7 +268,19 @@ class Controller:
         self.events.emit(
             "info", "app_started", connections=len(self.config.connections), active=len(active)
         )
-        for c in self.config.connections:
+        for c in self.config.modbus:
+            self.events.emit(
+                "info",
+                "modbus_loaded",
+                connection=c.id,
+                name=c.name,
+                state="active" if c.enabled else "disabled",
+                link=c.link.upper().replace("_", " over "),
+                target=c.upstream,
+                port=c.port,
+                max_clients=c.max_clients,
+            )
+        for c in self.config.serial:
             self.events.emit(
                 "info",
                 "connection_loaded",
@@ -255,6 +294,7 @@ class Controller:
                 max_clients=c.max_clients,
             )
         self._reconcile_keepers()
+        await self._reconcile_proxies()
         self.devices = scan()
         self._apply_latency()
         self.lan_ip = await asyncio.to_thread(host_lan_ip)
@@ -268,11 +308,15 @@ class Controller:
                 self._loop(stop, DEVICE_POLL, self._device_tick),
                 self._loop(stop, NOTIFY_POLL, self._notify_tick),
                 self._loop(stop, STATUS_POLL, self.read_status),
+                self._loop(stop, STATUS_POLL, self._proxy_tick),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
             )
         finally:
             for task in self._keepers.values():
                 task.cancel()
+            for task in self._proxy_tasks.values():
+                task.cancel()
+            await asyncio.gather(*self._proxy_tasks.values(), return_exceptions=True)
             if self._mqtt_task is not None:
                 await self._mqtt_task
 
@@ -294,10 +338,12 @@ class Controller:
             if touched and self.ser2net.running:
                 disconnected = await self._reload(touched)
             self._reconcile_keepers()
+            restarted = await self._reconcile_proxies()
             names = sorted(self._names(alias)[1] for alias in touched if alias in self._written)
             names += sorted(
                 c.name for c in old.connections if c.alias in touched and not new.connection(c.id)
             )
+            names += sorted(restarted)
             if items:
                 self.events.emit("info", "config_changed", summary=summary(items), changes=items)
             return ApplyResult(items, names, disconnected)
@@ -418,10 +464,58 @@ class Controller:
         now = time.time()
         self._restarts = [t for t in self._restarts if now - t < 600] + [now]
 
+    # Modbus proxies
+
+    async def _reconcile_proxies(self) -> list[str]:
+        """Start, restart and stop the proxies to match the configuration; the names of
+        the connections that were (re)started or stopped."""
+        listen = self.config.settings.listen
+        wanted = {c.id: c for c in self.config.modbus if c.enabled}
+        touched: list[str] = []
+        for connection_id, proxy in list(self.proxies.items()):
+            c = wanted.get(connection_id)
+            if c is not None and proxy.key == restart_key(c, listen):
+                proxy.c = c  # name, trace or notifications changed: no restart
+                continue
+            task = self._proxy_tasks.pop(connection_id)
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)  # frees the port
+            del self.proxies[connection_id]
+            touched.append(proxy.c.name if c is None else c.name)
+        for connection_id, c in wanted.items():
+            if connection_id in self.proxies:
+                continue
+            proxy = ModbusProxy(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
+            self.proxies[connection_id] = proxy
+            self._proxy_tasks[connection_id] = asyncio.create_task(proxy.run())
+            if c.name not in touched:
+                touched.append(c.name)
+        return touched
+
+    def _proxy_event(self, connection_id: str) -> Callable[..., None]:
+        def emit(level: str, kind: str, **params: object) -> None:
+            c = self.config.connection(connection_id)
+            name = c.name if c else connection_id
+            self.events.emit(level, kind, connection=connection_id, name=name, **params)
+
+        return emit
+
+    def _proxy_trace(self, c: Connection) -> Callable[[Chunk], None]:
+        def feed(chunk: Chunk) -> None:
+            self.trace.feed(c.alias, chunk)
+
+        return feed
+
+    async def _proxy_tick(self) -> None:
+        now = time.monotonic()
+        for proxy in self.proxies.values():
+            s = proxy.stats
+            self._rate(proxy.c.alias, s.bytes_from_device, s.bytes_to_device, now)
+
     # devices
 
     def check_devices(self) -> None:
-        for c in self.active:
+        for c in self.with_device:
             if not c.enabled:
                 self.present.pop(c.id, None)
                 continue
@@ -451,7 +545,7 @@ class Controller:
         self.events.flush_bursts()
 
     def _apply_latency(self) -> None:
-        for c in self.active:
+        for c in self.with_device:
             if not (c.enabled and c.low_latency):
                 self.latency.pop(c.id, None)
                 continue
@@ -466,7 +560,9 @@ class Controller:
         settings = self.config.settings
         taken: set[str] = set()
         aliases = {
-            c.alias: (readable_alias(c.name, taken), c.trace) for c in self.active if c.enabled
+            c.alias: (readable_alias(c.name, taken), c.trace)
+            for c in self.active + self.config.modbus
+            if c.enabled
         }
         await asyncio.to_thread(
             self.trace.poll, aliases, settings.trace_file_mb << 20, settings.trace_keep
@@ -491,21 +587,20 @@ class Controller:
         self.status = {p.alias: p for p in ports}
         now = time.monotonic()
         for port in ports:
-            self._rate(port, now)
+            self._rate(port.alias, port.bytes_from_device, port.bytes_to_device, now)
             c = self._connection(port.alias)
             if c is not None:
                 await self._check_stuck(c, port, now)
                 if port.clients and self.present.get(c.id):
                     await self._read_line_errors(c)
 
-    def _rate(self, port: PortStatus, now: float) -> None:
-        rx, tx = port.bytes_from_device, port.bytes_to_device
-        before = self.rates.get(port.alias)
+    def _rate(self, alias: str, rx: int, tx: int, now: float) -> None:
+        before = self.rates.get(alias)
         if before is None or rx < before[1] or tx < before[2]:
-            self.rates[port.alias] = (now, rx, tx, 0.0, 0.0)
+            self.rates[alias] = (now, rx, tx, 0.0, 0.0)
             return
         seconds = max(now - before[0], 0.001)
-        self.rates[port.alias] = (
+        self.rates[alias] = (
             now,
             rx,
             tx,
@@ -569,6 +664,40 @@ class Controller:
         def clock(ts: float) -> str:
             return time.strftime("%d.%m. %H:%M", time.localtime(ts))
 
+        for c in self.config.modbus:
+            proxy = self.proxies.get(c.id)
+            if proxy is None:
+                continue
+            missing = c.link == "rtu" and self.present.get(c.id) is False
+            if c.notify_missing and (since := self._lasting(c.id, "missing", missing, now)):
+                add(
+                    f"device_proxy_{c.id}_missing",
+                    "missing",
+                    name=c.name,
+                    device=c.device,
+                    since=clock(since),
+                )
+            down = not missing and proxy.reachable is False
+            if c.notify_missing and (since := self._lasting(c.id, "unreachable", down, now)):
+                add(
+                    f"device_proxy_{c.id}_unreachable",
+                    "unreachable",
+                    name=c.name,
+                    target=c.upstream,
+                    error=proxy.stats.last_error or "?",
+                    since=clock(proxy.reachable_since),
+                )
+            if proxy.listen_error:
+                add(
+                    f"device_proxy_{c.id}_listen",
+                    "listen",
+                    name=c.name,
+                    port=c.port,
+                    error=proxy.listen_error,
+                )
+            since = self._lasting(c.id, "no_client", proxy.listening and not proxy.clients, now)
+            if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
+                add(f"device_proxy_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
         for c in self.active:
             if not c.enabled:
                 continue
@@ -647,6 +776,8 @@ class Controller:
         c = self.config.connection(connection_id)
         if c is None:
             raise ValueError("no such connection")
+        if c.kind != "serial":
+            raise ValueError("only for ser2net's connections")
         if any(
             j.get("connection") == connection_id and j["state"] == "running"
             for j in self.jobs.values()
@@ -697,6 +828,9 @@ class Controller:
         settings = self.config.settings
         connections = []
         for c in self.config.connections:
+            if c.kind == "modbus":
+                connections.append(self._modbus_snapshot(c))
+                continue
             port = self.status.get(c.alias)
             flow = self.trace.flow.get(c.alias)
             rate = self.rates.get(c.alias)
@@ -735,7 +869,9 @@ class Controller:
                     "addresses": addresses(c, settings, self.lan_ip),
                 }
             )
-        used = {os.path.realpath(c.device): c.name for c in self.config.connections}
+        used = {
+            os.path.realpath(c.device): c.name for c in self.config.connections if c.uses_device
+        }
         return {
             "ser2net_running": self.ser2net.running and self.admin.connected.is_set(),
             "source": settings.source,
@@ -751,6 +887,46 @@ class Controller:
             "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
             "trace_files": self.trace.files(),
             "mqtt": self.mqtt.state,
+        }
+
+    def _modbus_snapshot(self, c: Connection) -> dict[str, object]:
+        proxy = self.proxies.get(c.id)
+        flow = self.trace.flow.get(c.alias)
+        rate = self.rates.get(c.alias)
+        present = self.present.get(c.id) if c.link == "rtu" else None
+        device = device_for(c.device, self.devices) if present else None
+        state = proxy.state() if proxy else None
+        return {
+            **c.to_dict(),
+            "alias": c.alias,
+            "present": present,
+            "tty": device.tty if device else None,
+            "usb": device.to_dict() if device else None,
+            "running": bool(proxy and proxy.listening),
+            "pending": None,
+            "clients": [
+                {
+                    "address": cl.info.address,
+                    "since": cl.info.since,
+                    "bytes_to_client": cl.info.bytes_out,
+                    "bytes_from_client": cl.info.bytes_in,
+                    "requests": cl.info.requests,
+                    "failed": cl.info.failed,
+                    "queued": 0,
+                    "stuck": False,
+                }
+                for cl in (proxy.clients.values() if proxy else [])
+            ],
+            "kept_open": False,
+            "bytes_from_device": proxy.stats.bytes_from_device if proxy else 0,
+            "bytes_to_device": proxy.stats.bytes_to_device if proxy else 0,
+            "rate_from_device": rate[3] if rate else 0.0,
+            "rate_to_device": rate[4] if rate else 0.0,
+            "last_data": flow.last_rx if flow else None,
+            "line_errors": None,
+            "latency": self.latency.get(c.id),
+            "addresses": addresses(c, self.config.settings, self.lan_ip),
+            "modbus": state,
         }
 
     async def _check_stuck(self, c: Connection, port: PortStatus, now: float) -> None:

@@ -413,6 +413,14 @@ def read(text: str) -> ImportResult:
     return ImportResult(version, [convert(name, d) for name, d in raw], notes)
 
 
+def same_device(a: Connection, b: Connection) -> bool:
+    """Do both connections use one device (a serial device, or a Modbus device's address)?"""
+    if a.uses_device and b.uses_device:
+        return a.device == b.device
+    remote = [x for x in (a, b) if x.kind == "modbus" and x.link != "rtu"]
+    return len(remote) == 2 and (a.host.lower(), a.host_port) == (b.host.lower(), b.host_port)
+
+
 def conflicts(current: AppConfig, item: ImportItem) -> dict[str, str]:
     """Existing connections the item collides with: {"port"|"device"|"name": name}."""
     c = item.connection
@@ -422,7 +430,7 @@ def conflicts(current: AppConfig, item: ImportItem) -> dict[str, str]:
     for existing in current.connections:
         if existing.port == c.port:
             found.setdefault("port", existing.name)
-        if existing.device == c.device:
+        if same_device(existing, c):
             found.setdefault("device", existing.name)
         if existing.name.casefold() == c.name.casefold():
             found.setdefault("name", existing.name)
@@ -465,9 +473,7 @@ def merge(
             gone = [
                 x
                 for x in connections
-                if x.port == c.port
-                or x.device == c.device
-                or x.name.casefold() == c.name.casefold()
+                if x.port == c.port or same_device(x, c) or x.name.casefold() == c.name.casefold()
             ]
             if gone:
                 c = replace(c, id=gone[0].id)

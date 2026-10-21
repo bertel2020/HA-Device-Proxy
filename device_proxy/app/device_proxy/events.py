@@ -28,7 +28,17 @@ LEVELS = {
     "error": logging.ERROR,
 }
 LIVE_SIZE = 1000
-SUMMED = {"device_missing", "device_back", "client_connected", "client_disconnected"}
+SUMMED = {
+    "device_missing",
+    "device_back",
+    "client_connected",
+    "client_disconnected",
+    "modbus_down",
+    "modbus_back",
+    "client_refused",
+}
+GONE = {"device_missing", "modbus_down"}  # the device is away (for the history) ...
+BACK = {"device_back", "device", "modbus_back"}  # ... and there again
 APP = "App"  # the name of events that belong to no connection
 
 MESSAGES = {
@@ -59,6 +69,13 @@ MESSAGES = {
     "custom_invalid": "Own ser2net.yaml cannot be used, nothing is shared: {errors}",
     "imported": "Import: {taken} connections taken over, {skipped} skipped, {notes} notes",
     "import_failed": "Import failed: {error}",
+    "modbus_loaded": (
+        "{state}: Modbus {link} {target} · port {port} · up to {max_clients} clients"
+    ),
+    "modbus_down": "Device not reachable: {target} ({error})",
+    "modbus_back": "Device reachable again: {target}",
+    "listen_failed": "Port {port} cannot be opened: {error}",
+    "client_refused": "Client refused, all places taken: {address}",
 }
 
 
@@ -238,12 +255,12 @@ class EventLog:
         result: dict[str, dict[str, Any]] = {}
         missing_since: dict[str, float] = {}
         for e in reversed(self.history(since=start - 86400 * 365, limit=100000)):
-            if e.connection is None or e.kind not in ("device_missing", "device_back", "device"):
+            if e.connection is None or e.kind not in GONE | BACK:
                 continue
             entry = result.setdefault(
                 e.connection, {"drops": 0, "missing_seconds": 0.0, "per_day": [0] * days}
             )
-            if e.kind == "device_missing":
+            if e.kind in GONE:
                 missing_since.setdefault(e.connection, e.ts)
                 if e.ts >= start:
                     entry["drops"] += e.count
