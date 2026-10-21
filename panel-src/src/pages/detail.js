@@ -308,7 +308,9 @@ export class DetailPage extends Page {
               <span>${t("mbLink")}</span><span>${t(`link_${c.link}`)}</span>
               <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${modbusTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
               ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
-              <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
+              ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
+              <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}
+${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
               <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}

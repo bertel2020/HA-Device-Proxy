@@ -11,7 +11,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
 };
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
@@ -190,7 +190,8 @@ export class EditPage extends Page {
         <h2 id="t-mdev">${t("mbDevice")}</h2>
         <div class="fld"><span class="lbl" id="l-link">${t("mbLink")}</span>
           <div class="seg" role="group" aria-labelledby="l-link">${LINKS.map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
-            @click=${() => this._set(l === "rtu" ? { link: l, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
+            @click=${() => this._set(l === "rtu" ? { link: l, device_connections: 1, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
+
           <span class="hint">${t(`linksub_${d.link}`)}</span></div>
         ${d.link === "rtu" ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
           ${this._input("host", t("mbHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
@@ -206,6 +207,7 @@ export class EditPage extends Page {
           ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
           ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
           ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
+          ${d.link === "rtu" ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
 
         </div>
       </section>

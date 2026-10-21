@@ -115,7 +115,13 @@ integration …), a cache time of e.g. 500 ms lets the device answer each read o
 that time; the same read while one is on its way waits for that answer. Only reads
 (functions 1–4) are cached, never exceptions; a write empties the cache. Off by default.
 
+**Connections to the device**: for a network device that allows several connections at
+once (up to 4), the requests can run in parallel over that many connections – faster with
+many clients. Leave it at 1 for devices that take one connection only (most inverters);
+Modbus RTU always has one line.
+
 **Write access**:
+
  Modbus has no login – whoever reaches the port could change registers. Per
 connection: all clients may write (as with ha-modbusproxy), only listed addresses or
 networks (e.g. `127.0.0.1` for Home Assistant, `172.30.32.0/23` for other apps), or nobody.

@@ -5,10 +5,10 @@ from device_proxy.modbus import ClientInfo, ModbusProxy, Scheduler, _Job, crc16,
 from device_proxy.model import Connection, parse_unit_map
 
 
-async def _device(rtu: bool, ignore: set[int]):
-    """A Modbus device on a TCP port that takes one connection and answers slowly; holding
-    register n holds n * 10. Requests for units in ignore get no answer."""
-    busy = asyncio.Lock()
+async def _device(rtu: bool, ignore: set[int], connections: int = 1):
+    """A Modbus device on a TCP port that takes this many connections and answers slowly;
+    holding register n holds n * 10. Requests for units in ignore get no answer."""
+    busy = asyncio.Semaphore(connections)
 
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         if busy.locked():
@@ -199,3 +199,29 @@ async def test_probe_finds_a_device_that_stops_answering() -> None:
 
 def test_unit_map() -> None:
     assert parse_unit_map("1=3, 2->5") == {1: 3, 2: 5}
+
+
+async def test_several_connections_to_the_device() -> None:
+    device = await _device(False, ignore=set(), connections=2)
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        max_clients=10,
+        host_port=device.sockets[0].getsockname()[1],
+        device_connections=2,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    answers = await asyncio.gather(*(_read(port, n, 1, n) for n in range(8)))
+    assert [a[2:4] for a in answers] == [struct.pack(">H", n * 10) for n in range(8)]
+    assert proxy.state()["links_open"] == 2 and proxy.stats.failed == 0
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()

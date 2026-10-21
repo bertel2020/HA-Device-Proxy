@@ -583,7 +583,8 @@ class ModbusProxy:
         self.key = restart_key(c, listen)
         self.on_event = on_event
         self.on_trace = on_trace
-        self.paths = [_Path(c)]
+        count = 1 if c.link == "rtu" else c.device_connections  # a serial bus has one line
+        self.paths = [_Path(c) for _ in range(count)]
         self.gap = c.request_gap_ms / 1000 if c.link == "tcp" else 0.0  # RTU: in the framer
         self.scheduler = Scheduler()
         self.stats = Stats()
@@ -963,6 +964,7 @@ class ModbusProxy:
             "reachable": self.reachable,
             "reachable_since": self.reachable_since,
             "linked": any(path.link.is_open for path in self.paths),
+            "links_open": sum(path.link.is_open for path in self.paths),
             "requests": s.requests,
             "answered": s.answered,
             "exceptions": s.exceptions,

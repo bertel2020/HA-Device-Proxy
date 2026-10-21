@@ -126,6 +126,7 @@ class Connection:
     connect_delay_ms: int = 0  # wait after connecting before the first request
     retries: int = 1  # further attempts when the device does not answer
     request_gap_ms: int = 0  # extra pause between two requests
+    device_connections: int = 1  # connections to a network device, requests in parallel
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
@@ -272,6 +273,10 @@ class Connection:
             e["retries"] = "0 to 5"
         if not 0 <= self.request_gap_ms <= 10000:
             e["request_gap_ms"] = "0 to 10000 ms"
+        if not 1 <= self.device_connections <= 4:
+            e["device_connections"] = "1 to 4"
+        elif self.link == "rtu" and self.device_connections > 1:
+            e["device_connections"] = "1 for a serial device"
         if not 0 <= self.cache_ms <= 60000:
             e["cache_ms"] = "0 to 60000 ms"
         try:
