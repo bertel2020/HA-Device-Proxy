@@ -24,9 +24,10 @@ import os
 import socket
 import struct
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 from . import custom
 from .addresses import addresses, host_lan_ip
@@ -57,6 +58,7 @@ TRACE_POLL = 0.5  # seconds between reads of the traces
 NOTIFY_POLL = 5  # seconds between checks for notifications
 MQTT_KEYS = ("mqtt_enabled", "mqtt_prefix", "mqtt_base")
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
+JOBS_KEPT = 20  # finished tool runs kept for the web interface
 NOTES = {
     "de": {
         "missing": (
@@ -195,6 +197,7 @@ class Controller:
         self.ser2net_version = ""
         self.notifier = Notifier()
         self.jobs: dict[str, dict[str, object]] = {}  # tool runs: id → state
+        self._tasks: set[asyncio.Task[None]] = set()  # the tool runs' tasks
         self._restarts: list[float] = []
         self._custom_invalid = False
         self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
@@ -517,10 +520,17 @@ class Controller:
                 continue
             proxy = ModbusProxy(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
             self.proxies[connection_id] = proxy
-            self._proxy_tasks[connection_id] = asyncio.create_task(proxy.run())
+            task = asyncio.create_task(proxy.run())
+            task.add_done_callback(self._proxy_ended)
+            self._proxy_tasks[connection_id] = task
             if c.name not in touched:
                 touched.append(c.name)
         return touched
+
+    @staticmethod
+    def _proxy_ended(task: asyncio.Task[None]) -> None:
+        if not task.cancelled() and (err := task.exception()) is not None:
+            _LOGGER.error("Modbus proxy ended", exc_info=err)
 
     def _proxy_event(self, connection_id: str) -> Callable[..., None]:
         def emit(level: str, kind: str, **params: object) -> None:
@@ -826,30 +836,44 @@ class Controller:
             raise ValueError("the connection is not active")
         if not 1 <= first <= last <= 247 or not 50 <= timeout_ms <= 5000:
             raise ValueError("units 1 to 247, timeout 50 to 5000 ms")
+        job_id = self._new_job(connection_id, last - first + 1)
+        self._spawn(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
+        return job_id
+
+    def _new_job(self, connection_id: str, total: int) -> str:
+        """A tool run, one at a time per connection; finished ones beyond the last 20 go."""
         if any(
             j.get("connection") == connection_id and j["state"] == "running"
             for j in self.jobs.values()
         ):
             raise ValueError("already running")
+        finished = [k for k, j in self.jobs.items() if j["state"] != "running"]
+        for key in finished[: max(0, len(finished) - JOBS_KEPT)]:
+            del self.jobs[key]
         job_id = new_id()
         self.jobs[job_id] = {
             "connection": connection_id,
             "state": "running",
             "done": 0,
-            "total": last - first + 1,
+            "total": total,
             "results": [],
         }
-        asyncio.create_task(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
         return job_id
+
+    def _spawn(self, coro: Coroutine[Any, Any, None]) -> None:
+        """A background task, kept referenced until it ends (asyncio holds it weakly)."""
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def _scan(self, job_id: str, proxy: ModbusProxy, units: range, timeout: float) -> None:
         job = self.jobs[job_id]
         found: list[dict[str, object]] = []
         job["results"] = found
         try:
-            for unit in units:
+            for done, unit in enumerate(units, 1):
                 answer = await proxy.ask(unit, b"\x03\x00\x00\x00\x01", timeout=timeout, retries=0)
-                job["done"] = int(str(job["done"])) + 1
+                job["done"] = done
                 code = answer[1] if answer and answer[0] & 0x80 and len(answer) > 1 else None
                 if code == EXC_PATH:
                     raise ConnectionError(proxy.stats.last_error or "device not reachable")
@@ -869,20 +893,8 @@ class Controller:
             raise ValueError("no such connection")
         if c.kind != "serial":
             raise ValueError("only for ser2net's connections")
-        if any(
-            j.get("connection") == connection_id and j["state"] == "running"
-            for j in self.jobs.values()
-        ):
-            raise ValueError("already running")
-        job_id = new_id()
-        self.jobs[job_id] = {
-            "connection": connection_id,
-            "state": "running",
-            "done": 0,
-            "total": 0,
-            "results": [],
-        }
-        asyncio.create_task(self._detect(job_id, c))
+        job_id = self._new_job(connection_id, 0)
+        self._spawn(self._detect(job_id, c))
         return job_id
 
     async def _detect(self, job_id: str, c: Connection) -> None:

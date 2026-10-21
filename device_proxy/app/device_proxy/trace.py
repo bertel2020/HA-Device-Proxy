@@ -234,7 +234,7 @@ class TraceHub:
                 path = self.record_dir / f"{file_name}.log"
                 Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
             new[alias] = chunks
-        for alias in list(self.tails) + list(self.live):
+        for alias in {*self.tails, *self.live, *self.fed}:
             if alias not in aliases:
                 self.tails.pop(alias, None)
                 self.live.pop(alias, None)

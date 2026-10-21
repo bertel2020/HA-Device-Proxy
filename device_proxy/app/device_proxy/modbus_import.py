@@ -91,7 +91,6 @@ def _item(
         "bind": "" if bind in ("", "0", "0.0.0.0", "::") else bind,
         "unit_map": unit_map,
         "write_access": "all",  # as before the move: ha-modbusproxy lets every client write
-
     }
     try:
         return ImportItem(alias, Connection.from_dict(values), notes)

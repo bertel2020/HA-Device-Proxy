@@ -225,3 +225,32 @@ async def test_several_connections_to_the_device() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+async def test_a_failing_request_does_not_stop_the_proxy() -> None:
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+    )
+    failures = [RuntimeError("a bug")]
+
+    def trace(chunk: object) -> None:
+        if failures:
+            raise failures.pop()
+
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, trace)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    assert await _read(port, 1, 1, 0) == bytes([0x83, 0x0B])  # the bug: an exception ...
+    assert (await _read(port, 2, 1, 3))[2:4] == struct.pack(">H", 30)  # ... and on it goes
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()

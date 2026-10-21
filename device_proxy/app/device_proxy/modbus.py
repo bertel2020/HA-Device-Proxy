@@ -53,6 +53,7 @@ BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
 WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
 CACHE_SIZE = 2000  # answers kept at most
+BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
 
 FUNCTIONS = {
     1: "read coils",
@@ -163,7 +164,6 @@ def read_result(function: int, count: int, answer: bytes | None) -> dict[str, An
 
 
 def exception(pdu: bytes, code: int) -> bytes:
-
     return bytes([(pdu[0] if pdu else 0) | 0x80, code])
 
 
@@ -192,6 +192,8 @@ class Link:
         raise NotImplementedError
 
     def _received(self, data: bytes) -> None:
+        if len(self.buffer) > BUFFER_MAX:  # a device that sends without being asked
+            self.buffer.clear()
         self.buffer += data
         self.last_activity = asyncio.get_running_loop().time()
         self._data.set()
@@ -502,6 +504,13 @@ def restart_key(c: Connection, listen: str) -> Connection:
         template="generic",
         low_latency=False,
         remaddr=f"{c.remaddr}|{listen}",
+        # read for every request or client: no restart needed
+        max_clients=1,
+        kickolduser=False,
+        timeout=0,
+        request_timeout_ms=0,
+        retries=0,
+        connect_delay_ms=0,
         write_access="all",
         write_clients="",
         cache_ms=0,
@@ -648,7 +657,12 @@ class ModbusProxy:
                 continue
             if job.future.done():
                 continue  # the client went away meanwhile
-            answer = await self._exchange(path, job)
+            try:
+                answer = await self._exchange(path, job)
+            except Exception:  # a bug must not stop the worker: the proxy would hang
+                _LOGGER.exception("%s: request failed", self.c.name)
+                await path.link.close()
+                answer = exception(job.pdu, EXC_TARGET)
             if not job.future.done():
                 job.future.set_result(answer)
 
@@ -667,6 +681,7 @@ class ModbusProxy:
                 continue
             pdu = struct.pack(">BHH", self.c.probe_function, self.c.probe_address, 1)
             await self._queued(self.c.probe_unit, pdu, self._probe)
+            self._last_exchange = asyncio.get_running_loop().time()  # also when it failed
 
     async def _keep_link(self, path: _Path) -> None:
         """Connect when the device is not known to be reachable (a serial device: always)."""
