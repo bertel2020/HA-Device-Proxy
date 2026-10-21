@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from device_proxy.admin import AdminClient
+from device_proxy.admin import AdminClient, remote_address
 
 # what ser2net 4.6 writes in yaml mode (controller.c / portinfo.c)
 SHOWPORT = (
@@ -51,3 +51,9 @@ async def test_showport_and_pushed_events() -> None:
     assert ports[0].clients[0].address == "192.168.1.20:50114"
     assert ports[0].clients[0].bytes_to_client == 96200
     assert ports[1].enabled is False and ports[1].clients == []
+
+
+def test_remote_address() -> None:
+    assert remote_address("ipv4,192.168.1.20,50114") == "192.168.1.20:50114"
+    assert remote_address("ipv6,::ffff:192.168.1.20,50114") == "192.168.1.20:50114"
+    assert remote_address("ipv6,fe80::1,50114") == "[fe80::1]:50114"

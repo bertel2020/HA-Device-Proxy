@@ -82,12 +82,13 @@ class PortStatus:
 
 
 def remote_address(text: str) -> str:
-    """gensio's "ipv4,192.168.1.20,50114" (or without the family) as "192.168.1.20:50114"."""
+    """gensio's "ipv4,192.168.1.20,50114" (or without the family) as "192.168.1.20:50114";
+    an IPv4 client on ser2net's IPv6 socket ("::ffff:192.168.1.20") the same."""
     parts = text.split(",")
     if parts and parts[0] in ("ipv4", "ipv6"):
         parts = parts[1:]
     if len(parts) >= 2:
-        host = ",".join(parts[:-1])
+        host = ",".join(parts[:-1]).removeprefix("::ffff:")
         return f"[{host}]:{parts[-1]}" if ":" in host else f"{host}:{parts[-1]}"
     return text
 
