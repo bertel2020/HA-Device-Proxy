@@ -1,5 +1,5 @@
-from ser2net_app.addresses import addresses
-from ser2net_app.model import Connection, Settings
+from device_proxy.addresses import addresses
+from device_proxy.model import Connection, Settings
 
 
 def test_addresses_per_kind_of_client() -> None:

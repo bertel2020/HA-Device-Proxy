@@ -6,15 +6,15 @@ target-version = "py313"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ser2net_app"]
+known-first-party = ["device_proxy"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["ser2net/app"]
+pythonpath = ["device_proxy/app"]
 timeout = 30
 
 [tool.mypy]
 python_version = "3.14"
 strict = true
-files = ["ser2net/app/ser2net_app"]
+files = ["device_proxy/app/device_proxy"]

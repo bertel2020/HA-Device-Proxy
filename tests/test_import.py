@@ -1,7 +1,7 @@
-from ser2net_app import custom
-from ser2net_app.config import export
-from ser2net_app.importer import merge, read
-from ser2net_app.model import AppConfig, Connection
+from device_proxy import custom
+from device_proxy.config import export
+from device_proxy.importer import merge, read
+from device_proxy.model import AppConfig, Connection
 
 V1 = """%YAML 1.1
 ---
@@ -102,7 +102,7 @@ def test_own_file_check_and_admin_socket() -> None:
     assert check.ok and check.connections == [{"alias": "bwt", "port": 3334, "enabled": True}]
     text = custom.runtime(V2, check.version)
     assert text.endswith(
-        "---\nadmins:\n  ser2net_app:\n    accepter: "
+        "---\nadmins:\n  device_proxy:\n    accepter: "
         "unix(delsock,umode=6,gmode=0,omode=0),/run/ser2net-admin.sock\n"
     )
 

@@ -204,7 +204,7 @@ export class SettingsPage extends Page {
               ${["info", "debug"].map((v) => html`<option ?selected=${d.log_level === v}>${v}</option>`)}</select></label>
             ${NUMBERS.map((k) => html`<label class="fld"><span class="lbl">${t(LABELS[k])}</span>
               <input class="inp" inputmode="numeric" .value=${String(d[k])} @input=${(e) => { this.draft = { ...d, [k]: Number(e.target.value || 0) }; }}></label>`)}
-            <label class="fld"><span class="lbl">${t("language")}</span><select class="inp" @change=${(e) => this.dispatchEvent(new CustomEvent("s2n-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
+            <label class="fld"><span class="lbl">${t("language")}</span><select class="inp" @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
               <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select></label>
           </div>
           <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
@@ -220,7 +220,7 @@ export class SettingsPage extends Page {
           <div style="display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);gap:8px 16px">
             <span class="hint" style="font-size:14px">${t("app")}</span><span>${s.version} · ${t("license")}</span>
             <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} (GPL-2.0)</span>
-            <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Ser2Net" target="_blank" rel="noopener">github.com/bertel2020/HA-Ser2Net</a>
+            <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
           </div>
         </section>
       </div></div>`;

@@ -9,7 +9,7 @@ import { logo } from "./ui.js";
 const POLL_MS = 2000;
 const EVENTS_KEPT = 1500;
 
-export class Ser2NetApp extends LitElement {
+export class DeviceProxyApp extends LitElement {
   static properties = {
     state: { state: true },
     events: { state: true },
@@ -49,9 +49,9 @@ export class Ser2NetApp extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("hashchange", this._onHash);
-    this.addEventListener("s2n-refresh", () => this.refresh());
-    this.addEventListener("s2n-toast", (e) => this.showToast(e.detail));
-    this.addEventListener("s2n-lang", (e) => { setLang(e.detail); document.documentElement.lang = e.detail; this.requestUpdate(); this._relayLang(); });
+    this.addEventListener("dp-refresh", () => this.refresh());
+    this.addEventListener("dp-toast", (e) => this.showToast(e.detail));
+    this.addEventListener("dp-lang", (e) => { setLang(e.detail); document.documentElement.lang = e.detail; this.requestUpdate(); this._relayLang(); });
     document.documentElement.lang = lang;
     this._loadHistory();
     this.refresh();
@@ -112,13 +112,13 @@ export class Ser2NetApp extends LitElement {
     const s = this.state, ev = this.events;
     if (!s) return html`<p class="hint">${t("loading")}</p>`;
     switch (page) {
-      case "connection": return html`<s2n-detail .state=${s} .events=${ev} .connectionId=${id}></s2n-detail>`;
-      case "edit": return html`<s2n-edit .state=${s} .connectionId=${id}></s2n-edit>`;
-      case "import": return html`<s2n-import .state=${s}></s2n-import>`;
-      case "events": return html`<s2n-events .state=${s} .events=${ev}></s2n-events>`;
-      case "trace": return html`<s2n-trace .state=${s} .selected=${id}></s2n-trace>`;
-      case "settings": return html`<s2n-settings .state=${s}></s2n-settings>`;
-      default: return html`<s2n-connections .state=${s}></s2n-connections>`;
+      case "connection": return html`<dp-detail .state=${s} .events=${ev} .connectionId=${id}></dp-detail>`;
+      case "edit": return html`<dp-edit .state=${s} .connectionId=${id}></dp-edit>`;
+      case "import": return html`<dp-import .state=${s}></dp-import>`;
+      case "events": return html`<dp-events .state=${s} .events=${ev}></dp-events>`;
+      case "trace": return html`<dp-trace .state=${s} .selected=${id}></dp-trace>`;
+      case "settings": return html`<dp-settings .state=${s}></dp-settings>`;
+      default: return html`<dp-connections .state=${s}></dp-connections>`;
     }
   }
 
@@ -148,14 +148,14 @@ export class Ser2NetApp extends LitElement {
 export class Page extends LitElement {
   static styles = [tokens, base, css`:host { display: block; } .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }`];
 
-  refresh() { this.dispatchEvent(new CustomEvent("s2n-refresh", { bubbles: true, composed: true })); }
+  refresh() { this.dispatchEvent(new CustomEvent("dp-refresh", { bubbles: true, composed: true })); }
 
-  toast(text) { this.dispatchEvent(new CustomEvent("s2n-toast", { detail: text, bubbles: true, composed: true })); }
+  toast(text) { this.dispatchEvent(new CustomEvent("dp-toast", { detail: text, bubbles: true, composed: true })); }
 
   connection(id) { return this.state?.connections.find((c) => c.id === id); }
 }
 
-export class Ser2NetConfirm extends LitElement {
+export class DeviceProxyConfirm extends LitElement {
   static properties = { message: {}, confirmLabel: {} };
 
   static styles = [tokens, base, css`

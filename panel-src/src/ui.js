@@ -94,7 +94,7 @@ export const navigate = (hash) => { location.hash = hash; };
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */
 export function confirmDialog(host, message, confirmLabel) {
   return new Promise((resolve) => {
-    const dialog = document.createElement("s2n-confirm");
+    const dialog = document.createElement("dp-confirm");
     dialog.message = message;
     dialog.confirmLabel = confirmLabel || t("confirm");
     dialog.addEventListener("done", (e) => { dialog.remove(); resolve(e.detail); });

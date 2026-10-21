@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: frenck/action-addon-linter@v2
         with:
-          path: ./ser2net
+          path: ./device_proxy
 
   build:
     name: Test build (${{ matrix.arch }})
@@ -63,7 +63,7 @@ jobs:
       - name: Build the app image (not pushed; the Supervisor builds it on install)
         uses: docker/build-push-action@v6
         with:
-          context: ser2net
+          context: device_proxy
           platforms: ${{ matrix.platform }}
           push: false
           build-args: |
@@ -78,14 +78,14 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: ser2net
+          context: device_proxy
           load: true
-          tags: ser2net-app:test
+          tags: device-proxy:test
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.14-alpine3.24
       - name: Run the checks inside the image
         run: >-
-          docker run --rm -v "$PWD/tests/integration:/test:ro" --entrypoint sh ser2net-app:test
+          docker run --rm -v "$PWD/tests/integration:/test:ro" --entrypoint sh device-proxy:test
           -c "apk add --no-cache socat >/dev/null && timeout 120 python3 /test/check_ser2net.py"
 
   publish:
@@ -111,7 +111,7 @@ jobs:
       - name: Version from config.yaml
         id: version
         run: |
-          version=$(sed -n 's/^version: "\(.*\)"/\1/p' ser2net/config.yaml)
+          version=$(sed -n 's/^version: "\(.*\)"/\1/p' device_proxy/config.yaml)
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
@@ -121,7 +121,7 @@ jobs:
       - name: Already published?
         id: exists
         run: |
-          image=ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net
+          image=ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy
           if docker manifest inspect "$image:${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
@@ -133,14 +133,14 @@ jobs:
         if: steps.exists.outputs.skip != 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ser2net
+          context: device_proxy
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-ser2net:latest
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:latest
           labels: |
-            io.hass.name=Ser2Net
+            io.hass.name=Device Proxy
             io.hass.type=addon
             io.hass.version=${{ steps.version.outputs.version }}
             io.hass.arch=${{ matrix.arch }}

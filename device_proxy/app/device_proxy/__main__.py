@@ -22,7 +22,7 @@ async def main() -> int:
     # the log level is a setting of the app (web interface); applied once it is loaded
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     version = os.environ.get("APP_VERSION", "dev")
-    logging.info("Ser2Net app %s", version)
+    logging.info("Device Proxy app %s", version)
     db = Database()
     store = Store(db)
     settings = store.load().settings

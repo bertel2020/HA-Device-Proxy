@@ -1,6 +1,6 @@
 name: New gensio or ser2net release
 
-# gensio and ser2net are pinned with checksums in ser2net/Dockerfile; this opens an issue
+# gensio and ser2net are pinned with checksums in device_proxy/Dockerfile; this opens an issue
 # when a newer release is out, so updates are not missed.
 on:
   schedule:
@@ -22,13 +22,13 @@ jobs:
         run: |
           for project in gensio ser2net; do
             name=$(echo "$project" | tr a-z A-Z)
-            pinned=$(sed -n "s/^ARG ${name}_VERSION=//p" ser2net/Dockerfile)
+            pinned=$(sed -n "s/^ARG ${name}_VERSION=//p" device_proxy/Dockerfile)
             latest=$(gh api "repos/cminyard/$project/releases/latest" --jq .tag_name | sed 's/^v//')
             echo "$project: pinned $pinned, latest $latest"
             if [ -n "$latest" ] && [ "$latest" != "$pinned" ]; then
               title="$project $latest is out (pinned: $pinned)"
               if [ -z "$(gh issue list --state open --search "$title in:title" --json number --jq '.[].number')" ]; then
-                gh issue create --title "$title" --body "Update ${name}_VERSION and ${name}_SHA256 in ser2net/Dockerfile: https://github.com/cminyard/$project/releases/tag/v$latest"
+                gh issue create --title "$title" --body "Update ${name}_VERSION and ${name}_SHA256 in device_proxy/Dockerfile: https://github.com/cminyard/$project/releases/tag/v$latest"
               fi
             fi
           done

@@ -19,7 +19,7 @@ from typing import Any
 
 from .db import Database
 
-_LOGGER = logging.getLogger("ser2net_app")
+_LOGGER = logging.getLogger("device_proxy")
 
 LEVELS = {
     "debug": logging.DEBUG,

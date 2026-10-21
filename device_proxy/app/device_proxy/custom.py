@@ -78,7 +78,7 @@ def runtime(text: str, version: int, admin_socket: str = ADMIN_SOCKET) -> str:
     body = "\n".join(lines)
     accepter = f"unix(delsock,umode=6,gmode=0,omode=0),{admin_socket}"
     if version == 2:
-        return f"{body}\n---\nadmins:\n  ser2net_app:\n    accepter: {accepter}\n"
+        return f"{body}\n---\nadmins:\n  device_proxy:\n    accepter: {accepter}\n"
     return f"{body}\n\nadmin:\n  accepter: {accepter}\n"
 
 

@@ -1,6 +1,6 @@
 // Builds the web interface the app serves from the sources in src/.
 //
-//   node build.mjs            write ../ser2net/app/ser2net_app/web/app.js
+//   node build.mjs            write ../device_proxy/app/device_proxy/web/app.js
 //   node build.mjs --check    fail if that file is out of date (CI)
 //
 // One bundled file (Lit included), so a browser never mixes a new page with a cached old part.
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const target = path.join(here, "../ser2net/app/ser2net_app/web/app.js");
+const target = path.join(here, "../device_proxy/app/device_proxy/web/app.js");
 const HEADER = "// GENERATED FILE - do not edit. Edit panel-src/src/ and run: node panel-src/build.mjs\n";
 
 const result = await esbuild.build({

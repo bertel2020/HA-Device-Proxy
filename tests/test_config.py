@@ -2,8 +2,8 @@ from dataclasses import replace
 
 import pytest
 
-from ser2net_app.config import blocks, changed, render
-from ser2net_app.model import AppConfig, Connection, Settings, ValidationError
+from device_proxy.config import blocks, changed, render
+from device_proxy.model import AppConfig, Connection, Settings, ValidationError
 
 PATH = "/dev/serial/by-path/pci-0000:00:1d.0-usb-0:1.3:1.0-port0"
 

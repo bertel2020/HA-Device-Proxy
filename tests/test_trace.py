@@ -1,10 +1,10 @@
 import time
 from pathlib import Path
 
-from ser2net_app.config import blocks
-from ser2net_app.devices import scan
-from ser2net_app.model import AppConfig, Connection
-from ser2net_app.trace import Recorder, TraceTail
+from device_proxy.config import blocks
+from device_proxy.devices import scan
+from device_proxy.model import AppConfig, Connection
+from device_proxy.trace import Recorder, TraceTail
 
 NOW = time.time()
 STAMP = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(NOW)).encode()

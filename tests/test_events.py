@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ser2net_app.db import Database
-from ser2net_app.events import EventLog
+from device_proxy.db import Database
+from device_proxy.events import EventLog
 
 
 def test_a_burst_is_summed_up(tmp_path: Path) -> None:

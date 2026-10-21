@@ -2,14 +2,14 @@ import asyncio
 import struct
 from pathlib import Path
 
-from ser2net_app import ha_mqtt
-from ser2net_app.controller import Controller
-from ser2net_app.db import Database
-from ser2net_app.events import EventLog
-from ser2net_app.model import AppConfig, Connection
-from ser2net_app.mqtt import Broker, _packet
-from ser2net_app.store import Store
-from ser2net_app.trace import TraceHub
+from device_proxy import ha_mqtt
+from device_proxy.controller import Controller
+from device_proxy.db import Database
+from device_proxy.events import EventLog
+from device_proxy.model import AppConfig, Connection
+from device_proxy.mqtt import Broker, _packet
+from device_proxy.store import Store
+from device_proxy.trace import TraceHub
 
 
 def test_long_packets_encode_their_length() -> None:
@@ -46,7 +46,7 @@ async def test_discovery_and_switch_over_a_broker(tmp_path: Path, monkeypatch: o
                 published[body[2 : 2 + n].decode()] = body[2 + n :]
             elif kind == 8:  # subscribe: answer and send a switch command
                 writer.write(bytes([0x90, 3]) + body[:2] + b"\x00")
-                topic = b"ser2net/0000000a/enabled/set"
+                topic = b"device_proxy/0000000a/enabled/set"
                 writer.write(
                     bytes([0x30, 2 + len(topic) + 3])
                     + struct.pack("!H", len(topic))
@@ -83,5 +83,5 @@ async def test_discovery_and_switch_over_a_broker(tmp_path: Path, monkeypatch: o
     server.close()
 
     assert controller.config.connections[0].enabled is False
-    assert "homeassistant/switch/ser2net_0000000a/enabled/config" in published
-    assert published["ser2net/status"] == b"offline"  # said on a clean stop
+    assert "homeassistant/switch/device_proxy_0000000a/enabled/config" in published
+    assert published["device_proxy/status"] == b"offline"  # said on a clean stop

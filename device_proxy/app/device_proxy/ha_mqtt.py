@@ -53,7 +53,7 @@ class HaBridge:
         settings = controller.config.settings
         self.base = settings.mqtt_base
         self.client = MqttClient(
-            "ser2net-app",
+            "device-proxy",
             self._message,
             self._connected,
             will=(f"{self.base}/status", b"offline"),
@@ -104,11 +104,11 @@ class HaBridge:
 
     def _device(self, connection_id: str, name: str) -> dict[str, Any]:
         return {
-            "identifiers": [f"ser2net_{connection_id}"],
+            "identifiers": [f"device_proxy_{connection_id}"],
             "name": name,
-            "manufacturer": "Ser2Net app",
-            "model": "ser2net connection",
-            "via_device": "ser2net_app",
+            "manufacturer": "Device Proxy app",
+            "model": "Serial connection",
+            "via_device": "device_proxy",
         }
 
     def configs(self) -> dict[str, dict[str, Any]]:
@@ -118,17 +118,17 @@ class HaBridge:
         prefix, base = settings.mqtt_prefix, self.base
         availability = [{"topic": f"{base}/status"}]
         result: dict[str, dict[str, Any]] = {
-            f"{prefix}/binary_sensor/ser2net_app/running/config": {
+            f"{prefix}/binary_sensor/device_proxy/running/config": {
                 "name": names["running"],
-                "unique_id": "ser2net_app_running",
+                "unique_id": "device_proxy_running",
                 "state_topic": f"{base}/app/state",
                 "value_template": "{{ 'ON' if value_json.running else 'OFF' }}",
                 "device_class": "running",
                 "availability": availability,
                 "device": {
-                    "identifiers": ["ser2net_app"],
-                    "name": "Ser2Net",
-                    "manufacturer": "Ser2Net app",
+                    "identifiers": ["device_proxy"],
+                    "name": "Device Proxy",
+                    "manufacturer": "Device Proxy app",
                     **({"sw_version": self.c.ser2net_version} if self.c.ser2net_version else {}),
                 },
             }
@@ -146,7 +146,7 @@ class HaBridge:
             ) -> dict[str, Any]:
                 return {
                     "name": names[key],
-                    "unique_id": f"ser2net_{c_id}_{key}",
+                    "unique_id": f"device_proxy_{c_id}_{key}",
                     "state_topic": state,
                     "availability": availability,
                     "device": device,
@@ -154,44 +154,44 @@ class HaBridge:
                     **extra,
                 }
 
-            result[f"{prefix}/binary_sensor/ser2net_{c.id}/present/config"] = entity(
+            result[f"{prefix}/binary_sensor/device_proxy_{c.id}/present/config"] = entity(
                 "present",
                 value_template="{{ 'ON' if value_json.present else 'OFF' }}",
                 device_class="plug",
             )
-            result[f"{prefix}/sensor/ser2net_{c.id}/clients/config"] = entity(
+            result[f"{prefix}/sensor/device_proxy_{c.id}/clients/config"] = entity(
                 "clients",
                 value_template="{{ value_json.clients }}",
                 state_class="measurement",
                 icon="mdi:lan-connect",
             )
-            result[f"{prefix}/sensor/ser2net_{c.id}/rate/config"] = entity(
+            result[f"{prefix}/sensor/device_proxy_{c.id}/rate/config"] = entity(
                 "rate",
                 value_template="{{ value_json.rate }}",
                 unit_of_measurement="B/s",
                 device_class="data_rate",
                 state_class="measurement",
             )
-            result[f"{prefix}/sensor/ser2net_{c.id}/received/config"] = entity(
+            result[f"{prefix}/sensor/device_proxy_{c.id}/received/config"] = entity(
                 "received",
                 value_template="{{ value_json.received }}",
                 unit_of_measurement="B",
                 device_class="data_size",
                 state_class="total_increasing",
             )
-            result[f"{prefix}/sensor/ser2net_{c.id}/last_data/config"] = entity(
+            result[f"{prefix}/sensor/device_proxy_{c.id}/last_data/config"] = entity(
                 "last_data",
                 value_template="{{ value_json.last_data }}",
                 device_class="timestamp",
             )
-            result[f"{prefix}/sensor/ser2net_{c.id}/line_errors/config"] = entity(
+            result[f"{prefix}/sensor/device_proxy_{c.id}/line_errors/config"] = entity(
                 "line_errors",
                 value_template="{{ value_json.line_errors }}",
                 state_class="total_increasing",
                 icon="mdi:alert-circle-outline",
                 entity_category="diagnostic",
             )
-            result[f"{prefix}/switch/ser2net_{c.id}/enabled/config"] = entity(
+            result[f"{prefix}/switch/device_proxy_{c.id}/enabled/config"] = entity(
                 "enabled",
                 value_template="{{ 'ON' if value_json.enabled else 'OFF' }}",
                 command_topic=f"{base}/{c.id}/enabled/set",

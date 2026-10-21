@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from ser2net_app.admin import AdminClient
+from device_proxy.admin import AdminClient
 
 # what ser2net 4.6 writes in yaml mode (controller.c / portinfo.c)
 SHOWPORT = (

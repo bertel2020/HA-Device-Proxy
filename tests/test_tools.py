@@ -2,15 +2,15 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from ser2net_app.controller import Controller
-from ser2net_app.db import Database
-from ser2net_app.diagnostics import redact
-from ser2net_app.events import EventLog
-from ser2net_app.meter import analyze, crc_x25
-from ser2net_app.model import AppConfig, Connection
-from ser2net_app.notify import Notifier
-from ser2net_app.store import Store
-from ser2net_app.trace import TraceHub
+from device_proxy.controller import Controller
+from device_proxy.db import Database
+from device_proxy.diagnostics import redact
+from device_proxy.events import EventLog
+from device_proxy.meter import analyze, crc_x25
+from device_proxy.model import AppConfig, Connection
+from device_proxy.notify import Notifier
+from device_proxy.store import Store
+from device_proxy.trace import TraceHub
 
 ENTRY = bytes.fromhex("7707 0100010800ff 6500 1c0104 01 621e 52ff 69000000000aff4a2b 01")
 
@@ -55,7 +55,7 @@ def test_notifications_wait_and_go_away(tmp_path: Path, monkeypatch: Any) -> Non
 
     async def run() -> None:
         problems = controller.problems(now=now[0])
-        assert "ser2net_" + c.id + "_missing" in problems
+        assert "device_proxy_" + c.id + "_missing" in problems
         await notifier.update(problems, grace=30, dismiss=True)
         assert sent == []  # within the first minute after the start
         now[0] += 90

@@ -15,7 +15,7 @@ import unicodedata
 from .model import ADMIN_SOCKET, PRIVATE_NETWORKS, AppConfig, Connection, parse_networks
 from .trace import trace_path
 
-HEADER = "# Written by the Ser2Net app. Changes here are overwritten on the next save."
+HEADER = "# Written by the Device Proxy app. Changes here are overwritten on the next save."
 
 
 ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t"}
@@ -141,7 +141,7 @@ def readable_alias(name: str, taken: set[str]) -> str:
 def export(config: AppConfig, *, include_disabled: bool = True) -> str:
     """The connections as a ser2net.yaml for any ser2net 4 (without the app's admin socket)."""
     stamp = time.strftime("%Y-%m-%d %H:%M")
-    parts = [f"%YAML 1.1\n---\n# Exported from the Ser2Net app on {stamp}\n"]
+    parts = [f"%YAML 1.1\n---\n# Exported from the Device Proxy app on {stamp}\n"]
     taken: set[str] = set()
     for c in config.connections:
         if c.enabled or include_disabled:

@@ -1,4 +1,4 @@
-# Ser2Net
+# Device Proxy
 
 The app makes serial and USB devices connected to Home Assistant available on TCP ports,
 using [ser2net 4](https://github.com/cminyard/ser2net). Home Assistant integrations, other
@@ -6,12 +6,12 @@ apps and programs elsewhere in the network connect to these ports instead of ope
 device themselves – for example Z-Wave JS (`tcp://host:port`), ZHA and other pyserial-based
 integrations (`socket://host:port`) or a smart meter integration (host and port).
 
-Everything is set up on the app's page in the sidebar (**Ser2Net**). The app has no options
+Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
 of its own.
 
 ## Getting started
 
-1. Install the app and start it; open **Ser2Net** in the sidebar.
+1. Install the app and start it; open **Device Proxy** in the sidebar.
 2. Either **import** your existing ser2net configuration (**Connections → Import / Export**,
    ser2net 4 `ser2net.yaml` or ser2net 3 `ser2net.conf`), or **add a connection**: pick a
    template (smart meter SML or D0, Z-Wave stick, generic), the device from the list and a
@@ -73,7 +73,7 @@ client. It takes one of the connection's client places.
 - **Live data and traces**: ser2net traces every connection into memory and the app reads
   along. The live view works at any time and takes no client place. **Recording** to files
   (from the device, to the device or both) is switched per connection without touching
-  ser2net – no client is disconnected. Files: `/addon_configs/<…>_ser2net/trace/<name>.log`,
+  ser2net – no client is disconnected. Files: `/addon_configs/<…>_device_proxy/trace/<name>.log`,
   rotated by size (**Settings → Logging and storage**).
 - **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
   device is open. Rising numbers usually mean a wrong baud rate or format. Not every driver
@@ -130,7 +130,7 @@ Supervisor.
 | Line errors | errors counted by the driver since the start |
 | Active (switch) | turns the connection on and off |
 
-Plus a device **Ser2Net** with "ser2net running". Without a broker nothing changes. Prefix
+Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
 (`homeassistant`), base topic (`ser2net`) and the update interval are in **Settings → MQTT
 entities**; the entity names follow the language of the notifications.
 
@@ -143,7 +143,7 @@ A ser2net 4 `ser2net.yaml` (version 1 or 2, with defines and defaults) or a ser2
   what collides with an existing connection, what cannot be taken over) and choose per
   collision: replace, new port or skip;
 - or at the start: put the file into the app's config folder as `import/ser2net.yaml` or
-  `import/ser2net.conf` (`/addon_configs/<…>_ser2net/import/`). Collisions are skipped, the
+  `import/ser2net.conf` (`/addon_configs/<…>_device_proxy/import/`). Collisions are skipped, the
   app log lists all notes and the file is renamed to `….imported-<time>`.
 
 `/dev/ttyUSB3` and the like are replaced by their stable by-id (else by-path) name. Not
@@ -162,7 +162,7 @@ import keeps what the file says.
 ## Using your own ser2net.yaml
 
 For setups the forms cannot express, **Settings → Configuration source → Own ser2net.yaml**
-uses your file as it is (`/addon_configs/<…>_ser2net/ser2net.yaml`, editable in the app with
+uses your file as it is (`/addon_configs/<…>_device_proxy/ser2net.yaml`, editable in the app with
 a check). It must not contain an admin section: the app adds its own. Status, events,
 history, notifications and MQTT keep working, with ser2net's connection names; the forms,
 "keep open" and the meter tools are not used meanwhile.
@@ -196,7 +196,7 @@ to an issue as it is.
 
 | Path | Content |
 |---|---|
-| `/addon_configs/<…>_ser2net/ser2net.yaml` | your own configuration (optional) |
-| `/addon_configs/<…>_ser2net/import/` | a file to take over at the start |
-| `/addon_configs/<…>_ser2net/trace/` | recorded traces |
+| `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
+| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start |
+| `/addon_configs/<…>_device_proxy/trace/` | recorded traces |
 | app data (in the backup) | connections, settings, history, configuration versions |

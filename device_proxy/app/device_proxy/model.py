@@ -234,7 +234,7 @@ class Settings:
     # entities in Home Assistant over MQTT discovery
     mqtt_enabled: bool = True  # only with a broker in Home Assistant
     mqtt_prefix: str = "homeassistant"
-    mqtt_base: str = "ser2net"
+    mqtt_base: str = "device_proxy"
     mqtt_interval: int = 10  # seconds between state updates
 
     def to_dict(self) -> dict[str, Any]:

@@ -16,18 +16,18 @@ import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ser2net" / "app"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "app"))
 
-from ser2net_app import controller as controller_module  # noqa: E402
-from ser2net_app import process  # noqa: E402
-from ser2net_app.controller import Controller  # noqa: E402
-from ser2net_app.db import Database  # noqa: E402
-from ser2net_app.events import EventLog  # noqa: E402
-from ser2net_app.meter import crc_x25  # noqa: E402
-from ser2net_app.model import AppConfig, Connection  # noqa: E402
-from ser2net_app.store import Store  # noqa: E402
-from ser2net_app.trace import TraceHub  # noqa: E402
-from ser2net_app.web import WebServer  # noqa: E402
+from device_proxy import controller as controller_module  # noqa: E402
+from device_proxy import process  # noqa: E402
+from device_proxy.controller import Controller  # noqa: E402
+from device_proxy.db import Database  # noqa: E402
+from device_proxy.events import EventLog  # noqa: E402
+from device_proxy.meter import crc_x25  # noqa: E402
+from device_proxy.model import AppConfig, Connection  # noqa: E402
+from device_proxy.store import Store  # noqa: E402
+from device_proxy.trace import TraceHub  # noqa: E402
+from device_proxy.web import WebServer  # noqa: E402
 
 
 def _sml() -> bytes:

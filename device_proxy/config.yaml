@@ -1,8 +1,8 @@
-name: Ser2Net
+name: Device Proxy
 version: "0.1.0"
-slug: ser2net
+slug: device_proxy
 description: Shares serial and USB devices over TCP with several programs (ser2net 4)
-url: https://github.com/bertel2020/HA-Ser2Net
+url: https://github.com/bertel2020/HA-Device-Proxy
 arch:
   - aarch64
   - amd64
@@ -18,12 +18,12 @@ udev: true
 ingress: true
 ingress_port: 18399
 panel_icon: mdi:serial-port
-panel_title: Ser2Net
+panel_title: Device Proxy
 map:
   - type: addon_config
     read_only: false
 # the history is SQLite with a WAL: write it into the main file first
-backup_pre: python3 -m ser2net_app.backup
+backup_pre: python3 -m device_proxy.backup
 # the host's LAN address for the addresses shown to clients
 hassio_api: true
 # notifications in Home Assistant

@@ -48,5 +48,5 @@ RUN pip3 install --no-cache-dir --no-index /tmp/wheels/*.whl && rm -rf /tmp/whee
 COPY app /app
 WORKDIR /app
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD ["python3", "-m", "ser2net_app.health"]
-CMD ["python3", "-m", "ser2net_app"]
+    CMD ["python3", "-m", "device_proxy.health"]
+CMD ["python3", "-m", "device_proxy"]

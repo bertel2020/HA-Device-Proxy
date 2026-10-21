@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from ser2net_app import process
-from ser2net_app.process import Ser2Net
+from device_proxy import process
+from device_proxy.process import Ser2Net
 
 
 async def test_forwards_the_log_and_starts_again(

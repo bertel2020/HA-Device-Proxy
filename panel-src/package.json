@@ -1,8 +1,8 @@
 {
-  "name": "ser2net-panel",
+  "name": "device-proxy-panel",
   "private": true,
   "type": "module",
-  "description": "Web interface of the Ser2Net app (built into ser2net/app/ser2net_app/web/app.js)",
+  "description": "Web interface of the Device Proxy app (built into device_proxy/app/device_proxy/web/app.js)",
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check"

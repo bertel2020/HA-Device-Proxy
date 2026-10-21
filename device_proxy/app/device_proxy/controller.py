@@ -54,50 +54,56 @@ ANALYZE_SECONDS = 30  # of trace the meter check looks at
 NOTES = {
     "de": {
         "missing": (
-            "Ser2Net: {name} – Gerät fehlt",
+            "Device Proxy: {name} – Gerät fehlt",
             "{device} ist nicht angeschlossen (seit {since}).",
         ),
-        "no_client": ("Ser2Net: {name} – kein Client", "Seit {since} ist kein Client verbunden."),
-        "silence": ("Ser2Net: {name} – keine Daten", "Seit {since} kommen keine Daten vom Gerät."),
+        "no_client": (
+            "Device Proxy: {name} – kein Client",
+            "Seit {since} ist kein Client verbunden.",
+        ),
+        "silence": (
+            "Device Proxy: {name} – keine Daten",
+            "Seit {since} kommen keine Daten vom Gerät.",
+        ),
         "stuck": (
-            "Ser2Net: {name} – Client liest nicht",
+            "Device Proxy: {name} – Client liest nicht",
             "{address} liest nicht mehr; alle Clients dieser Verbindung werden gebremst.",
         ),
         "line_errors": (
-            "Ser2Net: {name} – Leitungsfehler",
+            "Device Proxy: {name} – Leitungsfehler",
             "Die Leitungsfehler steigen ({count} seit Start) – Baudrate oder Format prüfen.",
         ),
         "ser2net": (
-            "Ser2Net: ser2net startet immer wieder neu",
+            "Device Proxy: ser2net startet immer wieder neu",
             "ser2net ist in den letzten 10 Minuten {count}× beendet worden. Siehe Log der App.",
         ),
         "custom": (
-            "Ser2Net: eigene ser2net.yaml unbrauchbar",
+            "Device Proxy: eigene ser2net.yaml unbrauchbar",
             "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
             "Siehe Einstellungen der App.",
         ),
     },
     "en": {
         "missing": (
-            "Ser2Net: {name} – device missing",
+            "Device Proxy: {name} – device missing",
             "{device} is not plugged in (since {since}).",
         ),
-        "no_client": ("Ser2Net: {name} – no client", "No client connected since {since}."),
-        "silence": ("Ser2Net: {name} – no data", "No data from the device since {since}."),
+        "no_client": ("Device Proxy: {name} – no client", "No client connected since {since}."),
+        "silence": ("Device Proxy: {name} – no data", "No data from the device since {since}."),
         "stuck": (
-            "Ser2Net: {name} – client does not read",
+            "Device Proxy: {name} – client does not read",
             "{address} stopped reading; all clients of this connection are slowed down.",
         ),
         "line_errors": (
-            "Ser2Net: {name} – line errors",
+            "Device Proxy: {name} – line errors",
             "Line errors are rising ({count} since start) – check baud rate and format.",
         ),
         "ser2net": (
-            "Ser2Net: ser2net keeps restarting",
+            "Device Proxy: ser2net keeps restarting",
             "ser2net ended {count}× in the last 10 minutes. See the app log.",
         ),
         "custom": (
-            "Ser2Net: own ser2net.yaml unusable",
+            "Device Proxy: own ser2net.yaml unusable",
             "Your own ser2net.yaml is not used, nothing is shared. See the app's settings.",
         ),
     },
@@ -575,7 +581,7 @@ class Controller:
             missing = self.present.get(c.id) is False
             if c.notify_missing and (since := self._lasting(c.id, "missing", missing, now)):
                 add(
-                    f"ser2net_{c.id}_missing",
+                    f"device_proxy_{c.id}_missing",
                     "missing",
                     name=c.name,
                     device=c.device,
@@ -584,26 +590,31 @@ class Controller:
             idle = not missing and self.ser2net.running and not clients
             since = self._lasting(c.id, "no_client", idle, now)
             if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
-                add(f"ser2net_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
+                add(f"device_proxy_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
             flow = self.trace.flow.get(c.alias)
             last = flow.last_rx if flow and flow.last_rx else None
             opened = self._lasting(c.id, "open", device_open, now)
             if c.silence_minutes and opened:
                 quiet_since = max(last or opened, opened)
                 if now - quiet_since >= c.silence_minutes * 60:
-                    add(f"ser2net_{c.id}_silence", "silence", name=c.name, since=clock(quiet_since))
+                    add(
+                        f"device_proxy_{c.id}_silence",
+                        "silence",
+                        name=c.name,
+                        since=clock(quiet_since),
+                    )
             if settings.notify_stuck and activity and activity.stuck_reported:
                 address = sorted(activity.stuck_reported)[0]
-                add(f"ser2net_{c.id}_stuck", "stuck", name=c.name, address=address)
+                add(f"device_proxy_{c.id}_stuck", "stuck", name=c.name, address=address)
             rise = self._line_rise.get(c.id)
             if settings.notify_line_errors and rise and now - rise < 600:
                 count = sum((self.line_errors.get(c.id) or {}).values())
-                add(f"ser2net_{c.id}_line_errors", "line_errors", name=c.name, count=count)
+                add(f"device_proxy_{c.id}_line_errors", "line_errors", name=c.name, count=count)
         recent = [t for t in self._restarts if now - t < 600]
         if settings.notify_ser2net and len(recent) >= 3:
-            add("ser2net_restarts", "ser2net", count=len(recent))
+            add("device_proxy_restarts", "ser2net", count=len(recent))
         if self.uses_custom and self._custom_invalid:
-            add("ser2net_custom_invalid", "custom")
+            add("device_proxy_custom_invalid", "custom")
         return found
 
     async def _notify_tick(self) -> None:

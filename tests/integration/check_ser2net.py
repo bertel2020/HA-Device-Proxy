@@ -26,12 +26,12 @@ from pathlib import Path
 
 sys.path.insert(0, "/app")
 
-from ser2net_app.controller import Controller  # noqa: E402
-from ser2net_app.db import Database  # noqa: E402
-from ser2net_app.events import EventLog  # noqa: E402
-from ser2net_app.model import AppConfig, Connection, Settings  # noqa: E402
-from ser2net_app.store import Store  # noqa: E402
-from ser2net_app.trace import TraceHub  # noqa: E402
+from device_proxy.controller import Controller  # noqa: E402
+from device_proxy.db import Database  # noqa: E402
+from device_proxy.events import EventLog  # noqa: E402
+from device_proxy.model import AppConfig, Connection, Settings  # noqa: E402
+from device_proxy.store import Store  # noqa: E402
+from device_proxy.trace import TraceHub  # noqa: E402
 
 PAIRS = (("/dev/ttyV0", "/dev/ttyV1"), ("/dev/ttyV2", "/dev/ttyV3"))
 A_PORT, B_PORT = 4100, 4101

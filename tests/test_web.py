@@ -2,12 +2,12 @@ import asyncio
 import json
 from pathlib import Path
 
-from ser2net_app.controller import Controller
-from ser2net_app.db import Database
-from ser2net_app.events import EventLog
-from ser2net_app.store import Store
-from ser2net_app.trace import TraceHub
-from ser2net_app.web import WebServer
+from device_proxy.controller import Controller
+from device_proxy.db import Database
+from device_proxy.events import EventLog
+from device_proxy.store import Store
+from device_proxy.trace import TraceHub
+from device_proxy.web import WebServer
 
 
 async def request(port: int, method: str, path: str, body: object = None) -> tuple[int, object]:
@@ -62,6 +62,6 @@ async def test_api_creates_checks_and_lists(tmp_path: Path) -> None:
     assert status == 200 and isinstance(state, dict)
     assert [c["name"] for c in state["connections"]] == ["eHZ"]
     status, page = await request(port, "GET", "")
-    assert status == 200 and b"<ser2net-app>" in page  # type: ignore[operator]
+    assert status == 200 and b"<device-proxy>" in page  # type: ignore[operator]
     assert (await request(port, "GET", "api/nothing"))[0] == 404
     await web.stop()

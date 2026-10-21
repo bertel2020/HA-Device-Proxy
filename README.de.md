@@ -1,4 +1,4 @@
-# Ser2Net
+# Device Proxy
 
 Eine Home-Assistant-App (früher Add-on), die serielle und USB-Geräte über TCP mit mehreren
 Programmen teilt – mit [ser2net 4](https://github.com/cminyard/ser2net) und einer
@@ -11,16 +11,16 @@ English: [README.md](README.md)
 
 ## Installation
 
-[![Repository zu My Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Ser2Net)
+[![Repository zu My Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Device-Proxy)
 
 1. Dieses Repository über den Button hinzufügen, oder in Home Assistant unter
    **Einstellungen → Apps → App-Store → ⋮ → Repositories** mit
-   `https://github.com/bertel2020/HA-Ser2Net`.
-2. **Ser2Net** installieren, starten und in der Seitenleiste **Ser2Net** öffnen. Solange es
+   `https://github.com/bertel2020/HA-Device-Proxy`.
+2. **Device Proxy** installieren, starten und in der Seitenleiste **Device Proxy** öffnen. Solange es
    keine fertigen Images gibt, baut Home Assistant die App bei der Installation selbst (mit
    gensio und ser2net) – das dauert beim ersten Mal einige Minuten.
 
-Details: [ser2net/DOCS.md](ser2net/DOCS.md).
+Details: [device_proxy/DOCS.md](device_proxy/DOCS.md).
 
 ## Was sie kann
 

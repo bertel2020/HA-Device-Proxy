@@ -2,7 +2,7 @@
 // they are worded here, so the history reads in the viewer's language.
 const TEXT = {
   de: {
-    appTitle: "Ser2Net", running: "ser2net läuft", notRunning: "ser2net läuft nicht",
+    appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche", breadcrumb: "Pfad",
     connectionsTitle: "Verbindungen", connectionsSub: "Serielle Geräte, die über das Netzwerk bereitgestellt werden.",
@@ -109,7 +109,7 @@ const TEXT = {
     connectionLost: "Keine Verbindung zur App – zeige den letzten Stand.",
   },
   en: {
-    appTitle: "Ser2Net", running: "ser2net running", notRunning: "ser2net not running",
+    appTitle: "Device Proxy", running: "ser2net running", notRunning: "ser2net not running",
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
     navMain: "Sections", breadcrumb: "Path",
     connectionsTitle: "Connections", connectionsSub: "Serial devices shared over the network.",
@@ -288,13 +288,13 @@ export const LANGUAGES = { TEXT, NOTES };
 
 const stored = (() => {
   if (typeof window === "undefined") return null; // the build's check runs in Node
-  try { return localStorage.getItem("ser2net.lang"); } catch { return null; }
+  try { return localStorage.getItem("device_proxy.lang"); } catch { return null; }
 })();
 export let lang = stored || ((globalThis.navigator?.language || "en").toLowerCase().startsWith("de") ? "de" : "en");
 
 export function setLang(value) {
   lang = value;
-  try { localStorage.setItem("ser2net.lang", value); } catch { /* private window */ }
+  try { localStorage.setItem("device_proxy.lang", value); } catch { /* private window */ }
 }
 
 const fill = (text, params = {}) =>

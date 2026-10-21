@@ -78,22 +78,31 @@ def draw_logo(width: int, height: int) -> Image.Image:
     img.alpha_composite(icon, (0, top))
     d = ImageDraw.Draw(img)
     left = icon.width + round(height * 0.14 * scale)
-    word = bold_font(round(height * 0.34 * scale))
-    sub = medium_font(round(height * 0.12 * scale))
+    room = W - left - scale * 4
+    word_px, sub_px = round(height * 0.34 * scale), round(height * 0.12 * scale)
+    while bold_font(word_px).getlength("DeviceProxy") > room:
+        word_px -= scale
+    while medium_font(sub_px).getlength("SERIAL · MODBUS · NETWORK") > room:
+        sub_px -= scale
+    word = bold_font(word_px)
+    sub = medium_font(sub_px)
     asc = word.getbbox("S")[3]
     y = top + round(icon.height * 0.18)
     x: float = left
-    for part, color in (("Ser", TEXT), ("2", ACCENT), ("Net", TEXT)):
+    for part, color in (("Device", TEXT), ("Proxy", ACCENT)):
         d.text((x, y), part, font=word, fill=color)
         x += d.textlength(part, font=word)
     d.text(
-        (left, y + asc + round(height * 0.08 * scale)), "SERIAL OVER NETWORK", font=sub, fill=MUTED
+        (left, y + asc + round(height * 0.08 * scale)),
+        "SERIAL · MODBUS · NETWORK",
+        font=sub,
+        fill=MUTED,
     )
     return img.resize((width, height), Image.LANCZOS)
 
 
 if __name__ == "__main__":
-    # python3 tools/render_images.py ser2net  (needs Pillow; fonts from macOS)
+    # python3 tools/render_images.py device_proxy  (needs Pillow; fonts from macOS)
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     draw_icon(256).save(out / "icon.png")
