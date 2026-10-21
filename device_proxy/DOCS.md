@@ -98,7 +98,10 @@ client that asks without a pause cannot hold up the others.
 
 With Modbus RTU the app opens the adapter itself (not through ser2net) and keeps the pause
 of 3.5 characters between frames that RTU needs. Unit 0 is a broadcast: it is sent, nobody
-answers.
+answers. RTU has no transaction ids, so an answer must fit its request (unit, function,
+byte count, the echo of a write), and after a timeout or a broken answer the line gets
+half a second for late bytes before the next request – a late answer never reaches the
+wrong client.
 
 **Settings**: port for the clients (502 by default; each connection needs its own), number
 of clients, answer timeout, further attempts, a pause after connecting (ha-modbusproxy's

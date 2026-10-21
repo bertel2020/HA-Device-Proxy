@@ -5,10 +5,12 @@ from device_proxy.modbus import ClientInfo, ModbusProxy, Scheduler, _Job, crc16,
 from device_proxy.model import Connection, parse_unit_map
 
 
-async def _device(rtu: bool, ignore: set[int], connections: int = 1):
+async def _device(rtu: bool, ignore: set[int], connections: int = 1, late_first: bool = False):
     """A Modbus device on a TCP port that takes this many connections and answers slowly;
-    holding register n holds n * 10. Requests for units in ignore get no answer."""
+    holding register n holds n * 10. Requests for units in ignore get no answer; with
+    late_first the first answer comes very late."""
     busy = asyncio.Semaphore(connections)
+    late = [late_first]
 
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         if busy.locked():
@@ -28,7 +30,7 @@ async def _device(rtu: bool, ignore: set[int], connections: int = 1):
                     return
                 if unit in ignore:
                     continue
-                await asyncio.sleep(0.02)
+                await asyncio.sleep(0.3 if late and late.pop() else 0.02)
                 address, count = struct.unpack(">HH", pdu[1:5])
                 body = bytes([3, count * 2]) + b"".join(
                     struct.pack(">H", (address + i) * 10) for i in range(count)
@@ -251,6 +253,32 @@ async def test_a_failing_request_does_not_stop_the_proxy() -> None:
     port = proxy._server.sockets[0].getsockname()[1]
     assert await _read(port, 1, 1, 0) == bytes([0x83, 0x0B])  # the bug: an exception ...
     assert (await _read(port, 2, 1, 3))[2:4] == struct.pack(">H", 30)  # ... and on it goes
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
+
+
+async def test_a_late_rtu_answer_is_not_taken_for_the_next_one() -> None:
+    device = await _device(True, ignore=set(), late_first=True)
+    c = Connection(
+        "Bus",
+        "",
+        0,
+        kind="modbus",
+        link="rtu_tcp",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        request_timeout_ms=100,
+        retries=0,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    assert await _read(port, 1, 1, 0) == bytes([0x83, 0x0B])  # too late
+    assert (await _read(port, 2, 1, 5))[2:6] == struct.pack(">HH", 50, 60)  # not its answer
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()

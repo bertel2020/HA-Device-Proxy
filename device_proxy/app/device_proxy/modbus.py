@@ -48,6 +48,7 @@ LINK_RETRY = 30  # seconds between attempts to reach a device that is not reacha
 SERIAL_RETRY = 5  # seconds between attempts to open a missing serial device
 DOWN_AFTER = 3  # requests in a row without an answer: the device counts as not reachable
 QUIET_GAP = 0.05  # s of silence that ends an RTU answer of unknown length
+SETTLE_MAX = 0.5  # s an RTU line gets after a timeout or a broken answer, for late bytes
 BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
 # functions that change the device; 8 (diagnostics) only with a sub-function other than 0
 WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
@@ -138,6 +139,21 @@ def describe(unit: int, pdu: bytes, *, request: bool) -> str:
     elif not request and function in (1, 2, 3, 4, 23) and len(pdu) >= 2:
         text += f" · {pdu[1]} bytes"
     return text
+
+
+def answers(pdu: bytes, answer: bytes) -> bool:
+    """Can this be the answer to the request? RTU has no transaction ids: a late answer to
+    an earlier request must not pass for this one's."""
+    function = pdu[0]
+    if answer[0] & 0x80 or len(pdu) < 5 or len(answer) < 2:
+        return True  # an exception, or nothing to compare
+    if function in (1, 2):
+        return answer[1] == (int.from_bytes(pdu[3:5], "big") + 7) // 8
+    if function in (3, 4):
+        return answer[1] == int.from_bytes(pdu[3:5], "big") * 2
+    if function in (5, 6, 15, 16):
+        return answer[1:5] == pdu[1:5]  # the echo of address and value or count
+    return True
 
 
 def is_write(pdu: bytes) -> bool:
@@ -365,7 +381,12 @@ class TcpFramer:
         self.tid = 0
 
     async def exchange(
-        self, unit: int, pdu: bytes, timeout: float, trace: Callable[[str, bytes, str], None]
+        self,
+        unit: int,
+        pdu: bytes,
+        timeout: float,
+        trace: Callable[[str, bytes, str], None],
+        settle: float = SETTLE_MAX,
     ) -> bytes | None:
         self.tid = (self.tid + 1) & 0xFFFF
         frame = struct.pack(">HHHB", self.tid, 0, len(pdu) + 1, unit) + pdu
@@ -394,7 +415,12 @@ class RtuFramer:
         self.char_time = getattr(link, "char_time", 0.0)
 
     async def exchange(
-        self, unit: int, pdu: bytes, timeout: float, trace: Callable[[str, bytes, str], None]
+        self,
+        unit: int,
+        pdu: bytes,
+        timeout: float,
+        trace: Callable[[str, bytes, str], None],
+        settle: float = SETTLE_MAX,
     ) -> bytes | None:
         loop = asyncio.get_running_loop()
         wait = self.link.last_activity + self.gap - loop.time()
@@ -408,18 +434,25 @@ class RtuFramer:
             await asyncio.sleep(BROADCAST_WAIT)
             return None
         deadline = loop.time() + len(frame) * self.char_time + timeout
-        head = await self.link.read_exactly(3, deadline)
-        length = rtu_length(head)
-        if length is None:
-            data = head + await self.link.read_quiet(max(QUIET_GAP, self.gap), deadline)
-        else:
-            data = head + await self.link.read_exactly(length - 3, deadline)
-        body = data[1:-2]
-        trace("rx", data, describe(data[0], body, request=False))
-        if len(data) < 5 or crc16(data[:-2]) != int.from_bytes(data[-2:], "little"):
-            raise FrameError("CRC wrong")
-        if data[0] != unit or data[1] & 0x7F != pdu[0]:
-            raise FrameError("answer to another request")
+        try:
+            head = await self.link.read_exactly(3, deadline)
+            length = rtu_length(head)
+            if length is None:
+                data = head + await self.link.read_quiet(max(QUIET_GAP, self.gap), deadline)
+            else:
+                data = head + await self.link.read_exactly(length - 3, deadline)
+            body = data[1:-2]
+            trace("rx", data, describe(data[0], body, request=False))
+            if len(data) < 5 or crc16(data[:-2]) != int.from_bytes(data[-2:], "little"):
+                raise FrameError("CRC wrong")
+            if data[0] != unit or data[1] & 0x7F != pdu[0] or not answers(pdu, body):
+                raise FrameError("answer to another request")
+        except (TimeoutError, FrameError):
+            # what is still on its way (a late answer, the rest of a broken one) must not
+            # be taken for the next request's answer
+            await asyncio.sleep(settle)
+            self.link.discard()
+            raise
         return body
 
 
@@ -822,6 +855,8 @@ class ModbusProxy:
         if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
         timeout = job.timeout or self.c.request_timeout_ms / 1000
+        # a scan asks units that are not there: no late answers to wait for
+        settle = min(timeout, SETTLE_MAX) if job.timeout else SETTLE_MAX
         retries = self.c.retries if job.retries is None else job.retries
         code = EXC_TARGET
         trace = self._trace(client.address)
@@ -836,7 +871,7 @@ class ModbusProxy:
                     continue
             started, error = loop.time(), ""
             try:
-                answer = await path.framer.exchange(unit, pdu, timeout, trace)
+                answer = await path.framer.exchange(unit, pdu, timeout, trace, settle)
 
             except TimeoutError:
                 stats.timeouts += not tool

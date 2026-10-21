@@ -60,8 +60,10 @@ async def device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, rtu
             if pdu[0] in (5, 6):
                 body = pdu  # a write is echoed
             else:
-                count = struct.unpack(">H", pdu[3:5])[0]
-                body = bytes([pdu[0], count * 2]) + bytes(count * 2)
+                address, count = struct.unpack(">HH", pdu[1:5])
+                body = bytes([pdu[0], count * 2]) + b"".join(
+                    struct.pack(">H", (unit * 1000 + address + i) & 0xFFFF) for i in range(count)
+                )
             if roll < 0.05:
                 writer.write(os.urandom(RNG.randint(1, 20)))  # garbage
             elif rtu:
@@ -92,6 +94,15 @@ async def client(port: int, stop: asyncio.Event, stats: dict[str, int]) -> None:
                     pdu = struct.pack(">BHH", 6, RNG.randint(0, 10), RNG.randint(0, 99))
                 else:
                     pdu = struct.pack(">BHH", 3, RNG.choice((0, 0, 100, 200)), RNG.randint(1, 10))
+                expected = (
+                    pdu
+                    if pdu[0] == 6
+                    else bytes([3, pdu[4] * 2])
+                    + b"".join(
+                        struct.pack(">H", (unit * 1000 + pdu[2] + i) & 0xFFFF)
+                        for i in range(pdu[4])
+                    )
+                )
                 writer.write(struct.pack(">HHHB", tid, 0, len(pdu) + 1, unit) + pdu)
                 await writer.drain()
                 if RNG.random() < 0.01:
@@ -103,6 +114,8 @@ async def client(port: int, stop: asyncio.Event, stats: dict[str, int]) -> None:
                 stats["answers" if not body[0] & 0x80 else "exceptions"] += 1
                 if got != tid:
                     stats["wrong_tid"] += 1
+                if not body[0] & 0x80 and body != expected:
+                    stats["wrong_answer"] += 1  # an answer to another request
                 await asyncio.sleep(RNG.uniform(0, 0.3))
         except (OSError, asyncio.IncompleteReadError, TimeoutError):
             stats["client_errors"] += 1
@@ -150,6 +163,7 @@ async def main(minutes: float, link: str) -> int:
             "answers",
             "exceptions",
             "wrong_tid",
+            "wrong_answer",
             "client_errors",
             "walked_away",
             "connect_failed",
@@ -184,6 +198,8 @@ async def main(minutes: float, link: str) -> int:
     problems = [k for k, v in left.items() if v]
     if stats["wrong_tid"]:
         problems.append("answers with a wrong transaction id")
+    if stats["wrong_answer"]:
+        problems.append("answers to other requests")
     if after[1] > base[1] + 5:
         problems.append("open files grew")
     if after[2] > base[2] + 2:
