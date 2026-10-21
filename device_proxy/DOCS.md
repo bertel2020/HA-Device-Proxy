@@ -1,10 +1,16 @@
 # Device Proxy
 
-The app makes serial and USB devices connected to Home Assistant available on TCP ports,
-using [ser2net 4](https://github.com/cminyard/ser2net). Home Assistant integrations, other
-apps and programs elsewhere in the network connect to these ports instead of opening the
-device themselves – for example Z-Wave JS (`tcp://host:port`), ZHA and other pyserial-based
-integrations (`socket://host:port`) or a smart meter integration (host and port).
+The app shares devices with several programs at once:
+
+- **Serial and USB devices** connected to Home Assistant on TCP ports, using
+  [ser2net 4](https://github.com/cminyard/ser2net). Home Assistant integrations, other apps
+  and programs elsewhere in the network connect to these ports instead of opening the device
+  themselves – for example Z-Wave JS (`tcp://host:port`), ZHA and other pyserial-based
+  integrations (`socket://host:port`) or a smart meter integration (host and port).
+- **Modbus devices** through the app's own Modbus proxy: a device that accepts only one
+  connection (many inverters, heat pumps, batteries, energy meters) or an RS485 bus with
+  Modbus RTU gets a Modbus TCP port that several clients use at the same time – like the
+  ha-modbusproxy app, plus Modbus RTU (see [Modbus devices](#modbus-devices)).
 
 Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
 of its own.
@@ -12,10 +18,12 @@ of its own.
 ## Getting started
 
 1. Install the app and start it; open **Device Proxy** in the sidebar.
-2. Either **import** your existing ser2net configuration (**Connections → Import / Export**,
-   ser2net 4 `ser2net.yaml` or ser2net 3 `ser2net.conf`), or **add a connection**: pick a
+2. Either **import** your existing configuration (**Connections → Import / Export**:
+   ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf` or the options of ha-modbusproxy), or
+   **add a connection**: choose serial device or Modbus device; for a serial device pick a
    template (smart meter SML or D0, Z-Wave stick, generic), the device from the list and a
-   TCP port.
+   TCP port; for a Modbus device its address (or RS485 adapter) and the port for the
+   clients.
 3. Point the clients at the address the connection shows (**Details → Addresses**):
 
 | Client | Address |
@@ -53,8 +61,9 @@ type.
 
 A connection can allow several clients. Every client gets all data from the device; what the
 clients send goes to the device unchanged and unordered. This suits devices that only send
-(smart meters, GPS). For devices that answer requests (Z-Wave, Modbus RTU, many heat pumps)
-it works only while one client at a time sends.
+(smart meters, GPS). For devices that answer requests (Z-Wave, many heat pumps) it works
+only while one client at a time sends; for Modbus RTU use a Modbus connection instead, which
+puts the requests in order.
 
 When one client stops reading, ser2net slows down **all** clients of that connection. The
 app reports such a client; optionally it disconnects the connection's clients (ser2net
@@ -65,6 +74,48 @@ cannot disconnect a single one) so they connect again.
 ser2net opens a device only while a client is connected. With **keep the device open** the
 app stays connected itself, so "no data" warnings, line errors and the tools work without a
 client. It takes one of the connection's client places.
+
+## Modbus devices
+
+A Modbus connection listens on a TCP port of its own and speaks Modbus TCP to its clients
+(Home Assistant's Modbus integration, SolarEdge Modbus, evcc, ioBroker …). All their requests
+go to the device one after another over a single connection; each answer goes back to the
+client that asked. The app numbers the requests towards the device itself, so a late answer
+to a request that timed out never reaches the next client.
+
+**Connection to the device**
+
+| Kind | For | Settings |
+|---|---|---|
+| Modbus TCP | a device in the network | address and port (502) |
+| Modbus RTU (serial) | an RS485 adapter on this host | device, baud rate and format |
+| RTU over TCP | an RS485-to-Ethernet converter in transparent mode | address and port |
+
+With Modbus RTU the app opens the adapter itself (not through ser2net) and keeps the pause
+of 3.5 characters between frames that RTU needs. Unit 0 is a broadcast: it is sent, nobody
+answers.
+
+**Settings**: port for the clients (502 by default; each connection needs its own), number
+of clients, answer timeout, further attempts, a pause after connecting (ha-modbusproxy's
+`connection_time`, for devices that need a moment) and a pause between requests for slow
+devices. Under **Advanced**: disconnect idle clients, replace the oldest client when all
+places are taken, allowed clients and a bind address – the network setting applies as for
+serial devices.
+
+**When the device does not answer** the client gets Modbus exception 0x0B ("gateway target
+device failed to respond"), when it cannot be reached 0x0A ("gateway path unavailable") – the
+answers a Modbus gateway gives; the client stays connected. After three requests in a row
+without an answer the device counts as not reachable (event, notification, entity). A
+device that is not reachable is tried again every 30 seconds; a device that closed an idle
+connection is connected again with the next request.
+
+**Status**: reachable, clients with their requests, requests, answered, exceptions,
+timeouts, errors, queue and answer time (average and maximum), the last error. The live
+view and the recordings show each request and answer as hex with unit, function, register
+and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
+
+Saving restarts only Modbus connections whose device or proxy settings changed; their
+clients connect again. Name, trace and notifications change without a restart.
 
 ## Status, traces and line errors
 
@@ -106,8 +157,10 @@ Problems appear under Home Assistant's bell: one notification per connection and
 updated instead of repeated, and removed when the problem is gone (can be switched off).
 Optionally a notify service (e.g. the companion app on a phone) gets them too.
 
-- Per connection (in the connection's form): device missing, no client connected (after a
-  few minutes), no data from the device for a set time (only while the device is open).
+- Per connection (in the connection's form): device missing (for Modbus also: not
+  reachable), no client connected (after a few minutes), no data from the device for a set
+  time (serial devices, only while the device is open). A Modbus port that cannot be opened
+  is always reported.
 - For all (**Settings → Notifications**): a client stops reading, line errors rise, ser2net
   keeps restarting, your own `ser2net.yaml` cannot be used.
 
@@ -130,9 +183,23 @@ Supervisor.
 | Line errors | errors counted by the driver since the start |
 | Active (switch) | turns the connection on and off |
 
+A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
+time and the switch.
+
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
 (`homeassistant`), base topic (`ser2net`) and the update interval are in **Settings → MQTT
 entities**; the entity names follow the language of the notifications.
+
+## Coming from ha-modbusproxy
+
+Copy the options of ha-modbusproxy (its **Configuration** tab → ⋮ → **Edit in YAML**) and
+paste them under **Connections → Import / Export**; each device becomes a Modbus connection
+with the same ports, timeout and `connection_time`. A modbus-proxy configuration file
+(`devices` with `modbus: url` and `listen: bind`) works too. At the start a file
+`import/modbus-proxy.yaml` in the app's config folder is taken over like a ser2net file.
+
+**Stop ha-modbusproxy first**: both apps listen on the host's network, so only one can have
+port 502. The clients (e.g. the Modbus integration) need no change when the ports stay.
 
 ## Taking over an existing configuration
 
@@ -165,7 +232,8 @@ For setups the forms cannot express, **Settings → Configuration source → Own
 uses your file as it is (`/addon_configs/<…>_device_proxy/ser2net.yaml`, editable in the app with
 a check). It must not contain an admin section: the app adds its own. Status, events,
 history, notifications and MQTT keep working, with ser2net's connection names; the forms,
-"keep open" and the meter tools are not used meanwhile.
+"keep open" and the meter tools are not used meanwhile. Modbus connections are not
+ser2net's and keep working; their ports must not appear in your file.
 
 ## Proxmox
 
@@ -191,12 +259,15 @@ to an issue as it is.
 | Line errors rise | Same as noise; also the cable or the USB3 option in Proxmox. |
 | All clients slow | A client stopped reading (marked on the connection). |
 | "Change pending" | ser2net applies a change when the clients reconnect; the app disconnects them. |
+| Modbus "port in use" | Another app (e.g. ha-modbusproxy) still listens on the port: stop it. |
+| Modbus "not reachable" | Address and port of the device; does the device allow only one connection that another program still holds? |
+| Modbus answers 0x0B | The device does not answer in time: raise the timeout, check the unit id; for RTU baud rate, format and wiring (A/B). |
 
 ## Files
 
 | Path | Content |
 |---|---|
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
-| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start |
+| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | recorded traces |
 | app data (in the backup) | connections, settings, history, configuration versions |

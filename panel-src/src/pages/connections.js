@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { t } from "../i18n.js";
-import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, primaryAddress, toggle } from "../ui.js";
+import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, modbusTarget, primaryAddress, toggle } from "../ui.js";
 
 export class ConnectionsPage extends Page {
   static properties = { state: { attribute: false }, copied: { state: true }, busy: { state: true } };
@@ -48,19 +48,23 @@ export class ConnectionsPage extends Page {
   }
 
   _card(c, running, own) {
+    if (c.kind === "modbus") own = false; // the app's Modbus proxy works with an own ser2net.yaml too
     const [stateKey, stateClass] = connectionState(c, running);
     const off = !c.enabled, missing = c.enabled && c.present === false;
     const errors = c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0;
-    const chips = [fmtSerial(c), c.mode, `Port ${c.port}`];
-    if (c.nodelay) chips.push("nodelay");
+    const modbus = c.kind === "modbus", m = c.modbus || {};
+    const chips = modbus ? [t(`link_${c.link}`), `Port ${c.port}`] : [fmtSerial(c), c.mode, `Port ${c.port}`];
+    if (modbus && c.link === "rtu") chips.splice(1, 0, fmtSerial(c));
+    if (modbus && m.answered) chips.push(t("mbAvg", { ms: m.time_avg_ms }));
+    if (c.nodelay && !modbus) chips.push("nodelay");
     if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
     if (c.trace !== "off") chips.push(t("recording", { m: t(`tr_${c.trace}`) }));
     const stuck = c.clients.filter((cl) => cl.stuck);
     return html`<section class="card conn ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name}>
       <div class="top">
         <div style="min-width:0">
-          <div class="title"><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
-          <div class="dev mono">${c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
+          <div class="title"><span class="hint" style="display:flex" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
+          <div class="dev mono">${modbus ? modbusTarget(c) : c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
         </div>
         ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), own || this.busy === c.id)}
       </div>
@@ -69,14 +73,15 @@ export class ConnectionsPage extends Page {
         ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
         ${errors ? html`<span class="chip warn">${t("lineErrors", { n: errors })}</span>` : ""}
         ${c.latency === "read_only" ? html`<span class="chip warn">${t("latencyRO")}</span>` : ""}
+        ${modbus && m.failed ? html`<span class="chip warn">${t("mbFailedN", { n: m.failed })}</span>` : ""}
         ${stuck.map((cl) => html`<span class="chip bad">${t("stuck", { a: cl.address })}</span>`)}
       </div>
       <div class="clients">
         <div class="row hint" style="font-weight:500"><span>${t("clients")}</span>
-          <span>${t("clientsOf", { n: c.clients.length, m: c.max_clients })}${c.enabled && c.present ? html` · ${fmtRate(c.rate_from_device)}` : ""}</span></div>
+          <span>${t("clientsOf", { n: c.clients.length, m: c.max_clients })}${c.enabled && (c.present || modbus) ? html` · ${fmtRate(c.rate_from_device)}` : ""}</span></div>
         ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span></span>
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
-        ${c.clients.length ? "" : html`<div class="hint" style="font-size:14px">${off ? t("disabledText") : missing ? t("missingText") : t("noClients")}</div>`}
+        ${c.clients.length ? "" : html`<div class="hint" style="font-size:14px">${off ? t("disabledText") : missing ? t("missingText") : modbus && m.reachable === false ? t("mbDownText", { e: m.last_error || "?" }) : t("noClients")}</div>`}
       </div>
       <div class="foot">
         <div class="addr"><span class="mono">${primaryAddress(c)}</span>

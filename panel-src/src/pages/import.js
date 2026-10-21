@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
-import { fmtSerial, icon } from "../ui.js";
+import { fmtSerial, icon, modbusTarget } from "../ui.js";
 
 export class ImportPage extends Page {
   static properties = {
@@ -74,7 +74,7 @@ export class ImportPage extends Page {
         @dragleave=${(e) => e.currentTarget.classList.remove("over")}
         @drop=${(e) => { e.preventDefault(); e.currentTarget.classList.remove("over"); this._file(e.dataTransfer.files[0]); }}>
         ${icon("upload", 40)}<b style="font-size:16px;font-weight:500">${t("importDrop")}</b><span class="hint">${t("importFormats")}</span>
-        <label class="btn btn-p">${t("chooseFile")}<input type="file" class="sr" accept=".yaml,.yml,.conf,text/plain" @change=${(e) => this._file(e.target.files[0])}></label>
+        <label class="btn btn-p">${t("chooseFile")}<input type="file" class="sr" accept=".yaml,.yml,.conf,.json,text/plain" @change=${(e) => this._file(e.target.files[0])}></label>
       </div>
       <label class="fld"><span class="lbl">${t("pasteHere")}</span>
         <textarea class="inp mono" rows="6" .value=${this.text} @input=${(e) => { this.text = e.target.value; }}></textarea></label>
@@ -108,9 +108,9 @@ export class ImportPage extends Page {
           return html`<tr>
             <td>${c && !conflict ? html`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${item.alias} ${t("take")}"
               .checked=${this.take.has(item.alias)} @change=${(e) => { const s = new Set(this.take); e.target.checked ? s.add(item.alias) : s.delete(item.alias); this.take = s; }}>` : ""}</td>
-            <td><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${fmtSerial(c)} · ${c.mode} · max. ${c.max_clients}${c.enabled ? "" : " · off"}</div>` : ""}</td>
+            <td><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${c.kind === "modbus" ? t(`link_${c.link}`) : `${fmtSerial(c)} · ${c.mode}`} · max. ${c.max_clients}${c.enabled ? "" : " · off"}</div>` : ""}</td>
             <td class="mono">${c ? c.port : ""}</td>
-            <td class="mono" style="font-size:12px;overflow-wrap:anywhere;max-width:260px">${c ? c.device : ""}</td>
+            <td class="mono" style="font-size:12px;overflow-wrap:anywhere;max-width:260px">${c ? (c.kind === "modbus" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
               ${item.notes.length ? html`<ul class="notes">${item.notes.map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
               ${conflict ? html`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>

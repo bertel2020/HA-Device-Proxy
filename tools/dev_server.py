@@ -2,15 +2,17 @@
 
     .venv/bin/python tools/dev_server.py [port]    then open http://127.0.0.1:8399/
 
-Three example connections, a simulated smart meter in the trace (the first connection) and
-some events. Nothing is shared on the network; ser2net shows as not running. Data lives in a
-temporary folder that is removed at the end.
+Three serial example connections, a simulated smart meter in the trace (the first one), a
+Modbus TCP device simulated on 127.0.0.1 with a client polling it through the proxy, a
+Modbus device that is not reachable, and some events. Nothing is shared on the network;
+ser2net shows as not running. Data lives in a temporary folder that is removed at the end.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import struct
 import sys
 import tempfile
 import time
@@ -55,12 +57,42 @@ async def meter(trace: TraceHub, alias: str, stop: asyncio.Event) -> None:
         await asyncio.sleep(1)
 
 
+async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    """Holding registers: n holds n * 10 (an inverter's power, say)."""
+    try:
+        while True:
+            tid, _, length, unit = struct.unpack(">HHHB", await reader.readexactly(7))
+            pdu = await reader.readexactly(length - 1)
+            address, count = struct.unpack(">HH", pdu[1:5])
+            body = bytes([3, count * 2]) + b"".join(
+                struct.pack(">H", (address + i) * 10 % 65536) for i in range(count)
+            )
+            await asyncio.sleep(0.015)
+            writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+    except (asyncio.IncompleteReadError, ConnectionError):
+        writer.close()
+
+
+async def modbus_client(port: int, stop: asyncio.Event) -> None:
+    await asyncio.sleep(1)
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    tid = 0
+    while not stop.is_set():
+        tid += 1
+        writer.write(struct.pack(">HHHBBHH", tid, 0, 6, 1, 3, 40000 + tid % 50, 4))
+        head = await reader.readexactly(7)
+        await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1)
+        await asyncio.sleep(2)
+
+
 async def main(port: int) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     process.RESTART_DELAYS = (3600,)  # no ser2net here: do not retry
     controller_module.STATUS_POLL = 3600
     with tempfile.TemporaryDirectory() as tmp:
         data = Path(tmp)
+        device = await asyncio.start_server(modbus_device, "127.0.0.1", 0)
+        device_port = device.sockets[0].getsockname()[1]
         db = Database(data / "history.db")
         events = EventLog(db)
         store = Store(db, data / "config.json")
@@ -84,6 +116,29 @@ async def main(port: int) -> None:
                     template="zwave",
                 ),
                 Connection("BWT AQA perla", "/dev/ttyMISSING0", 3334, baud=19200, max_clients=2),
+                Connection(
+                    "SolarEdge Wechselrichter",
+                    "",
+                    15020,
+                    kind="modbus",
+                    template="modbus",
+                    host="127.0.0.1",
+                    host_port=device_port,
+                    max_clients=10,
+                    bind="127.0.0.1",
+                    trace="both",
+                ),
+                Connection(
+                    "Wärmepumpe",
+                    "",
+                    15021,
+                    kind="modbus",
+                    template="modbus",
+                    host="127.0.0.1",
+                    host_port=1,
+                    max_clients=10,
+                    bind="127.0.0.1",
+                ),
             )
         )
         store.save(AppConfig(), config, "test")
@@ -103,12 +158,15 @@ async def main(port: int) -> None:
         await asyncio.sleep(0.5)
         alias = controller.config.connections[0].alias
         feeder = asyncio.create_task(meter(trace, alias, stop))
+        poller = asyncio.create_task(modbus_client(15020, stop))
         print(f"Open http://127.0.0.1:{port}/  (Ctrl+C ends)")
         try:
             await asyncio.Event().wait()
         finally:
             stop.set()
             feeder.cancel()
+            poller.cancel()
+            device.close()
             await task
             await web.stop()
 

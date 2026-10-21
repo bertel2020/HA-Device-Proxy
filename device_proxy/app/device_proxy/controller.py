@@ -394,9 +394,10 @@ class Controller:
         return applied
 
     async def import_folder(self) -> None:
-        """Take over a ser2net.yaml or old ser2net.conf put into the config folder's import/
-        (merge, no overwrite)."""
-        found = [self.import_dir / n for n in ("ser2net.yaml", "ser2net.conf")]
+        """Take over a ser2net.yaml, an old ser2net.conf or a modbus-proxy.yaml (options of
+        ha-modbusproxy) put into the config folder's import/ (merge, no overwrite)."""
+        names = ("ser2net.yaml", "ser2net.conf", "modbus-proxy.yaml")
+        found = [self.import_dir / n for n in names]
         source = next((f for f in found if f.is_file()), None)
         if source is None:
             return

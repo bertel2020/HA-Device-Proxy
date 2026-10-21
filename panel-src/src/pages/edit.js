@@ -9,8 +9,11 @@ const DEFAULTS = {
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
-  notify_missing: true, notify_no_client: false, silence_minutes: 0,
+  notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
+  link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
 };
+const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
+const LINKS = ["tcp", "rtu", "rtu_tcp"];
 const TEMPLATES = {
   ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
   ehz_d0: { baud: 9600, data_bits: 7, parity: "e", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
@@ -18,6 +21,7 @@ const TEMPLATES = {
   generic: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: true, nodelay: false },
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open", "stuck_disconnect"];
 
 const extraText = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`).join("\n");
@@ -41,6 +45,9 @@ export class EditPage extends Page {
     .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
     .toggle-head { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0;
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+    .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+    .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
     .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   `];
 
@@ -55,16 +62,33 @@ export class EditPage extends Page {
       for (const key of [...Object.keys(DEFAULTS), "id"]) draft[key] = existing[key];
       this.draft = draft;
     } else {
-      const ports = this.state.connections.map((c) => c.port);
-      const free = this.state.devices.find((d) => !d.used_by);
-      this.draft = { ...DEFAULTS, port: ports.length ? Math.max(...ports) + 1 : 3333, device: free ? free.stable : "" };
+      this.draft = { ...DEFAULTS, ...this._fresh("serial") };
     }
     this.extraRaw = extraText(this.draft.extra);
     this.otherDevice = !!this.draft.device && !this.state.devices.some((d) => d.stable === this.draft.device || d.by_id.includes(this.draft.device) || d.by_path.includes(this.draft.device));
     this.errors = {};
     this.touched = new Set(existing ? Object.keys(DEFAULTS) : []);
-    this.advanced = ADVANCED.some((k) => this.draft[k]) || !!(this.draft.remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
+    this.advanced = (this.draft.kind === "modbus" ? MODBUS_ADVANCED : ADVANCED).some((k) => this.draft[k]) || !!(this.draft.remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
     this._preview();
+  }
+
+  /** Port and device for a new connection of this kind. */
+  _fresh(kind) {
+    const ports = this.state.connections.map((c) => c.port);
+    const free = this.state.devices.find((d) => !d.used_by);
+    if (kind === "modbus") {
+      let port = 502;
+      while (ports.includes(port)) port++;
+      return { ...MODBUS, port, device: "" };
+    }
+    const serial = ports.filter((p) => p >= 1024);
+    return { kind: "serial", template: "generic", ...TEMPLATES.generic, port: serial.length ? Math.max(...serial) + 1 : 3333, device: free ? free.stable : "" };
+  }
+
+  _kind(kind) {
+    if (kind === this.draft.kind) return;
+    this.otherDevice = false;
+    this._set(kind === "modbus" ? { ...this._fresh("modbus") } : { ...DEFAULTS, ...this._fresh("serial"), name: this.draft.name, enabled: this.draft.enabled });
   }
 
   _set(patch) {
@@ -123,9 +147,97 @@ export class EditPage extends Page {
       ${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</label>`;
   }
 
-  _check(key) {
+  _check(key, plain = false) {
+    const option = !plain && key !== "keep_open" && key !== "stuck_disconnect" && !key.startsWith("notify");
     return html`<label class="chk"><input type="checkbox" .checked=${!!this.draft[key]} @change=${(e) => this._set({ [key]: e.target.checked })}>
-      <span>${t(`o_${key}`)}${key !== "keep_open" && key !== "stuck_disconnect" && !key.startsWith("notify") ? html`<br><span class="hint mono">${key.replace(/_/g, "-")}</span>` : ""}</span></label>`;
+      <span>${t(`o_${key}`)}${option ? html`<br><span class="hint mono">${key.replace(/_/g, "-")}</span>` : ""}</span></label>`;
+  }
+
+  _devicePicker(chosen) {
+    const d = this.draft, devices = this.state.devices;
+    return html`<label class="fld"><span class="lbl">${t("devicePick")}</span>
+        <select class="inp" aria-invalid=${this._shown().device ? "true" : "false"} @change=${(e) => {
+          if (e.target.value === "__other") { this.otherDevice = true; return; }
+          this.otherDevice = false; this._set({ device: e.target.value });
+        }}>
+          ${d.device ? "" : html`<option value="" selected>–</option>`}
+          ${devices.map((x) => html`<option value=${x.stable} ?selected=${!this.otherDevice && chosen === x}>${this._deviceLabel(x)}</option>`)}
+          <option value="__other" ?selected=${this.otherDevice}>${t("deviceOther")}</option>
+        </select>
+        ${this.otherDevice ? html`<input class="inp mono" .value=${d.device} placeholder="/dev/serial/by-id/…" @input=${(e) => this._set({ device: e.target.value })}>` : html`<span class="hint mono" style="overflow-wrap:anywhere">${d.device}</span>`}
+        ${this._err("device")}</label>
+      ${chosen && chosen.ambiguous ? html`<div class="note warn" role="note">${t("ambiguous")}</div>` : ""}`;
+  }
+
+  _serialFormat() {
+    const d = this.draft;
+    return html`<label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
+        ${[...new Set([...BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>${this._err("baud")}</label>
+      <label class="fld"><span class="lbl">${t("dataBits")} · ${t("parityF")} · ${t("stopBits")}</span>
+        <div style="display:flex;gap:6px">
+          <select class="inp" aria-label=${t("dataBits")} @change=${(e) => this._set({ data_bits: Number(e.target.value) })}>${[5, 6, 7, 8].map((v) => html`<option ?selected=${v === d.data_bits}>${v}</option>`)}</select>
+          <select class="inp" aria-label=${t("parityF")} @change=${(e) => this._set({ parity: e.target.value })}>${["n", "e", "o", "m", "s"].map((v) => html`<option value=${v} ?selected=${v === d.parity}>${v.toUpperCase()}</option>`)}</select>
+          <select class="inp" aria-label=${t("stopBits")} @change=${(e) => this._set({ stop_bits: Number(e.target.value) })}>${[1, 2].map((v) => html`<option ?selected=${v === d.stop_bits}>${v}</option>`)}</select>
+        </div></label>`;
+  }
+
+  _modbusSections(chosen) {
+    const d = this.draft;
+    const advancedCount = MODBUS_ADVANCED.filter((k) => d[k]).length + ["remaddr", "bind", "timeout"].filter((k) => d[k]).length;
+    return html`
+      <section class="card" aria-labelledby="t-mdev">
+        <h2 id="t-mdev">${t("mbDevice")}</h2>
+        <div class="fld"><span class="lbl" id="l-link">${t("mbLink")}</span>
+          <div class="seg" role="group" aria-labelledby="l-link">${LINKS.map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
+            @click=${() => this._set(l === "rtu" ? { link: l, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
+          <span class="hint">${t(`linksub_${d.link}`)}</span></div>
+        ${d.link === "rtu" ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
+          ${this._input("host", t("mbHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
+      </section>
+
+      <section class="card" aria-labelledby="t-proxy">
+        <h2 id="t-proxy">${t("mbProxy")}</h2>
+        <div class="grid2">
+          ${this._input("port", t("mbPort"), { number: true, hint: t("mbPortHint") })}
+          ${this._input("max_clients", t("maxClients"), { number: true, hint: t("mbClientsHint") })}
+          ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
+          ${this._input("retries", t("mbRetries"), { number: true })}
+          ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
+          ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-adv">
+        <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
+          <span><h2 id="t-adv">${t("advanced")}</h2><span class="hint">${t("advancedSubMb")}</span></span>
+          <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+        ${this.advanced ? html`
+          <div class="opts">${this._check("kickolduser", true)}${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
+          ${this._input("timeout", t("mbIdle"), { number: true })}
+          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
+          ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}` : ""}
+      </section>
+
+      <section class="card" aria-labelledby="t-app">
+        <h2 id="t-app">${t("appSide")}</h2>
+        <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}</div>
+        <label class="fld"><span class="lbl">${t("traceMode")}</span><select class="inp" @change=${(e) => this._set({ trace: e.target.value })}>
+          ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} ?selected=${d.trace === v}>${t(`trmb_${v}`)}</option>`)}</select></label>
+      </section>`;
+  }
+
+  _modbusPreview() {
+    const d = this.draft;
+    const target = d.link === "rtu" ? `${d.device || "–"} · ${d.baud} ${d.data_bits}${d.parity.toUpperCase()}${d.stop_bits}` : `${d.host || "–"}:${d.host_port}`;
+    return html`<section class="card" aria-labelledby="t-prev">
+      <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("mbPreviewSub")}</p></div>
+      <ol class="flow">
+        <li><b>${t("mbFlowClients", { n: d.max_clients })}</b><span class="hint">Modbus TCP → ${t("port")} ${d.port}</span></li>
+        <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub", { ms: d.request_timeout_ms, n: d.retries })}</span></li>
+        <li><b>${t(`link_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
+      </ol>
+      ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+    </section>`;
   }
 
   _deviceLabel(d) {
@@ -146,6 +258,17 @@ export class EditPage extends Page {
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${isNew ? t("newConnection") : d.name}</p>
       <h1 style="margin:12px 0 20px">${isNew ? t("newConnection") : t("editConnection")}</h1>
       <div class="cols"><form class="main-col" @submit=${this._save} novalidate>
+        ${isNew ? html`<section class="card" aria-labelledby="t-kind">
+          <div><h2 id="t-kind">${t("kind")}</h2><p class="hint" style="margin-top:4px">${t("kindSub")}</p></div>
+          <div class="choices">${["serial", "modbus"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
+            @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
+        </section>` : ""}
+        ${d.kind === "modbus" ? html`<section class="card" aria-labelledby="t-base">
+          <h2 id="t-base">${t("basics")}</h2>
+          <div class="grid2">${this._input("name", t("name"))}
+            <div class="fld"><span class="lbl">${t("enabled")}</span><label class="chk" style="min-height:42px;align-items:center">
+              <input type="checkbox" .checked=${d.enabled} @change=${(e) => this._set({ enabled: e.target.checked })}><span>${t("enabledText")}</span></label></div></div>
+        </section>${this._modbusSections(chosen)}` : html`
         <section class="card" aria-labelledby="t-tpl">
           <div><h2 id="t-tpl">${t("template")}</h2><p class="hint" style="margin-top:4px">${t("templateSub")}</p></div>
           <div class="choices">${Object.keys(TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
@@ -157,31 +280,13 @@ export class EditPage extends Page {
           <div class="grid2">${this._input("name", t("name"))}
             <div class="fld"><span class="lbl">${t("enabled")}</span><label class="chk" style="min-height:42px;align-items:center">
               <input type="checkbox" .checked=${d.enabled} @change=${(e) => this._set({ enabled: e.target.checked })}><span>${t("enabledText")}</span></label></div></div>
-          <label class="fld"><span class="lbl">${t("devicePick")}</span>
-            <select class="inp" aria-invalid=${this._shown().device ? "true" : "false"} @change=${(e) => {
-              if (e.target.value === "__other") { this.otherDevice = true; return; }
-              this.otherDevice = false; this._set({ device: e.target.value });
-            }}>
-              ${d.device ? "" : html`<option value="" selected>–</option>`}
-              ${devices.map((x) => html`<option value=${x.stable} ?selected=${!this.otherDevice && chosen === x}>${this._deviceLabel(x)}</option>`)}
-              <option value="__other" ?selected=${this.otherDevice}>${t("deviceOther")}</option>
-            </select>
-            ${this.otherDevice ? html`<input class="inp mono" .value=${d.device} placeholder="/dev/serial/by-id/…" @input=${(e) => this._set({ device: e.target.value })}>` : html`<span class="hint mono" style="overflow-wrap:anywhere">${d.device}</span>`}
-            ${this._err("device")}</label>
-          ${chosen && chosen.ambiguous ? html`<div class="note warn" role="note">${t("ambiguous")}</div>` : ""}
+          ${this._devicePicker(chosen)}
         </section>
 
         <section class="card" aria-labelledby="t-if">
           <h2 id="t-if">${t("ifNet")}</h2>
           <div class="grid2">
-            <label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
-              ${[...new Set([...BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>${this._err("baud")}</label>
-            <label class="fld"><span class="lbl">${t("dataBits")} · ${t("parityF")} · ${t("stopBits")}</span>
-              <div style="display:flex;gap:6px">
-                <select class="inp" aria-label=${t("dataBits")} @change=${(e) => this._set({ data_bits: Number(e.target.value) })}>${[5, 6, 7, 8].map((v) => html`<option ?selected=${v === d.data_bits}>${v}</option>`)}</select>
-                <select class="inp" aria-label=${t("parityF")} @change=${(e) => this._set({ parity: e.target.value })}>${["n", "e", "o", "m", "s"].map((v) => html`<option value=${v} ?selected=${v === d.parity}>${v.toUpperCase()}</option>`)}</select>
-                <select class="inp" aria-label=${t("stopBits")} @change=${(e) => this._set({ stop_bits: Number(e.target.value) })}>${[1, 2].map((v) => html`<option ?selected=${v === d.stop_bits}>${v}</option>`)}</select>
-              </div></label>
+            ${this._serialFormat()}
             ${this._input("port", t("port"), { number: true })}
             ${this._input("max_clients", t("maxClients"), { number: true, hint: t("maxClientsHint") })}
           </div>
@@ -227,7 +332,7 @@ export class EditPage extends Page {
               ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} ?selected=${d.trace === v}>${t(`tr_${v}`)}</option>`)}</select></label>
             ${this._input("silence_minutes", t("silence"), { number: true })}
           </div>
-        </section>
+        </section>`}
 
         <div class="actions">
           <span class="hint" style="display:flex;align-items:center;gap:8px">${icon("info", 16)}${t("saveHint")}</span>
@@ -240,11 +345,11 @@ export class EditPage extends Page {
       </form>
 
       <aside class="side-col">
-        <section class="card" aria-labelledby="t-prev">
+        ${d.kind === "modbus" ? this._modbusPreview() : html`<section class="card" aria-labelledby="t-prev">
           <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
           <div class="code">${this.yaml || "…"}</div>
           ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
-        </section>
+        </section>`}
       </aside></div>`;
   }
 }

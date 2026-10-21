@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { eventText, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, modbusTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 const SAMPLES = 90; // 3 minutes of state polls
@@ -132,21 +132,36 @@ export class DetailPage extends Page {
     if (await copyText(text)) { this.copied = key; setTimeout(() => { if (this.copied === key) this.copied = ""; }, 2000); }
   }
 
-  _live() {
+  _live(modbus) {
     const rows = this.chunks.slice(-120).reverse(); // newest first, like the event log
     return html`<section class="card" aria-labelledby="t-live">
-      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t("liveSub")}</p></div>
+      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(modbus ? "liveSubMb" : "liveSub")}</p></div>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>
+          ${modbus ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
         </div></div>
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
           <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
           <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
+          ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}
           <td>${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex}</td>
-          ${this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
-        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t("liveEmpty")}</div>`}
+          ${!ch.info && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
+        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
+    </section>`;
+  }
+
+  _modbusCard(m) {
+    const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
+    const counters = [["mbRequests", m.requests], ["mbAnswered", m.answered], ["mbExceptions", m.exceptions], ["mbTimeouts", m.timeouts], ["mbErrors", m.errors], ["mbQueue", `${m.queue ?? 0} / ${m.queue_max ?? 0}`]];
+    return html`<section class="card" aria-labelledby="t-mb">
+      <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
+      <div class="counters">${counters.map(([k, v]) => html`<div class="well"><span class="hint">${t(k)}</span>
+        <b style=${(k === "mbTimeouts" || k === "mbErrors") && v ? "color:var(--warn)" : ""}>${v ?? 0}</b></div>`)}</div>
+      <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
+      <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
+      ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
+      ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
     </section>`;
   }
 
@@ -168,6 +183,7 @@ export class DetailPage extends Page {
     const recent = this.events.filter((e) => e.connection === c.id).slice(-6).reverse();
     const le = c.line_errors;
     const usb = c.usb;
+    const modbus = c.kind === "modbus", m = c.modbus || {};
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
       <div class="head" style="margin-top:12px">
@@ -177,16 +193,20 @@ export class DetailPage extends Page {
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
           <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>
-          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom")}
+          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && !modbus)}
         </div>
       </div>
       <div class="cols">
         <div class="main-col">
-          ${this._live()}
-          ${this.state.source === "custom" ? "" : this._tools(c)}
+          ${this._live(modbus)}
+          ${this.state.source === "custom" || modbus ? "" : this._tools(c)}
           <section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
-            ${c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+            ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+              <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right">${t("mbFailed")}</th></tr></thead>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+                <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td></tr>`)}</tbody></table></div>`
+            : c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
                 <td class="mono" style="font-size:12px">${cl.address} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
@@ -206,24 +226,30 @@ export class DetailPage extends Page {
           </section>
           <section class="card" aria-labelledby="t-conf">
             <div class="row"><h2 id="t-conf">${t("configuration")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
-            <div class="kv">
+            ${modbus ? html`<div class="kv">
+              <span>${t("mbLink")}</span><span>${t(`link_${c.link}`)}</span>
+              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${modbusTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
+              ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
+              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+            </div>` : html`<div class="kv">
               <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
               <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
               ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
               <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? " · local" : ""}</span>
               <span>${t("network")}</span><span>${c.mode} · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
-            </div>
+            </div>`}
           </section>
         </div>
         <aside class="side-col">
-          <section class="card" aria-labelledby="t-line">
+          ${modbus ? this._modbusCard(m) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
               ${[["frame", le.frame], ["parity", le.parity], ["overrun", le.overrun], ["brk", le.break], ["bufOverrun", le.buffer_overrun]].map(([k, v]) =>
                 html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
               : html`<p class="hint">${c.line_errors === null && c.clients.length ? t("lineUnsupported") : t("lineClosed")}</p>`}
-          </section>
+          </section>`}
           <section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}

@@ -1,8 +1,9 @@
 # Device Proxy
 
-A Home Assistant app (formerly add-on) that shares serial and USB devices over TCP with
-several programs, using [ser2net 4](https://github.com/cminyard/ser2net), and manages it from
-a web interface in the sidebar.
+A Home Assistant app (formerly add-on) that shares devices with several programs: serial and
+USB devices over TCP using [ser2net 4](https://github.com/cminyard/ser2net), and Modbus
+devices (Modbus TCP, Modbus RTU on RS485, RTU over TCP) for several Modbus TCP clients through
+its own Modbus proxy. Everything is managed from a web interface in the sidebar.
 
 > Work in progress, not tested on Home Assistant yet. Needs Home Assistant OS or
 > Supervised (apps run under the Supervisor).
@@ -27,8 +28,14 @@ Details: [device_proxy/DOCS.md](device_proxy/DOCS.md).
   serial number marked), templates (smart meter SML or D0, Z-Wave stick), all important
   ser2net options, a live `ser2net.yaml` preview. Saving rebuilds only that connection; the
   others keep their clients.
+- **Modbus proxy**: a Modbus device that takes one connection (inverter, heat pump, energy
+  meter) or an RS485 bus, shared by several Modbus TCP clients. Requests go to the device one
+  after another, each answer back to the client that asked; timeouts, retries, a pause after
+  connecting and between requests; status with requests, unanswered requests and answer
+  time; requests and answers in the trace, decoded.
 - **Import** of a ser2net 4 `ser2net.yaml` (version 1 and 2) or an old ser2net 3
-  `ser2net.conf`, with a preview; **export** as `ser2net.yaml`; or use your own file as it is.
+  `ser2net.conf`, or of the options of the ha-modbusproxy app (or a modbus-proxy file), with a
+  preview; **export** as `ser2net.yaml`; or use your own file as it is.
 - **Status**: device present, clients with address and bytes, data rate, last data, line
   errors from the driver; clients that stop reading are spotted.
 - **Live data and traces** without taking a client place; recording to rotating files

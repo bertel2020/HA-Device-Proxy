@@ -1,10 +1,12 @@
 """Home Assistant MQTT discovery: one device per connection with its entities.
 
 Per connection: device present, clients, data rate, bytes from the device, last data, line
-errors and a switch to turn the connection on and off. States go as one JSON per connection
-to <base>/<id>/state, the switch listens on <base>/<id>/enabled/set. <base>/status is the
-availability (the broker sets it to offline when the app goes away). Removed connections
-get an empty retained config, so Home Assistant removes their entities.
+errors and a switch to turn the connection on and off; for a Modbus connection the device
+reachable, clients, requests, unanswered requests, answer time and the switch.
+States go as one JSON per connection to <base>/<id>/state, the switch listens on
+<base>/<id>/enabled/set. <base>/status is the availability (the broker sets it to offline
+when the app goes away). Removed connections get an empty retained config, so Home
+Assistant removes their entities.
 """
 
 from __future__ import annotations
@@ -33,6 +35,10 @@ NAMES = {
         "line_errors": "Leitungsfehler",
         "enabled": "Aktiv",
         "running": "ser2net läuft",
+        "reachable": "Gerät erreichbar",
+        "requests": "Anfragen",
+        "failed": "Anfragen ohne Antwort",
+        "answer_time": "Antwortzeit",
     },
     "en": {
         "present": "Device connected",
@@ -43,6 +49,10 @@ NAMES = {
         "line_errors": "Line errors",
         "enabled": "Active",
         "running": "ser2net running",
+        "reachable": "Device reachable",
+        "requests": "Requests",
+        "failed": "Unanswered requests",
+        "answer_time": "Answer time",
     },
 }
 
@@ -102,12 +112,12 @@ class HaBridge:
                 except (OSError, ConnectionError) as err:
                     _LOGGER.debug("MQTT publish failed: %s", err)
 
-    def _device(self, connection_id: str, name: str) -> dict[str, Any]:
+    def _device(self, connection_id: str, name: str, model: str) -> dict[str, Any]:
         return {
             "identifiers": [f"device_proxy_{connection_id}"],
             "name": name,
             "manufacturer": "Device Proxy app",
-            "model": "Serial connection",
+            "model": model,
             "via_device": "device_proxy",
         }
 
@@ -133,9 +143,10 @@ class HaBridge:
                 },
             }
         }
-        for c in self.c.active:
+        for c in self.c.active + self.c.config.modbus:
             state = f"{base}/{c.id}/state"
-            device = self._device(c.id, c.name)
+            model = "Modbus proxy" if c.kind == "modbus" else "Serial connection"
+            device = self._device(c.id, c.name, model)
 
             def entity(
                 key: str,
@@ -154,16 +165,25 @@ class HaBridge:
                     **extra,
                 }
 
-            result[f"{prefix}/binary_sensor/device_proxy_{c.id}/present/config"] = entity(
-                "present",
-                value_template="{{ 'ON' if value_json.present else 'OFF' }}",
-                device_class="plug",
+            result[f"{prefix}/switch/device_proxy_{c.id}/enabled/config"] = entity(
+                "enabled",
+                value_template="{{ 'ON' if value_json.enabled else 'OFF' }}",
+                command_topic=f"{base}/{c.id}/enabled/set",
+                icon="mdi:lan" if c.kind == "modbus" else "mdi:serial-port",
             )
             result[f"{prefix}/sensor/device_proxy_{c.id}/clients/config"] = entity(
                 "clients",
                 value_template="{{ value_json.clients }}",
                 state_class="measurement",
                 icon="mdi:lan-connect",
+            )
+            if c.kind == "modbus":
+                result.update(self._modbus_entities(prefix, c.id, entity))
+                continue
+            result[f"{prefix}/binary_sensor/device_proxy_{c.id}/present/config"] = entity(
+                "present",
+                value_template="{{ 'ON' if value_json.present else 'OFF' }}",
+                device_class="plug",
             )
             result[f"{prefix}/sensor/device_proxy_{c.id}/rate/config"] = entity(
                 "rate",
@@ -191,13 +211,39 @@ class HaBridge:
                 icon="mdi:alert-circle-outline",
                 entity_category="diagnostic",
             )
-            result[f"{prefix}/switch/device_proxy_{c.id}/enabled/config"] = entity(
-                "enabled",
-                value_template="{{ 'ON' if value_json.enabled else 'OFF' }}",
-                command_topic=f"{base}/{c.id}/enabled/set",
-                icon="mdi:serial-port",
-            )
         return result
+
+    @staticmethod
+    def _modbus_entities(prefix: str, connection_id: str, entity: Any) -> dict[str, dict[str, Any]]:
+        key = f"device_proxy_{connection_id}"
+        return {
+            f"{prefix}/binary_sensor/{key}/reachable/config": entity(
+                "reachable",
+                value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
+                device_class="connectivity",
+            ),
+            f"{prefix}/sensor/{key}/requests/config": entity(
+                "requests",
+                value_template="{{ value_json.requests }}",
+                state_class="total_increasing",
+                icon="mdi:swap-horizontal",
+            ),
+            f"{prefix}/sensor/{key}/failed/config": entity(
+                "failed",
+                value_template="{{ value_json.failed }}",
+                state_class="total_increasing",
+                icon="mdi:alert-circle-outline",
+                entity_category="diagnostic",
+            ),
+            f"{prefix}/sensor/{key}/answer_time/config": entity(
+                "answer_time",
+                value_template="{{ value_json.answer_time }}",
+                unit_of_measurement="ms",
+                device_class="duration",
+                state_class="measurement",
+                entity_category="diagnostic",
+            ),
+        }
 
     async def announce(self) -> None:
         configs = self.configs()
@@ -230,6 +276,14 @@ class HaBridge:
                 else None,
                 "line_errors": sum((c["line_errors"] or {}).values()),
             }
+            if c.get("modbus") is not None:
+                m = c["modbus"]
+                state.update(
+                    reachable=m["reachable"] is True,
+                    requests=m["requests"],
+                    failed=m["failed"],
+                    answer_time=m["time_avg_ms"] if m["answered"] else None,
+                )
             text = json.dumps(state)
             key = f"state:{c['id']}"
             if force or self._last.get(key) != text:
@@ -241,7 +295,7 @@ class HaBridge:
         if len(parts) != 4 or parts[2:] != ["enabled", "set"]:
             return
         current = self.c.config.connection(parts[1])
-        if current is None or self.c.uses_custom:
+        if current is None or (self.c.uses_custom and current.kind == "serial"):
             return
         enabled = payload.strip().upper() in (b"ON", b"1", b"TRUE")
         if enabled == current.enabled:

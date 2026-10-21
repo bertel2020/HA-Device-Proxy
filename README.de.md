@@ -1,8 +1,10 @@
 # Device Proxy
 
-Eine Home-Assistant-App (früher Add-on), die serielle und USB-Geräte über TCP mit mehreren
-Programmen teilt – mit [ser2net 4](https://github.com/cminyard/ser2net) und einer
-Weboberfläche in der Seitenleiste.
+Eine Home-Assistant-App (früher Add-on), die Geräte mit mehreren Programmen teilt: serielle
+und USB-Geräte über TCP mit [ser2net 4](https://github.com/cminyard/ser2net), und
+Modbus-Geräte (Modbus TCP, Modbus RTU an RS485, RTU über TCP) für mehrere Modbus-TCP-Clients
+über einen eigenen Modbus-Proxy. Alles wird in einer Weboberfläche in der Seitenleiste
+verwaltet.
 
 > In Arbeit, noch nicht auf Home Assistant getestet. Braucht Home Assistant OS oder
 > Supervised (Apps laufen unter dem Supervisor).
@@ -28,8 +30,15 @@ Details: [device_proxy/DOCS.md](device_proxy/DOCS.md).
   ohne Seriennummer markiert), Vorlagen (Zähler SML oder D0, Z-Wave-Stick), alle wichtigen
   ser2net-Optionen, Vorschau der `ser2net.yaml` beim Tippen. Speichern baut nur diese
   Verbindung neu auf; die anderen behalten ihre Clients.
+- **Modbus-Proxy**: ein Modbus-Gerät, das nur eine Verbindung annimmt (Wechselrichter,
+  Wärmepumpe, Energiezähler), oder ein RS485-Bus, geteilt von mehreren Modbus-TCP-Clients.
+  Anfragen gehen nacheinander ans Gerät, jede Antwort zurück an den, der gefragt hat;
+  Timeouts, Wiederholungen, Pause nach dem Verbinden und zwischen Anfragen; Status mit
+  Anfragen, Anfragen ohne Antwort und Antwortzeit; Anfragen und Antworten dekodiert im
+  Mitschnitt.
 - **Import** einer ser2net-4-`ser2net.yaml` (Version 1 und 2) oder einer alten
-  ser2net-3-`ser2net.conf` mit Vorschau; **Export** als `ser2net.yaml`; oder die eigene Datei
+  ser2net-3-`ser2net.conf` oder der Optionen der App ha-modbusproxy (bzw. einer
+  modbus-proxy-Datei) mit Vorschau; **Export** als `ser2net.yaml`; oder die eigene Datei
   direkt verwenden.
 - **Status**: Gerät vorhanden, Clients mit Adresse und Bytes, Datenrate, letzte Daten,
   Leitungsfehler vom Treiber; Clients, die nicht mehr lesen, werden erkannt.

@@ -26,7 +26,7 @@ export async function api(path, { method = "GET", body } = {}) {
 
 // What the status adds to a connection; dropped before the connection is saved again.
 const STATUS_KEYS = ["alias", "present", "tty", "usb", "running", "pending", "clients", "kept_open", "bytes_from_device",
-  "bytes_to_device", "rate_from_device", "rate_to_device", "last_data", "line_errors", "latency", "addresses"];
+  "bytes_to_device", "rate_from_device", "rate_to_device", "last_data", "line_errors", "latency", "addresses", "modbus"];
 
 export const toConnection = (status) => Object.fromEntries(Object.entries(status).filter(([k]) => !STATUS_KEYS.includes(k)));
 

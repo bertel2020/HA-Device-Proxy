@@ -16,6 +16,8 @@ const ICONS = {
   warn: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
   info: "M12 16v-4M12 8h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
   file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5",
+  serial: "M3 8h14l-2 8H5zM7 12h.01M10 12h.01M13 12h.01M17 12h4",
+  modbus: "M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01M12 10v4",
 };
 
 export const icon = (name, size = 18) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -52,6 +54,9 @@ export function fmtAgo(ts) {
   return rtf.format(-Math.round(seconds / 86400), "day");
 }
 
+/** Where a Modbus connection's device is: host:port or the serial device. */
+export const modbusTarget = (c) => c.link === "rtu" ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
+
 export const fmtSerial = (c) => `${c.baud} ${c.data_bits}${c.parity.toUpperCase()}${c.stop_bits}`;
 
 export const toggle = (checked, label, onChange, disabled = false) => html`<button type="button" class="switch" role="switch"
@@ -78,6 +83,13 @@ export async function copyText(text) {
 export function connectionState(c, ser2netRunning) {
   if (!c.enabled) return ["stDisabled", ""];
   if (c.present === false) return ["stMissing", "bad"];
+  if (c.kind === "modbus") {
+    const m = c.modbus || {};
+    if (m.listen_error) return ["stPortBusy", "bad"];
+    if (!m.listening) return ["stStarting", "warn"];
+    if (m.reachable === false) return ["stUnreachable", "bad"];
+    return ["stRunning", "ok"];
+  }
   if (!ser2netRunning) return ["stWaiting", "warn"];
   if (c.pending === "reconfigured") return ["stPending", "info"];
   return ["stRunning", "ok"];

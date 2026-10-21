@@ -76,7 +76,7 @@ export class TracePage extends Page {
             <button class="pick" aria-current=${c.id === this.selected ? "true" : "false"} @click=${() => navigate(`#/trace/${c.id}`)}>
               <b style="font-weight:500">${c.name}</b><span class="hint">${c.trace === "off" ? t("notRecording") : t("recording", { m: t(`tr_${c.trace}`) })}</span></button>
             <div class="seg" role="group" aria-label="${t("traceMode")} ${c.name}">${MODES.map((m) => html`<button type="button" aria-pressed=${c.trace === m ? "true" : "false"}
-              ?disabled=${s.source === "custom"} @click=${() => this._mode(c, m)}>${m === "off" ? t("off") : m === "both" ? t("both") : m.toUpperCase()}</button>`)}</div>
+              ?disabled=${s.source === "custom" && c.kind !== "modbus"} @click=${() => this._mode(c, m)}>${m === "off" ? t("off") : m === "both" ? t("both") : m.toUpperCase()}</button>`)}</div>
           </div>`)}
           <p class="hint" style="padding:10px 8px 4px">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
         </section>
@@ -90,11 +90,11 @@ export class TracePage extends Page {
             ${this.chunks.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${this.chunks.slice(-200).reverse().map((ch) => html`<tr>
               <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}</td>
               <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
-              <td>${ch.hex || ch.text}</td>${this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}</tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t("liveEmpty")}</p>`}
+              ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}<td>${ch.hex || ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}</tr>`)}</tbody></table></div>`
+              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
-            <div class="row"><h2 id="t-files">${t("files")}</h2><span class="hint mono">/addon_configs/…_ser2net/trace/</span></div>
+            <div class="row"><h2 id="t-files">${t("files")}</h2><span class="hint mono">/addon_configs/…_device_proxy/trace/</span></div>
             ${files.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("fileTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
               <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size:13px">${f.name}</td><td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
                 <td style="text-align:right;white-space:nowrap;padding:4px 0 4px 8px">

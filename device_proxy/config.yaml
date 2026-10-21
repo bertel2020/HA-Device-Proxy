@@ -1,7 +1,7 @@
 name: Device Proxy
 version: "0.1.0"
 slug: device_proxy
-description: Shares serial and USB devices over TCP with several programs (ser2net 4)
+description: Shares serial, USB and Modbus devices with several programs (ser2net 4, Modbus proxy)
 url: https://github.com/bertel2020/HA-Device-Proxy
 arch:
   - aarch64
@@ -9,7 +9,8 @@ arch:
 init: false
 # before the apps that connect to the devices (e.g. Z-Wave JS UI)
 startup: services
-# the TCP ports are chosen per connection, so the app listens on the host directly
+# the TCP ports (also 502 for Modbus) are chosen per connection, so the app listens on the
+# host directly
 host_network: true
 uart: true
 usb: true
@@ -17,7 +18,7 @@ usb: true
 udev: true
 ingress: true
 ingress_port: 18399
-panel_icon: mdi:serial-port
+panel_icon: mdi:lan-connect
 panel_title: Device Proxy
 map:
   - type: addon_config

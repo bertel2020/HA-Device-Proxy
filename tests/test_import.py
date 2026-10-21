@@ -150,3 +150,19 @@ def test_old_format() -> None:
     )
     assert {"code": "admin_ignored"} in result.notes
     assert custom.check(LEGACY).errors == [{"code": "legacy_format"}]
+
+
+def test_ha_modbusproxy_options_become_modbus_connections() -> None:
+    text = (
+        "devices:\n"
+        "  - upstreamhost: 192.168.1.10\n    upstreamport: 502\n    listenport: 502\n"
+        "  - upstreamhost: 192.168.1.11\n    upstreamport: 1502\n    listenport: 503\n"
+        "    timeout: 5\n    connection_time: 0.1\n"
+        "timeout: 10\nloglevel: INFO\n"
+    )
+    result = read(text)
+    first, second = (item.connection for item in result.items)
+    assert first and first.kind == "modbus" and first.host == "192.168.1.10"
+    assert first.port == 502 and first.request_timeout_ms == 10000
+    assert second and (second.host_port, second.port) == (1502, 503)
+    assert (second.request_timeout_ms, second.connect_delay_ms) == (5000, 100)
