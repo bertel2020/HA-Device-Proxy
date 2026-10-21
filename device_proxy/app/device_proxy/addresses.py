@@ -38,8 +38,11 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         if host is None:
             result.append({"target": target, "reachable": False, "urls": {}})
             continue
-        if reachable and source:
-            reachable = _allowed(c, settings, source)
+        why = ""
+        if not reachable:
+            why = "local"
+        elif source and not _allowed(c, settings, source):
+            reachable, why = False, "clients" if c.remaddr else "network"
         shown = f"[{host}]" if ":" in host else host
         if c.kind == "modbus":
             urls = {"modbus": f"{shown}:{c.port}"}
@@ -48,7 +51,7 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         else:
             urls = {"tcp": f"tcp://{shown}:{c.port}", "socket": f"socket://{shown}:{c.port}"}
         result.append(
-            {"target": target, "host": host, "port": c.port, "reachable": reachable, "urls": urls}
+            {"target": target, "host": host, "port": c.port, "reachable": reachable, "why": why, "urls": urls}
         )
     return result
 

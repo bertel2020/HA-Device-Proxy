@@ -23,6 +23,8 @@
   the header.
 - Fixed: a Modbus TCP connection saved without a device field could not be loaded.
 - Settings: the menu on the left stays in view while scrolling (when it sits beside the content).
+- Addresses: an address that cannot be reached now says why (bound to this host, allowed clients,
+  network setting) and shows the address.
 - Docs: the app's **Configuration** tab in the Supervisor is empty on purpose; DOCS and both
   READMEs now point to the sidebar entry **Device Proxy**, where everything is set up.
 

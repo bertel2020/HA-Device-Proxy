@@ -346,7 +346,7 @@ export class DetailPage extends Page {
                 ${a.reachable ? Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="justify-content:flex-start;gap:4px">
                   <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
                   <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)
-                  : html`<div class="hint">${a.host ? t("notReachable") : t("lanUnknown")}</div>`}
+                  : html`<div class="hint">${a.host ? html`<span class="mono">${a.host}:${a.port}</span><br>${t(`why_${a.why}`)}` : t("lanUnknown")}</div>`}
               </div></div>`)}
           </section>
           <section class="card" aria-labelledby="t-conf">
