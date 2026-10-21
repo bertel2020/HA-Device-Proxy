@@ -1058,3 +1058,75 @@ def _text(err: BaseException) -> str:
     if isinstance(err, TimeoutError):
         return "no answer"
     return str(err) or type(err).__name__
+
+
+# what the app shows of a Modbus connection (kinds.py)
+
+
+def loaded(c: Connection) -> dict[str, Any]:
+    """The values of the "modbus_loaded" event at start."""
+    return {
+        "link": c.link.upper().replace("_", " over "),
+        "target": c.upstream,
+        "port": c.port,
+        "max_clients": c.max_clients,
+    }
+
+
+def client_row(client: _Client) -> dict[str, Any]:
+    info = client.info
+    return {
+        "address": info.address,
+        "since": info.since,
+        "bytes_to_client": info.bytes_out,
+        "bytes_from_client": info.bytes_in,
+        "requests": info.requests,
+        "blocked": info.blocked,
+        "failed": info.failed,
+        "queued": 0,
+        "stuck": False,
+    }
+
+
+def mqtt_entities(
+    prefix: str, connection_id: str, entity: Callable[..., dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    key = f"device_proxy_{connection_id}"
+    return {
+        f"{prefix}/binary_sensor/{key}/reachable/config": entity(
+            "reachable",
+            value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
+            device_class="connectivity",
+        ),
+        f"{prefix}/sensor/{key}/requests/config": entity(
+            "requests",
+            value_template="{{ value_json.requests }}",
+            state_class="total_increasing",
+            icon="mdi:swap-horizontal",
+        ),
+        f"{prefix}/sensor/{key}/failed/config": entity(
+            "failed",
+            value_template="{{ value_json.failed }}",
+            state_class="total_increasing",
+            icon="mdi:alert-circle-outline",
+            entity_category="diagnostic",
+        ),
+        f"{prefix}/sensor/{key}/answer_time/config": entity(
+            "answer_time",
+            value_template="{{ value_json.answer_time }}",
+            unit_of_measurement="ms",
+            device_class="duration",
+            state_class="measurement",
+            entity_category="diagnostic",
+        ),
+    }
+
+
+def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
+    """The entities' values from the proxy's state()."""
+    return {
+        "reachable": state["reachable"] is True,
+        "requests": state["requests"],
+        "failed": state["failed"],
+        "answer_time": state["time_avg_ms"] if state["answered"] else None,
+    }

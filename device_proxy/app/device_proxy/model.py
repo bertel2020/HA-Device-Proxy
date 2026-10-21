@@ -27,7 +27,7 @@ TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
 TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus")
-KINDS = ("serial", "modbus")  # shared by ser2net, or by the app's Modbus proxy (modbus.py)
+KINDS = ("serial", "modbus")  # shared by ser2net, or by a proxy in the app (kinds.py)
 LINKS = ("tcp", "rtu", "rtu_tcp")  # how the Modbus proxy reaches the device
 WRITE_ACCESS = ("all", "none", "listed")
 
@@ -140,8 +140,13 @@ class Connection:
 
     @property
     def uses_device(self) -> bool:
-        """Has a serial device: ser2net's connections and Modbus RTU on a local adapter."""
+        """Has a serial device: ser2net's connections and a proxy's on a local adapter."""
         return self.kind == "serial" or self.link == "rtu"
+
+    @property
+    def remote(self) -> bool:
+        """A proxy that reaches its device over the network (host and host_port)."""
+        return self.kind != "serial" and not self.uses_device
 
     @property
     def upstream(self) -> str:
@@ -178,13 +183,15 @@ class Connection:
             except (TypeError, ValueError):
                 errors[f.name] = "has the wrong type"
         required_fields = ["name", "port"]
-        if values.get("kind", "serial") == "serial" or values.get("link", "tcp") == "rtu":
+        probe = replace(_BLANK, kind=values.get("kind", "serial"), link=values.get("link", "tcp"))
+        if probe.uses_device:
             required_fields.append("device")
         for required in required_fields:
             if required not in values and required not in errors:
                 errors[required] = "is missing"
         if errors:
             raise ValidationError(errors)
+        values.setdefault("device", "")  # a proxy that reaches its device over the network
         connection = cls(**values)
         connection.validate()
         return connection
@@ -302,6 +309,9 @@ class Connection:
                 parse_networks(self.write_clients)
             except ValueError as err:
                 e["write_clients"] = str(err)
+
+
+_BLANK = Connection(name="", device="", port=0, id="00000000")  # for derived properties
 
 
 @dataclass(frozen=True)
@@ -427,7 +437,7 @@ class AppConfig:
             checks: list[tuple[str, Any]] = [("port", c.port), ("id", c.id)]
             if c.uses_device:
                 checks.append(("device", c.device))
-            if c.kind == "modbus" and c.link != "rtu":
+            if c.remote:
                 # two proxies for one device would take its connections from each other
                 checks.append(("host", (c.host.lower(), c.host_port)))
             for key, value in checks:
@@ -445,6 +455,11 @@ class AppConfig:
     def serial(self) -> tuple[Connection, ...]:
         """The connections ser2net shares."""
         return tuple(c for c in self.connections if c.kind == "serial")
+
+    @property
+    def proxied(self) -> tuple[Connection, ...]:
+        """The connections of the app's own proxies (Modbus, ...)."""
+        return tuple(c for c in self.connections if c.kind != "serial")
 
     @property
     def modbus(self) -> tuple[Connection, ...]:

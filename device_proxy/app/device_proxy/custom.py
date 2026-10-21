@@ -40,7 +40,7 @@ def _port(accepter: str) -> int | None:
 
 
 def check(text: str, taken: dict[int, str] | None = None) -> CustomCheck:
-    """taken: ports the app's Modbus proxies hold → their names."""
+    """taken: ports the app's proxies hold → their names."""
     result = CustomCheck()
     if looks_legacy(text):
         result.errors.append({"code": "legacy_format"})  # ser2net 4 reads YAML only

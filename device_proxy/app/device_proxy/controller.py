@@ -11,8 +11,8 @@ ser2net opens a device only while a client is connected; "keep open" makes the a
 With the settings' source "custom" the user's own ser2net.yaml is used instead of the forms;
 the form connections stay saved but unused (no device checks, no keep open).
 
-Modbus connections are not ser2net's: each runs a ModbusProxy (modbus.py) in the app,
-whatever the source. Saving restarts only the proxies whose settings changed.
+The other kinds (Modbus, kinds.py) are not ser2net's: each such connection runs a proxy in
+the app, whatever the source. Saving restarts only the proxies whose settings changed.
 """
 
 from __future__ import annotations
@@ -39,8 +39,9 @@ from .devices import Device, device_for, line_counters, scan, set_low_latency
 from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
+from .kinds import PROXIED, AppProxy
 from .meter import analyze
-from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result, restart_key
+from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
@@ -204,7 +205,7 @@ class Controller:
         self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
         self._line_rise: dict[str, float] = {}  # connection id → last rise of line errors
         self._paused: set[str] = set()  # connections a tool has taken over
-        self.proxies: dict[str, ModbusProxy] = {}  # connection id → running Modbus proxy
+        self.proxies: dict[str, AppProxy] = {}  # connection id → running proxy
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self.mqtt = HaBridge(self)
         self._mqtt_task: asyncio.Task[None] | None = None
@@ -224,8 +225,8 @@ class Controller:
 
     @property
     def with_device(self) -> tuple[Connection, ...]:
-        """The connections in use that open a serial device (ser2net's and Modbus RTU)."""
-        return self.active + tuple(c for c in self.config.modbus if c.link == "rtu")
+        """The connections in use that open a serial device (ser2net's and the proxies')."""
+        return self.active + tuple(c for c in self.config.proxied if c.uses_device)
 
     def _runtime(self) -> tuple[str, dict[str, str]]:
         if not self.uses_custom:
@@ -274,17 +275,14 @@ class Controller:
         self.events.emit(
             "info", "app_started", connections=len(self.config.connections), active=len(active)
         )
-        for c in self.config.modbus:
+        for c in self.config.proxied:
             self.events.emit(
                 "info",
-                "modbus_loaded",
+                f"{c.kind}_loaded",
                 connection=c.id,
                 name=c.name,
                 state="active" if c.enabled else "disabled",
-                link=c.link.upper().replace("_", " over "),
-                target=c.upstream,
-                port=c.port,
-                max_clients=c.max_clients,
+                **PROXIED[c.kind].loaded(c),
             )
         for c in self.config.serial:
             self.events.emit(
@@ -362,8 +360,8 @@ class Controller:
             return ApplyResult(items, names, disconnected)
 
     def check_custom(self, text: str) -> custom.CustomCheck:
-        """The file as it is, and the ports the app's Modbus proxies hold already."""
-        return custom.check(text, {c.port: c.name for c in self.config.modbus if c.enabled})
+        """The file as it is, and the ports the app's proxies hold already."""
+        return custom.check(text, {c.port: c.name for c in self.config.proxied if c.enabled})
 
     async def save_custom(self, text: str, *, use: bool) -> ApplyResult:
         """Save the user's own ser2net.yaml; with use=True switch to it."""
@@ -515,17 +513,17 @@ class Controller:
                 return "in use by another program"
         return None
 
-    # Modbus proxies
+    # the app's proxies (kinds.py)
 
     async def _reconcile_proxies(self) -> list[str]:
         """Start, restart and stop the proxies to match the configuration; the names of
         the connections that were (re)started or stopped."""
         listen = self.config.settings.listen
-        wanted = {c.id: c for c in self.config.modbus if c.enabled}
+        wanted = {c.id: c for c in self.config.proxied if c.enabled}
         touched: list[str] = []
         for connection_id, proxy in list(self.proxies.items()):
             c = wanted.get(connection_id)
-            if c is not None and proxy.key == restart_key(c, listen):
+            if c is not None and proxy.key == PROXIED[c.kind].restart_key(c, listen):
                 proxy.c = c  # name, trace or notifications changed: no restart
                 continue
             task = self._proxy_tasks.pop(connection_id)
@@ -536,7 +534,8 @@ class Controller:
         for connection_id, c in wanted.items():
             if connection_id in self.proxies:
                 continue
-            proxy = ModbusProxy(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
+            build = PROXIED[c.kind].build
+            proxy = build(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
             self.proxies[connection_id] = proxy
             task = asyncio.create_task(proxy.run())
             task.add_done_callback(self._proxy_ended)
@@ -548,7 +547,7 @@ class Controller:
     @staticmethod
     def _proxy_ended(task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (err := task.exception()) is not None:
-            _LOGGER.error("Modbus proxy ended", exc_info=err)
+            _LOGGER.error("Proxy ended", exc_info=err)
 
     def _proxy_event(self, connection_id: str) -> Callable[..., None]:
         def emit(level: str, kind: str, **params: object) -> None:
@@ -619,7 +618,7 @@ class Controller:
         taken: set[str] = set()
         aliases = {
             c.alias: (readable_alias(c.name, taken), c.trace)
-            for c in self.active + self.config.modbus
+            for c in self.active + self.config.proxied
             if c.enabled
         }
         await self.trace.poll(aliases, settings.trace_file_mb << 20, settings.trace_keep)
@@ -720,11 +719,11 @@ class Controller:
         def clock(ts: float) -> str:
             return time.strftime("%d.%m. %H:%M", time.localtime(ts))
 
-        for c in self.config.modbus:
+        for c in self.config.proxied:
             proxy = self.proxies.get(c.id)
             if proxy is None:
                 continue
-            missing = c.link == "rtu" and self.present.get(c.id) is False
+            missing = c.uses_device and self.present.get(c.id) is False
             if c.notify_missing and (since := self._lasting(c.id, "missing", missing, now)):
                 add(
                     f"device_proxy_{c.id}_missing",
@@ -833,9 +832,7 @@ class Controller:
     ) -> dict[str, object]:
         """Read registers or coils through a Modbus connection's proxy (in turn with the
         clients)."""
-        proxy = self.proxies.get(connection_id)
-        if proxy is None:
-            raise ValueError("the connection is not active")
+        proxy = self._modbus(connection_id)
         limit = 125 if function in (3, 4) else 2000
         if function not in (1, 2, 3, 4) or not 1 <= count <= limit:
             raise ValueError(f"function 1 to 4, 1 to {limit} values")
@@ -848,14 +845,18 @@ class Controller:
 
     def start_scan(self, connection_id: str, first: int, last: int, timeout_ms: int) -> str:
         """Find the unit ids that answer, e.g. on an RS485 bus."""
-        proxy = self.proxies.get(connection_id)
-        if proxy is None:
-            raise ValueError("the connection is not active")
+        proxy = self._modbus(connection_id)
         if not 1 <= first <= last <= 247 or not 50 <= timeout_ms <= 5000:
             raise ValueError("units 1 to 247, timeout 50 to 5000 ms")
         job_id = self._new_job(connection_id, last - first + 1)
         self._spawn(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
         return job_id
+
+    def _modbus(self, connection_id: str) -> ModbusProxy:
+        proxy = self.proxies.get(connection_id)
+        if not isinstance(proxy, ModbusProxy):
+            raise ValueError("the connection is not active")
+        return proxy
 
     def _new_job(self, connection_id: str, total: int) -> str:
         """A tool run, one at a time per connection; finished ones beyond the last 20 go."""
@@ -948,8 +949,8 @@ class Controller:
         settings = self.config.settings
         connections = []
         for c in self.config.connections:
-            if c.kind == "modbus":
-                connections.append(self._modbus_snapshot(c))
+            if c.kind in PROXIED:
+                connections.append(self._proxy_snapshot(c))
                 continue
             port = self.status.get(c.alias)
             flow = self.trace.flow.get(c.alias)
@@ -1009,11 +1010,13 @@ class Controller:
             "mqtt": self.mqtt.state,
         }
 
-    def _modbus_snapshot(self, c: Connection) -> dict[str, object]:
+    def _proxy_snapshot(self, c: Connection) -> dict[str, object]:
+        """A proxied connection; its proxy's state() under the kind's name ("modbus": ...)."""
+        kind = PROXIED[c.kind]
         proxy = self.proxies.get(c.id)
         flow = self.trace.flow.get(c.alias)
         rate = self.rates.get(c.alias)
-        present = self.present.get(c.id) if c.link == "rtu" else None
+        present = self.present.get(c.id) if c.uses_device else None
         device = device_for(c.device, self.devices) if present else None
         state = proxy.state() if proxy else None
         return {
@@ -1024,20 +1027,7 @@ class Controller:
             "usb": device.to_dict() if device else None,
             "running": bool(proxy and proxy.listening),
             "pending": None,
-            "clients": [
-                {
-                    "address": cl.info.address,
-                    "since": cl.info.since,
-                    "bytes_to_client": cl.info.bytes_out,
-                    "bytes_from_client": cl.info.bytes_in,
-                    "requests": cl.info.requests,
-                    "blocked": cl.info.blocked,
-                    "failed": cl.info.failed,
-                    "queued": 0,
-                    "stuck": False,
-                }
-                for cl in (proxy.clients.values() if proxy else [])
-            ],
+            "clients": [kind.client_row(cl) for cl in (proxy.clients.values() if proxy else [])],
             "kept_open": False,
             "bytes_from_device": proxy.stats.bytes_from_device if proxy else 0,
             "bytes_to_device": proxy.stats.bytes_to_device if proxy else 0,
@@ -1047,7 +1037,7 @@ class Controller:
             "line_errors": None,
             "latency": self.latency.get(c.id),
             "addresses": addresses(c, self.config.settings, self.lan_ip),
-            "modbus": state,
+            c.kind: state,
         }
 
     async def _check_stuck(self, c: Connection, port: PortStatus, now: float) -> None:

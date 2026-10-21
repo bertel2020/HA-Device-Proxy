@@ -18,6 +18,7 @@ import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from .kinds import PROXIED
 from .model import AppConfig
 from .mqtt import Broker, MqttClient, supervisor_broker
 
@@ -146,9 +147,10 @@ class HaBridge:
                 },
             }
         }
-        for c in self.c.active + self.c.config.modbus:
+        for c in self.c.active + self.c.config.proxied:
             state = f"{base}/{c.id}/state"
-            model = "Modbus proxy" if c.kind == "modbus" else "Serial connection"
+            kind = PROXIED.get(c.kind)
+            model = kind.model if kind else "Serial connection"
             device = self._device(c.id, c.name, model)
 
             def entity(
@@ -172,7 +174,7 @@ class HaBridge:
                 "enabled",
                 value_template="{{ 'ON' if value_json.enabled else 'OFF' }}",
                 command_topic=f"{base}/{c.id}/enabled/set",
-                icon="mdi:lan" if c.kind == "modbus" else "mdi:serial-port",
+                icon=kind.icon if kind else "mdi:serial-port",
             )
             result[f"{prefix}/sensor/device_proxy_{c.id}/clients/config"] = entity(
                 "clients",
@@ -180,8 +182,8 @@ class HaBridge:
                 state_class="measurement",
                 icon="mdi:lan-connect",
             )
-            if c.kind == "modbus":
-                result.update(self._modbus_entities(prefix, c.id, entity))
+            if kind:
+                result.update(kind.mqtt_entities(prefix, c.id, entity))
                 continue
             result[f"{prefix}/binary_sensor/device_proxy_{c.id}/present/config"] = entity(
                 "present",
@@ -216,38 +218,6 @@ class HaBridge:
             )
         return result
 
-    @staticmethod
-    def _modbus_entities(prefix: str, connection_id: str, entity: Any) -> dict[str, dict[str, Any]]:
-        key = f"device_proxy_{connection_id}"
-        return {
-            f"{prefix}/binary_sensor/{key}/reachable/config": entity(
-                "reachable",
-                value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
-                device_class="connectivity",
-            ),
-            f"{prefix}/sensor/{key}/requests/config": entity(
-                "requests",
-                value_template="{{ value_json.requests }}",
-                state_class="total_increasing",
-                icon="mdi:swap-horizontal",
-            ),
-            f"{prefix}/sensor/{key}/failed/config": entity(
-                "failed",
-                value_template="{{ value_json.failed }}",
-                state_class="total_increasing",
-                icon="mdi:alert-circle-outline",
-                entity_category="diagnostic",
-            ),
-            f"{prefix}/sensor/{key}/answer_time/config": entity(
-                "answer_time",
-                value_template="{{ value_json.answer_time }}",
-                unit_of_measurement="ms",
-                device_class="duration",
-                state_class="measurement",
-                entity_category="diagnostic",
-            ),
-        }
-
     async def announce(self) -> None:
         configs = self.configs()
         for topic, config in configs.items():
@@ -279,14 +249,9 @@ class HaBridge:
                 else None,
                 "line_errors": sum((c["line_errors"] or {}).values()),
             }
-            if c.get("modbus") is not None:
-                m = c["modbus"]
-                state.update(
-                    reachable=m["reachable"] is True,
-                    requests=m["requests"],
-                    failed=m["failed"],
-                    answer_time=m["time_avg_ms"] if m["answered"] else None,
-                )
+            kind = PROXIED.get(c["kind"])
+            if kind and c.get(c["kind"]) is not None:
+                state.update(kind.mqtt_state(c[c["kind"]]))
             text = json.dumps(state)
             key = f"state:{c['id']}"
             if force or self._last.get(key) != text:

@@ -423,7 +423,7 @@ def same_device(a: Connection, b: Connection) -> bool:
     """Do both connections use one device (a serial device, or a Modbus device's address)?"""
     if a.uses_device and b.uses_device:
         return a.device == b.device
-    remote = [x for x in (a, b) if x.kind == "modbus" and x.link != "rtu"]
+    remote = [x for x in (a, b) if x.remote]
     return len(remote) == 2 and (a.host.lower(), a.host_port) == (b.host.lower(), b.host_port)
 
 
