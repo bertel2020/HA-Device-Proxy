@@ -12,10 +12,16 @@ export class ConnectionsPage extends Page {
 
   static styles = [...Page.styles, css`
     .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; }
+    .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; box-shadow: 0 1px 2px var(--shadow-c); }
     .tile b { display: block; font-size: 28px; font-weight: 500; margin-top: 4px; }
     .tile small { font-size: 15px; color: var(--muted); font-weight: 400; }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+    .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
+    .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
+    .conn.st-warn::before { background: var(--warn); } .conn.st-bad::before { background: var(--bad); } .conn.st-info::before { background: var(--accent); }
+    .conn.st-off::before, .conn.off::before { background: var(--input-line); }
+    .conn:hover { border-color: var(--input-line); box-shadow: 0 2px 4px var(--shadow-c), 0 12px 28px -12px var(--shadow-c); }
+    .kind { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-hover); flex: none; }
     .conn.off { background: var(--surface-2); }
     .conn.missing { border-color: var(--bad-line); }
     .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -83,10 +89,10 @@ export class ConnectionsPage extends Page {
     if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
     if (c.trace !== "off") chips.push(t("recording", { m: t(`tr_${c.trace}`) }));
     const stuck = c.clients.filter((cl) => cl.stuck);
-    return html`<section class="card conn ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name}>
+    return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name}>
       <div class="top">
         <div style="min-width:0">
-          <div class="title"><span class="hint" style="display:flex" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
+          <div class="title"><span class="kind" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
           <div class="dev mono">${proxied ? proxyTarget(c) : c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
         </div>
         ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), own || this.busy === c.id)}

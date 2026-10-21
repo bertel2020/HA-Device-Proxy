@@ -28,12 +28,12 @@ export class SettingsPage extends Page {
     .side { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; }
     /* beside the content (not wrapped above it) the menu stays in view while scrolling */
     @media (min-width: 864px) {
-      .side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+      .side { position: sticky; top: calc(var(--header-h) + 16px); max-height: calc(100vh - var(--header-h) - 32px); overflow-y: auto; }
     }
     .side a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 10px; text-decoration: none; color: var(--neutral); }
     .side a:hover { background: var(--line); color: var(--text); }
     .content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
-    .card { scroll-margin-top: 16px; }
+    .card { scroll-margin-top: calc(var(--header-h) + 16px); }
     ol { list-style: none; margin: 0; padding: 0; }
     li { border-top: 1px solid var(--line-2); padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     textarea.editor { min-height: 260px; font-size: 12px; line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }

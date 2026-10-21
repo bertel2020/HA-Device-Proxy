@@ -21,15 +21,16 @@ export class DeviceProxyApp extends LitElement {
 
   static styles = [tokens, base, css`
     :host { display: block; min-height: 100vh; background: var(--bg); }
-    header { background: var(--surface); border-bottom: 1px solid var(--line); }
-    .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0 24px; }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 14px 0; }
+    header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+    .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
     .brand b { font-size: 18px; display: block; line-height: 1.2; }
-    nav { display: flex; flex-wrap: wrap; }
-    nav a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 16px; font-weight: 500; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; }
-    nav a:hover { color: var(--text); }
-    nav a[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
-    main { max-width: 1200px; margin: 0 auto; padding: 24px 24px 48px; }
+    nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0; }
+    nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-weight: 500; color: var(--muted); text-decoration: none; border-radius: 20px; transition: background .15s, color .15s; }
+    nav a:hover { color: var(--text); background: var(--neutral-soft); }
+    nav a[aria-current="page"] { color: var(--accent-hover); background: var(--accent-soft); }
+    main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 56px; }
     .offline { max-width: 1200px; margin: 12px auto 0; padding: 0 24px; }
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--surface);
       padding: 12px 18px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: min(560px, calc(100vw - 32px)); z-index: 10; }

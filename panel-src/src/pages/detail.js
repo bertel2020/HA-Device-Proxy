@@ -1,7 +1,7 @@
 import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
-import { issues, issuesCard, statusCard } from "../enocean.js";
+import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
 import { eventText, t } from "../i18n.js";
 import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, proxyTarget, toggle } from "../ui.js";
 
@@ -308,6 +308,7 @@ export class DetailPage extends Page {
       <div class="cols">
         <div class="main-col">
           ${enocean ? issuesCard(issues(c, s.capture)) : ""}
+          ${enocean ? meterCards(c) : ""}
           ${this._live(c.kind)}
           ${modbus ? this._modbusTools(c) : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
           <section class="card" aria-labelledby="t-clients">

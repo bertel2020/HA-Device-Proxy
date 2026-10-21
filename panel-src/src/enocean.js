@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, icon } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", link: "serial", baud: 9600 },
@@ -91,12 +91,11 @@ export function issues(c, capture) {
 
 const num = (n) => (n ?? 0).toLocaleString(lang);
 
-/** The side card: reachable, air time, counters, replay buffer. */
+/** The side card: reachable, protocol, base ID, counters. */
 export function statusCard(c) {
   const e = c.enocean || {};
-  const f = e.frames || {}, duty = e.duty_cycle || { of_limit: 0, telegrams: 0, ms: 0 }, r = e.replay || {};
+  const f = e.frames || {};
   const reach = e.connected ? ["eoConnected", "ok"] : e.reachable === false ? ["eoDisconnected", "bad"] : ["eoConnecting", "warn"];
-  const level = duty.of_limit >= 80 ? "var(--bad)" : duty.of_limit >= 50 ? "var(--warn)" : "var(--ok)";
   const counters = [["eoFromGw", f.from_gateway], ["eoToGw", f.to_gateway], ["eoReplayed", f.replayed], ["eoDropped", f.dropped], ["eoHeld", f.locked], ["eoRefused", f.refused]];
   return html`<section class="card" aria-labelledby="t-eo">
     <div class="row"><h2 id="t-eo">${t("eoGateway")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
@@ -105,15 +104,49 @@ export function statusCard(c) {
       <span class="hint">${t("eoBaseId")}</span><span class="mono">${e.base_id || t("eoBaseUnknown")}</span>
       ${e.connected_since ? html`<span class="hint">${t("eoSince")}</span><span>${fmtAgo(e.connected_since)}</span>` : ""}
     </div>
-    <div><div class="row hint"><span>${t("eoDuty")}</span><b style="color:${level};font-weight:500">${duty.of_limit.toLocaleString(lang)} %</b></div>
-      <div style="height:8px;background:var(--surface-2);border-radius:4px;margin-top:6px" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${duty.of_limit} aria-label=${t("eoDuty")}>
-        <div style="height:8px;width:${Math.min(100, duty.of_limit)}%;background:${level};border-radius:4px"></div></div>
-      <p class="hint" style="margin-top:4px">${t("eoDutySub", { n: num(duty.telegrams), ms: num(Math.round(duty.ms)) })}</p></div>
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><span class="hint">${t(k)}</span>
       <b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b></div>`)}</div>
-    <div class="row hint"><span>${t("eoReplayBuffer")}</span><span>${t("eoReplayVal", { k: num(r.kept), s: num(r.size), m: Math.round((r.max_age_s || 0) / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span></div>
     ${e.last_error && !e.connected ? html`<div class="note bad">${e.last_error}${e.last_error_at ? ` · ${fmtTime(e.last_error_at, true, true)}` : ""}</div>` : ""}
   </section>`;
+}
+
+/** The two meters at the top of a gateway's page: air time against the 1 % limit, and the replay buffer. */
+export function meterCards(c) {
+  const e = c.enocean || {};
+  const duty = e.duty_cycle || { of_limit: 0, telegrams: 0, ms: 0 }, r = e.replay || {}, f = e.frames || {};
+  const air = duty.of_limit;
+  const airLevel = air >= 80 ? "bad" : air >= 50 ? "warn" : "ok";
+  const airChip = [["ok", "check", "eoAirOk"], ["warn", "info", "eoAirMid"], ["bad", "warn", "eoAirHigh"]][air >= 80 ? 2 : air >= 50 ? 1 : 0];
+  const kept = r.kept ?? 0, size = r.size ?? c.replay_size ?? 0;
+  const fill = size ? Math.min(100, (kept / size) * 100) : 0;
+  const full = size > 0 && kept >= size;
+  const live = (c.clients || []).some((cl) => cl.replay);
+  const rbChip = !size ? ["", "info", "eoRbOff"] : full ? ["warn", "warn", "eoRbFullWarn"] : live ? ["ok", "check", "eoRbLive"] : ["info", "info", "eoRbCollect"];
+  const age = r.oldest_s == null ? t("eoRbNone") : r.oldest_s < 90 ? `${Math.round(r.oldest_s)} s` : `${Math.round(r.oldest_s / 60)} min`;
+  const seconds = (duty.ms || 0) / 1000;
+  return html`<div class="meters">
+    <section class="card meter ${airLevel}" aria-labelledby="t-air">
+      <div><h2 id="t-air">${t("eoAirTitle")}</h2><p class="hint">${t("eoAirSub")}</p></div>
+      <div class="big">${air.toLocaleString(lang, { maximumFractionDigits: 1 })} %<small>${t("eoAirOf")}</small></div>
+      <div><div class="track" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${air} aria-label=${t("eoAirTitle")}>
+        <div class="fill" style="width:${Math.min(100, air)}%"></div><span class="tick" style="left:80%"></span></div>
+        <div class="scale"><span>0</span><span style="margin-left:auto;margin-right:12%">${t("eoAirMark")}</span><span>100 %</span></div></div>
+      <div class="stats"><div class="well"><b>${num(duty.telegrams)}</b><span class="hint">${t("eoAirSent")}</span></div>
+        <div class="well"><b>${seconds.toLocaleString(lang, { maximumFractionDigits: seconds < 10 ? 2 : 1 })} s</b><span class="hint">${t("eoAirOnAir")}</span></div></div>
+      <span class="chip ${airChip[0]}">${icon(airChip[1], 14)}${t(airChip[2])}</span>
+    </section>
+    <section class="card meter ${full ? "warn" : "info"}" aria-labelledby="t-rb">
+      <div><h2 id="t-rb">${t("eoRbTitle")}</h2><p class="hint">${t("eoRbSub")}</p></div>
+      <div class="big">${num(kept)}<small>${t("eoRbOf", { s: num(size) })}</small></div>
+      <div><div class="track" role="meter" aria-valuemin="0" aria-valuemax=${size} aria-valuenow=${kept} aria-label=${t("eoRbTitle")}>
+        <div class="fill" style="width:${fill}%"></div></div>
+        <div class="scale"><span>${t("eoRbEmpty")}</span><span>${t("eoRbFull")}</span></div></div>
+      <div class="stats"><div class="well"><b>${age}</b><span class="hint">${t("eoRbOldest", { m: Math.round((r.max_age_s || 0) / 60) })}</span></div>
+        <div class="well"><b>${num(f.replayed)}</b><span class="hint">${t("eoRbReplayed")}</span></div></div>
+      <span class="chip ${rbChip[0]}">${icon(rbChip[1], 14)}${t(rbChip[2])}</span>
+      <p class="hint">${c.replay_persist ? t("eoRbDisk") : t("eoRbMem")}</p>
+    </section>
+  </div>`;
 }
 
 export function issuesCard(list) {

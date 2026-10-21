@@ -24,6 +24,11 @@
 - **For all connections**: filter chips by kind above the list; a running capture shows in
   the header.
 - Fixed: a Modbus TCP connection saved without a device field could not be loaded.
+- **Looks**: a sticky header with pill tabs, softer cards with a light shadow, connection cards
+  with a coloured status edge and a kind icon; light and dark.
+- **EnOcean detail page**: air time and replay buffer are two big cards at the top with a large
+  number, a bar (80 % mark for the air time), the oldest buffered telegram and a status in plain
+  words (below the limit, nearly at the limit, collecting, program connected, full, off).
 - Settings: the menu on the left stays in view while scrolling (when it sits beside the content).
 - Addresses: an address that cannot be reached now says why (bound to this host, allowed clients,
   network setting) and shows the address.
