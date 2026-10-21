@@ -133,7 +133,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -207,6 +207,17 @@ export class SettingsPage extends Page {
           </div>
           <p class="hint">${t("mqttNames")}</p>
           <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+        </section>
+
+        <section id="enocean" class="card" aria-labelledby="t-enocean">
+          <div class="row"><div><h2 id="t-enocean">${t("sEnocean")}</h2><p class="hint" style="margin-top:4px">${t("sEnoceanSub")}</p></div>
+            ${s.enocean_status_port ? html`<span class="chip ok">${t("eoStatusOn", { p: s.enocean_status_port })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
+          <label class="chk"><input type="checkbox" .checked=${!!d.enocean_discovery} @change=${(e) => { this.draft = { ...this.draft, enocean_discovery: e.target.checked }; }}>
+            <span>${t("eoDiscovery")}<br><span class="hint">${t("eoDiscoveryHint")}</span></span></label>
+          <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
+            @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: Number(e.target.value || 0) }; }}>
+            <span class="hint">${t("eoStatusPortHint")}</span></label>
+          <div><button class="btn btn-p" @click=${() => this._saveSettings({ enocean_discovery: d.enocean_discovery, enocean_status_port: d.enocean_status_port })}>${t("save")}</button></div>
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">

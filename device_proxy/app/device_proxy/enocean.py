@@ -149,6 +149,8 @@ class EnOceanProxy:
         self.connected_since: float | None = None
         self.base_id: str | None = None  # learnt from the gateway's answers
         self.exclusive_peer: str | None = None  # only this host may send (PCT14 capture)
+        # (direction, frame, client address) of every frame, e.g. for a capture
+        self.observers: list[Callable[[str, bytes, str], None]] = []
         self._clock = clock
         self._outgoing: asyncio.Queue[tuple[_Client, bytes]] = asyncio.Queue()
         self._awaiting: deque[tuple[_Client, float, bytes]] = deque()  # who gets the answer
@@ -260,6 +262,8 @@ class EnOceanProxy:
         if address:
             info = f"{info} · {address}" if info else address
         self.on_trace(Chunk(time.time(), direction, frame, info=info))
+        for observer in list(self.observers):
+            observer(direction, frame, address)
 
     def _from_gateway(self, frame: bytes) -> None:
         self.stats.from_gateway += 1

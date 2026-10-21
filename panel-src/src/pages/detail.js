@@ -1,17 +1,20 @@
 import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
+import { issues, issuesCard, statusCard } from "../enocean.js";
 import { eventText, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, modbusTarget, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
+// the proxy's words for frames that are no radio telegram
+const eoInfo = (info) => info.replace(/^(answer|bus|command)\b/, (w) => t(`eoKind_${w}`));
 const SAMPLES = 90; // 3 minutes of state polls
 
 export class DetailPage extends Page {
   static properties = {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
-    meter: { state: true }, job: { state: true },
+    meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
     mbForm: { state: true }, mbResult: { state: true }, scan: { state: true }, scanForm: { state: true },
   };
 
@@ -36,6 +39,8 @@ export class DetailPage extends Page {
     this.chunks = [];
     this.paused = false;
     this.ascii = true;
+    this.search = "";
+    this.dir = "";
     this._samples = [];
     this._after = 0;
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
@@ -54,7 +59,7 @@ export class DetailPage extends Page {
   }
 
   willUpdate(changed) {
-    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._samples = []; }
+    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._samples = []; this.search = ""; this.dir = ""; }
     if (changed.has("state")) {
       const c = this.connection(this.connectionId);
       if (c) this._samples = [...this._samples, c.rate_from_device].slice(-SAMPLES);
@@ -198,22 +203,44 @@ export class DetailPage extends Page {
     if (await copyText(text)) { this.copied = key; setTimeout(() => { if (this.copied === key) this.copied = ""; }, 2000); }
   }
 
-  _live(modbus) {
-    const rows = this.chunks.slice(-120).reverse(); // newest first, like the event log
+  _matches(ch) {
+    if (this.dir && ch.direction !== this.dir) return false;
+    const q = this.search.trim().toLowerCase().replace(/[\s:-]/g, "");
+    if (!q) return true;
+    return (ch.info || "").toLowerCase().replace(/[\s:-]/g, "").includes(q) || (ch.hex || "").toLowerCase().replace(/\s/g, "").includes(q);
+  }
+
+  _take(hex) {
+    const tools = this.renderRoot.querySelector("dp-enocean-tools");
+    if (tools) { tools.take(hex); tools.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  }
+
+  _live(kind) {
+    const modbus = kind === "modbus", enocean = kind === "enocean";
+    const all = this.chunks.slice(-300).reverse(); // newest first, like the event log
+    const rows = (enocean ? all.filter((ch) => this._matches(ch)) : all).slice(0, 120);
+    const sender = (info) => (info.match(/[0-9A-F]{2}(-[0-9A-F]{2}){3}/) || [])[0];
     return html`<section class="card" aria-labelledby="t-live">
-      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(modbus ? "liveSubMb" : "liveSub")}</p></div>
+      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}</p></div>
         <div style="display:flex;gap:4px">
-          ${modbus ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
+          ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
         </div></div>
+      ${enocean ? html`<div class="row" style="justify-content:flex-start;gap:8px">
+        <input class="inp" style="flex:1 1 200px" type="search" aria-label=${t("eoSearch")} placeholder=${t("eoSearch")} .value=${this.search} @input=${(e) => { this.search = e.target.value; }}>
+        <div class="seg" role="group" aria-label=${t("eoDirection")}>${[["", t("eoBoth")], ["rx", "RX"], ["tx", "TX"]].map(([v, l]) => html`<button type="button" aria-pressed=${this.dir === v ? "true" : "false"} @click=${() => { this.dir = v; }}>${l}</button>`)}</div>
+        ${this.search || this.dir ? html`<span class="hint">${t("eoShown", { n: rows.length, m: all.length })}</span>` : ""}</div>` : ""}
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
           <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
           <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
-          ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}
+          ${ch.info ? html`<td style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
+            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(ch.info)}</td>` : ""}
+          ${enocean ? html`<td style="white-space:nowrap"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></td>` : ""}
           <td>${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex}</td>
-          ${!ch.info && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
-        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
+          ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
+        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
     </section>`;
   }
 
@@ -264,28 +291,36 @@ export class DetailPage extends Page {
     const le = c.line_errors;
     const usb = c.usb;
     const modbus = c.kind === "modbus", m = c.modbus || {};
+    const enocean = c.kind === "enocean", eo = c.enocean || {};
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
       <div class="head" style="margin-top:12px">
         <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
-          ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}</div>
+          ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
+          ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
           <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>
-          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && !modbus)}
+          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
         </div>
       </div>
       <div class="cols">
         <div class="main-col">
-          ${this._live(modbus)}
-          ${modbus ? this._modbusTools(c) : this.state.source === "custom" ? "" : this._tools(c)}
+          ${enocean ? issuesCard(issues(c, s.capture)) : ""}
+          ${this._live(c.kind)}
+          ${modbus ? this._modbusTools(c) : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
           <section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right">${t("mbFailed")}</th><th style="text-align:right">${t("mbBlocked")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>`
+            : c.clients.length && enocean ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+              <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+                <td>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
+                <td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
             : c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
@@ -316,9 +351,17 @@ export class DetailPage extends Page {
           </section>
           <section class="card" aria-labelledby="t-conf">
             <div class="row"><h2 id="t-conf">${t("configuration")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
-            ${modbus ? html`<div class="kv">
+            ${enocean ? html`<div class="kv">
+              <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
+              <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
+              ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("network")}</span><span>Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+              <span>${t("allowed")}</span><span class="mono" style="font-size:13px">${c.remaddr || t("eoAllNets")}</span>
+              <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
+              <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
+            </div>` : modbus ? html`<div class="kv">
               <span>${t("mbLink")}</span><span>${t(`link_${c.link}`)}</span>
-              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${modbusTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
+              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
               ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
               <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}
@@ -342,7 +385,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           </section>
         </div>
         <aside class="side-col">
-          ${modbus ? this._modbusCard(m) : html`<section class="card" aria-labelledby="t-line">
+          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">

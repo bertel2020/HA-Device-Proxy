@@ -1,6 +1,7 @@
 import { css, html } from "lit";
 import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
+import { DEFAULTS as ENOCEAN, HA_ONLY, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, t } from "../i18n.js";
 import { confirmDialog, icon, navigate } from "../ui.js";
 
@@ -12,6 +13,7 @@ const DEFAULTS = {
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  esp_protocol: "esp2", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
@@ -28,6 +30,8 @@ const TEMPLATES = {
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
+const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
+const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open", "stuck_disconnect"];
 
 const extraText = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`).join("\n");
@@ -75,7 +79,9 @@ export class EditPage extends Page {
     this.otherDevice = !!this.draft.device && !this.state.devices.some((d) => d.stable === this.draft.device || d.by_id.includes(this.draft.device) || d.by_path.includes(this.draft.device));
     this.errors = {};
     this.touched = new Set(existing ? Object.keys(DEFAULTS) : []);
-    this.advanced = (this.draft.kind === "modbus" ? MODBUS_ADVANCED : ADVANCED).some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
+    const flags = { modbus: MODBUS_ADVANCED, enocean: ENOCEAN_ADVANCED }[this.draft.kind] || ADVANCED;
+    const remaddr = this.draft.kind === "enocean" ? this.draft.remaddr !== HA_ONLY && this.draft.remaddr : this.draft.remaddr;
+    this.advanced = flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
     this._preview();
   }
 
@@ -88,6 +94,11 @@ export class EditPage extends Page {
       while (ports.includes(port)) port++;
       return { ...MODBUS, port, device: "" };
     }
+    if (kind === "enocean") {
+      let port = 9100;
+      while (ports.includes(port)) port++;
+      return { ...ENOCEAN, port, device: free ? free.stable : "" };
+    }
     const serial = ports.filter((p) => p >= 1024);
     return { kind: "serial", template: "generic", ...TEMPLATES.generic, port: serial.length ? Math.max(...serial) + 1 : 3333, device: free ? free.stable : "" };
   }
@@ -95,7 +106,8 @@ export class EditPage extends Page {
   _kind(kind) {
     if (kind === this.draft.kind) return;
     this.otherDevice = false;
-    this._set(kind === "modbus" ? { ...this._fresh("modbus") } : { ...DEFAULTS, ...this._fresh("serial"), name: this.draft.name, enabled: this.draft.enabled });
+    this._set({ ...DEFAULTS, ...this._fresh(kind), name: this.draft.name, enabled: this.draft.enabled });
+    if (!this.draft.id) this.touched = new Set(); // a new connection: no errors before typing
   }
 
   _set(patch) {
@@ -266,6 +278,101 @@ export class EditPage extends Page {
       </section>`;
   }
 
+  _eoTemplate(k) {
+    const d = this.draft, tpl = EO_TEMPLATES[k];
+    const patch = { template: k, ...tpl };
+    if (tpl.link === "serial" && !d.device) patch.device = (this.state.devices.find((x) => !x.used_by) || {}).stable || "";
+    this._set(patch);
+  }
+
+  _eoTemplates() {
+    const d = this.draft;
+    return html`<section class="card" aria-labelledby="t-eotpl">
+      <div><h2 id="t-eotpl">${t("eoTemplate")}</h2><p class="hint" style="margin-top:4px">${t("eoTemplateSub")}</p></div>
+      <div class="choices">${Object.keys(EO_TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
+        @click=${() => this._eoTemplate(k)}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
+    </section>`;
+  }
+
+  _enoceanSections(chosen) {
+    const d = this.draft;
+    const serial = d.link === "serial";
+    const advancedCount = ENOCEAN_ADVANCED.filter((k) => d[k]).length + ["bind", "timeout"].filter((k) => d[k]).length + (d.remaddr !== HA_ONLY ? 1 : 0);
+    return html`
+      <section class="card" aria-labelledby="t-eogw">
+        <h2 id="t-eogw">${t("eoGateway")}</h2>
+        <div class="grid2">
+          <div class="fld"><span class="lbl" id="l-eolink">${t("eoLink")}</span>
+            <div class="seg" role="group" aria-labelledby="l-eolink">${["serial", "tcp"].map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
+              @click=${() => this._set(l === "serial" ? { link: l, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`eolink_${l}`)}</button>`)}</div>
+            ${this._err("link")}</div>
+          <div class="fld"><span class="lbl" id="l-eoproto">${t("eoProtocol")}</span>
+            <div class="seg" role="group" aria-labelledby="l-eoproto">${["esp2", "esp3"].map((p) => html`<button type="button" aria-pressed=${d.esp_protocol === p ? "true" : "false"}
+              @click=${() => this._set({ esp_protocol: p })}>${p.toUpperCase()}</button>`)}</div>
+            <span class="hint">${t(`eoproto_${d.esp_protocol}`)}</span></div>
+        </div>
+        ${serial ? html`${this._devicePicker(chosen)}
+          <label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
+            ${[...new Set([...ENOCEAN_BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>
+            ${this._err("baud")}<span class="hint">${t("eoBaudHint")}</span></label>` : html`<div class="grid2">
+          ${this._input("host", t("mbHost"), { mono: true, hint: t("eoHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
+      </section>
+
+      <section class="card" aria-labelledby="t-eoproxy">
+        <h2 id="t-eoproxy">${t("eoProxy")}</h2>
+        <div class="grid2">
+          ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint") })}
+          ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
+          ${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-eoreplay">
+        <div><h2 id="t-eoreplay">${t("eoReplay")}</h2><p class="hint" style="margin-top:4px">${t("eoReplaySub")}</p></div>
+        <div class="grid2">
+          ${this._input("replay_size", t("eoReplaySize"), { number: true })}
+          <label class="fld"><span class="lbl">${t("eoReplayAge")}</span>
+            <input class="inp" inputmode="numeric" .value=${String(Math.round(d.replay_max_age_s / 60))} aria-describedby="e-replay_max_age_s"
+              @input=${(e) => this._set({ replay_max_age_s: Number(e.target.value || 0) * 60 })}>${this._err("replay_max_age_s")}</label>
+        </div>
+        <label class="chk"><input type="checkbox" .checked=${!!d.replay_persist} @change=${(e) => this._set({ replay_persist: e.target.checked })}>
+          <span>${t("eoPersist")}<br><span class="hint">${t("eoPersistHint")}</span></span></label>
+      </section>
+
+      <section class="card" aria-labelledby="t-adv">
+        <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
+          <span><h2 id="t-adv">${t("eoAccess")}</h2><span class="hint">${t("eoAccessSub")}</span></span>
+          <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+        ${this.advanced ? html`
+          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
+          ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
+          <div class="opts">${this._check("kickolduser", true)}${serial && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
+          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}</div>` : ""}
+      </section>
+
+      <section class="card" aria-labelledby="t-app">
+        <h2 id="t-app">${t("appSide")}</h2>
+        <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}</div>
+        <label class="fld"><span class="lbl">${t("traceMode")}</span><select class="inp" @change=${(e) => this._set({ trace: e.target.value })}>
+          ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} ?selected=${d.trace === v}>${t(`tr_${v}`)}</option>`)}</select></label>
+      </section>`;
+  }
+
+  _enoceanPreview() {
+    const d = this.draft;
+    const target = d.link === "serial" ? `${d.device || "–"} · ${d.baud}` : `${d.host || "–"}:${d.host_port}`;
+    return html`<section class="card" aria-labelledby="t-prev">
+      <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("eoPreviewSub")}</p></div>
+      <ol class="flow">
+        <li><b>${t("mbFlowClients", { n: d.max_clients })}</b><span class="hint">${t("eoFlowClients", { p: d.port })}</span></li>
+        <li><b>${t("eoFlowQueue")}</b><span class="hint">${t("eoFlowQueueSub", { ms: d.send_gap_ms })}</span></li>
+        <li><b>${d.esp_protocol.toUpperCase()} · ${t(`eolink_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
+      </ol>
+      <div class="note ${d.remaddr === HA_ONLY ? "info" : "warn"}">${d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr || t("eoAllNets") })}</div>
+      ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+    </section>`;
+  }
+
   _modbusPreview() {
     const d = this.draft;
     const target = d.link === "rtu" ? `${d.device || "–"} · ${d.baud} ${d.data_bits}${d.parity.toUpperCase()}${d.stop_bits}` : `${d.host || "–"}:${d.host_port}`;
@@ -300,15 +407,15 @@ export class EditPage extends Page {
       <div class="cols"><form class="main-col" @submit=${this._save} novalidate>
         ${isNew ? html`<section class="card" aria-labelledby="t-kind">
           <div><h2 id="t-kind">${t("kind")}</h2><p class="hint" style="margin-top:4px">${t("kindSub")}</p></div>
-          <div class="choices">${["serial", "modbus"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
+          <div class="choices">${["serial", "modbus", "enocean"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
             @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
         </section>` : ""}
-        ${d.kind === "modbus" ? html`<section class="card" aria-labelledby="t-base">
+        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : ""}<section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
           <div class="grid2">${this._input("name", t("name"))}
             <div class="fld"><span class="lbl">${t("enabled")}</span><label class="chk" style="min-height:42px;align-items:center">
               <input type="checkbox" .checked=${d.enabled} @change=${(e) => this._set({ enabled: e.target.checked })}><span>${t("enabledText")}</span></label></div></div>
-        </section>${this._modbusSections(chosen)}` : html`
+        </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
         <section class="card" aria-labelledby="t-tpl">
           <div><h2 id="t-tpl">${t("template")}</h2><p class="hint" style="margin-top:4px">${t("templateSub")}</p></div>
           <div class="choices">${Object.keys(TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
@@ -385,7 +492,7 @@ export class EditPage extends Page {
       </form>
 
       <aside class="side-col">
-        ${d.kind === "modbus" ? this._modbusPreview() : html`<section class="card" aria-labelledby="t-prev">
+        ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : html`<section class="card" aria-labelledby="t-prev">
           <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
           <div class="code">${this.yaml || "…"}</div>
           ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}

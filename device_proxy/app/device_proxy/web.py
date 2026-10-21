@@ -138,6 +138,10 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/detect", self.detect)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/read", self.modbus_read)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/capture", self.capture_start)
+        self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("GET", r"api/diagnostics", self.diagnostics)
@@ -449,7 +453,7 @@ class WebServer:
         return await self._save(lambda _: config, "restore")
 
     def _trace_path(self, name: str) -> Any:
-        if "/" in name or name.startswith(".") or ".log" not in name:
+        if "/" in name or name.startswith(".") or not (".log" in name or name.endswith(".jsonl")):
             raise HttpError(400, "not a trace file")
         path = self.c.trace.record_dir / name
         if not path.is_file():
@@ -531,6 +535,35 @@ class WebServer:
             "application/zip",
             {"Content-Disposition": f'attachment; filename="device-proxy-diagnostics-{stamp}.zip"'},
         )
+
+    async def enocean_send(self, request: Request) -> Response:
+        data = request.json()
+        if not isinstance(data, dict) or not isinstance(data.get("hex"), str):
+            raise HttpError(400, "hex: the frame as hex digits")
+        try:
+            return ok(await self.c.enocean_send(request.params["id"], data["hex"]))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def enocean_test(self, request: Request) -> Response:
+        (count,) = self._ints(request.json(), "count")
+        try:
+            return ok(await self.c.enocean_test(request.params["id"], count))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def capture_start(self, request: Request) -> Response:
+        data = request.json()
+        peer = data.get("exclusive_peer") if isinstance(data, dict) else None
+        if peer is not None and not isinstance(peer, str):
+            raise HttpError(400, "exclusive_peer: an address or nothing")
+        try:
+            return ok(self.c.start_capture(request.params["id"], peer or None))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def capture_stop(self, request: Request) -> Response:
+        return ok(self.c.stop_capture())
 
     async def delete_trace(self, request: Request) -> Response:
         os.unlink(self._trace_path(request.params["name"]))

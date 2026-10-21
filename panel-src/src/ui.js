@@ -18,6 +18,7 @@ const ICONS = {
   file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5",
   serial: "M3 8h14l-2 8H5zM7 12h.01M10 12h.01M13 12h.01M17 12h4",
   modbus: "M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01M12 10v4",
+  enocean: "M12 13v8M9 21h6M8.5 9.5a5 5 0 0 1 7 0M5.6 6.6a9 9 0 0 1 12.8 0M12 13h.01",
 };
 
 export const icon = (name, size = 18) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -54,8 +55,10 @@ export function fmtAgo(ts) {
   return rtf.format(-Math.round(seconds / 86400), "day");
 }
 
-/** Where a Modbus connection's device is: host:port or the serial device. */
-export const modbusTarget = (c) => c.link === "rtu" ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
+/** Where a proxy's device is: the serial device or host:port. */
+export const usesDevice = (c) => c.kind === "serial" || c.link === "rtu" || c.link === "serial";
+export const proxyTarget = (c) => usesDevice(c) ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
+export const modbusTarget = proxyTarget;
 
 export const fmtSerial = (c) => `${c.baud} ${c.data_bits}${c.parity.toUpperCase()}${c.stop_bits}`;
 
@@ -83,11 +86,13 @@ export async function copyText(text) {
 export function connectionState(c, ser2netRunning) {
   if (!c.enabled) return ["stDisabled", ""];
   if (c.present === false) return ["stMissing", "bad"];
-  if (c.kind === "modbus") {
-    const m = c.modbus || {};
+  if (c.kind !== "serial") {
+    const m = c[c.kind] || {};
     if (m.listen_error) return ["stPortBusy", "bad"];
     if (!m.listening) return ["stStarting", "warn"];
     if (m.reachable === false) return ["stUnreachable", "bad"];
+    if (m.exclusive_peer) return ["stReserved", "info"];
+    if (c.kind === "enocean" && !m.connected) return ["stConnecting", "warn"];
     return ["stRunning", "ok"];
   }
   if (!ser2netRunning) return ["stWaiting", "warn"];

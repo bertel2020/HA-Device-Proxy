@@ -36,7 +36,9 @@ from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
 from .devices import Device, device_for, line_counters, scan, set_low_latency
+from .enocean import EnOceanProxy
 from .enocean_ha import EnOceanHa
+from .enocean_tools import Captures, parse_frame, sendable
 from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
@@ -62,6 +64,7 @@ NOTIFY_POLL = 5  # seconds between checks for notifications
 MQTT_KEYS = ("mqtt_enabled", "mqtt_prefix", "mqtt_base")
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
 JOBS_KEPT = 20  # finished tool runs kept for the web interface
+DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
         "missing": (
@@ -96,6 +99,11 @@ NOTES = {
             "Device Proxy: {name} – Port belegt",
             "Port {port} kann nicht geöffnet werden: {error}.",
         ),
+        "duty": (
+            "Device Proxy: {name} – Funkzeit fast aufgebraucht",
+            "In der letzten Stunde sind {share} % der erlaubten Funkzeit (1 %) verbraucht. "
+            "Darüber verzögert oder verwirft das Gateway Telegramme.",
+        ),
         "custom": (
             "Device Proxy: eigene ser2net.yaml unbrauchbar",
             "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
@@ -128,6 +136,11 @@ NOTES = {
         "listen": (
             "Device Proxy: {name} – port in use",
             "Port {port} cannot be opened: {error}.",
+        ),
+        "duty": (
+            "Device Proxy: {name} – air time nearly used up",
+            "{share} % of the allowed air time (1 %) was used in the last hour. Beyond it the "
+            "gateway delays or drops telegrams.",
         ),
         "custom": (
             "Device Proxy: own ser2net.yaml unusable",
@@ -210,6 +223,7 @@ class Controller:
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self.mqtt = HaBridge(self)
         self.enocean_ha = EnOceanHa(self)
+        self.captures = Captures(self.trace.record_dir)
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._stop = asyncio.Event()
@@ -531,6 +545,8 @@ class Controller:
             if c is not None and proxy.key == PROXIED[c.kind].restart_key(c, listen):
                 proxy.c = c  # name, trace or notifications changed: no restart
                 continue
+            if isinstance(proxy, EnOceanProxy):
+                self._capture_ends(proxy)
             task = self._proxy_tasks.pop(connection_id)
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)  # frees the port
@@ -567,6 +583,11 @@ class Controller:
             self.trace.feed(c.alias, chunk)
 
         return feed
+
+    def _capture_ends(self, proxy: EnOceanProxy) -> None:
+        capture = self.captures.current
+        if capture is not None and capture.connection == proxy.c.id:
+            self.stop_capture()
 
     async def _proxy_tick(self) -> None:
         now = time.monotonic()
@@ -758,6 +779,10 @@ class Controller:
             since = self._lasting(c.id, "no_client", proxy.listening and not proxy.clients, now)
             if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
                 add(f"device_proxy_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
+            if isinstance(proxy, EnOceanProxy):
+                share = proxy.duty_cycle()["of_limit"]
+                if share >= DUTY_NOTE:
+                    add(f"device_proxy_{c.id}_duty", "duty", name=c.name, share=round(share))
         for c in self.active:
             if not c.enabled:
                 continue
@@ -856,6 +881,54 @@ class Controller:
         job_id = self._new_job(connection_id, last - first + 1)
         self._spawn(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
         return job_id
+
+    def _enocean(self, connection_id: str) -> EnOceanProxy:
+        proxy = self.proxies.get(connection_id)
+        if not isinstance(proxy, EnOceanProxy):
+            raise ValueError("the connection is not active")
+        return proxy
+
+    async def enocean_send(self, connection_id: str, text: str) -> dict[str, object]:
+        """Send one frame as the app; the gateway's answer, if the frame expects one."""
+        proxy = sendable(self._enocean(connection_id))
+        frame = parse_frame(proxy.protocol, text)
+        answer = await proxy.request(frame)
+        return {
+            "sent": frame.hex(" ").upper(),
+            "answer": answer.hex(" ").upper() if answer else None,
+        }
+
+    async def enocean_test(self, connection_id: str, count: int) -> dict[str, object]:
+        if not 1 <= count <= 100:
+            raise ValueError("count: 1 to 100")
+        return await sendable(self._enocean(connection_id)).gateway_test(count)
+
+    def start_capture(self, connection_id: str, exclusive_peer: str | None) -> dict[str, object]:
+        proxy = self._enocean(connection_id)
+        capture = self.captures.start(proxy, exclusive_peer)
+        self.events.emit(
+            "info",
+            "capture_locked" if exclusive_peer else "capture_started",
+            connection=proxy.c.id,
+            name=proxy.c.name,
+            file=capture.path.name,
+            peer=exclusive_peer,
+        )
+        return capture.to_dict()
+
+    def stop_capture(self) -> dict[str, object] | None:
+        capture = self.captures.stop()
+        if capture is None:
+            return None
+        self.events.emit(
+            "info",
+            "capture_stopped",
+            connection=capture.connection,
+            name=capture.name,
+            file=capture.path.name,
+            frames=capture.frames,
+        )
+        return capture.to_dict()
 
     def _modbus(self, connection_id: str) -> ModbusProxy:
         proxy = self.proxies.get(connection_id)
@@ -1013,6 +1086,8 @@ class Controller:
             "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
             "trace_files": self.trace.files(),
             "mqtt": self.mqtt.state,
+            "capture": self.captures.current.to_dict() if self.captures.current else None,
+            "enocean_status_port": self.enocean_ha.port,
         }
 
     def _proxy_snapshot(self, c: Connection) -> dict[str, object]:

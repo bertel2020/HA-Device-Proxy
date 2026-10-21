@@ -134,13 +134,14 @@ export class DeviceProxyApp extends LitElement {
     const tab = (key, label) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${t(label)}</a>`;
     const running = s && s.ser2net_running;
     // ser2net only matters with serial connections (or the own ser2net.yaml)
-    const serial = s && (s.source === "custom" || s.connections.some((c) => c.kind !== "modbus"));
+    const serial = s && (s.source === "custom" || s.connections.some((c) => c.kind === "serial"));
     const problems = s ? s.connections.filter((c) => connectionState(c, running)[1] === "bad").length : 0;
     return html`
       <header><div class="bar">
         <div class="brand">${logo()}<div><b>${t("appTitle")}</b>
           <span class="hint">${s ? `App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}` : ""}</span></div>
           ${s && serial ? html`<span class="chip ${running ? "ok" : "bad"}"><span class="dot"></span>${t(running ? "running" : "notRunning")}</span>` : ""}
+          ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
           ${s && problems ? html`<a class="chip warn" href="#/connections" style="text-decoration:none"><span class="dot"></span>${t("problems", { n: problems })}</a>`
             : s && !serial ? html`<span class="chip ok"><span class="dot"></span>${t("appRunning")}</span>` : ""}
         </div>

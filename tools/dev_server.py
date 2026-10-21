@@ -26,7 +26,7 @@ from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
 from device_proxy.events import EventLog  # noqa: E402
 from device_proxy.meter import crc_x25  # noqa: E402
-from device_proxy.model import AppConfig, Connection  # noqa: E402
+from device_proxy.model import AppConfig, Connection, Settings  # noqa: E402
 from device_proxy.store import Store  # noqa: E402
 from device_proxy.trace import TraceHub  # noqa: E402
 from device_proxy.web import WebServer  # noqa: E402
@@ -88,6 +88,65 @@ async def modbus_client(port: int, stop: asyncio.Event) -> None:
         await asyncio.sleep(2)
 
 
+def _esp2(hseq_org: str, data: str, sender: str, status: str = "30") -> bytes:
+    body = bytes.fromhex(hseq_org + data + sender + status)
+    return b"\xa5\x5a" + body + bytes([sum(body) & 0xFF])
+
+
+ESP2_RADIO = [  # rocker presses, a window contact, a meter (4BS)
+    _esp2("0B05", "70000000", "FEE91234"),
+    _esp2("0B05", "00000000", "FEE91234", "20"),
+    _esp2("0B06", "09000000", "0181A2B3"),
+    _esp2("0B07", "FF6C0418", "01908C14", "00"),
+    _esp2("0B05", "50000000", "00216343"),
+]
+BASE_ID_ANSWER = _esp2("8B98", "FFB74480", "00000000", "00")
+
+
+async def esp2_gateway(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    """A FAM-USB: radio telegrams every few seconds, the base ID on request."""
+
+    async def talk() -> None:
+        n = 0
+        while True:
+            await asyncio.sleep(2.5)
+            writer.write(ESP2_RADIO[n % len(ESP2_RADIO)])
+            n += 1
+
+    task = asyncio.create_task(talk())
+    try:
+        buffer = b""
+        while chunk := await reader.read(1024):
+            buffer += chunk
+            while len(buffer) >= 14:
+                start = buffer.find(b"\xa5\x5a")
+                if start < 0:
+                    buffer = b""
+                    break
+                frame, buffer = buffer[start : start + 14], buffer[start + 14 :]
+                if len(frame) == 14 and frame[3] == 0x58:
+                    await asyncio.sleep(0.01)
+                    writer.write(BASE_ID_ANSWER)
+    except ConnectionError:
+        pass
+    finally:
+        task.cancel()
+        writer.close()
+
+
+async def enocean_client(port: int, stop: asyncio.Event) -> None:
+    """Home Assistant: replay with times, reads the base ID, sends a rocker telegram at times."""
+    await asyncio.sleep(1)
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(b"EOPX REPLAY TS\n" + _esp2("AB58", "00000000", "00000000", "00"))
+    n = 0
+    while not stop.is_set():
+        await asyncio.sleep(7)
+        n += 1
+        writer.write(_esp2("6B05", "30000000" if n % 2 else "00000000", "FFB74481"))
+        await reader.read(4096)
+
+
 async def main(port: int) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     process.RESTART_DELAYS = (3600,)  # no ser2net here: do not retry
@@ -96,10 +155,13 @@ async def main(port: int) -> None:
         data = Path(tmp)
         device = await asyncio.start_server(modbus_device, "127.0.0.1", 0)
         device_port = device.sockets[0].getsockname()[1]
+        gateway = await asyncio.start_server(esp2_gateway, "127.0.0.1", 0)
+        gateway_port = gateway.sockets[0].getsockname()[1]
         db = Database(data / "history.db")
         events = EventLog(db)
         store = Store(db, data / "config.json")
         config = AppConfig(
+            settings=Settings(enocean_status_port=19199),
             connections=(
                 Connection(
                     "eHZ Stromzähler",
@@ -132,6 +194,34 @@ async def main(port: int) -> None:
                     trace="both",
                 ),
                 Connection(
+                    "FAM-USB",
+                    "",
+                    19100,
+                    kind="enocean",
+                    template="fam_usb",
+                    link="tcp",
+                    host="127.0.0.1",
+                    host_port=gateway_port,
+                    max_clients=4,
+                    remaddr="127.0.0.1, 172.30.32.0/23",
+                    bind="127.0.0.1",
+                    trace="both",
+                ),
+                Connection(
+                    "MGW-ETH",
+                    "",
+                    19101,
+                    kind="enocean",
+                    template="mgw_eth",
+                    esp_protocol="esp3",
+                    link="tcp",
+                    host="127.0.0.1",
+                    host_port=2,
+                    max_clients=4,
+                    remaddr="127.0.0.1, 172.30.32.0/23",
+                    bind="127.0.0.1",
+                ),
+                Connection(
                     "Wärmepumpe",
                     "",
                     15021,
@@ -142,7 +232,7 @@ async def main(port: int) -> None:
                     max_clients=10,
                     bind="127.0.0.1",
                 ),
-            )
+            ),
         )
         store.save(AppConfig(), config, "test")
         trace = TraceHub(record_dir=data / "trace", shm_dir=data / "shm")
@@ -162,6 +252,7 @@ async def main(port: int) -> None:
         alias = controller.config.connections[0].alias
         feeder = asyncio.create_task(meter(trace, alias, stop))
         poller = asyncio.create_task(modbus_client(15020, stop))
+        home_assistant = asyncio.create_task(enocean_client(19100, stop))
         print(f"Open http://127.0.0.1:{port}/  (Ctrl+C ends)")
         try:
             await asyncio.Event().wait()
@@ -169,6 +260,8 @@ async def main(port: int) -> None:
             stop.set()
             feeder.cancel()
             poller.cancel()
+            home_assistant.cancel()
+            gateway.close()
             device.close()
             await task
             await web.stop()

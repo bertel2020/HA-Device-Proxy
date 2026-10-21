@@ -268,5 +268,5 @@ class TraceHub:
         return [
             {"name": p.name, "size": p.stat().st_size, "modified": p.stat().st_mtime}
             for p in sorted(self.record_dir.iterdir())
-            if p.is_file() and ".log" in p.name
+            if p.is_file() and (".log" in p.name or p.name.endswith(".jsonl"))
         ]

@@ -532,3 +532,123 @@ def test_status_port_and_the_health_check(tmp_path: Path) -> None:
     path.write_text(json.dumps(config.to_dict()))
     assert enocean_ports(path) == [("127.0.0.1", 9100), ("192.0.2.1", 9101)]
     assert enocean_ports(tmp_path / "missing.json") == []
+
+
+# tools: send, test, capture (enocean_tools.py, web routes)
+
+
+async def test_tools_over_the_web_interface(setup: Setup, tmp_path: Path) -> None:
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.model import AppConfig
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+    from device_proxy.web import WebServer
+    from tests.test_web import request
+
+    gateway, proxy = setup.gateway, setup.proxy
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    c = replace(proxy.c, id="00000011", port=proxy.port)
+    controller.config = AppConfig(connections=(c,))
+    controller.proxies[c.id] = proxy
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+
+    async def answer_base_id() -> None:
+        while True:
+            await asyncio.sleep(0.01)
+            while BASE_ID_READ in gateway.received:
+                index = gateway.received.index(BASE_ID_READ)
+                del gateway.received[index : index + 14]
+                gateway.send(BASE_ID_ANSWER)
+
+    task = asyncio.create_task(answer_base_id())
+    base = f"api/tools/{c.id}/enocean"
+    status, sent = await request(port, "POST", f"{base}/send", {"hex": BASE_ID_READ.hex(":")})
+    assert status == 200 and sent == {
+        "sent": BASE_ID_READ.hex(" ").upper(),
+        "answer": BASE_ID_ANSWER.hex(" ").upper(),
+    }
+    status, error = await request(port, "POST", f"{base}/send", {"hex": "A5 5A 00"})
+    assert status == 409 and "ESP2" in error["error"]  # type: ignore[index]
+    status, error = await request(port, "POST", f"{base}/send", {"hex": "xyz"})
+    assert status == 409 and "hex" in error["error"]  # type: ignore[index]
+    status, result = await request(port, "POST", f"{base}/test", {"count": 2})
+    assert status == 200 and result["answered"] == 2  # type: ignore[index]
+    status, _ = await request(port, "POST", f"{base}/test", {"count": 500})
+    assert status == 409
+
+    # a capture reserved for one program; the app's tools wait meanwhile
+    status, capture = await request(
+        port, "POST", f"{base}/capture", {"exclusive_peer": "192.0.2.9"}
+    )
+    assert status == 200 and capture["exclusive_peer"] == "192.0.2.9"  # type: ignore[index]
+    assert proxy.exclusive_peer == "192.0.2.9"
+    status, error = await request(port, "POST", f"{base}/send", {"hex": BASE_ID_READ.hex()})
+    assert status == 409 and "reserved" in error["error"]  # type: ignore[index]
+    status, other = await request(port, "POST", f"{base}/capture", {})
+    assert status == 409  # one at a time
+    assert controller.problems() == {}
+    gateway.send(FRAME_A)
+    await _until(
+        lambda: controller.captures.current is not None and controller.captures.current.frames >= 1
+    )
+    assert controller.snapshot()["capture"]["file"] == capture["file"]  # type: ignore[index]
+    status, stopped = await request(port, "POST", "api/capture/stop", {})
+    assert stopped["frames"] >= 1 and proxy.exclusive_peer is None  # type: ignore[index]
+    lines = (tmp_path / "trace" / capture["file"]).read_text().splitlines()  # type: ignore[index]
+    first = json.loads(lines[0])
+    assert (first["gateway"], first["dir"], first["kind"], first["hex"]) == (
+        "FAM",
+        "rx",
+        "radio",
+        FRAME_A.hex(),
+    )
+    names = [f["name"] for f in controller.trace.files()]
+    assert capture["file"] in names  # type: ignore[index]
+    status, body = await request(port, "GET", f"api/trace/{capture['file']}")  # type: ignore[index]
+    assert status == 200
+    status, _ = await request(port, "DELETE", f"api/trace/{capture['file']}")  # type: ignore[index]
+    assert status == 200 and not controller.trace.files()
+    kinds = [e.kind for e in controller.events.live]
+    assert "capture_locked" in kinds and "capture_stopped" in kinds
+
+    task.cancel()
+    await web.stop()
+    controller.proxies.clear()
+
+
+def test_air_time_notification(tmp_path: Path) -> None:
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.model import AppConfig
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    c = Connection("FAM", "", 9100, id="00000012", kind="enocean", link="tcp", host="h")
+    controller.config = AppConfig(connections=(c,))
+    proxy = EnOceanProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    proxy.listening = True
+    proxy.clients["x"] = None  # type: ignore[assignment]  # a client: no "no client" note
+    controller.proxies[c.id] = proxy
+    proxy._airtime.append((time.time(), 0.85 * 36000))  # 85 % of the 1 % of an hour
+    (key,) = controller.problems()
+    assert key == "device_proxy_00000012_duty"
+    assert esp.describe("esp2", BASE_ID_READ) == "command"

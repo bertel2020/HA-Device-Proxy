@@ -195,11 +195,13 @@ def base_id(protocol: str, frame: bytes, request: bytes | None = None) -> str | 
 
 
 def describe(protocol: str, frame: bytes) -> str:
-    """For the live view: "RPS FE-E9-12-34", "answer", "bus" or ""."""
+    """For the live view: "RPS FE-E9-12-34", "answer", "bus", "command" or ""."""
     if (info := radio_info(protocol, frame)) is not None:
         return f"{info[0]} {info[1]}"
     if is_response(protocol, frame):
         return "answer"
     if protocol == "esp2" and len(frame) > 3 and frame[3] >= ESP2_BUS_CONTROL:
         return "bus"
+    if expects_response(protocol, frame) and not (protocol == "esp3" and frame[4] == 0x01):
+        return "command"  # to the gateway itself (base ID, settings ...)
     return ""
