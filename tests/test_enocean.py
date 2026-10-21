@@ -464,6 +464,7 @@ async def test_status_and_discovery_for_the_integration(
         {
             "service": "enocean_eltako",
             "config": {
+                "app": "device_proxy",
                 "host": "abc-device-proxy",
                 "status_port": 0,
                 "replay": True,

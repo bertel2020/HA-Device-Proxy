@@ -47,6 +47,7 @@ def gateways(config: AppConfig) -> list[Connection]:
 
 def discovery_config(hostname: str, status_port: int, items: list[Connection]) -> dict[str, Any]:
     return {
+        "app": "device_proxy",  # the integration names it and may move gateways over to it
         "host": hostname,
         "status_port": status_port,
         "replay": True,
