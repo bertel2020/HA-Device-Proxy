@@ -33,5 +33,3 @@ homeassistant_api: true
 services:
   - mqtt:want
 # everything is set in the app's web interface
-options: {}
-schema: {}
