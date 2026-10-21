@@ -1,7 +1,7 @@
 import asyncio
 import struct
 
-from device_proxy.modbus import ModbusProxy, crc16, rtu_frame
+from device_proxy.modbus import ClientInfo, ModbusProxy, Scheduler, _Job, crc16, rtu_frame
 from device_proxy.model import Connection
 
 
@@ -156,3 +156,12 @@ async def test_cache_answers_the_same_read_once() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+async def test_clients_take_turns() -> None:
+    scheduler = Scheduler()
+    loop = asyncio.get_running_loop()
+    for key, n in [("busy", 1), ("busy", 2), ("busy", 3), ("other", 1)]:
+        scheduler.put(key, _Job(n, b"", ClientInfo(key, 0), loop.create_future()))
+    order = [(job.client.address, job.unit) for job in [await scheduler.get() for _ in range(4)]]
+    assert order == [("busy", 1), ("other", 1), ("busy", 2), ("busy", 3)]

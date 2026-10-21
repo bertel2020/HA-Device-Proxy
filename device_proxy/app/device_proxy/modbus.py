@@ -29,6 +29,7 @@ import socket
 import struct
 import termios
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -432,7 +433,6 @@ class Stats:
     bytes_from_device: int = 0
     time_avg: float = 0.0  # seconds, moving average
     time_max: float = 0.0
-    queue: int = 0
     queue_max: int = 0
     last_answer: float = 0.0
     last_error: str = ""
@@ -468,6 +468,65 @@ def restart_key(c: Connection, listen: str) -> Connection:
     )
 
 
+@dataclass
+class _Job:
+    unit: int
+    pdu: bytes
+    client: ClientInfo
+    future: asyncio.Future[bytes | None]
+
+
+class Scheduler:
+    """The requests waiting for the device. The clients take turns (round robin) and each
+    client's requests stay in order, so a client that asks without a pause cannot hold up
+    the others."""
+
+    def __init__(self) -> None:
+        self._queues: dict[str, deque[_Job]] = {}
+        self._turn: deque[str] = deque()
+        self._ready = asyncio.Event()
+        self.size = 0
+
+    def put(self, key: str, job: _Job) -> None:
+        queue = self._queues.get(key)
+        if queue is None:
+            queue = self._queues[key] = deque()
+            self._turn.append(key)
+        queue.append(job)
+        self.size += 1
+        self._ready.set()
+
+    async def get(self) -> _Job:
+        while not self.size:
+            self._ready.clear()
+            await self._ready.wait()
+        key = self._turn.popleft()
+        queue = self._queues[key]
+        job = queue.popleft()
+        self.size -= 1
+        if queue:
+            self._turn.append(key)
+        else:
+            del self._queues[key]
+        return job
+
+
+class _Path:
+    """One connection to the device, with its framing."""
+
+    def __init__(self, c: Connection) -> None:
+        if c.link == "rtu":
+            self.link: Link = SerialLink(c.device, c.baud, c.data_bits, c.parity, c.stop_bits)
+        else:
+            self.link = TcpLink(c.host, c.host_port)
+        if c.link == "tcp":
+            self.framer: TcpFramer | RtuFramer = TcpFramer(self.link)
+        else:
+            gap = getattr(self.link, "frame_gap", 0.0) + c.request_gap_ms / 1000
+            self.framer = RtuFramer(self.link, gap)
+        self.last_request = 0.0
+
+
 class ModbusProxy:
     def __init__(
         self, c: Connection, listen: str, on_event: EventSink, on_trace: TraceSink
@@ -477,17 +536,9 @@ class ModbusProxy:
         self.key = restart_key(c, listen)
         self.on_event = on_event
         self.on_trace = on_trace
-        if c.link == "rtu":
-            self.link: Link = SerialLink(c.device, c.baud, c.data_bits, c.parity, c.stop_bits)
-        else:
-            self.link = TcpLink(c.host, c.host_port)
-        gap = c.request_gap_ms / 1000
-        if c.link == "tcp":
-            self.framer: TcpFramer | RtuFramer = TcpFramer(self.link)
-        else:
-            frame_gap = getattr(self.link, "frame_gap", 0.0)
-            self.framer = RtuFramer(self.link, frame_gap + gap)
-        self.gap = gap if c.link == "tcp" else 0.0
+        self.paths = [_Path(c)]
+        self.gap = c.request_gap_ms / 1000 if c.link == "tcp" else 0.0  # RTU: in the framer
+        self.scheduler = Scheduler()
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.listening = False
@@ -496,8 +547,7 @@ class ModbusProxy:
         self.reachable_since = time.time()
         self._failures = 0  # requests in a row without an answer
         self._server: asyncio.Server | None = None
-        self._lock = asyncio.Lock()
-        self._last_request = 0.0
+        self._workers: list[asyncio.Task[None]] = []
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
 
@@ -516,10 +566,12 @@ class ModbusProxy:
                         failed = True
                         self.on_event("error", "listen_failed", port=self.c.port, error=str(err))
                     await asyncio.sleep(LISTEN_RETRY)
-            while True:
-                await self._keep_link()
-                await asyncio.sleep(SERIAL_RETRY if self.c.link == "rtu" else LINK_RETRY)
+            self._workers = [asyncio.create_task(self._work(path)) for path in self.paths]
+            await asyncio.gather(*self._workers)
         finally:
+            for worker in self._workers:
+                worker.cancel()
+            await asyncio.gather(*self._workers, return_exceptions=True)
             await self._shutdown()
 
     async def _start_server(self) -> None:
@@ -529,16 +581,30 @@ class ModbusProxy:
         )
         self.listening, self.listen_error = True, ""
 
-    async def _keep_link(self) -> None:
+    async def _work(self, path: _Path) -> None:
+        """Takes the waiting requests to the device over one connection, one at a time."""
+        idle = SERIAL_RETRY if self.c.link == "rtu" else LINK_RETRY
+        await self._keep_link(path)
+        while True:
+            try:
+                job = await asyncio.wait_for(self.scheduler.get(), idle)
+            except TimeoutError:
+                await self._keep_link(path)
+                continue
+            if job.future.done():
+                continue  # the client went away meanwhile
+            answer = await self._exchange(path, job.unit, job.pdu, job.client)
+            if not job.future.done():
+                job.future.set_result(answer)
+
+    async def _keep_link(self, path: _Path) -> None:
         """Connect when the device is not known to be reachable (a serial device: always)."""
-        if self.link.is_open or (self.c.link != "rtu" and self.reachable is True):
+        if path.link.is_open or (self.c.link != "rtu" and self.reachable is True):
             return  # a device that closed an idle connection is connected on the next request
-        async with self._lock:
-            if not self.link.is_open:
-                try:
-                    await self._connect()
-                except (OSError, TimeoutError) as err:
-                    self._down(_text(err))
+        try:
+            await self._connect(path)
+        except (OSError, TimeoutError) as err:
+            self._down(_text(err))
 
     async def _shutdown(self) -> None:
         if self._server is not None:
@@ -552,12 +618,13 @@ class ModbusProxy:
                 await asyncio.wait_for(self._server.wait_closed(), 2)
         self._server = None
         self.listening = False
-        await self.link.close()
+        for path in self.paths:
+            await path.link.close()
 
     # the device
 
-    async def _connect(self) -> None:
-        await self.link.open(self.c.request_timeout_ms / 1000)
+    async def _connect(self, path: _Path) -> None:
+        await path.link.open(self.c.request_timeout_ms / 1000)
         _LOGGER.debug("%s: connected to %s", self.c.name, self.c.upstream)
         if self.c.connect_delay_ms:
             await asyncio.sleep(self.c.connect_delay_ms / 1000)
@@ -632,44 +699,43 @@ class ModbusProxy:
         return answer
 
     async def _queued(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
-        self.stats.queue += 1
-        self.stats.queue_max = max(self.stats.queue_max, self.stats.queue)
-        queued = True
+        future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
+        self.scheduler.put(client.address, _Job(unit, pdu, client, future))
+        self.stats.queue_max = max(self.stats.queue_max, self.scheduler.size)
         try:
-            async with self._lock:
-                self.stats.queue -= 1
-                queued = False
-                return await self._exchange(unit, pdu, client)
+            return await future
         finally:
-            if queued:
-                self.stats.queue -= 1
+            if not future.done():
+                future.cancel()  # the worker skips it
 
-    async def _exchange(self, unit: int, pdu: bytes, client: ClientInfo) -> bytes | None:
+    async def _exchange(
+        self, path: _Path, unit: int, pdu: bytes, client: ClientInfo
+    ) -> bytes | None:
         loop = asyncio.get_running_loop()
         stats = self.stats
         stats.requests += 1
         client.requests += 1
-        if self.gap and (wait := self._last_request + self.gap - loop.time()) > 0:
+        if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
         timeout = self.c.request_timeout_ms / 1000
         code = EXC_TARGET
         trace = self._trace(client.address)
         for _ in range(1 + self.c.retries):
-            if not self.link.is_open:
+            if not path.link.is_open:
                 try:
-                    await self._connect()
+                    await self._connect(path)
                 except (OSError, TimeoutError) as err:
                     self._down(_text(err))
                     code = EXC_PATH
                     continue
             started = loop.time()
             try:
-                answer = await self.framer.exchange(unit, pdu, timeout, trace)
+                answer = await path.framer.exchange(unit, pdu, timeout, trace)
             except TimeoutError:
                 stats.timeouts += 1
                 self._error("no answer")
                 if self.c.link == "tcp":
-                    await self.link.close()  # start over with a fresh connection
+                    await path.link.close()  # start over with a fresh connection
                 code = EXC_TARGET
                 continue
             except FrameError as err:
@@ -680,11 +746,11 @@ class ModbusProxy:
             except (OSError, ConnectionError) as err:
                 stats.errors += 1
                 self._error(_text(err))
-                await self.link.close()
+                await path.link.close()
                 code = EXC_PATH
                 continue
             finally:
-                self._last_request = loop.time()
+                path.last_request = loop.time()
             elapsed = loop.time() - started
             stats.answered += 1
             stats.last_answer = time.time()
@@ -783,7 +849,7 @@ class ModbusProxy:
             "listen_error": self.listen_error,
             "reachable": self.reachable,
             "reachable_since": self.reachable_since,
-            "linked": self.link.is_open,
+            "linked": any(path.link.is_open for path in self.paths),
             "requests": s.requests,
             "answered": s.answered,
             "exceptions": s.exceptions,
@@ -794,7 +860,7 @@ class ModbusProxy:
             "cached": s.cached,
             "time_avg_ms": round(s.time_avg * 1000, 1),
             "time_max_ms": round(s.time_max * 1000, 1),
-            "queue": s.queue,
+            "queue": self.scheduler.size,
             "queue_max": s.queue_max,
             "last_answer": s.last_answer or None,
             "last_error": s.last_error,

@@ -81,7 +81,9 @@ A Modbus connection listens on a TCP port of its own and speaks Modbus TCP to it
 (Home Assistant's Modbus integration, SolarEdge Modbus, evcc, ioBroker …). All their requests
 go to the device one after another over a single connection; each answer goes back to the
 client that asked. The app numbers the requests towards the device itself, so a late answer
-to a request that timed out never reaches the next client.
+to a request that timed out never reaches the next client. Waiting clients take turns: a
+client that asks without a pause cannot hold up the others.
+
 
 **Connection to the device**
 
