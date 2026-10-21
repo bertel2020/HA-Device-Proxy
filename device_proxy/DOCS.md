@@ -246,7 +246,8 @@ entities**; the entity names follow the language of the notifications.
 Copy the options of ha-modbusproxy (its **Configuration** tab → ⋮ → **Edit in YAML**) and
 paste them under **Connections → Import / Export**; each device becomes a Modbus connection
 with the same ports, timeout and `connection_time`. A modbus-proxy configuration file
-(`devices` with `modbus: url` and `listen: bind`) works too. At the start a file
+(YAML or TOML, `devices` with `modbus: url`, `listen: bind` and `unit_id_remapping`) works
+too. At the start a file
 `import/modbus-proxy.yaml` in the app's config folder is taken over like a ser2net file.
 
 **Stop ha-modbusproxy first**: both apps listen on the host's network, so only one can have

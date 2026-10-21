@@ -10,12 +10,14 @@ ha-modbusproxy (its options, as the app's configuration tab shows them in YAML):
         connection_time: 0.1
 
 or one device as upstreamhost / upstreamport / listenport at the top. modbus-proxy's own
-file has devices with modbus: {url, timeout, connection_time} and listen: {bind}. Timeouts
-are seconds there, milliseconds here.
+file (YAML or TOML) has devices with modbus: {url, timeout, connection_time}, listen: {bind}
+and unit_id_remapping: {client's unit: device's unit}, as here. Timeouts are seconds there,
+milliseconds here.
 """
 
 from __future__ import annotations
 
+import tomllib
 from typing import Any
 
 import yaml
@@ -32,6 +34,10 @@ def _load(text: str) -> Any:
     try:
         return yaml.safe_load(text)
     except yaml.YAMLError:
+        pass
+    try:
+        return tomllib.loads(text)  # modbus-proxy also reads .toml
+    except tomllib.TOMLDecodeError:
         return None
 
 
@@ -48,13 +54,13 @@ def looks_modbus_proxy(text: str) -> bool:
 
 
 def _split(url: str) -> tuple[str, int]:
-    """modbus-proxy's "host:port" or "tcp://host:port"."""
+    """modbus-proxy's "host:port", "tcp://host:port" or ":port" (every address)."""
     url = url.split("://", 1)[-1]
     if url.startswith("["):
         host, _, rest = url[1:].partition("]")
         return host, int(rest.lstrip(":") or 502)
-    host, _, port = url.rpartition(":")
-    return (host, int(port)) if host else (url, 502)
+    host, colon, port = url.rpartition(":")
+    return (host, int(port)) if colon else (url, 502)
 
 
 def _ms(value: Any, default: int) -> int:

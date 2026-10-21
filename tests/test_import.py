@@ -167,3 +167,24 @@ def test_ha_modbusproxy_options_become_modbus_connections() -> None:
     assert second and (second.host_port, second.port) == (1502, 503)
     assert (second.request_timeout_ms, second.connect_delay_ms) == (5000, 100)
     assert first.write_access == "all"  # as with ha-modbusproxy
+
+
+def test_modbus_proxy_file_yaml_and_toml() -> None:
+    yaml_text = (
+        "devices:\n"
+        "  - modbus: {url: 'plc1.acme.org:502', timeout: 2}\n"
+        "    listen: {bind: ':5020'}\n"
+        "    unit_id_remapping: {1: 0}\n"
+    )
+    toml_text = (
+        "[[devices]]\n"
+        "modbus = {url = 'tcp://plc1.acme.org:502', timeout = 2}\n"
+        "listen = {bind = '0:5020'}\n"
+        "unit_id_remapping = {1 = 0}\n"
+    )
+    for text in (yaml_text, toml_text):
+        result = read(text)
+        (item,) = result.items
+        c = item.connection
+        assert c and (c.host, c.host_port, c.port, c.bind) == ("plc1.acme.org", 502, 5020, "")
+        assert (c.request_timeout_ms, c.unit_map) == (2000, "1=0")
