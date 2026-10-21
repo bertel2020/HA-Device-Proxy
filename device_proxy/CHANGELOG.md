@@ -22,6 +22,7 @@
 - **For all connections**: filter chips by kind above the list; a running capture shows in
   the header.
 - Fixed: a Modbus TCP connection saved without a device field could not be loaded.
+- Settings: the menu on the left stays in view while scrolling (when it sits beside the content).
 - Docs: the app's **Configuration** tab in the Supervisor is empty on purpose; DOCS and both
   READMEs now point to the sidebar entry **Device Proxy**, where everything is set up.
 

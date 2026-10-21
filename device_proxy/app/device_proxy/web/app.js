@@ -975,6 +975,10 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       </div></div>`}};f(se,"properties",{state:{attribute:!1},draft:{state:!0},custom:{state:!0},customText:{state:!0},customCheck:{state:!0},versions:{state:!0},open:{state:!0},diffs:{state:!0},services:{state:!0}}),f(se,"styles",[...$.styles,g`
     .layout { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
     .side { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; }
+    /* beside the content (not wrapped above it) the menu stays in view while scrolling */
+    @media (min-width: 864px) {
+      .side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    }
     .side a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 10px; text-decoration: none; color: var(--neutral); }
     .side a:hover { background: var(--line); color: var(--text); }
     .content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
