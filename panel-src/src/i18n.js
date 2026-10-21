@@ -145,6 +145,7 @@ const TEXT = {
     mbUnitMap: "Unit-IDs umschreiben", mbUnitMapHint: "Client-Unit=Geräte-Unit, z. B. 1=3, 2=5 – für Clients, die fest Unit 1 erwarten. Leer: unverändert.", mbUnitMapShort: "Unit-IDs",
     mbLinks: "Verbindungen zum Gerät", mbLinksHint: "Mehr als 1 nur, wenn das Gerät so viele gleichzeitig erlaubt; dann laufen Anfragen parallel.",
     mbLinksShort: "Verbindungen zum Gerät", mbLinksVal: "{o} von {n} offen",
+    haSnippetComment: "sensors:, switches: … siehe Doku der Modbus-Integration", haSnippet: "In Home Assistant verwenden", haSnippetSub: "Für die Modbus-Integration in configuration.yaml. Integrationen mit eigener Einrichtung (z. B. SolarEdge Modbus Multi) brauchen nur Host {h} und Port {p}.",
     mbBlocked: "abgewiesen", mbCached: "aus Zwischenspeicher", mbCacheShort: "Zwischenspeicher",
     mbCache: "Lesewerte zwischenspeichern (ms, 0 = aus)", mbCacheHint: "Gleiche Leseanfragen mehrerer Clients innerhalb dieser Zeit fragen das Gerät nur einmal. Schreiben leert den Speicher.",
     mbTime: "Antwortzeit Ø / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Letzte Antwort", mbListenError: "Port kann nicht geöffnet werden: {e}", mbLastError: "Letzter Fehler",
@@ -288,6 +289,7 @@ const TEXT = {
     mbUnitMap: "Rewrite unit ids", mbUnitMapHint: "client unit=device unit, e.g. 1=3, 2=5 – for clients that always ask unit 1. Empty: unchanged.", mbUnitMapShort: "Unit ids",
     mbLinks: "Connections to the device", mbLinksHint: "More than 1 only when the device allows that many at once; requests then run in parallel.",
     mbLinksShort: "Connections to the device", mbLinksVal: "{o} of {n} open",
+    haSnippetComment: "sensors:, switches: … see the Modbus integration's documentation", haSnippet: "Use in Home Assistant", haSnippetSub: "For the Modbus integration in configuration.yaml. Integrations with their own setup (e.g. SolarEdge Modbus Multi) only need host {h} and port {p}.",
     mbBlocked: "refused",
 
  mbCached: "from cache", mbCacheShort: "Cache",

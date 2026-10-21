@@ -217,6 +217,17 @@ export class DetailPage extends Page {
     </section>`;
   }
 
+  _haSnippet(c) {
+    const ha = c.addresses.find((a) => a.target === "ha");
+    if (!ha || !ha.reachable) return "";
+    const yaml = `modbus:\n  - name: ${JSON.stringify(c.name)}\n    type: tcp\n    host: ${ha.host}\n    port: ${c.port}\n    # ${t("haSnippetComment")}`;
+    return html`<section class="card" aria-labelledby="t-ha">
+      <div class="row"><div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haSnippetSub", { h: ha.host, p: c.port })}</p></div>
+        <button class="btn btn-g" @click=${() => this._copy("ha-yaml", yaml)}>${this.copied === "ha-yaml" ? t("copied") : t("copy")}</button></div>
+      <div class="code">${yaml}</div>
+    </section>`;
+  }
+
   _modbusCard(m) {
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
     const counters = [["mbRequests", m.requests], ["mbAnswered", m.answered], ["mbExceptions", m.exceptions], ["mbTimeouts", m.timeouts], ["mbErrors", m.errors], ["mbQueue", `${m.queue ?? 0} / ${m.queue_max ?? 0}`]];
@@ -291,6 +302,7 @@ export class DetailPage extends Page {
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div>
           </section>` : ""}
+          ${modbus ? this._haSnippet(c) : ""}
           <section class="card" aria-labelledby="t-addr">
 
             <h2 id="t-addr">${t("addresses")}</h2>
