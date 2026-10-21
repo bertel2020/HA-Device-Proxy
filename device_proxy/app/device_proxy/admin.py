@@ -78,6 +78,7 @@ class PortStatus:
     bytes_from_device: int = 0
     bytes_to_device: int = 0
     pending: str = "retained"  # "reconfigured": a change waits for the clients to leave
+    session: str = "unconnected"  # "closed" when off; else a session is (still) there
 
 
 def remote_address(text: str) -> str:
@@ -111,6 +112,7 @@ def ports_from(response: Node) -> list[PortStatus]:
                 bytes_from_device=int(get(port, "bytes read from device", 0)),
                 bytes_to_device=int(get(port, "bytes written to device", 0)),
                 pending=str(get(port, "close state", "retained")),
+                session=str(get(port, "tcp to device state", "unconnected")),
             )
         )
     return ports

@@ -74,6 +74,19 @@ async def until(check: Callable[[], object], what: str, timeout: float = 10) -> 
         await asyncio.sleep(0.1)
 
 
+async def connect(
+    port: int, timeout: float = 5
+) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+    """ser2net opens a changed accepter again a moment after the reload."""
+    deadline = time.time() + timeout
+    while True:
+        try:
+            return await asyncio.open_connection("127.0.0.1", port)
+        except OSError:
+            assert time.time() < deadline, f"port {port} not open again"
+            await asyncio.sleep(0.1)
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     procs = pty_pairs()
@@ -163,7 +176,7 @@ async def main() -> None:
             controller.config.with_connection(replace(b, baud=19200, remaddr="10.0.0.0/8")),
             "test",
         )
-        reader_c, _ = await asyncio.open_connection("127.0.0.1", B_PORT)
+        reader_c, _ = await connect(B_PORT)
         os.write(dev_b, b"secret")
         assert b"secret" not in await asyncio.wait_for(reader_c.read(), 5)
         assert not (await controller.admin.showport(b.alias))[0].clients
@@ -193,7 +206,8 @@ connections:
             "client event with the own file's connection name",
         )
         os.write(dev_b, b"own")
-        assert await asyncio.wait_for(reader_d.readexactly(3), 5) == b"own"
+        # what the refused client did not get ("secret") is still in the device's buffer
+        assert (await asyncio.wait_for(reader_d.readuntil(b"own"), 5)).endswith(b"own")
         assert {p.alias for p in await controller.admin.showport()} == {"mine"}
         writer_d.close()
         print("ok: own ser2net.yaml (version 2) with the app's admin socket added")

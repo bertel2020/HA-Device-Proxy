@@ -18,6 +18,7 @@ whatever the source. Saving restarts only the proxies whose settings changed.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import errno
 import logging
 import os
@@ -341,6 +342,7 @@ class Controller:
                 await self._restart_mqtt()
             disconnected: list[str] = []
             if touched and self.ser2net.running:
+                await self._let_go(before.keys() - self._written.keys())
                 disconnected = await self._reload(touched)
             self._reconcile_keepers()
             restarted = await self._reconcile_proxies()
@@ -1076,10 +1078,39 @@ class Controller:
 
     # keeping devices open
 
+    def _wanted_keepers(self) -> set[str]:
+        return {c.id for c in self.active if c.enabled and c.keep_open and c.id not in self._paused}
+
+    async def _let_go(self, removed: set[str]) -> None:
+        """Before ser2net reads its file again, the clients of the connections that go away
+        are disconnected (the app's own ones too): ser2net 4.6 keeps a connection that is in
+        use at the reload, and when it was in use at an earlier reload as well, it starts
+        that earlier configuration again once the client leaves, so the port stays open."""
+        wanted = self._wanted_keepers()
+        gone = [self._keepers.pop(i) for i in list(self._keepers) if i not in wanted]
+        for task in gone:
+            task.cancel()
+        await asyncio.gather(*gone, return_exceptions=True)
+        if not removed:
+            return
+
+        async def busy() -> set[str]:
+            ports = await self.admin.showport()
+            free = ("unconnected", "closed")  # closed: switched off
+            return {p.alias for p in ports if p.alias in removed and p.session not in free}
+
+        try:
+            for alias in await busy():
+                with contextlib.suppress(AdminError):  # the session ended meanwhile
+                    await self.admin.disconnect(alias)
+            deadline = time.monotonic() + 3
+            while await busy() and time.monotonic() < deadline:
+                await asyncio.sleep(0.1)
+        except AdminError as err:
+            _LOGGER.warning("Could not disconnect the clients of removed connections: %s", err)
+
     def _reconcile_keepers(self) -> None:
-        wanted = {
-            c.id for c in self.active if c.enabled and c.keep_open and c.id not in self._paused
-        }
+        wanted = self._wanted_keepers()
         for connection_id in list(self._keepers):
             if connection_id not in wanted:
                 self._keepers.pop(connection_id).cancel()
