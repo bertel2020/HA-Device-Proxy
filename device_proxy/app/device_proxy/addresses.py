@@ -51,7 +51,14 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         else:
             urls = {"tcp": f"tcp://{shown}:{c.port}", "socket": f"socket://{shown}:{c.port}"}
         result.append(
-            {"target": target, "host": host, "port": c.port, "reachable": reachable, "why": why, "urls": urls}
+            {
+                "target": target,
+                "host": host,
+                "port": c.port,
+                "reachable": reachable,
+                "why": why,
+                "urls": urls,
+            }
         )
     return result
 
