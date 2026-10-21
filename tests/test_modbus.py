@@ -2,7 +2,7 @@ import asyncio
 import struct
 
 from device_proxy.modbus import ClientInfo, ModbusProxy, Scheduler, _Job, crc16, rtu_frame
-from device_proxy.model import Connection
+from device_proxy.model import Connection, parse_unit_map
 
 
 async def _device(rtu: bool, ignore: set[int]):
@@ -72,6 +72,7 @@ async def _run(link: str) -> None:
         bind="127.0.0.1",
         request_timeout_ms=300,
         retries=0,
+        unit_map="2=1",  # clients asking unit 2 reach unit 1
     )
     events: list[str] = []
     proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
@@ -84,7 +85,7 @@ async def _run(link: str) -> None:
     port = proxy._server.sockets[0].getsockname()[1]
 
     # several clients at once over the device's single connection, each gets its own answer
-    answers = await asyncio.gather(*(_read(port, 100 + n, 1, n) for n in range(6)))
+    answers = await asyncio.gather(*(_read(port, 100 + n, 1 + n % 2, n) for n in range(6)))
     for n, body in enumerate(answers):
         assert body == bytes([3, 4]) + struct.pack(">HH", n * 10, (n + 1) * 10)
     # no answer from the device: a gateway exception, and the next request works again
@@ -194,3 +195,7 @@ async def test_probe_finds_a_device_that_stops_answering() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+def test_unit_map() -> None:
+    assert parse_unit_map("1=3, 2->5") == {1: 3, 2: 5}

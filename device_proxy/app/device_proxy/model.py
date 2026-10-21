@@ -129,6 +129,7 @@ class Connection:
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
+    unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
     probe_unit: int = 1
     probe_function: int = 3  # 3 holding or 4 input registers
@@ -273,6 +274,10 @@ class Connection:
             e["request_gap_ms"] = "0 to 10000 ms"
         if not 0 <= self.cache_ms <= 60000:
             e["cache_ms"] = "0 to 60000 ms"
+        try:
+            parse_unit_map(self.unit_map)
+        except ValueError as err:
+            e["unit_map"] = str(err)
         if self.probe_seconds and not 5 <= self.probe_seconds <= 3600:
             e["probe_seconds"] = "0 or 5 to 3600 seconds"
         if not 0 <= self.probe_unit <= 255:
@@ -476,6 +481,22 @@ def client_allowed(remaddr: str, listen: str, address: str) -> bool:
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
         ip = ip.ipv4_mapped
     return any(ip in n for n in networks if n.version == ip.version)
+
+
+def parse_unit_map(text: str) -> dict[int, int]:
+    """ "1=3, 2=5" → {1: 3, 2: 5}: the unit a client asks for → the device's unit."""
+    result: dict[int, int] = {}
+    for item in re.split(r"[,;\s]+", text.strip()):
+        if not item:
+            continue
+        match = re.fullmatch(r"(\d{1,3})(?:=|->|→)(\d{1,3})", item)
+        if not match or not all(0 <= int(n) <= 255 for n in match.groups()):
+            raise ValueError(f"{item!r} is not unit=unit (0 to 255)")
+        client, device = int(match.group(1)), int(match.group(2))
+        if client in result:
+            raise ValueError(f"unit {client} twice")
+        result[client] = device
+    return result
 
 
 def parse_networks(text: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:

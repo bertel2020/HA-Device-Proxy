@@ -122,7 +122,12 @@ networks (e.g. `127.0.0.1` for Home Assistant, `172.30.32.0/23` for other apps),
 Refused writes (functions 5, 6, 15, 16, 21, 22, 23 and diagnostics other than the echo) get
 exception 0x01 and are counted and logged; reading stays open to all allowed clients.
 
+**Unit ids**: under **Advanced** the unit a client asks for can be rewritten
+(`client=device`, e.g. `1=3, 2=5`), for clients that always ask unit 1 while the device
+answers on another one. Imported from modbus-proxy's `unit_id_remapping`.
+
 **When the device does not answer**
+
  the client gets Modbus exception 0x0B ("gateway target
 device failed to respond"), when it cannot be reached 0x0A ("gateway path unavailable") – the
 answers a Modbus gateway gives; the client stays connected. After three requests in a row

@@ -311,6 +311,8 @@ export class DetailPage extends Page {
               <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
               <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
+              ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
+
               ${c.probe_seconds ? html`<span>${t("mbProbe")}</span><span>${t("mbProbeVal", { s: c.probe_seconds, u: c.probe_unit, f: c.probe_function, a: c.probe_address })}</span>` : ""}
 
               <span>${t("mbWrite")}</span>

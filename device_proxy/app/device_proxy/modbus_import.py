@@ -71,6 +71,7 @@ def _item(
     delay: Any,
     *,
     bind: str = "",
+    unit_map: str = "",
     notes: list[Note] | None = None,
 ) -> ImportItem:
     alias = f"{host}:{port}"
@@ -88,6 +89,7 @@ def _item(
         "request_timeout_ms": min(max(_ms(timeout, 10000), 100), 60000),
         "connect_delay_ms": min(max(_ms(delay, 0), 0), 10000),
         "bind": "" if bind in ("", "0", "0.0.0.0", "::") else bind,
+        "unit_map": unit_map,
     }
     try:
         return ImportItem(alias, Connection.from_dict(values), notes)
@@ -104,9 +106,12 @@ def read(text: str) -> ImportResult:
     if any("modbus" in d for d in devices):
         for d in devices:
             modbus, listen = d.get("modbus") or {}, d.get("listen") or {}
-            dropped = [
-                {"code": "option_dropped", "option": k} for k in d if k not in ("modbus", "listen")
-            ]
+            taken = ("modbus", "listen", "unit_id_remapping")
+            dropped = [{"code": "option_dropped", "option": k} for k in d if k not in taken]
+            remap = d.get("unit_id_remapping") or {}
+            unit_map = (
+                ", ".join(f"{k}={v}" for k, v in remap.items()) if isinstance(remap, dict) else ""
+            )
             try:
                 host, port = _split(str(modbus.get("url", "")))
                 bind, listen_port = _split(str(listen.get("bind", ":502")))
@@ -127,6 +132,7 @@ def read(text: str) -> ImportResult:
                     modbus.get("timeout"),
                     modbus.get("connection_time"),
                     bind=bind,
+                    unit_map=unit_map,
                     notes=dropped,
                 )
             )

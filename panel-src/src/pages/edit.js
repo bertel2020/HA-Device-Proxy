@@ -11,7 +11,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", cache_ms: 0, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
 };
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0 };
 const LINKS = ["tcp", "rtu", "rtu_tcp"];
@@ -69,7 +69,7 @@ export class EditPage extends Page {
     this.otherDevice = !!this.draft.device && !this.state.devices.some((d) => d.stable === this.draft.device || d.by_id.includes(this.draft.device) || d.by_path.includes(this.draft.device));
     this.errors = {};
     this.touched = new Set(existing ? Object.keys(DEFAULTS) : []);
-    this.advanced = (this.draft.kind === "modbus" ? MODBUS_ADVANCED : ADVANCED).some((k) => this.draft[k]) || !!(this.draft.remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
+    this.advanced = (this.draft.kind === "modbus" ? MODBUS_ADVANCED : ADVANCED).some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout);
     this._preview();
   }
 
@@ -184,7 +184,7 @@ export class EditPage extends Page {
 
   _modbusSections(chosen) {
     const d = this.draft;
-    const advancedCount = MODBUS_ADVANCED.filter((k) => d[k]).length + ["remaddr", "bind", "timeout"].filter((k) => d[k]).length;
+    const advancedCount = MODBUS_ADVANCED.filter((k) => d[k]).length + ["remaddr", "bind", "timeout", "unit_map"].filter((k) => d[k]).length;
     return html`
       <section class="card" aria-labelledby="t-mdev">
         <h2 id="t-mdev">${t("mbDevice")}</h2>
@@ -238,6 +238,8 @@ export class EditPage extends Page {
         ${this.advanced ? html`
           <div class="opts">${this._check("kickolduser", true)}${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
           ${this._input("timeout", t("mbIdle"), { number: true })}
+          ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
+
           ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
           ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}` : ""}
       </section>

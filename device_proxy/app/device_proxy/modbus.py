@@ -35,7 +35,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .detect import configure
-from .model import Connection, client_allowed
+from .model import Connection, client_allowed, parse_unit_map
 from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
@@ -505,6 +505,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_access="all",
         write_clients="",
         cache_ms=0,
+        unit_map="",
         probe_seconds=0,
         probe_unit=1,
         probe_function=3,
@@ -926,6 +927,7 @@ class ModbusProxy:
         host: str,
     ) -> None:
         idle = self.c.timeout or None
+        mapped: tuple[str, dict[int, int]] = ("", {})
         while True:
             head = await asyncio.wait_for(reader.readexactly(7), idle)
             tid, protocol, length, unit = struct.unpack(">HHHB", head)
@@ -933,13 +935,17 @@ class ModbusProxy:
                 raise ValueError("not Modbus TCP")
             pdu = await reader.readexactly(length - 1)
             info.bytes_in += len(head) + len(pdu)
+            if mapped[0] != self.c.unit_map:  # changes without a restart
+                mapped = (self.c.unit_map, parse_unit_map(self.c.unit_map))
+            device_unit = mapped[1].get(unit, unit)
             if is_write(pdu) and not self.may_write(host):
                 self.stats.blocked += 1
                 info.blocked += 1
                 self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
                 answer: bytes | None = exception(pdu, EXC_FUNCTION)
             else:
-                answer = await self.request(unit, pdu, info)
+                answer = await self.request(device_unit, pdu, info)
+
             if answer is None:
                 continue
             frame = struct.pack(">HHHB", tid, 0, len(answer) + 1, unit) + answer
