@@ -15,8 +15,12 @@ First version.
     adapter, RTU over TCP; requests in turn, each answer to the client that asked.
   - Timeout, retries, pause after connecting and between requests; gateway exceptions when
     the device does not answer.
-  - Status with requests, unanswered requests and answer time; decoded requests and
-    answers in the trace.
+  - Status with requests, unanswered requests and answer time, also per unit id; decoded
+    requests and answers in the trace.
+  - Write access per connection, a cache for reads, clients taking turns, up to 4
+    connections to a network device, unit ids rewritten, an optional probe read.
+  - Tools: read registers, scan the bus for unit ids.
+
 - **Import and export**
   - ser2net 4 `ser2net.yaml` (version 1 and 2), ser2net 3 `ser2net.conf` and the options of
     ha-modbusproxy (or a modbus-proxy file), with a preview; export as `ser2net.yaml`; or use
