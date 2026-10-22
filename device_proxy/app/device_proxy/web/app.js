@@ -219,7 +219,7 @@ var qt=Object.defineProperty;var It=(r,e,n)=>e in r?qt(r,e,{enumerable:!0,config
       @click=${w=>{w.target.closest("a, button, input, label")||I(`#/connection/${e.id}`)}}>
       <div class="top">
         <div style="min-width:0">
-          <div class="title"><span class="kind" title=${t(`kind_${e.kind}`)}>${v(e.kind,20)}</span><h2>${e.name}</h2><span class="chip ${o}"><span class="dot"></span>${t(i)}</span>${e.trace!=="off"?a`<span class="chip">${t("recording",{m:t(`tr_${e.trace}`)})}</span>`:""}</div>
+          <div class="title"><span class="kind" title=${t(`kind_${e.kind}`)}>${v(e.kind,20)}</span><h2>${e.name}</h2><span class="chip ${o}"><span class="dot"></span>${t(i)}</span>${e.trace!=="off"?a`<span class="chip">${t("recording",{m:t(`${h?"trmb":"tr"}_${e.trace}`)})}</span>`:""}</div>
           <div class="dev mono">${m?X(e):e.device}${e.tty&&e.tty!==e.device?a` → ${e.tty}`:""}</div>
         </div>
         ${ee(e.enabled,t("switchLabel",{name:e.name}),w=>this._enable(e,w),s||this.busy===e.id)}

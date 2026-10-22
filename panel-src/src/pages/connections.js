@@ -112,7 +112,7 @@ export class ConnectionsPage extends Page {
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
       <div class="top">
         <div style="min-width:0">
-          <div class="title"><span class="kind" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>${c.trace !== "off" ? html`<span class="chip">${t("recording", { m: t(`tr_${c.trace}`) })}</span>` : ""}</div>
+          <div class="title"><span class="kind" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>${c.trace !== "off" ? html`<span class="chip">${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}</span>` : ""}</div>
           <div class="dev mono">${proxied ? proxyTarget(c) : c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
         </div>
         ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), own || this.busy === c.id)}
