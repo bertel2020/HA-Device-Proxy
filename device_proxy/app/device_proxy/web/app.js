@@ -798,7 +798,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
 
         ${e.kind==="modbus"||e.kind==="enocean"?"":a`<section class="card" aria-labelledby="t-prev">
           <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
-            <button type="button" class="btn btn-g" aria-expanded=${this.yamlOpen?"true":"false"} @click=${()=>{this.yamlOpen=!this.yamlOpen}}>${this.yamlOpen?t("closeA"):t("open")}</button></div>
+            <button type="button" class="btn btn-g arrow" aria-expanded=${this.yamlOpen?"true":"false"} @click=${()=>{this.yamlOpen=!this.yamlOpen}}>${this.yamlOpen?t("closeA"):t("open")}</button></div>
           ${this.yamlOpen?a`<div class="code" style="white-space:pre-wrap">${this.yaml?this.yaml.replace(/([,;])(?=\S)/g,"$1\u200B"):"\u2026"}</div>`:""}
           ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([l,d])=>a`<div><span class="mono">${l}</span>: ${D(d)}</div>`)}</div>`:""}
         </section>`}
@@ -823,6 +823,8 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
     .toggle-head { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0;
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+    .toggle-head .chip::after, .arrow::after { content: "›"; font-size: 18px; line-height: 1; margin-left: 2px; transition: transform .15s; }
+    .toggle-head[aria-expanded="true"] .chip::after, .arrow[aria-expanded="true"]::after { transform: rotate(90deg); }
     .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
     .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
