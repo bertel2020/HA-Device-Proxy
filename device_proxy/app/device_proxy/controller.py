@@ -22,6 +22,7 @@ import contextlib
 import errno
 import logging
 import os
+import re
 import socket
 import struct
 import time
@@ -651,14 +652,26 @@ class Controller:
 
     # traces
 
-    async def _trace_tick(self) -> None:
-        settings = self.config.settings
+    def _trace_names(self) -> list[tuple[Connection, str]]:
+        """Enabled connection → the name of its recording files."""
         taken: set[str] = set()
-        aliases = {
-            c.alias: (readable_alias(c.name, taken), c.trace)
+        return [
+            (c, readable_alias(c.name, taken))
             for c in self.active + self.config.proxied
             if c.enabled
-        }
+        ]
+
+    def _trace_files(self) -> list[dict[str, object]]:
+        """The recordings, each with the connection it belongs to (if it still exists)."""
+        owner = {name: c.id for c, name in self._trace_names()}
+        return [
+            {**f, "connection": owner.get(re.split(r"\.(?:log|jsonl)", str(f["name"]))[0])}
+            for f in self.trace.files()
+        ]
+
+    async def _trace_tick(self) -> None:
+        settings = self.config.settings
+        aliases = {c.alias: (name, c.trace) for c, name in self._trace_names()}
         await self.trace.poll(aliases, settings.trace_file_mb << 20, settings.trace_keep)
 
     def live(self, connection_id: str, limit: int = 200) -> list[Chunk]:
@@ -1097,7 +1110,7 @@ class Controller:
             if self.uses_custom
             else [],
             "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
-            "trace_files": self.trace.files(),
+            "trace_files": self._trace_files(),
             "mqtt": self.mqtt.state,
             "capture": self.captures.current.to_dict() if self.captures.current else None,
             "enocean_status_port": self.enocean_ha.port,

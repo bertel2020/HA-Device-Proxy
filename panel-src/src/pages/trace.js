@@ -2,17 +2,21 @@ import { css, html } from "lit";
 import { api, saveConnection, toConnection, url } from "../api.js";
 import { Page } from "../app.js";
 import { t } from "../i18n.js";
-import { confirmDialog, fmtBytes, fmtTime, icon, navigate } from "../ui.js";
+import { confirmDialog, copyText, fmtBytes, fmtTime, icon, navigate } from "../ui.js";
 
 const MODES = ["off", "rx", "tx", "both"];
+const KEEP = 400;
+const PATH = "/addon_configs/…_device_proxy/trace/";
 
 export class TracePage extends Page {
-  static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true } };
+  static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true } };
 
   static styles = [...Page.styles, css`
-    .conn { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; }
+    .conn { padding: 4px 12px; border-radius: 12px; border: 1px solid transparent; }
     .conn.on { background: var(--accent-soft); border-color: var(--accent); }
-    .pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; min-height: 40px; justify-content: center; width: 100%; }
+    .pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; min-height: 48px; justify-content: center; width: 100%; }
+    .rec { color: var(--bad, #c0392b); }
+    .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
     .view table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .view td { border: none; padding: 2px 8px; white-space: pre; }
@@ -47,15 +51,23 @@ export class TracePage extends Page {
     if (this.paused || !this.selected || document.hidden) return;
     try {
       const fresh = await api(`api/live/${this.selected}?after=${this._after}`);
-      if (fresh.length) { this._after = fresh[fresh.length - 1].seq; this.chunks = [...this.chunks, ...fresh].slice(-400); }
+      if (fresh.length) { this._after = fresh[fresh.length - 1].seq; this.chunks = [...this.chunks, ...fresh].slice(-KEEP); }
     } catch { /* shown by the frame */ }
   }
 
   async _mode(c, trace) {
+    if (c.trace === trace) return;
     try {
       await saveConnection({ ...toConnection(c), trace });
+      this.toast(trace === "off" ? t("recStopped", { n: c.name }) : t("recStarted", { n: c.name, m: this._label(c, trace) }));
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  _label(c, mode) { return t(c.kind === "modbus" ? `trmb_${mode}` : `tr_${mode}`); }
+
+  async _copyPath() {
+    if (await copyText(PATH)) { this.copied = true; setTimeout(() => { this.copied = false; }, 1500); }
   }
 
   async _delete(name) {
@@ -67,6 +79,9 @@ export class TracePage extends Page {
     const s = this.state;
     const current = this.connection(this.selected);
     const files = s.trace_files;
+    const rows = this.chunks.slice(-200);
+    const locked = s.source === "custom" && current?.kind === "serial";
+    const name = (id) => s.connections.find((c) => c.id === id)?.name;
     return html`
       <div class="head"><div><h1>${t("traceTitle")}</h1><p class="sub">${t("traceSub")}</p></div></div>
       <div class="cols">
@@ -74,35 +89,48 @@ export class TracePage extends Page {
           <h2 id="t-conns" style="padding:8px 8px 4px">${t("navConnections")}</h2>
           ${s.connections.map((c) => html`<div class="conn ${c.id === this.selected ? "on" : ""}">
             <button class="pick" aria-current=${c.id === this.selected ? "true" : "false"} @click=${() => navigate(`#/trace/${c.id}`)}>
-              <b style="font-weight:500">${c.name}</b><span class="hint">${c.trace === "off" ? t("notRecording") : t("recording", { m: t(`tr_${c.trace}`) })}</span></button>
-            <div class="seg" role="group" aria-label="${t("traceMode")} ${c.name}">${MODES.map((m) => html`<button type="button" aria-pressed=${c.trace === m ? "true" : "false"}
-              ?disabled=${s.source === "custom" && c.kind === "serial"} @click=${() => this._mode(c, m)}>${m === "off" ? t("off") : m === "both" ? t("both") : m.toUpperCase()}</button>`)}</div>
+              <b style="font-weight:500">${c.name}</b>
+              <span class="hint ${c.trace === "off" ? "" : "rec"}">${c.trace === "off" ? t("notRecording") : html`● ${t("recording", { m: this._label(c, c.trace) })}`}</span></button>
           </div>`)}
           <p class="hint" style="padding:10px 8px 4px">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
         </section>
         <div class="main-col">
           <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-view">
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
-              <h2 id="t-view">${current ? current.name : "–"}</h2>
-              <div style="display:flex;gap:4px">
+              <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
+                <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}</p></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
                 <button class="btn btn-g" @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>
-                <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button></div></div>
-            ${this.chunks.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${this.chunks.slice(-200).reverse().map((ch) => html`<tr>
-              <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}</td>
+                <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
+                <button class="btn btn-g" ?disabled=${!this.chunks.length} @click=${() => { this.chunks = []; }}>${t("clearView")}</button></div></div>
+            ${current ? html`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
+              <div class="seg" role="group" aria-label="${t("traceMode")} ${current.name}">${MODES.map((m) => html`<button type="button" aria-pressed=${current.trace === m ? "true" : "false"}
+                ?disabled=${locked} @click=${() => this._mode(current, m)}>${m === "off" ? t("off") : this._label(current, m)}</button>`)}</div>
+              <span class="hint" style="margin-left:auto">${this.chunks.length ? t("linesShown", { n: rows.length }) : ""}${this.paused ? ` · ${t("paused")}` : ""}</span></div>` : ""}
+            ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
+              <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
               <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
               ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}<td>${ch.hex || ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}</tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
-            <div class="row"><h2 id="t-files">${t("files")}</h2><span class="hint mono">/addon_configs/…_device_proxy/trace/</span></div>
-            ${files.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("fileTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
-              <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size:13px">${f.name}</td><td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
+            <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
+              <button class="btn btn-g mono" style="font-size:12px" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
+            ${files.length ? html`<div class="scroll"><table style="min-width:560px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
+              <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size:13px">${f.name}</td>
+                <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}</td>
+                <td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
                 <td style="text-align:right;white-space:nowrap;padding:4px 0 4px 8px">
                   <a class="btn btn-g" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download aria-label="${f.name} ${t("download")}">${icon("download", 16)}</a>
                   <button class="btn btn-d" @click=${() => this._delete(f.name)}>${t("delete")}</button></td></tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="font-size:14px">–</p>`}
+              : html`<p class="hint" style="font-size:14px">${t("noFiles")}</p>`}
           </section>
         </div>
       </div>`;
+  }
+
+  _time(ts) {
+    const d = new Date(ts * 1000);
+    return `${d.toLocaleTimeString(undefined, { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
   }
 }
