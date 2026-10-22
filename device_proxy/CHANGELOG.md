@@ -5,6 +5,11 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Allowed clients**: new EnOcean gateways leave the field empty, so they follow the network setting
+  like the other kinds (before, they were limited to Home Assistant and apps and eo_man or PCT14 in
+  the home network could not connect without a change). The button "Only Home Assistant and apps"
+  stays for an own limit. The Z-Wave stick keeps its preset and says why: it takes commands and has
+  no login. Existing connections keep what they have.
 - **Choice tiles** (gateway template, connection kind, settings): all tiles of a group are the same
   size in an even grid (seven templates sit four and three instead of six and one), and the chosen
   one is marked without its content moving.

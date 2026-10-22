@@ -461,7 +461,7 @@ export class EditPage extends Page {
         <li><b>${d.esp_protocol.toUpperCase()} · ${t(`eolink_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
       ${d.bind && d.bind.startsWith("127.") ? html`<div class="note info">${this._follows(d)}</div>`
-        : html`<div class="note ${d.remaddr === HA_ONLY ? "info" : "warn"}">${d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr || t("eoAllNets") })}</div>`}
+        : html`<div class="note ${d.remaddr && d.remaddr !== HA_ONLY ? "warn" : "info"}">${!d.remaddr ? this._follows(d) : d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr })}</div>`}
       ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
     </section>`;
   }
@@ -534,7 +534,7 @@ export class EditPage extends Page {
           <div class="fld"><span class="lbl" id="l-mode">${t("mode")}</span>
             <div class="seg" role="group" aria-labelledby="l-mode">${["raw", "rfc2217", "telnet"].map((m) => html`<button type="button" aria-pressed=${d.mode === m ? "true" : "false"} @click=${() => this._set({ mode: m })}>${m === "rfc2217" ? "RFC2217" : m}</button>`)}</div>
             <span class="hint">${t(`mode_${d.mode}`)}</span></div>
-          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
+          ${this._input("remaddr", t("allowed"), { mono: true, hint: d.template === "zwave" ? `${t("remaddrHint")} ${t("remaddrZwave")}` : t("remaddrHint") })}
           ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
           <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
         </section>

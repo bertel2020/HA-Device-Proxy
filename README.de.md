@@ -82,7 +82,7 @@ Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Dokumentati
 ## Sicherheit in Kürze
 
 - Die Ports sind roher TCP ohne Anmeldung. Neue Verbindungen nehmen Clients nur aus privaten Netzen an; die Z-Wave-Vorlage beschränkt sie auf Home Assistant und seine Apps. Unter **Einstellungen → Netzwerk** lässt sich das weiter einschränken, und die Heimnetze, die als „LAN“ gelten, lassen sich als Liste festlegen.
-- Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. EnOcean-Gateways nehmen nur Home Assistant und die Apps an, solange keine weiteren Adressen erlaubt sind.
+- Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. Wer sich verbinden darf, folgt bei allen Arten der Netzwerk-Einstellung, solange eine Verbindung keine eigene Vorgabe hat.
 - Die Admin-Schnittstelle von ser2net ist nur innerhalb der App erreichbar; die Weboberfläche nur über Home Assistant (Ingress).
 - Die Diagnose lässt Hostnamen und Personennamen weg.
 

@@ -210,9 +210,10 @@ like ser2net would.
 | PioTek MGW-ETH | ESP3 | TCP, port 5100 (one session only: share it through this app) |
 | Symcon LAN | ESP3 | TCP, port 5000 |
 
-**Who may connect**: new gateways take Home Assistant and the other apps only
-(`127.0.0.1, 172.30.32.0/23`). The app runs in the host network, so add the address of a PC
-with eo_man or PCT14 under **Access** when it should connect too.
+**Who may connect**: new gateways follow the network setting, like the other kinds, so a PC
+with eo_man or PCT14 in the home network can connect at once. To limit one gateway, enter
+addresses or networks under **Allowed clients**, or press "Only Home Assistant and apps"
+(`127.0.0.1, 172.30.32.0/23`).
 
 **Replay**: the EnOcean Eltako integration asks for it (`EOPX REPLAY TS`) after every
 connect. Radio telegrams that arrive while no such program is connected, e.g. during a Home
