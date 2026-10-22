@@ -7,13 +7,21 @@ host's LAN address. A connection limited to this host ("local") is only reachabl
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import os
 import urllib.request
 from typing import Any
 
-from .model import Connection, Settings, client_allowed
+from .model import (
+    APPS_NETWORKS,
+    PRIVATE_NETWORKS,
+    Connection,
+    Settings,
+    client_allowed,
+    parse_networks,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +31,22 @@ APP_SOURCE = "172.30.33.2"  # a typical source address of another app
 
 def _allowed(c: Connection, settings: Settings, source: str) -> bool:
     return client_allowed(c.remaddr, settings.listen, source)
+
+
+def _lan_allowed(c: Connection, settings: Settings) -> bool:
+    """May any machine outside this host and the app network connect? The host's own LAN
+    address is no client, so it is not tested as one."""
+    if not c.remaddr and settings.listen not in ("apps", "lan"):
+        return True
+    own = [ipaddress.ip_network(n) for n in APPS_NETWORKS]
+    networks = (
+        parse_networks(c.remaddr)
+        if c.remaddr
+        else [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+        if settings.listen == "lan"
+        else []
+    )
+    return any(not any(n.version == o.version and n.subnet_of(o) for o in own) for n in networks)
 
 
 def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dict[str, Any]]:
@@ -41,7 +65,9 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         why = ""
         if not reachable:
             why = "local"
-        elif source and not _allowed(c, settings, source):
+        elif target == "lan" and not _lan_allowed(c, settings):
+            reachable, why = False, "clients" if c.remaddr else "network"
+        elif target != "lan" and source and not _allowed(c, settings, source):
             reachable, why = False, "clients" if c.remaddr else "network"
         shown = f"[{host}]" if ":" in host else host
         if c.kind == "modbus":
