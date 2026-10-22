@@ -812,7 +812,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         ${n.length?"":a`<p class="hint" style="padding:32px 16px;text-align:center;font-size:14px">${t("noEntries")}</p>`}</div>
     </section>`}_historyView(){if(!this.stats||!this.history)return a`<p class="hint">${t("loading")}</p>`;let e=this.stats.days,n=this.state.connections.filter(i=>!this.conn||i.id===this.conn),s=new Map;for(let i of this._filtered(this.history)){let o=new Date(i.ts*1e3).toDateString();s.has(o)||s.set(o,[]),s.get(o).push(i)}return a`
       <div class="stats">${n.map(i=>{let o=this.stats.connections[i.id]||{drops:0,availability:1,per_day:Array(e).fill(0)},l=Math.max(...o.per_day,1);return a`<section class="card" aria-label=${i.name} style="gap:10px">
-          <div class="row"><b style="font-weight:500">${i.name}</b><span class="chip ${o.drops?"warn":"ok"}">${o.drops?t("unstable",{n:o.drops}):t("stable")}</span></div>
+          <div class="row" style="flex-wrap:nowrap"><b style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${i.name}>${i.name}</b><span class="chip ${o.drops?"warn":"ok"}" style="flex:none">${o.drops?t("unstable",{n:o.drops}):t("stable")}</span></div>
           <div style="display:flex;gap:20px">
             <div><div class="hint">${t("drops",{d:e})}</div><div style="font-size:22px;font-weight:500">${o.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(o.availability*100).toLocaleString(_,{maximumFractionDigits:2})} %</div></div></div>

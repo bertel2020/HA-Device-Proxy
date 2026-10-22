@@ -107,7 +107,7 @@ export class EventsPage extends Page {
         const st = this.stats.connections[c.id] || { drops: 0, availability: 1, per_day: Array(days).fill(0) };
         const max = Math.max(...st.per_day, 1);
         return html`<section class="card" aria-label=${c.name} style="gap:10px">
-          <div class="row"><b style="font-weight:500">${c.name}</b><span class="chip ${st.drops ? "warn" : "ok"}">${st.drops ? t("unstable", { n: st.drops }) : t("stable")}</span></div>
+          <div class="row" style="flex-wrap:nowrap"><b style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${c.name}>${c.name}</b><span class="chip ${st.drops ? "warn" : "ok"}" style="flex:none">${st.drops ? t("unstable", { n: st.drops }) : t("stable")}</span></div>
           <div style="display:flex;gap:20px">
             <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size:22px;font-weight:500">${st.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
