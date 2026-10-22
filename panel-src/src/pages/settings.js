@@ -55,7 +55,7 @@ export class SettingsPage extends Page {
     .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; }
     .sentence .num { width: 72px; text-align: center; padding: 0 8px; }
-    .grp .grid2 { align-items: start; }
+    .grp .grid2, .expert-body .grid2 { align-items: start; }
     .grp .fld { justify-content: flex-start; }
     .fld .hint { color: var(--muted); }
     .inp:disabled { opacity: .5; cursor: not-allowed; }

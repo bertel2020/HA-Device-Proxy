@@ -9,6 +9,8 @@
   for confirmation first, reads the value back afterwards and says whether it matches, and writes an
   event to the log. It stays locked on connections whose write access is "Nobody". The Read button
   moved into the row of fields.
+- **Settings**: the three fields under MQTT "Advanced" line up at the top; the hint of the first no
+  longer pushes the others down.
 - **Live data** (detail page and recording): time and direction take only the room they need; on
   Modbus and EnOcean the description and the bytes share a line and wrap only when the card is
   narrow, instead of breaking every 16 bytes.
