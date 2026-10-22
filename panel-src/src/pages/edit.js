@@ -220,7 +220,9 @@ export class EditPage extends Page {
     const mine = before?.enocean?.base_id, theirs = b.enocean?.base_id;
     const base = mine && theirs ? (mine === theirs ? t("fbBaseSame", { id: mine }) : t("fbBaseDiffers", { b: b.name, theirs, mine })) : t("fbBaseUnknown");
     const clients = b.clients.length ? t("fbConfirmClients", { n: b.clients.length }) : "";
-    return confirmDialog(this, t("fbConfirm", { a: d.name, b: b.name, p: b.port, clients, base }), t("fbConfirmBtn"));
+    // the integration asks for the replay: a client with it is most likely its entry for B
+    const integration = t(b.clients.some((cl) => cl.replay) ? "fbConfirmIntegration" : "fbConfirmIntegrationMaybe", { b: b.name });
+    return confirmDialog(this, `${t("fbConfirm", { a: d.name, b: b.name, p: b.port, clients, base })} ${integration}`, t("fbConfirmBtn"));
   }
 
   async _save(e) {
