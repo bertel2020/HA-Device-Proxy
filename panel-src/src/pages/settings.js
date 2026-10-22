@@ -216,12 +216,13 @@ export class SettingsPage extends Page {
     const own = s.source === "custom";
     const conns = s.connections || [];
     const noClient = conns.some((c) => c.notify_no_client);
+    const deviating = conns.filter((c) => c.bind || c.remaddr).length;
     const gateways = conns.filter((c) => c.kind === "enocean" && c.enabled).length;
     const check = this.customCheck;
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNetNav"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -229,8 +230,10 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}</b><span class="hint">${v === "lan" && s.lan_net ? t("netsub_lan_net", { net: s.lan_net }) : t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:11px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" && s.lan_net ? t("netsub_lan_net", { net: s.lan_net }) : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
+          ${deviating ? html`<div class="hint" style="font-size:13px">${deviating === 1 ? t("netDeviateOne") : t("netDeviateMany", { n: deviating })} <a href="#/connections">${t("netDeviateLink")}</a></div>` : ""}
+          <div class="hint">${t("netChangeHint")}</div>
         </section>
 
         <section id="src" class="card" aria-labelledby="t-src">
