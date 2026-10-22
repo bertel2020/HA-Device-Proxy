@@ -313,11 +313,8 @@ export class DetailPage extends Page {
     const ha = c.addresses.find((a) => a.target === "ha");
     if (!ha || !ha.reachable) return "";
     const yaml = `modbus:\n  - name: ${JSON.stringify(c.name)}\n    type: tcp\n    host: ${ha.host}\n    port: ${c.port}\n    # ${t("haSnippetComment")}`;
-    const row = (label, value, key) => html`<div class="row" style="justify-content:flex-start;gap:12px"><span class="hint" style="min-width:48px">${label}</span><span class="mono">${value}</span>
-      <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(key, String(value))}>${this.copied === key ? t("copied") : t("copy")}</button></div>`;
     return html`<section class="card" aria-labelledby="t-ha">
-      <div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haUiSteps")}</p></div>
-      <div class="well" style="display:flex;flex-direction:column;gap:4px">${row("Host", ha.host, "ha-host")}${row("Port", c.port, "ha-port")}</div>
+      <div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haUiSteps", { h: ha.host, p: c.port })}</p></div>
       <p class="hint" style="margin:0">${t("haUnitHint")} <a href="https://www.home-assistant.io/integrations/modbus/" target="_blank" rel="noopener">${t("haDocs")}</a></p>
       <details style="border-top:1px solid var(--line-2);padding-top:10px"><summary class="hint" style="cursor:pointer">${t("haYamlSummary")}</summary>
         <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("haYamlSub")}</p>
