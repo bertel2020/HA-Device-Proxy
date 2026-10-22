@@ -22,7 +22,7 @@ export class TracePage extends Page {
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
     .view table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .view td { border: none; padding: 2px 8px; white-space: pre; }
-    .dir { display: inline-block; min-width: 30px; text-align: center; border-radius: 6px; padding: 0 6px; }
+    .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
   `];
 
@@ -114,7 +114,7 @@ export class TracePage extends Page {
                 <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
             ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
               <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
-              <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
+              <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction === "rx" || ch.direction === "tx" ? t(`${current && current.kind === "modbus" ? "dirmb" : "dir"}_${ch.direction}`) : ch.direction.toUpperCase()}</span></td>
               ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}<td>${ch.hex || ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}</tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>
