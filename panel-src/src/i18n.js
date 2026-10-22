@@ -20,6 +20,7 @@ const TEXT = {
     stuck: "Client {a} liest nicht", lineErrors: "{n} Leitungsfehler", latencyRO: "FTDI-Latenz nicht änderbar", keptOpen: "Gerät offen gehalten",
     // detail
     live: "Live-Daten", liveSub: "Gelesen aus dem Mitschnitt von ser2net – belegt keinen Client-Platz.", pause: "Pausieren", resume: "Fortsetzen",
+    liveShow: "Anzeigen", liveHide: "Einklappen", liveLast: "zuletzt {ago}", liveRate: "{n} Blöcke/s", liveRateMb: "{n} Anfragen/s", liveNone: "noch keine Daten", liveAutoOpen: "Die Karte öffnet sich, sobald Daten kommen.",
     hexOnly: "Nur Hex", hexAscii: "Hex + ASCII", liveEmpty: "Noch keine Daten. ser2net öffnet das Gerät erst, wenn ein Client verbunden ist – oder mit „Gerät offen halten“.",
     clientTh: "Client", sinceTh: "Verbunden seit", toClient: "an Client", fromClient: "vom Client", queued: "Warteschlange",
     addresses: "Adressen zum Kopieren", target_ha: "Home Assistant (Integrationen)", target_apps: "Andere Apps (z. B. Z-Wave JS UI)", target_lan: "Andere Rechner im LAN",
@@ -362,6 +363,7 @@ const TEXT = {
     toSettings: "To the settings",
     stuck: "Client {a} does not read", lineErrors: "{n} line errors", latencyRO: "FTDI latency cannot be changed", keptOpen: "Device kept open",
     live: "Live data", liveSub: "Read from ser2net's trace – takes no client place.", pause: "Pause", resume: "Resume",
+    liveShow: "Show", liveHide: "Collapse", liveLast: "last {ago}", liveRate: "{n} blocks/s", liveRateMb: "{n} requests/s", liveNone: "no data yet", liveAutoOpen: "The card opens as soon as data arrives.",
     hexOnly: "Hex only", hexAscii: "Hex + ASCII", liveEmpty: "No data yet. ser2net opens the device only while a client is connected – or with “keep device open”.",
     clientTh: "Client", sinceTh: "Connected since", toClient: "to client", fromClient: "from client", queued: "Queue",
     addresses: "Addresses to copy", target_ha: "Home Assistant (integrations)", target_apps: "Other apps (e.g. Z-Wave JS UI)", target_lan: "Other computers in the LAN",

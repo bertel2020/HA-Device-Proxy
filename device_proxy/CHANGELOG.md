@@ -16,6 +16,9 @@
   connection card with the real networks and reachability per target.
 - **Events**: Live and History share one filter bar and one row format; log sorted by time with day rows, level buttons with counts, plain-language
   connection errors, names link to the connection, labelled history bars.
+- **Live data** on the detail page can be collapsed to one living line (last data, rate, last
+  block); the choice is remembered per connection, a card never opened yet opens when data
+  arrives, and a collapsed card polls only every five seconds.
 - **Trace**: one recording switch for the chosen connection in plain words, live view with line
   count, clear and millisecond times, recorded files name their connection, copyable path.
 - **Import**: collisions in plain words, select all, the connections "Replace all" removes are

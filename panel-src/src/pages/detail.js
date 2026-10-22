@@ -72,15 +72,33 @@ export class DetailPage extends Page {
   }
 
   willUpdate(changed) {
-    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._samples = []; this.search = ""; this.dir = ""; }
+    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this.search = ""; this.dir = ""; }
     if (changed.has("state")) {
       const c = this.connection(this.connectionId);
       if (c) this._samples = [...this._samples, c.rate_from_device].slice(-SAMPLES);
     }
   }
 
+  /** The saved choice for this connection's live card: "1" open, "0" closed, null never chosen. */
+  _pref() {
+    try { return localStorage.getItem(`device_proxy.live.${this.connectionId}`); } catch { return null; }
+  }
+
+  _setOpen(open) {
+    try { localStorage.setItem(`device_proxy.live.${this.connectionId}`, open ? "1" : "0"); } catch { /* private window */ }
+    this.requestUpdate();
+  }
+
+  _liveOpen() {
+    const pref = this._pref();
+    return pref === "1" || (pref === null && this.chunks.length > 0);
+  }
+
   async _poll() {
     if (this.paused || !this.connectionId || document.hidden) return;
+    this._n = (this._n || 0) + 1;
+    if (!this._liveOpen() && (this._n - 1) % 5) return; // closed: only now and then, for the summary line
+    this.requestUpdate();
     try {
       const fresh = await api(`api/live/${this.connectionId}?after=${this._after}`);
       if (fresh.length) {
@@ -234,11 +252,25 @@ export class DetailPage extends Page {
     const all = this.chunks.slice(-300).reverse(); // newest first, like the event log
     const rows = (enocean ? all.filter((ch) => this._matches(ch)) : all).slice(0, 120);
     const sender = (info) => (info.match(/[0-9A-F]{2}(-[0-9A-F]{2}){3}/) || [])[0];
+    if (!this._liveOpen()) {
+      const last = this.chunks[this.chunks.length - 1];
+      const recent = this.chunks.filter((ch) => ch.ts > Date.now() / 1000 - 10).length;
+      const rate = recent ? Math.round((recent / 10) * 10) / 10 : 0;
+      const line = last ? (last.info || last.hex || last.text || "") : "";
+      return html`<section class="card" aria-labelledby="t-live" style="gap:6px">
+        <div class="row"><div><h2 id="t-live" style="display:inline">${t("live")}</h2>
+          <span class="hint"> · <span class="dot" style="color:${last ? "var(--ok)" : "var(--muted)"}"></span>${last ? `${t("liveLast", { ago: fmtAgo(last.ts) })}${rate ? ` · ${t(modbus ? "liveRateMb" : "liveRate", { n: rate.toLocaleString() })}` : ""}` : t("liveNone")}</span></div>
+          <button class="btn btn-g" @click=${() => this._setOpen(true)}>${t("liveShow")}</button></div>
+        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(undefined, { hour12: false })} · ${last.direction.toUpperCase()} · ${line}</div>`
+          : html`<p class="hint" style="margin:0">${t(enocean ? "liveEmptyEo" : modbus ? "liveEmptyMb" : "liveEmpty")} ${t("liveAutoOpen")}</p>`}
+      </section>`;
+    }
     return html`<section class="card" aria-labelledby="t-live">
       <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}</p></div>
         <div style="display:flex;gap:4px">
           ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
+          <button class="btn btn-g" @click=${() => this._setOpen(false)}>${t("liveHide")}</button>
         </div></div>
       ${enocean ? html`<div class="row" style="justify-content:flex-start;gap:8px">
         <input class="inp" style="flex:1 1 200px" type="search" aria-label=${t("eoSearch")} placeholder=${t("eoSearch")} .value=${this.search} @input=${(e) => { this.search = e.target.value; }}>
