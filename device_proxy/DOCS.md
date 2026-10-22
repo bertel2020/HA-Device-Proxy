@@ -235,7 +235,7 @@ told it. Tools:
 - **Gateway test**: reads the base ID ten times; nothing goes over the air.
 - **Send a frame**: one whole frame as hex, checked while you type (sync, length, ESP2
   checksum, ESP3 CRCs), with a button to add or fix the checksum; the answer is shown.
-- **Capture**: every frame in both directions as JSON lines (time, gateway, direction, kind,
+- **Record frames (PCT14)**: a single recording of every frame in both directions as JSON lines (time, gateway, direction, kind,
   program, hex) into the trace folder, at most 50 MB; listed, downloaded and deleted on the
   **Trace** page. Optionally only one program may send meanwhile, e.g. PCT14 reading a FAM14:
   the frames of the others are held back and the app's own tools wait.

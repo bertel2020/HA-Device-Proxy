@@ -12,6 +12,8 @@
 - **Detail page (EnOcean)**: the six counters of the gateway card sit in an even grid of three by two,
   like the tiles of the other cards (value on top, label below); card headers line up across a
   pair; the clients table fits its card instead of being cut off.
+- **EnOcean tools**: the "Capture" tool is called "Record frames (PCT14)" (German: "Telegramme
+  aufzeichnen") and says how it differs from the permanent trace, so the two are not mixed up.
 - **Settings**: the log section says it is the technical log for troubleshooting, where to find it in
   Home Assistant and how it differs from the Events tab.
 - **Settings**: the three fields under MQTT "Advanced" line up at the top; the hint of the first no
