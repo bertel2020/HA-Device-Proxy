@@ -4,7 +4,7 @@ import { ConnectionsPage } from "./pages/connections.js";
 import { DetailPage } from "./pages/detail.js";
 import { EditPage } from "./pages/edit.js";
 import { EventsPage } from "./pages/events.js";
-import { ImportPage } from "./pages/import.js";
+import { ImportDialog } from "./pages/import.js";
 import { SettingsPage } from "./pages/settings.js";
 import { TracePage } from "./pages/trace.js";
 
@@ -16,7 +16,7 @@ const elements = {
   "dp-edit": EditPage,
   "dp-enocean-tools": EnOceanTools,
   "dp-events": EventsPage,
-  "dp-import": ImportPage,
+  "dp-import": ImportDialog,
   "dp-settings": SettingsPage,
   "dp-trace": TracePage,
 };

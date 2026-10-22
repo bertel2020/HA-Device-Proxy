@@ -1,16 +1,20 @@
 import { css, html } from "lit";
-import { api, url } from "../api.js";
+import { api } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
 import { fmtSerial, icon, modbusTarget } from "../ui.js";
 
-export class ImportPage extends Page {
+/** The import as a dialog over any page: choose a file, check the preview, done. */
+export class ImportDialog extends Page {
   static properties = {
     state: { attribute: false }, text: { state: true }, preview: { state: true }, replaceAll: { state: true },
-    take: { state: true }, choice: { state: true }, done: { state: true }, error: { state: true }, disabled: { state: true }, busy: { state: true },
+    take: { state: true }, choice: { state: true }, done: { state: true }, error: { state: true }, busy: { state: true },
   };
 
   static styles = [...Page.styles, css`
+    .back { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-start; justify-content: center; z-index: 20; padding: 24px 16px; overflow-y: auto; }
+    .box { background: var(--surface); border-radius: 16px; padding: 22px; max-width: 760px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+    .box > section.card { border: 0; padding: 0; box-shadow: none; background: none; }
     .steps { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
     .steps li { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 6px; border-radius: 18px; font-weight: 500;
       background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
@@ -29,25 +33,12 @@ export class ImportPage extends Page {
     this.replaceAll = false;
     this.take = new Set();
     this.choice = {};
-    this.disabled = true;
   }
 
   async _file(file) {
     if (!file) return;
     this.text = await file.text();
     this._preview();
-  }
-
-  async _fromEnOceanProxy() {
-    this.error = "";
-    try {
-      const found = await api("api/import/enocean_proxy");
-      this.text = found.text;
-      if (found.state === "started") this.toast(t("eoImportRunning"));
-      this._preview();
-    } catch (err) {
-      this.error = t("eoImportFailed", { e: err.message });
-    }
   }
 
   async _preview() {
@@ -91,10 +82,8 @@ export class ImportPage extends Page {
       <label class="fld"><span class="lbl">${t("pasteHere")}</span>
         <textarea class="inp mono" rows="6" .value=${this.text} @input=${(e) => { this.text = e.target.value; }}></textarea></label>
       ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}
-      <div><button class="btn btn-s" ?disabled=${!this.text.trim()} @click=${this._preview}>${t("readPreview")}</button></div>
-      <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
-        <div><b style="font-weight:500">${t("eoImportTitle")}</b><p class="hint">${t("eoImportSub")}</p></div>
-        <button class="btn btn-s" @click=${this._fromEnOceanProxy}>${icon("enocean")}${t("eoImportBtn")}</button></div>
+      <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn btn-g" @click=${this._close}>${t("cancel")}</button>
+        <button class="btn btn-p" ?disabled=${!this.text.trim()} @click=${this._preview}>${t("readPreview")}</button></div>
     </section>`;
   }
 
@@ -136,29 +125,28 @@ export class ImportPage extends Page {
         })}</tbody></table></div>
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:16px">
         <span class="hint" style="font-size:13px">${t("selected", { n: count, m: p.items.length })}</span>
-        <div style="display:flex;gap:8px"><a class="btn btn-g" href="#/connections">${t("cancel")}</a>
+        <div style="display:flex;gap:8px"><button class="btn btn-g" @click=${this._close}>${t("cancel")}</button>
           <button class="btn btn-p" ?disabled=${!count || this.busy} @click=${this._apply}>${t("apply", { n: count })}</button></div>
       </div></section>`;
   }
 
+  _close() {
+    this.dispatchEvent(new CustomEvent("dp-import-close", { bubbles: true, composed: true }));
+  }
+
+  firstUpdated() { this.renderRoot.querySelector(".box").focus(); }
+
   render() {
     const step = this.done ? 2 : this.preview ? 1 : 0;
-    return html`
-      <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${t("importTitle")}</p>
-      <h1 style="margin:12px 0 20px">${t("importTitle")}</h1>
-      <div class="cols"><div class="main-col">
+    return html`<div class="back" @keydown=${(e) => e.key === "Escape" && this._close()}>
+      <div class="box" role="dialog" aria-modal="true" aria-labelledby="t-imp" tabindex="-1">
+        <div class="row"><h2 id="t-imp" style="margin:0">${t("importTitle")}</h2>
+          <button class="btn btn-g" aria-label=${t("close")} @click=${this._close}>${icon("x")}</button></div>
         ${this._steps(step)}
         ${this.done ? html`<section class="card" style="align-items:flex-start"><span class="chip ok">${t("stepDone")}</span>
           <h2>${t("doneTitle", { n: this.done.changes.filter((c) => c.change === "added").length })}</h2><p class="hint" style="font-size:14px">${t("doneText")}</p>
-          <div style="display:flex;gap:8px"><a class="btn btn-p" href="#/connections">${t("toConnections")}</a><a class="btn btn-s" href="#/settings">${t("sHistory")}</a></div></section>`
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-p" href="#/connections" @click=${this._close}>${t("toConnections")}</a><a class="btn btn-s" href="#/settings" @click=${this._close}>${t("sHistory")}</a></div></section>`
           : this.preview ? this._previewView() : this._choose()}
-      </div>
-      <aside class="side-col">
-        <section class="card" aria-labelledby="t-exp"><h2 id="t-exp">${t("exportTitle")}</h2><p class="hint" style="font-size:14px">${t("exportText")}</p>
-          <label class="chk"><input type="checkbox" .checked=${this.disabled} @change=${(e) => { this.disabled = e.target.checked; }}><span>${t("exportDisabled")}</span></label>
-          <a class="btn btn-s" style="align-self:flex-start" href=${url(`api/export?disabled=${this.disabled ? 1 : 0}`)} download>${icon("download")}${t("download")}</a></section>
-        <section class="card" aria-labelledby="t-own"><h2 id="t-own">${t("ownTitle")}</h2><p class="hint" style="font-size:14px">${t("ownText")}</p>
-          <a href="#/settings">${t("toSource")}</a></section>
-      </aside></div>`;
+      </div></div>`;
   }
 }

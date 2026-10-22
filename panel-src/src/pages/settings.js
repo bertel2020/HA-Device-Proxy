@@ -19,7 +19,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -71,6 +71,7 @@ export class SettingsPage extends Page {
 
   connectedCallback() {
     super.connectedCallback();
+    this.exportDisabled = true;
     this.open = -1;
     this.diffs = {};
     this._loadVersions();
@@ -239,10 +240,11 @@ export class SettingsPage extends Page {
         <section id="src" class="card" aria-labelledby="t-src">
           <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
           <div class="acts">
-            <a class="act" href="#/import"><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></a>
-            <a class="act" href=${url("api/export")} download><b>${icon("download")}${t("srcExport")}</b><span>${t("srcExportSub")}</span></a>
+            <button class="act" @click=${() => this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true }))}><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></button>
+            <a class="act" href=${url(`api/export?disabled=${this.exportDisabled ? 1 : 0}`)} download><b>${icon("download")}${t("srcExport")}</b><span>${t("srcExportSub")}</span></a>
             <button class="act ${this.runtime ? "on" : ""}" aria-expanded=${this.runtime ? "true" : "false"} @click=${this._toggleRuntime}><b>${icon("file")}${t("srcRuntime")}</b><span>${t("srcRuntimeSub")}</span></button>
           </div>
+          <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
           ${this.runtime ? html`
             <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
               <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>

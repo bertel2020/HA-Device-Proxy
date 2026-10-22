@@ -1,5 +1,5 @@
 import { css, html } from "lit";
-import { api } from "../api.js";
+import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { t } from "../i18n.js";
 import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, primaryAddress, proxyTarget, toggle } from "../ui.js";
@@ -8,6 +8,8 @@ const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
 
 export class ConnectionsPage extends Page {
+  _openImport() { this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true })); }
+
   static properties = { state: { attribute: false }, copied: { state: true }, busy: { state: true }, filter: { state: true } };
 
   static styles = [...Page.styles, css`
@@ -136,7 +138,8 @@ export class ConnectionsPage extends Page {
       <div class="head">
         <div><h1>${t("connectionsTitle")}</h1><p class="sub">${t("connectionsSub")}</p></div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <a class="btn btn-s" href="#/import">${icon("upload")}${t("importExport")}</a>
+          <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("srcImport")}</button>
+          <a class="btn btn-s" href=${url("api/export")} download>${icon("download")}${t("srcExport")}</a>
           <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a>
         </div>
       </div>
@@ -157,7 +160,7 @@ export class ConnectionsPage extends Page {
       ${list.length ? html`<div class="cards">${list.map((c) => this._card(c, s.ser2net_running, own))}</div>` : html`
         <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size:14px">${t("emptyText")}</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
-            <a class="btn btn-s" href="#/import">${icon("upload")}${t("emptyImport")}</a>
+            <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("emptyImport")}</button>
             <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a></div></section>`}`;
   }
 }

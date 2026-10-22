@@ -17,6 +17,7 @@ export class DeviceProxyApp extends LitElement {
     route: { state: true },
     offline: { state: true },
     toast: { state: true },
+    importOpen: { state: true },
   };
 
   static styles = [tokens, base, css`
@@ -44,6 +45,7 @@ export class DeviceProxyApp extends LitElement {
     this.offline = false;
     this.toast = "";
     this._seq = 0;
+    this.importOpen = false;
     this.route = this._parse();
     this._onHash = () => { this.route = this._parse(); window.scrollTo(0, 0); };
   }
@@ -53,6 +55,8 @@ export class DeviceProxyApp extends LitElement {
     window.addEventListener("hashchange", this._onHash);
     this.addEventListener("dp-refresh", () => this.refresh());
     this.addEventListener("dp-toast", (e) => this.showToast(e.detail));
+    this.addEventListener("dp-import-open", () => { this.importOpen = true; });
+    this.addEventListener("dp-import-close", () => { this.importOpen = false; });
     this.addEventListener("dp-lang", (e) => { setLang(e.detail); document.documentElement.lang = e.detail; this.requestUpdate(); this._relayLang(); });
     document.documentElement.lang = lang;
     this._loadHistory();
@@ -76,6 +80,11 @@ export class DeviceProxyApp extends LitElement {
 
   _parse() {
     const parts = (location.hash.replace(/^#\/?/, "") || "connections").split("/");
+    if (parts[0] === "import") {  // the old page address: the dialog over the connections
+      this.importOpen = true;
+      history.replaceState(null, "", "#/connections");
+      return { page: "connections", id: "" };
+    }
     return { page: parts[0], id: parts[1] || "" };
   }
 
@@ -120,7 +129,6 @@ export class DeviceProxyApp extends LitElement {
     switch (page) {
       case "connection": return html`<dp-detail .state=${s} .events=${ev} .connectionId=${id}></dp-detail>`;
       case "edit": return html`<dp-edit .state=${s} .connectionId=${id}></dp-edit>`;
-      case "import": return html`<dp-import .state=${s}></dp-import>`;
       case "events": return html`<dp-events .state=${s} .events=${ev}></dp-events>`;
       case "trace": return html`<dp-trace .state=${s} .selected=${id}></dp-trace>`;
       case "settings": return html`<dp-settings .state=${s}></dp-settings>`;
@@ -131,7 +139,7 @@ export class DeviceProxyApp extends LitElement {
   render() {
     const s = this.state;
     const page = this.route.page;
-    const section = ["connection", "edit", "import"].includes(page) ? "connections" : page;
+    const section = ["connection", "edit"].includes(page) ? "connections" : page;
     const tab = (key, label) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${t(label)}</a>`;
     const running = s && s.ser2net_running;
     // ser2net only matters with serial connections (or the own ser2net.yaml)
@@ -153,6 +161,7 @@ export class DeviceProxyApp extends LitElement {
       </div></header>
       ${this.offline ? html`<div class="offline"><div class="note warn" role="status">${t("connectionLost")}</div></div>` : ""}
       <main>${this._page()}</main>
+      ${this.importOpen && s ? html`<dp-import .state=${s}></dp-import>` : ""}
       ${this.toast ? html`<div class="toast" role="status">${this.toast}</div>` : ""}`;
   }
 }
