@@ -210,8 +210,16 @@ export class SettingsPage extends Page {
             <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)}
               @input=${(e) => { this.draft = { ...this.draft, mqtt_interval: Number(e.target.value || 0) }; }}></label>
           </div>
+          <div><b style="font-weight:500">${t("mqttOwnBroker")}</b><p class="hint" style="margin-top:4px">${t("mqttOwnBrokerSub")}</p></div>
+          <div class="grid2">
+            <label class="fld"><span class="lbl">${t("mqttHost")}</span><input class="inp mono" placeholder=${t("mqttHostAuto")} .value=${d.mqtt_host} @input=${(e) => { this.draft = { ...this.draft, mqtt_host: e.target.value.trim() }; }}></label>
+            <label class="fld"><span class="lbl">${t("mqttPort")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_port)} @input=${(e) => { this.draft = { ...this.draft, mqtt_port: Number(e.target.value || 0) }; }}></label>
+            <label class="fld"><span class="lbl">${t("mqttUser")}</span><input class="inp" autocomplete="off" .value=${d.mqtt_user} @input=${(e) => { this.draft = { ...this.draft, mqtt_user: e.target.value }; }}></label>
+            <label class="fld"><span class="lbl">${t("mqttPassword")}</span><input class="inp" type="password" autocomplete="new-password" .value=${d.mqtt_password} @input=${(e) => { this.draft = { ...this.draft, mqtt_password: e.target.value }; }}></label>
+          </div>
+          <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_tls} @change=${(e) => { this.draft = { ...this.draft, mqtt_tls: e.target.checked }; }}><span>${t("mqttTls")}</span></label>
           <p class="hint">${t("mqttNames")}</p>
-          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">

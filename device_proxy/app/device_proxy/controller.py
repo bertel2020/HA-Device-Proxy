@@ -61,7 +61,16 @@ STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
 TRACE_POLL = 0.5  # seconds between reads of the traces
 NOTIFY_POLL = 5  # seconds between checks for notifications
-MQTT_KEYS = ("mqtt_enabled", "mqtt_prefix", "mqtt_base")
+MQTT_KEYS = (
+    "mqtt_enabled",
+    "mqtt_prefix",
+    "mqtt_base",
+    "mqtt_host",
+    "mqtt_port",
+    "mqtt_user",
+    "mqtt_password",
+    "mqtt_tls",
+)
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
 JOBS_KEPT = 20  # finished tool runs kept for the web interface
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification

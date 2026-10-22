@@ -141,3 +141,44 @@ def test_notifications_update_retry_and_follow_the_language() -> None:
         assert sent[-1][1]["message"] == "OK again"
 
     asyncio.run(run())
+
+
+def test_diagnostics_hide_the_own_mqtt_broker_and_its_login() -> None:
+    import io
+    import zipfile
+
+    from device_proxy.diagnostics import build
+
+    config = {
+        "settings": {
+            "mqtt_host": "emqx.example.org",
+            "mqtt_user": "anna",
+            "mqtt_password": "geheim",
+        },
+        "connections": [],
+    }
+    data = build(
+        version="1",
+        ser2net_version="4",
+        snapshot={"error": "cannot reach emqx.example.org"},
+        config=config,
+        runtime_yaml="",
+        events=[],
+    )
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    text = "".join(archive.read(n).decode() for n in archive.namelist())
+    assert "emqx.example" not in text and "geheim" not in text and "anna" not in text
+    assert "mqtt-host" in text
+
+
+def test_own_mqtt_broker_settings_are_checked() -> None:
+    import pytest
+
+    from device_proxy.model import Settings, ValidationError
+
+    settings = Settings.from_dict({"mqtt_host": "emqx", "mqtt_port": 8883, "mqtt_tls": True})
+    assert (settings.mqtt_host, settings.mqtt_port, settings.mqtt_tls) == ("emqx", 8883, True)
+    with pytest.raises(ValidationError):
+        Settings.from_dict({"mqtt_host": "not a host"})
+    with pytest.raises(ValidationError):
+        Settings.from_dict({"mqtt_port": 0})

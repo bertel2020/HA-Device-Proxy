@@ -51,9 +51,13 @@ def private_names(config: dict[str, Any]) -> dict[str, str]:
         host = str(c.get("host") or "")
         if host and not re.fullmatch(r"[0-9A-Fa-f:.\[\]]+", host):  # not an address
             names.setdefault(host, f"host-{len(names) + 1}")
-    service = str((config.get("settings") or {}).get("notify_service") or "")
+    settings = config.get("settings") or {}
+    service = str(settings.get("notify_service") or "")
     if service:
         names[service] = "notify-service"
+    broker = str(settings.get("mqtt_host") or "")
+    if broker and not re.fullmatch(r"[0-9A-Fa-f:.\[\]]+", broker):
+        names[broker] = "mqtt-host"
     return names
 
 
@@ -67,6 +71,13 @@ def build(
     events: list[dict[str, Any]],
 ) -> bytes:
     snapshot = dict(snapshot)
+    config = {
+        **config,
+        "settings": {
+            k: ("***" if k in ("mqtt_user", "mqtt_password") and v else v)
+            for k, v in (config.get("settings") or {}).items()
+        },
+    }
     for c in snapshot.get("connections", []):
         c["clients"] = len(c.get("clients", []))  # how many, not who
         c.pop("addresses", None)

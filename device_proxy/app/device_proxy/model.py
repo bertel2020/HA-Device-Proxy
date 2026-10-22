@@ -368,6 +368,11 @@ class Settings:
     mqtt_prefix: str = "homeassistant"
     mqtt_base: str = "device_proxy"
     mqtt_interval: int = 10  # seconds between state updates
+    mqtt_host: str = ""  # "" = the broker the Supervisor offers
+    mqtt_port: int = 1883
+    mqtt_user: str = ""
+    mqtt_password: str = ""
+    mqtt_tls: bool = False
     # EnOcean gateways for the EnOcean Eltako integration (enocean_ha.py)
     enocean_discovery: bool = True
     enocean_status_port: int = 9199  # read-only status, for Home Assistant and the apps only
@@ -416,6 +421,10 @@ class Settings:
         for key in ("mqtt_prefix", "mqtt_base"):
             if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
                 e[key] = "an MQTT topic without wildcards"
+        if settings.mqtt_host and not re.fullmatch(r"[A-Za-z0-9_.:\[\]-]+", settings.mqtt_host):
+            e["mqtt_host"] = "a host name or address"
+        if not 1 <= settings.mqtt_port <= 65535:
+            e["mqtt_port"] = "1 to 65535"
         if not 2 <= settings.mqtt_interval <= 3600:
             e["mqtt_interval"] = "2 to 3600 seconds"
         if not 1024 <= settings.enocean_status_port <= 65535:

@@ -90,7 +90,17 @@ class HaBridge:
     async def run(self, stop: asyncio.Event) -> None:
         if not self.c.config.settings.mqtt_enabled:
             return
-        self.broker = await asyncio.to_thread(supervisor_broker)
+        settings = self.c.config.settings
+        if settings.mqtt_host:
+            self.broker = Broker(
+                settings.mqtt_host,
+                settings.mqtt_port,
+                settings.mqtt_user,
+                settings.mqtt_password,
+                settings.mqtt_tls,
+            )
+        else:
+            self.broker = await asyncio.to_thread(supervisor_broker)
         if self.broker is None:
             _LOGGER.info("MQTT: no broker in Home Assistant, entities are off")
             return
