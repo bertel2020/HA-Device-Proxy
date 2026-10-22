@@ -82,6 +82,7 @@ export class TracePage extends Page {
     const current = this.connection(this.selected);
     const files = s.trace_files;
     const rows = this.chunks.slice(-200);
+    const file = current && current.trace !== "off" ? files.filter((f) => f.connection === current.id).sort((a, b) => b.modified - a.modified)[0] : null;
     const locked = s.source === "custom" && current?.kind === "serial";
     const name = (id) => s.connections.find((c) => c.id === id)?.name;
     return html`
@@ -101,7 +102,7 @@ export class TracePage extends Page {
           <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-view">
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
               <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
-                <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}</p></div>
+                <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}${this.chunks.length ? ` · ${t("linesShown", { n: rows.length })}` : ""}${this.paused ? ` · ${t("paused")}` : ""}</p></div>
               <div style="display:flex;gap:4px;flex-wrap:wrap">
                 <div class="seg" role="group" aria-label=${t("liveView")}>${[[false, "hexOnly"], [true, "hexAscii"]].map(([v, k]) => html`<button type="button" aria-pressed=${this.ascii === v ? "true" : "false"} @click=${() => { this.ascii = v; }}>${t(k)}</button>`)}</div>
                 <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
@@ -109,7 +110,8 @@ export class TracePage extends Page {
             ${current ? html`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
               <div class="seg" role="group" aria-label="${t("traceMode")} ${current.name}">${MODES.map((m) => html`<button type="button" aria-pressed=${current.trace === m ? "true" : "false"}
                 ?disabled=${locked} @click=${() => this._mode(current, m)}>${m === "off" ? t("off") : this._label(current, m)}</button>`)}</div>
-              <span class="hint" style="margin-left:auto">${this.chunks.length ? t("linesShown", { n: rows.length }) : ""}${this.paused ? ` · ${t("paused")}` : ""}</span></div>` : ""}
+              ${file ? html`<span class="hint" style="margin-left:auto">${t("recFile")}: <span class="mono">${file.name}</span> · ${fmtBytes(file.size)}
+                <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
             ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
               <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
               <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>

@@ -84,7 +84,7 @@ const TEXT = {
     today: "Heute", yesterday: "Gestern", summed: "{n}× zusammengefasst",
     // trace
     traceTitle: "Mitschnitt", traceSub: "Bytes zwischen Gerät und Clients. Aufzeichnen trennt keine Clients; Dateien rotieren automatisch.",
-    liveView: "Live-Ansicht", liveCap: "Die letzten {n} Zeilen im Browser – nicht die Datei.", clearView: "Leeren", recMode: "In Datei aufzeichnen", linesShown: "{n} Zeilen", recFiles: "Aufgezeichnete Dateien", connTh: "Verbindung", copyPath: "Pfad kopieren", noConnection: "nicht mehr vorhanden", noFiles: "Noch keine Dateien. Sie entstehen, sobald eine Verbindung aufzeichnet.", recStarted: "{n}: Aufzeichnung ein ({m})", recStopped: "{n}: Aufzeichnung aus",
+    liveView: "Live-Ansicht", liveCap: "Die letzten {n} Zeilen im Browser – nicht die Datei.", clearView: "Leeren", recMode: "In Datei aufzeichnen", linesShown: "{n} Zeilen angezeigt", recFile: "Datei", recFiles: "Aufgezeichnete Dateien", connTh: "Verbindung", copyPath: "Pfad kopieren", noConnection: "nicht mehr vorhanden", noFiles: "Noch keine Dateien. Sie entstehen, sobald eine Verbindung aufzeichnet.", recStarted: "{n}: Aufzeichnung ein ({m})", recStopped: "{n}: Aufzeichnung aus",
     recording: "zeichnet auf · {m}", notRecording: "keine Aufzeichnung", files: "Dateien", fileTh: "Datei", sizeTh: "Größe", changedTh: "Geändert",
     rotation: "Rotation: {mb} MB je Datei · {k} ältere behalten", change: "ändern", deleteFile: "„{n}“ löschen?",
     // settings
@@ -422,7 +422,7 @@ const TEXT = {
     moreEntries: "and {n} more entries that day", daysAgo: "{d} days ago",
     today: "Today", yesterday: "Yesterday", summed: "{n}× summed up",
     traceTitle: "Trace", traceSub: "Bytes between device and clients. Recording disconnects no client; files rotate on their own.",
-    liveView: "Live view", liveCap: "The last {n} lines in the browser – not the file.", clearView: "Clear", recMode: "Record to file", linesShown: "{n} lines", recFiles: "Recorded files", connTh: "Connection", copyPath: "Copy path", noConnection: "no longer exists", noFiles: "No files yet. They appear as soon as a connection records.", recStarted: "{n}: recording on ({m})", recStopped: "{n}: recording off",
+    liveView: "Live view", liveCap: "The last {n} lines in the browser – not the file.", clearView: "Clear", recMode: "Record to file", linesShown: "{n} lines shown", recFile: "File", recFiles: "Recorded files", connTh: "Connection", copyPath: "Copy path", noConnection: "no longer exists", noFiles: "No files yet. They appear as soon as a connection records.", recStarted: "{n}: recording on ({m})", recStopped: "{n}: recording off",
     recording: "recording · {m}", notRecording: "not recording", files: "Files", fileTh: "File", sizeTh: "Size", changedTh: "Changed",
     rotation: "Rotation: {mb} MB per file · {k} older kept", change: "change", deleteFile: "Delete “{n}”?",
     settingsTitle: "Settings", sNetNav: "Network", netDefault: "Default", netDeviateOne: "One connection has its own bind address or allowed clients and does not follow this setting.", netDeviateMany: "{n} connections have their own bind addresses or allowed clients and do not follow this setting.", netDeviateLink: "Go to the connections", netChangeHint: "Switching briefly disconnects all clients.", download: "Download", sNet: "Who may connect?", sNetSub: "Applies to all connections without their own bind address or their own allowed clients.",
