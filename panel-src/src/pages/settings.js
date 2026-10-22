@@ -48,6 +48,13 @@ export class SettingsPage extends Page {
     pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre; }
     details.expert > summary { cursor: pointer; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 32px; }
     .expert-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; }
+    .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .grp .grid2 { align-items: start; }
+    .grp .fld { justify-content: flex-start; }
+    .fld .hint { color: var(--muted); }
+    .inp:disabled { opacity: .5; cursor: not-allowed; }
     .day { font-size: 12px; font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
     .day:first-child { margin-top: 0; }
     .hrow { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; border-radius: 8px; }
@@ -206,6 +213,8 @@ export class SettingsPage extends Page {
     const s = this.state, d = this.draft;
     if (!d) return "";
     const own = s.source === "custom";
+    const conns = s.connections || [];
+    const noClient = conns.some((c) => c.notify_no_client);
     const check = this.customCheck;
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
@@ -263,20 +272,37 @@ export class SettingsPage extends Page {
 
         <section id="notify" class="card" aria-labelledby="t-notify">
           <div><h2 id="t-notify">${t("sNotify")}</h2><p class="hint" style="margin-top:4px">${t("sNotifySub")}</p></div>
-          <div class="grid2">
-            <label class="fld"><span class="lbl">${t("notifyGrace")}</span><input class="inp" inputmode="numeric" .value=${String(d.notify_grace)}
-              @input=${(e) => { this.draft = { ...d, notify_grace: Number(e.target.value || 0) }; }}></label>
-            <label class="fld"><span class="lbl">${t("noClientMinutes")}</span><input class="inp" inputmode="numeric" .value=${String(d.no_client_minutes)}
-              @input=${(e) => { this.draft = { ...d, no_client_minutes: Number(e.target.value || 0) }; }}></label>
-            <label class="fld"><span class="lbl">${t("notifyService")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_service: e.target.value }; }}>
-              <option value="" ?selected=${!d.notify_service}>${t("notifyNone")}</option>
-              ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} ?selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
-            <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
-              <option value="de" ?selected=${d.notify_language === "de"}>Deutsch</option><option value="en" ?selected=${d.notify_language === "en"}>English</option></select></label>
+          <div class="grp">
+            <h3>${t("nWhat")}</h3>
+            <div class="grid2" style="gap:6px 24px">${[["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) =>
+              html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
+            <div class="pills">${[["notify_missing", "nMissing"], ["notify_no_client", "nNoClient"], ["silence_minutes", "nNoData"]].map(([k, l]) => {
+              const n = conns.filter((c) => c[k]).length;
+              return html`<span class="chip ${n ? "ok" : ""}">${t(l)} · ${t("nOf", { n, m: conns.length })}</span>`;
+            })}<a href="#/connections" style="font-size:13px">${t("nPerConnection")}</a></div>
           </div>
-          <div class="grid2" style="gap:6px 16px">${[["notify_dismiss", "notifyDismiss"], ["notify_resolved", "notifyResolved"], ["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) =>
-            html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
-          <p class="hint">${t("notifyPerConnection")}</p>
+          <div class="grp">
+            <h3>${t("nWhen")}</h3>
+            <div class="grid2">
+              <label class="fld"><span class="lbl">${t("notifyGrace")}</span><input class="inp" inputmode="numeric" .value=${String(d.notify_grace)}
+                @input=${(e) => { this.draft = { ...d, notify_grace: Number(e.target.value || 0) }; }}><span class="hint">${t("notifyGraceHint")}</span></label>
+              <label class="fld"><span class="lbl">${t("noClientMinutes")}</span><input class="inp" inputmode="numeric" ?disabled=${!noClient} .value=${String(d.no_client_minutes)}
+                @input=${(e) => { this.draft = { ...d, no_client_minutes: Number(e.target.value || 0) }; }}><span class="hint">${noClient ? t("noClientHint") : t("noClientOff")}</span></label>
+            </div>
+          </div>
+          <div class="grp">
+            <h3>${t("nWhere")}</h3>
+            <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("nBell")}</div>
+            <label class="chk"><input type="checkbox" .checked=${!!d.notify_dismiss} @change=${(e) => { this.draft = { ...this.draft, notify_dismiss: e.target.checked }; }}><span>${t("notifyDismiss")}</span></label>
+            <div class="grid2">
+              <label class="fld"><span class="lbl">${t("notifyService")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_service: e.target.value }; }}>
+                <option value="" ?selected=${!d.notify_service}>${t("notifyNone")}</option>
+                ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} ?selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
+              <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
+                <option value="de" ?selected=${d.notify_language === "de"}>Deutsch</option><option value="en" ?selected=${d.notify_language === "en"}>English</option></select><span class="hint">${t("notifyLanguageHint")}</span></label>
+            </div>
+            <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
+          </div>
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 
