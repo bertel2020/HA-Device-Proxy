@@ -131,12 +131,6 @@ export function connectionState(c, ser2netRunning) {
   return ["stRunning", "ok"];
 }
 
-export const primaryAddress = (c) => {
-  const lan = c.addresses.find((a) => a.target === "lan" && a.reachable);
-  const pick = lan || c.addresses.find((a) => a.target === "ha");
-  return pick ? Object.values(pick.urls)[0] : "";
-};
-
 export const navigate = (hash) => { location.hash = hash; };
 
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */

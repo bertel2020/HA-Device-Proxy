@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { plain, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
+import { confirmDialog, connectionState, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -18,7 +18,7 @@ function reach(s) {
 export class ConnectionsPage extends Page {
   _openImport() { this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true })); }
 
-  static properties = { state: { attribute: false }, copied: { state: true }, busy: { state: true }, filter: { state: true } };
+  static properties = { state: { attribute: false }, busy: { state: true }, filter: { state: true } };
 
   static styles = [...Page.styles, css`
     .band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
@@ -55,8 +55,9 @@ export class ConnectionsPage extends Page {
     .iconbtn:hover { background: var(--line); color: var(--text); }
     .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
-    .addr { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 2px 2px 2px 12px; min-width: 0; max-width: 100%; }
-    .addr .mono { font-size: 13px; overflow-wrap: anywhere; }
+    .last { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-width: 0; }
+    .last .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+    .last.warn .dot { background: var(--warn); }
     .empty { text-align: center; padding: 48px 20px; align-items: center; }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
     .filters button { min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface);
@@ -87,11 +88,11 @@ export class ConnectionsPage extends Page {
     }
   }
 
-  async _copy(c) {
-    if (await copyText(primaryAddress(c))) {
-      this.copied = c.id;
-      setTimeout(() => { if (this.copied === c.id) this.copied = ""; }, 2000);
-    }
+  /** Whether data still arrives: the one thing the overview is looked at for once a connection is set up. */
+  _last(c, stateClass) {
+    if (stateClass !== "ok") return html`<span></span>`; // otherwise the state chip says what is wrong
+    const quiet = c.last_data && c.silence_minutes && Date.now() / 1000 - c.last_data >= c.silence_minutes * 60;
+    return html`<span class="last ${quiet ? "warn" : ""}"><span class="dot"></span>${c.last_data ? t("lastDataAgo", { ago: fmtAgo(c.last_data) }) : t("noDataYet")}</span>`;
   }
 
   _card(c, running, own) {
@@ -148,8 +149,7 @@ export class ConnectionsPage extends Page {
           : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       </div>
       <div class="foot">
-        <div class="addr" title=${modbus ? `${primaryAddress(c)} ${t("hostPort")}` : primaryAddress(c)}><span class="mono">${primaryAddress(c)}</span>
-          <button class="btn btn-g" style="min-height:36px;padding:0 10px" @click=${() => this._copy(c)} aria-label=${this.copied === c.id ? t("copied") : t("copy")} title=${this.copied === c.id ? t("copied") : t("copy")}>${icon(this.copied === c.id ? "check" : "copy", 16)}</button></div>
+        ${this._last(c, stateClass)}
         <div style="display:flex;gap:4px;align-items:center"><a class="btn btn-s" href="#/connection/${c.id}">${t("details")}</a>
           <a class="iconbtn" href="#/edit/${c.id}" aria-label=${t("edit")} title=${t("edit")}>${icon("pencil", 18)}</a></div>
       </div>
