@@ -107,18 +107,20 @@ export class ConnectionsPage extends Page {
     if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
     const tech = [t(`kind_${c.kind}`), ...chips].join(" · ");
     const stuck = c.clients.filter((cl) => cl.stuck);
-    const hasChips = c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
+    const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) }) : "";
+    const hasChips = recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
     return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name} data-go
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
       <div class="top">
         <div style="min-width:0">
-          <div class="title"><span class="kind" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>${c.trace !== "off" ? html`<span class="chip">${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}</span>` : ""}</div>
+          <div class="title"><span class="kind" title=${t(`kind_${c.kind}`)}>${icon(c.kind, 20)}</span><h2>${c.name}</h2><span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span></div>
           <div class="dev mono">${proxied ? proxyTarget(c) : c.device}${c.tty && c.tty !== c.device ? html` → ${c.tty}` : ""}</div>
         </div>
         ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), own || this.busy === c.id)}
       </div>
       <div class="tech">${tech}</div>
       ${hasChips ? html`      <div class="chips">
+        ${recording ? html`<span class="chip info"><span class="dot"></span>${recording}</span>` : ""}
         ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
         ${enocean && c.clients.some((cl) => cl.replay) ? html`<span class="chip info">${t("eoReplayChip")}</span>` : ""}
         ${enocean && eo && eo.duty_cycle.of_limit >= 80 ? html`<span class="chip bad">${t("eoDutyHigh")}</span>` : ""}
