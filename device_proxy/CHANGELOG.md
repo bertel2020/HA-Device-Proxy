@@ -9,6 +9,8 @@
   for confirmation first, reads the value back afterwards and says whether it matches, and writes an
   event to the log. It stays locked on connections whose write access is "Nobody". The Read button
   moved into the row of fields.
+- **Settings**: the log section says it is the technical log for troubleshooting, where to find it in
+  Home Assistant and how it differs from the Events tab.
 - **Settings**: the three fields under MQTT "Advanced" line up at the top; the hint of the first no
   longer pushes the others down.
 - **Live data** (detail page and recording): time and direction take only the room they need; on
