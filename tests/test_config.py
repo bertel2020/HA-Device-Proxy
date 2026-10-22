@@ -150,3 +150,18 @@ def test_saving_without_a_change_makes_no_new_version(tmp_path: Path) -> None:
     store.save(AppConfig(), config, "test")
     store.save(config, config, "ui")
     assert len(store.versions()) == 1
+
+
+def test_history_names_the_new_settings_values_but_not_secrets() -> None:
+    from dataclasses import replace
+
+    from device_proxy.model import AppConfig, Settings
+    from device_proxy.store import changes
+
+    old = AppConfig()
+    new = AppConfig(
+        settings=replace(Settings(), listen="apps", mqtt_user="anna", mqtt_password="geheim")
+    )
+    [item] = changes(old, new)
+    assert item["values"] == {"listen": "apps"}
+    assert item["fields"] == ["listen", "mqtt_user", "mqtt_password"]

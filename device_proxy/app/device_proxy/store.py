@@ -15,7 +15,8 @@ from .model import AppConfig, ValidationError
 _LOGGER = logging.getLogger(__name__)
 
 PATH = Path("/data/config.json")
-KEEP_VERSIONS = 20
+KEEP_VERSIONS = 25
+SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, never the value
 
 
 Change = dict[str, Any]  # {"connection": name | None, "change": ..., "fields": [...]}
@@ -45,7 +46,8 @@ def changes(old: AppConfig, new: AppConfig) -> list[Change]:
     if old.settings != new.settings:
         old_s, new_s = old.settings.to_dict(), new.settings.to_dict()
         keys = [k for k in new_s if old_s[k] != new_s[k]]
-        items.append({"connection": None, "change": "settings", "fields": keys})
+        values = {k: new_s[k] for k in keys if k not in SECRET_SETTINGS}
+        items.append({"connection": None, "change": "settings", "fields": keys, "values": values})
     return sorted(items, key=lambda item: (item["connection"] or "", item["change"]))
 
 

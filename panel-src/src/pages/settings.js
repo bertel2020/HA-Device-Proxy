@@ -20,7 +20,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -36,6 +36,17 @@ export class SettingsPage extends Page {
     .card { scroll-margin-top: calc(var(--header-h) + 16px); }
     ol { list-style: none; margin: 0; padding: 0; }
     li { border-top: 1px solid var(--line-2); padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+    ol.hist li { padding: 0; gap: 0; }
+    .day { font-size: 12px; font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
+    .day:first-child { margin-top: 0; }
+    .hrow { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; border-radius: 8px; }
+    .hrow:hover { background: var(--line-2); }
+    .hrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .hrow .chev { flex: none; width: 7px; height: 7px; margin: 0 4px 0 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+    .hrow[aria-expanded="true"] .chev { transform: rotate(45deg); }
+    .hrow .tm { flex: none; width: 44px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .hrow .tx { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+    .hbody { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px 69px; align-items: flex-start; }
     textarea.editor { min-height: 260px; font-size: 12px; line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }
   `];
 
@@ -103,16 +114,58 @@ export class SettingsPage extends Page {
     }
   }
 
-  async _toggleDiff(index) {
-    if (this.open === index) { this.open = -1; return; }
-    this.open = index;
-    const v = this.versions[index], before = this.versions[index + 1];
+  async _toggleDiff(group) {
+    const v = group.ids[0];
+    if (this.open === v.id) { this.open = -1; return; }
+    this.open = v.id;
     if (this.diffs[v.id] !== undefined) return;
+    const before = this.versions[this.versions.indexOf(group.ids[group.ids.length - 1]) + 1];
     try {
       const after = await api(`api/versions/${v.id}`);
       const prior = before ? await api(`api/versions/${before.id}`) : { connections: [] };
       this.diffs = { ...this.diffs, [v.id]: lineDiff(JSON.stringify(prior, null, 1), JSON.stringify(after, null, 1)) };
     } catch { this.diffs = { ...this.diffs, [v.id]: "–" }; }
+  }
+
+  /** The versions newest first, equal neighbours as one row, under day headings. */
+  _history() {
+    const groups = [];
+    for (const v of this.versions || []) {
+      const text = this._changeLine(v), last = groups[groups.length - 1];
+      if (last && last.text === text && last.source === v.source) last.ids.push(v);
+      else groups.push({ text, source: v.source, ids: [v] });
+    }
+    return groups;
+  }
+
+  _day(ts) {
+    const d = new Date(ts * 1000), today = new Date();
+    if (d.toDateString() === today.toDateString()) return t("today");
+    if (d.toDateString() === new Date(today.getTime() - 86400000).toDateString()) return t("yesterday");
+    return d.toLocaleDateString(lang, { weekday: "short", day: "2-digit", month: "2-digit" });
+  }
+
+  _historyRows() {
+    const groups = this._history();
+    const shown = this.histAll ? groups : groups.slice(0, 5);
+    let day = "";
+    const rows = shown.map((g) => {
+      const v = g.ids[0], label = this._day(v.ts), open = this.open === v.id, first = v === this.versions[0];
+      const heading = label !== day ? html`<div class="day">${label}</div>` : "";
+      day = label;
+      return html`${heading}<li>
+        <button class="hrow" aria-expanded=${open ? "true" : "false"} @click=${() => this._toggleDiff(g)}>
+          <span class="chev"></span><span class="tm">${fmtTime(v.ts, false)}</span><span class="tx">${g.text}</span>
+          ${g.ids.length > 1 ? html`<span class="chip">${g.ids.length}×</span>` : ""}
+          ${v.source !== "ui" ? html`<span class="chip">${t(`src_${v.source}`)}</span>` : ""}
+          ${first ? html`<span class="chip info">${t("current")}</span>` : ""}</button>
+        ${open ? html`<div class="hbody">
+          <div class="code" style="background:var(--surface-2);color:var(--text);align-self:stretch">${this.diffs[v.id] ?? t("loading")}</div>
+          ${first ? "" : html`<button class="btn btn-s" @click=${() => this._restore(v)}>${t("restore")}</button>`}</div>` : ""}
+      </li>`;
+    });
+    const rest = groups.length - 5;
+    return html`<ol class="hist">${rows}</ol>${rest > 0 ? html`<div><button class="btn btn-g" @click=${() => { this.histAll = !this.histAll; }}>${this.histAll ? t("histLess") : t("histMore", { n: rest })}</button></div>` : ""}`;
   }
 
   async _restore(v) {
@@ -169,14 +222,7 @@ export class SettingsPage extends Page {
 
         <section id="hist" class="card" aria-labelledby="t-hist">
           <div class="row"><h2 id="t-hist">${t("sHistory")}</h2><span class="hint">${t("sHistorySub")}</span></div>
-          <ol>${(this.versions || []).map((v, i) => html`<li>
-            <div class="row"><div style="min-width:0"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span style="font-weight:500">${this._changeLine(v)}</span>
-              ${i === 0 ? html`<span class="chip info">${t("current")}</span>` : ""}</div>
-              <div class="hint">${fmtTime(v.ts)} · ${t(`src_${v.source}`)}</div></div>
-              <div style="display:flex;gap:4px"><button class="btn btn-g" aria-expanded=${this.open === i ? "true" : "false"} @click=${() => this._toggleDiff(i)}>${this.open === i ? t("hide") : t("diff")}</button>
-                ${i ? html`<button class="btn btn-s" @click=${() => this._restore(v)}>${t("restore")}</button>` : ""}</div></div>
-            ${this.open === i ? html`<div class="code" style="background:var(--surface-2);color:var(--text)">${this.diffs[v.id] ?? t("loading")}</div>` : ""}
-          </li>`)}</ol>
+          ${this._historyRows()}
         </section>
 
         <section id="notify" class="card" aria-labelledby="t-notify">

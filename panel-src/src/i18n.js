@@ -84,7 +84,7 @@ const TEXT = {
     sSource: "Konfigurationsquelle", sSourceSub: "Formulare oder eine eigene ser2net.yaml für Sonderfälle.", forms: "Formulare", own: "Eigene ser2net.yaml",
     ownHint: "Nur serielle Verbindungen stehen in dieser Datei. Modbus und EnOcean verwaltet die App selbst.", ownWarn: "Solange die eigene Datei aktiv ist, werden die Formulare nicht verwendet. Ohne admin-Abschnitt: die App fügt ihren eigenen an.",
     check: "Prüfen", saveFile: "Speichern", saveUse: "Speichern und verwenden", checkOk: "Gültig · {n} Verbindungen", notChecked: "Noch nicht geprüft",
-    sHistory: "Konfig-Historie", sHistorySub: "die letzten 20 Stände", current: "aktuell", diff: "Unterschiede", hide: "Ausblenden", restore: "Wiederherstellen",
+    sHistory: "Konfig-Historie", sHistorySub: "die letzten 25 Stände", current: "aktuell", diff: "Unterschiede", hide: "Ausblenden", restore: "Auf diesen Stand zurücksetzen", histMore: "Weitere {n} Stände anzeigen", histLess: "Weniger anzeigen", histOn: "an", histOff: "aus",
     listenConfirm: "Erreichbarkeit ändern? Die Clients aller Verbindungen werden dabei getrennt.", ownConfirm: "Eigene ser2net.yaml verwenden? Alle Verbindungen aus den Formularen werden abgeschaltet.",
     restoreConfirm: "Diesen Stand wiederherstellen? Geänderte Verbindungen werden neu aufgebaut.", src_ui: "Oberfläche", src_import: "Import", src_custom: "eigene Datei", src_restore: "Wiederherstellung", src_test: "Test",
     sLogging: "Logging und Speicher", logLevel: "Log-Level", historyDays: "Historie aufbewahren (Tage)", traceMb: "Mitschnitt: Größe je Datei (MB)", traceKeep: "Mitschnitt: ältere Dateien",
@@ -413,7 +413,7 @@ const TEXT = {
     sSource: "Configuration source", sSourceSub: "Forms, or your own ser2net.yaml for special cases.", forms: "Forms", own: "Own ser2net.yaml",
     ownHint: "Only serial connections are in this file. The app manages Modbus and EnOcean itself.", ownWarn: "While your own file is in use, the forms are not used. No admin section: the app adds its own.",
     check: "Check", saveFile: "Save", saveUse: "Save and use", checkOk: "Valid · {n} connections", notChecked: "Not checked yet",
-    sHistory: "Configuration history", sHistorySub: "the last 20 versions", current: "current", diff: "Differences", hide: "Hide", restore: "Restore",
+    sHistory: "Configuration history", sHistorySub: "the last 25 versions", current: "current", diff: "Differences", hide: "Hide", restore: "Restore this version", histMore: "Show {n} more versions", histLess: "Show fewer", histOn: "on", histOff: "off",
     listenConfirm: "Change who can reach the devices? The clients of all connections are disconnected.", ownConfirm: "Use your own ser2net.yaml? All connections from the forms are switched off.",
     restoreConfirm: "Restore this version? Changed connections are rebuilt.", src_ui: "web interface", src_import: "import", src_custom: "own file", src_restore: "restore", src_test: "test",
     sLogging: "Logging and storage", logLevel: "Log level", historyDays: "Keep history (days)", traceMb: "Trace: size per file (MB)", traceKeep: "Trace: older files",
@@ -797,17 +797,49 @@ export const t = (key, params) => fill(TEXT[lang][key] ?? TEXT.en[key] ?? key, p
 
 const STATE_WORDS = { de: { active: "aktiv", disabled: "deaktiviert" }, en: {} };
 const CHANGE_WORDS = {
-  de: { added: "hinzugefügt", removed: "entfernt", enabled: "aktiviert", disabled: "deaktiviert", settings: "Einstellungen" },
-  en: { added: "added", removed: "removed", enabled: "enabled", disabled: "disabled", settings: "settings" },
+  de: { added: "hinzugefügt", removed: "entfernt", enabled: "aktiviert", disabled: "deaktiviert", settings: "Einstellungen", changed: "geändert" },
+  en: { added: "added", removed: "removed", enabled: "enabled", disabled: "disabled", settings: "settings", changed: "changed" },
 };
+
+const SETTING_NAMES = {
+  de: {
+    listen: "Netzwerk", log_level: "Log-Level", source: "Konfigurationsquelle", history_days: "Historie (Tage)", trace_file_mb: "Mitschnitt-Größe", trace_keep: "Mitschnitt-Dateien",
+    debounce_count: "Zusammenfassen ab", debounce_minutes: "Zusammenfassen innerhalb", notify_grace: "Meldung nach (s)", notify_dismiss: "Meldung entfernen", notify_service: "notify-Dienst",
+    notify_resolved: "Behoben melden", notify_stuck: "Client liest nicht mehr", notify_line_errors: "Leitungsfehler", notify_ser2net: "ser2net-Neustarts", notify_language: "Sprache der Meldungen",
+    no_client_minutes: "„Kein Client“ nach (min)", mqtt_enabled: "MQTT-Entitäten", mqtt_prefix: "Discovery-Präfix", mqtt_base: "Basis-Topic", mqtt_interval: "MQTT-Intervall (s)",
+    mqtt_host: "MQTT-Broker", mqtt_port: "MQTT-Port", mqtt_user: "MQTT-Benutzer", mqtt_password: "MQTT-Passwort", mqtt_tls: "MQTT-TLS", enocean_discovery: "EnOcean-Gateways melden", enocean_status_port: "EnOcean-Status-Port",
+  },
+  en: {
+    listen: "Network", log_level: "Log level", source: "Configuration source", history_days: "History (days)", trace_file_mb: "Trace size", trace_keep: "Trace files",
+    debounce_count: "Sum up from", debounce_minutes: "Sum up within", notify_grace: "Report after (s)", notify_dismiss: "Remove notification", notify_service: "notify service",
+    notify_resolved: "Report when over", notify_stuck: "Client stops reading", notify_line_errors: "Line errors", notify_ser2net: "ser2net restarts", notify_language: "Language of messages",
+    no_client_minutes: "“No client” after (min)", mqtt_enabled: "MQTT entities", mqtt_prefix: "Discovery prefix", mqtt_base: "Base topic", mqtt_interval: "MQTT interval (s)",
+    mqtt_host: "MQTT broker", mqtt_port: "MQTT port", mqtt_user: "MQTT user", mqtt_password: "MQTT password", mqtt_tls: "MQTT TLS", enocean_discovery: "Report EnOcean gateways", enocean_status_port: "EnOcean status port",
+  },
+};
+
+const settingValue = (key, value) => {
+  if (typeof value === "boolean") return t(value ? "histOn" : "histOff");
+  if (key === "listen") return t(`net_${value}`);
+  if (key === "source") return value === "custom" ? t("own") : t("forms");
+  return value === "" ? "–" : String(value);
+};
+
+/** One change of a configuration version in the viewer's language. */
+function changeText(c) {
+  const words = CHANGE_WORDS[lang];
+  if (c.connection || !c.fields) return c.fields ? `${c.connection}: ${c.fields.join(", ")}` : `${c.connection || words.settings} ${words[c.change] || c.change}`;
+  const names = SETTING_NAMES[lang];
+  const shown = c.fields.slice(0, 3).map((k) => {
+    const name = names[k] || k;
+    return c.values && k in c.values ? `${name}: ${settingValue(k, c.values[k])}` : `${name} ${words.changed}`;
+  });
+  return shown.join(", ") + (c.fields.length > 3 ? ` +${c.fields.length - 3}` : "");
+}
 
 /** The changes of a configuration version in the viewer's language. */
 export function changesText(changes) {
-  const words = CHANGE_WORDS[lang];
-  return (changes || []).map((c) => {
-    const who = c.connection || words.settings;
-    return c.fields ? `${who}: ${c.fields.join(", ")}` : `${who} ${words[c.change] || c.change}`;
-  }).join("; ");
+  return (changes || []).map(changeText).join("; ");
 }
 
 export function eventText(event) {
