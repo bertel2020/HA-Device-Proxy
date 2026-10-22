@@ -310,13 +310,18 @@ export class EditPage extends Page {
           <span><h2 id="t-adv">${t("tuning")}</h2><span class="hint">${t("tuningSubMb")}</span></span>
           <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
-          <div class="grid2">
-            ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
-            ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
-            ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
-            ${d.link === "rtu" ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
-            ${this._input("timeout", t("mbIdle"), { number: true })}
-          </div>
+          <div class="grp"><h3>${t("grpPace")}</h3>
+            <div class="grid2">
+              ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
+              ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
+              ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
+              ${d.link === "rtu" ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
+            </div>
+            ${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? html`<div class="opts">${this._check("low_latency", true)}</div>` : ""}</div>
+          <div class="grp"><h3>${t("grpClients")}</h3>
+            <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}</div>
+            <div class="opts">${this._check("kickolduser", true)}</div>
+            ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}</div>
           <div class="grp"><h3>${t("mbProbe")}</h3><p class="hint">${t("mbProbeSub")}</p>
             <div class="grid2">
               ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}
@@ -325,9 +330,7 @@ export class EditPage extends Page {
                   ${[3, 4].map((f) => html`<option value=${f} ?selected=${d.probe_function === f}>${t(`fc_${f}`)}</option>`)}</select></label>
                 ${this._input("probe_address", t("mbAddress"), { number: true, hint: t("mbAddressHint") })}` : ""}
             </div></div>
-          <div class="opts">${this._check("kickolduser", true)}${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
-          ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
-          ${this._trace()}` : ""}
+          <div class="grp"><h3>${t("grpTrace")}</h3>${this._trace()}</div>` : ""}
       </section>
 
       <section class="card" aria-labelledby="t-app">
