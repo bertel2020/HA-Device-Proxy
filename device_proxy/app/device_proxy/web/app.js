@@ -925,7 +925,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
                   ${["skip","replace","new_port"].filter(d=>d!=="new_port"||!i.conflicts.device).map(d=>a`<option value=${d} ?selected=${this.choice[i.alias]===d}>${t(`c_${d}`)}</option>`)}
                 </select></label>`:""}
             </td></tr>`})}</tbody></table></div>
-      <div class="row" style="border-top:1px solid var(--line-2);padding-top:16px">
+      <div class="row foot">
         <span class="hint" style="font-size:13px">${t("selected",{n:s,m:e.items.length})}</span>
         <div style="display:flex;gap:8px"><button class="btn btn-g" @click=${this._close}>${t("cancel")}</button>
           <button class="btn btn-p" ?disabled=${!s||this.busy} @click=${this._apply}>${t("apply",{n:s})}</button></div>
@@ -976,6 +976,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       .imp .chip { white-space: normal; height: auto; min-height: 24px; padding-block: 3px; border-radius: 14px; }
       .imp td[data-l]:empty { display: none; }
     }
+    .foot { position: sticky; bottom: 0; z-index: 1; background: var(--surface); border-top: 1px solid var(--line-2); padding: 14px 0 6px; }
     .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
     .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
