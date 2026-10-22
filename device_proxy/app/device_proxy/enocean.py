@@ -120,6 +120,11 @@ def restart_key(c: Connection, listen: str) -> Connection:
         send_gap_ms=0,
         replay_max_age_s=0,
         replay_persist=False,
+        # the fallback gateway is attached by the controller, its settings read live
+        fallback="",
+        fallback_trigger="probe",
+        fallback_return="auto",
+        fallback_listen=False,
     )
 
 

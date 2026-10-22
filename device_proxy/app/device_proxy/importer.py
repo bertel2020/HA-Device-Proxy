@@ -494,6 +494,6 @@ def merge(
         while name.casefold() in names:
             name, number = f"{c.name} ({number})", number + 1
         connections.append(replace(c, name=name))
-    config = AppConfig(base.settings, tuple(connections))
+    config = AppConfig(base.settings, tuple(connections)).with_known_fallbacks()
     config.validate()
     return config

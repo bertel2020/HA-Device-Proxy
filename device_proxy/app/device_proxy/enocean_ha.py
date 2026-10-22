@@ -42,8 +42,13 @@ STATUS_RETRY = 30  # seconds between attempts to open a taken status port
 
 
 def gateways(config: AppConfig) -> list[Connection]:
-    """The gateways Home Assistant is told about: the active EnOcean connections."""
-    return [c for c in config.proxied if c.kind == "enocean" and c.enabled]
+    """The gateways Home Assistant is told about: the active EnOcean connections, without
+    those that are another gateway's fallback (they have no port of their own)."""
+    return [
+        c
+        for c in config.proxied
+        if c.kind == "enocean" and c.enabled and config.fallback_of(c.id) is None
+    ]
 
 
 def discovery_config(hostname: str, status_port: int, items: list[Connection]) -> dict[str, Any]:

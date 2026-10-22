@@ -38,6 +38,9 @@ LINKS = {  # how a proxy reaches its device
 }
 SERIAL_LINKS = {"rtu", "serial"}  # the links that open a serial device of this host
 ESP_PROTOCOLS = ("esp2", "esp3")
+# switch over when the gateway stops answering too, or only when its connection is gone
+FALLBACK_TRIGGERS = ("probe", "disconnect")
+FALLBACK_RETURNS = ("auto", "manual")
 WRITE_ACCESS = ("all", "none", "listed")
 
 _LABEL = r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?"  # a name between dots
@@ -179,6 +182,12 @@ class Connection:
     replay_size: int = 1000  # radio telegrams kept while no replaying client is connected
     replay_max_age_s: int = 900
     replay_persist: bool = False  # keep the replay buffer over a restart of the app (/data)
+    # a second gateway with the same base ID that takes over when this one fails: the id of
+    # another EnOcean connection, which then has no port or clients of its own (enocean.py)
+    fallback: str = ""
+    fallback_trigger: str = "probe"
+    fallback_return: str = "auto"  # back to this gateway once it runs steadily again
+    fallback_listen: bool = False  # radio telegrams of both gateways, duplicates dropped
 
     @property
     def uses_device(self) -> bool:
@@ -339,6 +348,14 @@ class Connection:
             e["replay_size"] = "0 to 100000 telegrams"
         if not 0 <= self.replay_max_age_s <= 86400:
             e["replay_max_age_s"] = "0 to 86400 seconds"
+        if self.fallback and not re.fullmatch(r"[0-9a-f]{8}", self.fallback):
+            e["fallback"] = "the id of another EnOcean connection"
+        elif self.fallback == self.id:
+            e["fallback"] = "not the connection itself"
+        if self.fallback_trigger not in FALLBACK_TRIGGERS:
+            e["fallback_trigger"] = f"one of {', '.join(FALLBACK_TRIGGERS)}"
+        if self.fallback_return not in FALLBACK_RETURNS:
+            e["fallback_return"] = f"one of {', '.join(FALLBACK_RETURNS)}"
 
     def _validate_modbus(self, e: dict[str, str]) -> None:
         if not 100 <= self.request_timeout_ms <= 60000:
@@ -524,7 +541,7 @@ class AppConfig:
                 errors.update({f"connections.{index}.{k}": v for k, v in err.errors.items()})
         if errors:
             raise ValidationError(errors)
-        config = cls(settings, tuple(connections))
+        config = cls(settings, tuple(connections)).with_known_fallbacks()
         config.validate()
         return config
 
@@ -556,8 +573,57 @@ class AppConfig:
             if folded in seen["name"]:
                 e[f"connections.{index}.name"] = "another connection has this name"
             seen["name"].setdefault(folded, c.name)
+        self._validate_fallbacks(e)
         if e:
             raise ValidationError(e)
+
+    def _validate_fallbacks(self, e: dict[str, str]) -> None:
+        """A fallback gateway is another EnOcean connection with the same protocol, serves
+        one gateway only, and has no fallback of its own (no chains, no rings)."""
+        taken: dict[str, str] = {}  # fallback id → the name of the gateway it serves
+        for index, c in enumerate(self.connections):
+            if not c.fallback or c.kind != "enocean":
+                continue
+            key = f"connections.{index}.fallback"
+            other = self.connection(c.fallback)
+            if other is None or other.kind != "enocean":
+                e[key] = "not an EnOcean connection of this app"
+            elif other.esp_protocol != c.esp_protocol:
+                e[key] = f"{other.name} speaks {other.esp_protocol.upper()}, not this protocol"
+            elif other.fallback:
+                e[key] = f"{other.name} has a fallback of its own"
+            elif c.fallback in taken:
+                e[key] = f"{other.name} is the fallback of {taken[c.fallback]} already"
+            elif self.fallback_of(c.id) is not None:
+                e[key] = "this gateway is itself the fallback of another one"
+            taken.setdefault(c.fallback, c.name)
+
+    def with_known_fallbacks(self) -> AppConfig:
+        """Without fallbacks that name a connection which is not there (a backup or an import
+        without it): that gateway goes on without one."""
+        ids = {c.id for c in self.connections}
+        gone = [c for c in self.connections if c.fallback and c.fallback not in ids]
+        for c in gone:
+            _LOGGER.warning("%s: fallback %s is not there, goes on without", c.name, c.fallback)
+        if not gone:
+            return self
+        return replace(
+            self,
+            connections=tuple(
+                replace(c, fallback="") if c in gone else c for c in self.connections
+            ),
+        )
+
+    def fallback_of(self, connection_id: str) -> Connection | None:
+        """The EnOcean gateway this connection is the fallback of, or None."""
+        return next(
+            (
+                c
+                for c in self.connections
+                if c.kind == "enocean" and c.fallback == connection_id and c.id != connection_id
+            ),
+            None,
+        )
 
     @property
     def serial(self) -> tuple[Connection, ...]:
@@ -585,8 +651,14 @@ class AppConfig:
         return replace(self, connections=tuple(items))
 
     def without_connection(self, connection_id: str) -> AppConfig:
+        """This config without the connection; a gateway it was the fallback of loses it."""
         return replace(
-            self, connections=tuple(c for c in self.connections if c.id != connection_id)
+            self,
+            connections=tuple(
+                replace(c, fallback="") if c.fallback == connection_id else c
+                for c in self.connections
+                if c.id != connection_id
+            ),
         )
 
 
