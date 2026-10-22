@@ -4,6 +4,13 @@ import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
 import { confirmDialog, fmtSerial, icon, modbusTarget } from "../ui.js";
 
+/** A missing device that also has an unstable name is one note, not two. */
+const joinNotes = (notes) => notes.flatMap((n) => {
+  if (n.code === "device_unstable" && notes.some((m) => m.code === "device_missing" && m.device === n.device)) return [];
+  return n.code === "device_missing" && notes.some((m) => m.code === "device_unstable" && m.device === n.device)
+    ? [{ ...n, code: "device_missing_unstable" }] : [n];
+});
+
 /** The import as a dialog over any page: choose a file, check the preview, done. */
 export class ImportDialog extends Page {
   static properties = {
@@ -158,7 +165,7 @@ export class ImportDialog extends Page {
             <td class="mono" data-l=${t("port")}>${c ? c.port : ""}</td>
             <td class="mono dev" data-l=${t("device")}>${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
-              ${item.notes.length ? html`<ul class="notes">${item.notes.map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
+              ${item.notes.length ? html`<ul class="notes">${joinNotes(item.notes).map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
               ${conflict ? html`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>
                 <select class="inp" style="min-height:36px" @change=${(e) => { this.choice = { ...this.choice, [item.alias]: e.target.value }; }}>
                   ${["skip", "replace", "new_port"].filter((v) => v !== "new_port" || !item.conflicts.device).map((v) => html`<option value=${v} ?selected=${this.choice[item.alias] === v}>${t(`c_${v}`)}</option>`)}

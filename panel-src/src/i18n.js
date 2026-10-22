@@ -728,6 +728,7 @@ const EVENTS = {
 
 const NOTES = {
   de: {
+    device_missing_unstable: "Gerät {device} ist gerade nicht angeschlossen und kann sich nach einem Neustart ändern – besser einen by-id- oder by-path-Namen wählen.",
     device_missing: "Gerät {device} ist gerade nicht angeschlossen.", device_unstable: "{device} kann sich nach einem Neustart ändern – besser einen by-id- oder by-path-Namen wählen.",
     device_renamed: "{device} durch den stabilen Namen {stable} ersetzt.", option_extra: "Option {option} übernommen als „weitere Option“.",
     option_dropped: "Option {option} nicht übernommen.", serial_option_dropped: "Serielle Option {option} nicht übernommen.", legacy_option_dropped: "Option {option} nicht übernommen.",
@@ -746,6 +747,7 @@ const NOTES = {
     enocean_lan: "Die alte App war nur im Supervisor-Netz erreichbar; hier dürfen nur Home Assistant, die Apps und die bisher erlaubten Adressen verbinden.",
   },
   en: {
+    device_missing_unstable: "Device {device} is not plugged in right now and may change after a restart – better choose a by-id or by-path name.",
     device_missing: "Device {device} is not plugged in right now.", device_unstable: "{device} may change after a restart – better choose a by-id or by-path name.",
     device_renamed: "{device} replaced by its stable name {stable}.", option_extra: "Option {option} kept as a further option.",
     option_dropped: "Option {option} not taken over.", serial_option_dropped: "Serial option {option} not taken over.", legacy_option_dropped: "Option {option} not taken over.",
