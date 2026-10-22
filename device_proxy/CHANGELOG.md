@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2
+## 0.3.0
 
 - **Home network**: who counts as "LAN" is now a list under **Settings → Network → Allowed
   networks**. The host's own network is predefined, further networks can be added; Home
