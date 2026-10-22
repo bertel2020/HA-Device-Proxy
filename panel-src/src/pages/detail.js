@@ -3,7 +3,7 @@ import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
 import { eventText, retriesText, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { toolsCard, confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -203,11 +203,7 @@ export class DetailPage extends Page {
     const signed = (v) => (v > 32767 ? v - 65536 : v);
     const hex4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, "0")}`;
     const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: t(`ex_${code}`) });
-    const pref = (() => { try { return localStorage.getItem("device_proxy.mbtools"); } catch { return null; } })();
-    return html`<section class="card" aria-labelledby="t-mtools">
-      <details ?open=${pref === "1" || !!r || !!sc} @toggle=${(e) => { try { localStorage.setItem("device_proxy.mbtools", e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
-      <summary style="cursor:pointer;display:flex;align-items:baseline;gap:8px"><h2 id="t-mtools" style="display:inline">${t("tools")}</h2><span class="hint">· ${t("mbToolsSub")}</span></summary>
-      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+    return toolsCard("device_proxy.mbtools", "t-mtools", t("mbToolsSub"), html`
       <div><b style="font-weight:500">${t("mbReadTitle")}</b><p class="hint">${t("mbReadSub")}</p></div>
       <div class="grid5">
         ${this._num(f, "unit", t("mbUnit"), "mbForm")}
@@ -249,8 +245,7 @@ export class DetailPage extends Page {
         ${sc.results.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${sc.results.map((u) => html`<button class="chip ${u.exception === null ? "ok" : "info"}" style="cursor:pointer;border:none"
           title=${u.exception === null ? "" : exText(u.exception)} @click=${() => { this.mbForm = { ...this.mbForm, unit: u.unit }; }}>Unit ${u.unit}</button>`)}</div>`
           : sc.state === "done" ? html`<p class="hint">${t("mbScanNone")}</p>` : ""}` : ""}
-      </div></details>
-    </section>`;
+    `, !!r || !!sc);
   }
 
   _tools(c) {
@@ -278,11 +273,8 @@ export class DetailPage extends Page {
           ${best.slice(0, 3).map((r) => html`<div class="row well"><span class="mono">${fmt(r)}</span><span class="hint">${t("score")} ${Math.round(r.score * 100)} %</span>
             <button class="btn btn-g" @click=${() => this._useCandidate(c, r)}>${t("applyThis")}</button></div>`)}`
         : html`<div class="note warn">${t("noDetect")}</div>` : ""}`;
-    return html`<section class="card" aria-labelledby="t-tools">
-      <h2 id="t-tools">${t("tools")}</h2>
-      ${meterFirst ? html`${meter(true)}${baud(false)}` : html`${baud(true)}
-        <details class="sep" ?open=${!!m}><summary class="hint" style="cursor:pointer">${t("moreTools")}</summary><div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">${meter(true)}</div></details>`}
-    </section>`;
+    return toolsCard("device_proxy.tools.serial", "t-tools", t("toolsSubSerial"), meterFirst ? html`${meter(true)}${baud(false)}` : html`${baud(true)}
+        <details class="sep" ?open=${!!m}><summary class="hint" style="cursor:pointer">${t("moreTools")}</summary><div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">${meter(true)}</div></details>`, !!m || !!job);
   }
 
   _copyBtn(key, text) {

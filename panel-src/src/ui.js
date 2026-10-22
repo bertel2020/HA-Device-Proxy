@@ -131,6 +131,18 @@ export function connectionState(c, ser2netRunning) {
   return ["stRunning", "ok"];
 }
 
+/** The Tools card, folded by default and remembering per kind whether it was opened. */
+export function toolsCard(key, id, sub, body, force = false) {
+  let pref = null;
+  try { pref = localStorage.getItem(key); } catch { /* private window */ }
+  return html`<section class="card" aria-labelledby=${id}>
+    <details ?open=${pref === "1" || force} @toggle=${(e) => { try { localStorage.setItem(key, e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
+      <summary style="cursor:pointer;display:flex;align-items:baseline;gap:8px"><h2 id=${id} style="display:inline">${t("tools")}</h2><span class="hint">· ${sub}</span></summary>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">${body}</div>
+    </details>
+  </section>`;
+}
+
 export const navigate = (hash) => { location.hash = hash; };
 
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */

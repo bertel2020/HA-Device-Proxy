@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, icon } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, icon, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", link: "serial", baud: 9600 },
@@ -218,8 +218,7 @@ export class EnOceanTools extends LitElement {
     const bytes = parseHex(this.text);
     const check = checkFrame(bytes, c.esp_protocol);
     const hosts = [...new Set(c.clients.map((cl) => cl.address.replace(/^\[?(.*?)\]?:\d+$/, "$1")))];
-    return html`<section class="card" aria-labelledby="t-eotools">
-      <h2 id="t-eotools">${t("tools")}</h2>
+    return toolsCard("device_proxy.tools.enocean", "t-eotools", t("eoToolsSub"), html`
       ${blocked ? html`<div class="note warn">${blocked}</div>` : ""}
       <div class="row"><div><b style="font-weight:500">${t("eoTest")}</b><p class="hint">${t("eoTestSub")}</p></div>
         <button class="btn btn-s" ?disabled=${!!blocked || this.busy === "test"} @click=${this._test}>${this.busy === "test" ? t("eoTesting") : t("eoTestBtn")}</button></div>
@@ -245,6 +244,6 @@ export class EnOceanTools extends LitElement {
             <span class="hint">${t("eoLockHint")}</span></label></div>
           <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${() => this._capture(true)}>${t("eoCaptureStart")}</button></div>
           <details><summary class="hint" style="cursor:pointer">${t("eoPct14")}</summary><ol class="hint" style="margin:8px 0 0 18px;padding:0">${t("eoPct14Steps").split("|").map((s) => html`<li>${s}</li>`)}</ol></details>`}
-    </section>`;
+    `, !!this.test || this.answers.length > 0 || !!mine);
   }
 }

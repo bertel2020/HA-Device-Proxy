@@ -5,6 +5,9 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Tools card**: on all kinds (serial, Modbus, EnOcean) the card is folded at first, shows in its
+  title what it holds, remembers per kind whether it was opened, and opens by itself when a result
+  is there.
 - **Modbus tools**: new "Write registers" (functions 5, 6, 15, 16) next to "Read registers". It asks
   for confirmation first, reads the value back afterwards and says whether it matches, and writes an
   event to the log. It stays locked on connections whose write access is "Nobody". The Read button
