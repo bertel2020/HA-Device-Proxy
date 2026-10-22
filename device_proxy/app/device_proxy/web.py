@@ -164,6 +164,10 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/capture", self.capture_start)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/switch", self.enocean_switch)
+        self._route(
+            "POST", r"api/connections/(?P<id>[0-9a-f]{8})/promote_fallback", self.promote_fallback
+        )
         self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
@@ -693,6 +697,29 @@ class WebServer:
             return ok(await self.c.enocean_base_id(request.params["id"], base_id))
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def enocean_switch(self, request: Request) -> Response:
+        data = request.json()
+        to = data.get("to") if isinstance(data, dict) else None
+        if to not in ("main", "fallback"):
+            raise HttpError(400, "to: main or fallback")
+        try:
+            return ok(self.c.enocean_switch(request.params["id"], str(to)))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def promote_fallback(self, request: Request) -> Response:
+        data = request.json()
+        old = data.get("old") if isinstance(data, dict) else None
+        if old not in ("off", "keep", "delete"):
+            raise HttpError(400, "old: off, keep or delete")
+        if self.c.config.connection(request.params["id"]) is None:
+            raise HttpError(404, "no such connection")
+        try:
+            result = await self.c.enocean_promote(request.params["id"], str(old))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+        return ok(asdict(result))
 
     async def capture_start(self, request: Request) -> Response:
         data = request.json()

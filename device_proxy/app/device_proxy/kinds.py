@@ -56,7 +56,7 @@ class Kind:
     restart_key: Callable[[Connection, str], Connection]
     loaded: Callable[[Connection], dict[str, Any]]  # values of the "<kind>_loaded" event
     client_row: Callable[[Any], dict[str, Any]]  # a client in the state
-    mqtt_entities: Callable[[str, str, Entity], dict[str, dict[str, Any]]]
+    mqtt_entities: Callable[[str, Connection, Entity], dict[str, dict[str, Any]]]
     mqtt_state: Callable[[dict[str, Any]], dict[str, Any]]  # from state()
 
 

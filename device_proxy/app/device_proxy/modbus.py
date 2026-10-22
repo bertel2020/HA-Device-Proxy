@@ -1143,9 +1143,9 @@ def client_row(client: _Client) -> dict[str, Any]:
 
 
 def mqtt_entities(
-    prefix: str, connection_id: str, entity: Callable[..., dict[str, Any]]
+    prefix: str, c: Connection, entity: Callable[..., dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
-    key = f"device_proxy_{connection_id}"
+    key = f"device_proxy_{c.id}"
     return {
         f"{prefix}/binary_sensor/{key}/reachable/config": entity(
             "reachable",

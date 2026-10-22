@@ -153,6 +153,18 @@ def radio_info(protocol: str, frame: bytes) -> tuple[str, str] | None:
     return ESP2_ORG_RORG.get(frame[3], f"{frame[3]:02X}"), frame[8:12].hex("-").upper()
 
 
+def radio_key(protocol: str, frame: bytes) -> bytes | None:
+    """What two gateways that heard the same radio telegram have in common: ESP3 its data
+    without the optional data (signal strength, subtelegrams), ESP2 ORG, data and sender
+    without the status (repeater count). None for anything else."""
+    if not is_radio(protocol, frame):
+        return None
+    if protocol == "esp3":
+        length = int.from_bytes(frame[1:3], "big")
+        return bytes(frame[4:5]) + frame[6 : 6 + length]
+    return frame[3:12] if len(frame) >= 14 else None
+
+
 # air time (868 MHz duty cycle)
 
 BIT_RATE = 125_000  # bit/s of EnOcean radio

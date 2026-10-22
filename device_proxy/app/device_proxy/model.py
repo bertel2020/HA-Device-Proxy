@@ -42,6 +42,25 @@ ESP_PROTOCOLS = ("esp2", "esp3")
 FALLBACK_TRIGGERS = ("probe", "disconnect")
 FALLBACK_RETURNS = ("auto", "manual")
 WRITE_ACCESS = ("all", "none", "listed")
+# what "the fallback becomes the gateway" swaps between two EnOcean connections: the hardware
+GATEWAY_HARDWARE = (
+    "template",
+    "link",
+    "device",
+    "host",
+    "host_port",
+    "baud",
+    "data_bits",
+    "parity",
+    "stop_bits",
+    "rtscts",
+    "xonxoff",
+    "local",
+    "low_latency",
+    "dtr",
+    "rts",
+    "send_gap_ms",
+)
 
 _LABEL = r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?"  # a name between dots
 HOST = re.compile(rf"{_LABEL}(\.{_LABEL})*|\[?[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*\]?")  # name, IPv4, IPv6

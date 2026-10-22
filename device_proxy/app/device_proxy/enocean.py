@@ -25,6 +25,18 @@ next start, so telegrams received while Home Assistant restarts survive an app r
 A client that stops reading is disconnected before its unsent data grows without bound.
 While a capture reserves the gateway for one program (exclusive_peer, PCT14 with a FAM14),
 the frames of the others are held back.
+
+Fallback: a second gateway (B) with the same base ID can stand in for this one (A). B is an
+EnOcean connection of its own that the controller attaches here; while it serves A it has no
+port and no clients (serves). A reads its base ID every MAIN_PROBE seconds; when its
+connection is gone, or (fallback_trigger "probe") FALLBACK_MISSES reads stay unanswered, A's
+clients go on through B: their frames are queued at B, B's answers and radio telegrams come
+back to them. A goes back once it has run steadily for FALLBACK_STABLE seconds and nothing
+waits at B (fallback_return "auto"), or by hand. B is only used when it is connected, has
+answered lately and reports A's base ID (the actuators know A's sender IDs). With
+fallback_listen the clients get the radio telegrams of both gateways: the second copy of a
+telegram within DUPLICATE_WINDOW is dropped, and so is what the passive gateway hears from
+the own sender IDs (base ID … +127: the other gateway's own sending).
 """
 
 from __future__ import annotations
@@ -65,6 +77,14 @@ CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before i
 CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
 CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
 REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
+BASE_ID_FILE = Path("/data/enocean_base_ids.json")  # last base ID of each gateway, for B's check
+SUPERVISE = 1.0  # seconds between two looks at the fallback
+MAIN_PROBE = 10.0  # seconds between base ID reads of a gateway that has a fallback
+FALLBACK_PROBE = 60.0  # seconds between base ID reads of a fallback gateway
+FALLBACK_MISSES = 3  # unanswered reads in a row: the gateway counts as failed
+FALLBACK_STABLE = 60.0  # seconds a failed gateway must run steadily before it takes over again
+DUPLICATE_WINDOW = 0.2  # seconds: the same telegram from the other gateway is a duplicate
+PROBE_TIMEOUT = 2.0  # seconds for the answer to a base ID read of the fallback check
 
 EventSink = Callable[..., None]  # (level, kind, **params)
 TraceSink = Callable[[Chunk], None]
@@ -79,6 +99,8 @@ class Stats:
     refused: int = 0  # clients outside the allowed networks
     slow_clients: int = 0  # clients disconnected because they stopped reading
     locked: int = 0  # client frames held back while another program had the gateway alone
+    relayed: int = 0  # client frames sent through the fallback gateway
+    from_fallback: int = 0  # frames from the fallback gateway passed to the clients
     bytes_to_device: int = 0
     bytes_from_device: int = 0
     last_error: str = ""
@@ -93,6 +115,8 @@ class _Client:
     writer: asyncio.StreamWriter | None  # None: the app itself (tools)
     splitter: esp.Splitter
     inbox: asyncio.Queue[bytes] | None = None  # the app's own requests get answers here
+    sink: Callable[[bytes], None] | None = None  # a frame relayed for another gateway's client
+    own: bool = False  # the app asks this very gateway (base ID reads, tools): never relayed
     replay: bool = False
     pending: bytearray = field(default_factory=bytearray)
     started: bool = False  # the replay request is only accepted as the very first bytes
@@ -170,6 +194,24 @@ class EnOceanProxy:
         self._duty_warned = 0.0
         self._server: asyncio.Server | None = None
         self.port = c.port  # the port listened on (tests: the one the system picked for 0)
+        # fallback (see the module's text); B: serves is the name of the gateway it stands in for
+        self.serves = ""
+        self.listeners: list[Callable[[bytes], None]] = []  # B: A gets B's frames here
+        self.fallback: EnOceanProxy | None = None  # A: B, attached by the controller
+        self.active = "main"  # A: "main" or "fallback", whose gateway the clients use
+        self.active_since = time.time()
+        self.switch_reason = ""
+        self.manual = False  # switched by hand: no automatic return
+        self.fallback_ready = False
+        self.fallback_reason = "none"  # why B is not ready
+        self.answered_at: float | None = None  # last base ID answer (clock)
+        self.probe_ms: float | None = None  # how long the last base ID read took
+        self.known_base_id = _known_base_ids().get(c.id)  # also while the gateway is away
+        self.heard = {"main": 0, "fallback": 0, "duplicates": 0, "own": 0}
+        self._misses = 0
+        self._ok_since: float | None = None  # clock: running steadily since
+        self._probed = 0.0
+        self._recent: deque[tuple[float, bytes, str]] = deque()  # (clock, telegram, source)
         if c.replay_persist:
             self._load_replay()
 
@@ -180,7 +222,7 @@ class EnOceanProxy:
         failed = False
         tasks: list[asyncio.Task[None]] = []
         try:
-            while self._server is None:
+            while self._server is None and not self.serves:
                 try:
                     await self._start_server()
                 except OSError as err:
@@ -192,6 +234,7 @@ class EnOceanProxy:
             tasks = [
                 asyncio.create_task(self._gateway_loop()),
                 asyncio.create_task(self._writer_loop()),
+                asyncio.create_task(self._fallback_loop()),
             ]
             await asyncio.gather(*tasks)
         finally:
@@ -209,6 +252,7 @@ class EnOceanProxy:
         self.listening, self.listen_error = True, ""
 
     async def _shutdown(self) -> None:
+        self.attach_fallback(None)
         self.listening = False
         if self._server is not None:
             self._server.close()
@@ -269,6 +313,8 @@ class EnOceanProxy:
 
     def _up(self) -> None:
         self.connected_since = time.time()
+        self._misses, self._probed = 0, self._clock()
+        self._ok_since = self._clock() if self.c.fallback_trigger == "disconnect" else None
         if self.reachable is not True:
             if self.reachable is False:
                 self.on_event("info", "enocean_back", target=self.c.upstream)
@@ -276,6 +322,7 @@ class EnOceanProxy:
 
     def _down(self, error: str) -> None:
         self.stats.last_error, self.stats.last_error_at = error, time.time()
+        self._ok_since = None
         if self.reachable is not False:
             self.reachable, self.reachable_since = False, time.time()
             self.on_event("warning", "enocean_down", target=self.c.upstream, error=error)
@@ -302,6 +349,12 @@ class EnOceanProxy:
             self._send(client, frame)  # the answer to this client's command
             return
         self._learn(frame, None)
+        for listener in list(self.listeners):  # B: the gateway it stands in for
+            listener(frame)
+        if not self.serves:
+            self._heard_frame(frame, "main")
+
+    def _deliver(self, frame: bytes) -> None:
         if esp.is_radio(self.protocol, frame) and not any(c.replay for c in self.clients.values()):
             self._replay.append((self._clock(), time.time(), frame))  # nobody to replay to yet
         for client in list(self.clients.values()):
@@ -311,12 +364,20 @@ class EnOceanProxy:
         if found := esp.base_id(self.protocol, frame, request):
             self.base_id = found
             self.base_id_writes_left = esp.base_id_writes_left(self.protocol, frame, request)
+            self.answered_at = self._clock()
+            if found != self.known_base_id:
+                self.known_base_id = found
+                _keep_base_id(self.c.id, found)
 
     def _next_waiting(self) -> tuple[_Client, bytes] | None:
         now = self._clock()
         while self._awaiting:
             client, deadline, request = self._awaiting.popleft()
-            alive = client.inbox is not None or self.clients.get(client.address) is client
+            alive = (
+                client.inbox is not None
+                or client.sink is not None
+                or self.clients.get(client.address) is client
+            )
             if deadline >= now and alive:
                 return client, request
         return None
@@ -325,11 +386,14 @@ class EnOceanProxy:
         while True:
             client, frame = await self._outgoing.get()
             client.queued -= 1
-            if not self.link.is_open:
-                self.stats.dropped += 1
-                continue
             if self.exclusive_peer is not None and client.host != self.exclusive_peer:
                 self.stats.locked += 1  # another program has the gateway alone (PCT14)
+                continue
+            if self.active == "fallback" and not client.own and self.fallback is not None:
+                self._relay(self.fallback, client, frame)
+                continue
+            if not self.link.is_open:
+                self.stats.dropped += 1
                 continue
             if esp.expects_response(self.protocol, frame):
                 self._awaiting.append((client, self._clock() + RESPONSE_TIMEOUT, frame))
@@ -390,6 +454,9 @@ class EnOceanProxy:
         """Write to a client; one that has stopped reading is dropped, not buffered forever."""
         if client.inbox is not None:
             client.inbox.put_nowait(frame)
+            return
+        if client.sink is not None:
+            client.sink(frame)
             return
         if client.writer is None or client.writer.is_closing():
             return
@@ -474,6 +541,231 @@ class EnOceanProxy:
         except OSError as err:
             _LOGGER.warning("%s: replay buffer not kept: %s", self.c.name, err)
 
+    # fallback
+
+    def attach_fallback(self, fallback: EnOceanProxy | None) -> None:
+        """A: the gateway that stands in (None: none). B's frames come in from now on."""
+        if fallback is self.fallback:
+            return
+        if self.fallback is not None:
+            with contextlib.suppress(ValueError):
+                self.fallback.listeners.remove(self._from_fallback)
+        self.fallback = fallback
+        if fallback is not None:
+            fallback.listeners.append(self._from_fallback)
+
+    def _relay(self, fallback: EnOceanProxy, client: _Client, frame: bytes) -> None:
+        """A: send a client's frame through B; B's answer goes back to the client."""
+        self.stats.relayed += 1
+        self._trace("tx", frame, f"{client.address} → {fallback.c.name}")
+
+        def answer(reply: bytes) -> None:
+            self._trace("rx", reply, f"{fallback.c.name} → {client.address}")
+            self._send(client, reply)
+
+        fallback.relay(client, frame, answer)
+
+    def relay(self, origin: _Client, frame: bytes, deliver: Callable[[bytes], None]) -> None:
+        """B: a frame of the gateway it stands in for, queued in turn; its answer to deliver."""
+        address = f"{origin.address} ({self.serves})" if self.serves else origin.address
+        client = _Client(
+            address, origin.host, time.time(), None, esp.Splitter(self.protocol), sink=deliver
+        )
+        client.queued += 1
+        self._outgoing.put_nowait((client, frame))
+
+    def _from_fallback(self, frame: bytes) -> None:
+        """A: a frame from B that is not an answer for one of A's clients."""
+        self._heard_frame(frame, "fallback")
+
+    def _heard_frame(self, frame: bytes, source: str) -> None:
+        """A frame from one of the two gateways: to the clients if it comes from the active
+        one, or with fallback_listen a radio telegram the other did not bring already."""
+        active = source == self.active
+        radio = esp.is_radio(self.protocol, frame)
+        if self.fallback is not None and radio:
+            if not active and not self.c.fallback_listen:
+                return
+            if not active and self._own_sender(frame):
+                self.heard["own"] += 1  # the active gateway's own sending
+                return
+            if self.c.fallback_listen and (key := esp.radio_key(self.protocol, frame)):
+                if self._duplicate(key, source):
+                    self.heard["duplicates"] += 1
+                    return
+                self.heard[source] += 1
+        elif not active:
+            return  # answers and gateway messages count from the active gateway only
+        if source == "fallback":
+            self.stats.from_fallback += 1
+            if self.fallback is not None:
+                self._trace("rx", frame, f"via {self.fallback.c.name}")
+        self._deliver(frame)
+
+    def _own_sender(self, frame: bytes) -> bool:
+        base = self.base_id or self.known_base_id
+        info = esp.radio_info(self.protocol, frame)
+        if base is None or info is None:
+            return False
+        first = int(base.replace("-", ""), 16)
+        return first <= int(info[1].replace("-", ""), 16) <= first + 0x7F
+
+    def _duplicate(self, key: bytes, source: str) -> bool:
+        now = self._clock()
+        while self._recent and now - self._recent[0][0] > DUPLICATE_WINDOW:
+            self._recent.popleft()
+        if any(k == key and s != source for _t, k, s in self._recent):
+            return True
+        self._recent.append((now, key, source))
+        return False
+
+    async def _fallback_loop(self) -> None:
+        """Read the base ID now and then (A with a fallback, and B) and switch over or back."""
+        while True:
+            await asyncio.sleep(SUPERVISE)
+            try:
+                await self._probe()
+                self._supervise()
+            except Exception:  # a bug must not stop the gateway
+                _LOGGER.exception("%s: fallback check failed", self.c.name)
+
+    async def _probe(self) -> None:
+        interval = FALLBACK_PROBE if self.serves else MAIN_PROBE if self.c.fallback else 0
+        now = self._clock()
+        if not interval or not self.link.is_open or now - self._probed < interval:
+            return
+        self._probed = now
+        started = time.perf_counter()
+        try:
+            answer = await self.request(esp.base_id_request(self.protocol), PROBE_TIMEOUT)
+        except (ConnectionError, ValueError):
+            return
+        if answer is None:
+            self._misses += 1
+            self._ok_since = None if self.c.fallback_trigger == "probe" else self._ok_since
+            return
+        self.probe_ms = round((time.perf_counter() - started) * 1000, 1)
+        self._misses = 0
+        if self._ok_since is None:
+            self._ok_since = self._clock()
+
+    def fallback_state(self) -> tuple[bool, str]:
+        """A: can B stand in right now, and if not, why."""
+        fallback = self.fallback
+        if fallback is None:
+            return False, "none" if not self.c.fallback else "off"
+        if not fallback.link.is_open:
+            return False, "not_connected"
+        if fallback.base_id is None:
+            return False, "base_id_unknown"
+        mine = self.base_id or self.known_base_id
+        if mine is None:
+            return False, "own_base_id_unknown"
+        if fallback.base_id != mine:
+            return False, "base_id_differs"
+        answered = fallback.answered_at
+        if answered is None or self._clock() - answered > FALLBACK_PROBE * FALLBACK_MISSES:
+            return False, "silent"
+        return True, "ok"
+
+    def _failed(self) -> str:
+        """A: why its own gateway counts as failed ("" while it works)."""
+        if not self.link.is_open:
+            return "disconnected"
+        if self.c.fallback_trigger == "probe" and self._misses >= FALLBACK_MISSES:
+            return "no_answer"
+        return ""
+
+    def _supervise(self) -> None:
+        if self.serves:
+            return
+        ready, reason = self.fallback_state()
+        if self.c.fallback and (ready, reason) != (self.fallback_ready, self.fallback_reason):
+            if ready:
+                self.on_event("info", "enocean_fallback_ready", fallback=self._fallback_name())
+            elif reason not in ("none", "off") or self.fallback_ready:
+                self.on_event(
+                    "warning",
+                    "enocean_fallback_unready",
+                    fallback=self._fallback_name(),
+                    reason=reason,
+                )
+        self.fallback_ready, self.fallback_reason = ready, reason
+        if self.active == "main":
+            if (failed := self._failed()) and ready:
+                self._switch("fallback", failed)
+            return
+        fallback = self.fallback
+        if fallback is None or not fallback.link.is_open:
+            self._switch("main", "fallback_lost")
+        elif (
+            self.c.fallback_return == "auto"
+            and not self.manual
+            and not self._failed()
+            and self._ok_since is not None
+            and self._clock() - self._ok_since >= FALLBACK_STABLE
+            and fallback._outgoing.empty()
+        ):
+            self._switch("main", "main_back")
+
+    def switch(self, to: str) -> None:
+        """By hand: "fallback" or "main"; stays until switched back by hand or B fails."""
+        if to == "fallback":
+            ready, reason = self.fallback_state()
+            if not ready:
+                raise ValueError(f"the fallback is not ready: {reason}")
+        elif to != "main":
+            raise ValueError("main or fallback")
+        elif not self.link.is_open:
+            raise ValueError("the gateway is not connected")
+        self._switch(to, "by_hand")
+        self.manual = to == "fallback"
+
+    def _switch(self, to: str, reason: str) -> None:
+        if to == self.active:
+            return
+        name = self._fallback_name()
+        self.active, self.active_since, self.switch_reason = to, time.time(), reason
+        self.manual = False
+        if to == "fallback":
+            waiting = [entry for entry in self._awaiting if not entry[0].own]
+            for entry in waiting:  # A will not answer them any more
+                self._awaiting.remove(entry)
+            _LOGGER.warning("%s: goes on through the fallback %s (%s)", self.c.name, name, reason)
+            self.on_event(
+                "warning", "enocean_failover", fallback=name, reason=reason, unanswered=len(waiting)
+            )
+        else:
+            _LOGGER.info("%s: back on its own gateway (%s)", self.c.name, reason)
+            self.on_event("info", "enocean_failback", fallback=name, reason=reason)
+
+    def _fallback_name(self) -> str:
+        return self.fallback.c.name if self.fallback is not None else self.c.fallback
+
+    def fallback_info(self) -> dict[str, Any] | None:
+        """A's fallback for the state: None without one."""
+        if not self.c.fallback:
+            return None
+        fallback = self.fallback
+        return {
+            "id": self.c.fallback,
+            "name": fallback.c.name if fallback is not None else None,
+            "main": self.c.name,
+            "active": self.active,
+            "active_since": self.active_since,
+            "reason": self.switch_reason,
+            "manual": self.manual,
+            "ready": self.fallback_ready,
+            "not_ready": None if self.fallback_ready else self.fallback_reason,
+            "connected": bool(fallback and fallback.link.is_open),
+            "base_id": fallback.base_id if fallback is not None else None,
+            "probe_ms": fallback.probe_ms if fallback is not None else None,
+            "relayed": self.stats.relayed,
+            "from_fallback": self.stats.from_fallback,
+            "listen": self.c.fallback_listen,
+            "heard": dict(self.heard),
+        }
+
     # duty cycle
 
     def _count_airtime(self, frame: bytes) -> None:
@@ -510,7 +802,8 @@ class EnOceanProxy:
         if not self.link.is_open:
             raise ConnectionError("gateway not connected")
         inbox: asyncio.Queue[bytes] = asyncio.Queue()
-        local = _Client("app", "app", time.time(), None, esp.Splitter(self.protocol), inbox)
+        splitter = esp.Splitter(self.protocol)
+        local = _Client("app", "app", time.time(), None, splitter, inbox, own=True)
         local.queued += 1
         self._outgoing.put_nowait((local, frame))
         if not esp.expects_response(self.protocol, frame):
@@ -563,8 +856,12 @@ class EnOceanProxy:
             "reachable_since": self.reachable_since,
             "connected": self.link.is_open,
             "connected_since": self.connected_since,
-            "base_id": self.base_id,
+            "base_id": self.base_id or self.known_base_id,
+            "base_id_live": self.base_id is not None,
             "base_id_writes_left": self.base_id_writes_left,
+            "probe_ms": self.probe_ms,
+            "serves": self.serves or None,
+            "fallback": self.fallback_info(),
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
             "frames": {
@@ -615,10 +912,10 @@ def client_row(client: _Client) -> dict[str, Any]:
 
 
 def mqtt_entities(
-    prefix: str, connection_id: str, entity: Callable[..., dict[str, Any]]
+    prefix: str, c: Connection, entity: Callable[..., dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
-    key = f"device_proxy_{connection_id}"
-    return {
+    key = f"device_proxy_{c.id}"
+    result = {
         f"{prefix}/binary_sensor/{key}/reachable/config": entity(
             "reachable",
             value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
@@ -639,15 +936,62 @@ def mqtt_entities(
             entity_category="diagnostic",
         ),
     }
+    if c.fallback:  # "reachable" stays this gateway's own hardware
+        result |= {
+            f"{prefix}/binary_sensor/{key}/fallback_active/config": entity(
+                "fallback_active",
+                value_template="{{ 'ON' if value_json.fallback_active else 'OFF' }}",
+                device_class="problem",
+            ),
+            f"{prefix}/sensor/{key}/active_gateway/config": entity(
+                "active_gateway",
+                value_template="{{ value_json.active_gateway }}",
+                icon="mdi:swap-horizontal",
+            ),
+            f"{prefix}/binary_sensor/{key}/fallback_ready/config": entity(
+                "fallback_ready",
+                value_template="{{ 'ON' if value_json.fallback_ready else 'OFF' }}",
+                entity_category="diagnostic",
+            ),
+        }
+    return result
 
 
 def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
     """The entities' values from the proxy's state(); duty cycle in % of the 1 % limit."""
-    return {
+    values = {
         "reachable": state["reachable"] is True,
         "telegrams": state["frames"]["from_gateway"],
         "duty_cycle": state["duty_cycle"]["of_limit"],
     }
+    if fallback := state.get("fallback"):
+        active = fallback["active"] == "fallback"
+        values |= {
+            "fallback_active": active,
+            "active_gateway": (fallback["name"] or "?") if active else fallback["main"],
+            "fallback_ready": fallback["ready"],
+        }
+    return values
+
+
+def _known_base_ids() -> dict[str, str]:
+    try:
+        data = json.loads(BASE_ID_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def _keep_base_id(connection_id: str, base_id: str) -> None:
+    """Remember a gateway's base ID, so its fallback can be checked while it is away."""
+    known = _known_base_ids() | {connection_id: base_id}
+    try:
+        BASE_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = BASE_ID_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(known), encoding="utf-8")
+        os.replace(tmp, BASE_ID_FILE)
+    except OSError as err:
+        _LOGGER.debug("base ID not kept: %s", err)
 
 
 def _port(server: asyncio.Server) -> int:

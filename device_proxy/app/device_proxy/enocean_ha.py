@@ -64,6 +64,7 @@ def discovery_config(hostname: str, status_port: int, items: list[Connection]) -
 def gateway_status(c: Connection, proxy: EnOceanProxy | None) -> dict[str, Any]:
     """One gateway, with the fields of the EnOcean Proxy app's status."""
     state = proxy.state() if proxy is not None else None
+    fallback = state["fallback"] if state else None
     return {
         "name": c.name,
         "port": c.port,
@@ -81,6 +82,17 @@ def gateway_status(c: Connection, proxy: EnOceanProxy | None) -> dict[str, Any]:
         "replay": state["replay"] if state else None,
         "exclusive_peer": state["exclusive_peer"] if state else None,
         "duty_cycle": state["duty_cycle"] if state else {},
+        # whose gateway the clients use; older readers ignore these
+        "active": fallback["active"] if fallback else "main",
+        "fallback": {
+            "name": fallback["name"],
+            "ready": fallback["ready"],
+            "not_ready": fallback["not_ready"],
+            "base_id": fallback["base_id"],
+            "since": fallback["active_since"] if fallback["active"] == "fallback" else None,
+        }
+        if fallback
+        else None,
     }
 
 

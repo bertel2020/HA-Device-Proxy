@@ -39,6 +39,8 @@ SUMMED = {
     "modbus_back",
     "enocean_down",
     "enocean_back",
+    "enocean_failover",
+    "enocean_failback",
     "client_refused",
     "write_blocked",
 }
@@ -90,6 +92,15 @@ MESSAGES = {
     ),
     "enocean_down": "Gateway not reachable: {target} ({error})",
     "enocean_back": "Gateway reachable again: {target}",
+    "enocean_failover": (
+        "Goes on through the fallback {fallback} ({reason}), {unanswered} commands unanswered"
+    ),
+    "enocean_failback": "Back on its own gateway, the fallback {fallback} rests ({reason})",
+    "enocean_fallback_ready": "Fallback {fallback} ready",
+    "enocean_fallback_unready": "Fallback {fallback} not ready: {reason}",
+    "enocean_fallback_promoted": (
+        "The fallback's hardware became this gateway's: {new}; the old one ({old}) is {action}"
+    ),
     "duty_cycle_high": "{of_limit} % of the 1 % duty cycle used in the last hour",
     "client_dropped": "Client {address} stopped reading and was disconnected ({queued} bytes)",
     "base_id_set": "Base ID changed to {base_id}",

@@ -43,6 +43,9 @@ NAMES = {
         "answer_time": "Antwortzeit",
         "telegrams": "Telegramme vom Gateway",
         "duty_cycle": "Funkzeit (Anteil am 1-%-Limit)",
+        "fallback_active": "Ersatz-Gateway aktiv",
+        "active_gateway": "Aktives Gateway",
+        "fallback_ready": "Ersatz-Gateway bereit",
     },
     "en": {
         "present": "Device connected",
@@ -59,6 +62,9 @@ NAMES = {
         "answer_time": "Answer time",
         "telegrams": "Telegrams from the gateway",
         "duty_cycle": "Air time (share of the 1 % limit)",
+        "fallback_active": "Fallback gateway active",
+        "active_gateway": "Active gateway",
+        "fallback_ready": "Fallback gateway ready",
     },
 }
 
@@ -197,7 +203,7 @@ class HaBridge:
                 icon="mdi:lan-connect",
             )
             if kind:
-                result.update(kind.mqtt_entities(prefix, c.id, entity))
+                result.update(kind.mqtt_entities(prefix, c, entity))
                 continue
             result[f"{prefix}/binary_sensor/device_proxy_{c.id}/present/config"] = entity(
                 "present",

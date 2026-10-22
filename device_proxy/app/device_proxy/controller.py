@@ -116,6 +116,14 @@ NOTES = {
             "In der letzten Stunde sind {share} % der erlaubten Funkzeit (1 %) verbraucht. "
             "Darüber verzögert oder verwirft das Gateway Telegramme.",
         ),
+        "fallback": (
+            "Device Proxy: {name} – läuft über Ersatz",
+            "Seit {since} übernimmt {fallback} ({reason}). Die Programme merken nichts.",
+        ),
+        "fallback_unready": (
+            "Device Proxy: {name} – Ersatz nicht einsatzbereit",
+            "{fallback} könnte bei einem Ausfall nicht übernehmen: {reason}.",
+        ),
         "custom": (
             "Device Proxy: eigene ser2net.yaml unbrauchbar",
             "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
@@ -154,10 +162,42 @@ NOTES = {
             "{share} % of the allowed air time (1 %) was used in the last hour. Beyond it the "
             "gateway delays or drops telegrams.",
         ),
+        "fallback": (
+            "Device Proxy: {name} – running on the fallback",
+            "{fallback} stands in since {since} ({reason}). The programs notice nothing.",
+        ),
+        "fallback_unready": (
+            "Device Proxy: {name} – fallback not ready",
+            "{fallback} could not stand in if the gateway failed: {reason}.",
+        ),
         "custom": (
             "Device Proxy: own ser2net.yaml unusable",
             "Your own ser2net.yaml is not used, nothing is shared. See the app's settings.",
         ),
+    },
+}
+REASONS = {  # why a gateway went on through its fallback, or why the fallback is not ready
+    "de": {
+        "disconnected": "Gateway nicht verbunden",
+        "no_answer": "Gateway antwortet nicht",
+        "by_hand": "von Hand umgeschaltet",
+        "off": "Ersatz ist ausgeschaltet",
+        "not_connected": "Ersatz nicht verbunden",
+        "base_id_unknown": "Base-ID des Ersatzes noch unbekannt",
+        "own_base_id_unknown": "eigene Base-ID noch unbekannt",
+        "base_id_differs": "Base-ID passt nicht",
+        "silent": "Ersatz antwortet nicht",
+    },
+    "en": {
+        "disconnected": "gateway not connected",
+        "no_answer": "gateway does not answer",
+        "by_hand": "switched by hand",
+        "off": "the fallback is switched off",
+        "not_connected": "fallback not connected",
+        "base_id_unknown": "the fallback's base ID is not known yet",
+        "own_base_id_unknown": "the own base ID is not known yet",
+        "base_id_differs": "the base ID differs",
+        "silent": "the fallback does not answer",
     },
 }
 IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
@@ -570,8 +610,14 @@ class Controller:
         touched: list[str] = []
         for connection_id, proxy in list(self.proxies.items()):
             c = wanted.get(connection_id)
-            if c is not None and proxy.key == PROXIED[c.kind].restart_key(c, listen):
+            if (
+                c is not None
+                and proxy.key == PROXIED[c.kind].restart_key(c, listen)
+                and bool(self._serves(c)) == bool(getattr(proxy, "serves", ""))
+            ):
                 proxy.c = c  # name, trace or notifications changed: no restart
+                if isinstance(proxy, EnOceanProxy):
+                    proxy.serves = self._serves(c)
                 continue
             if isinstance(proxy, EnOceanProxy):
                 self._capture_ends(proxy)
@@ -586,13 +632,29 @@ class Controller:
                 continue
             build = PROXIED[c.kind].build
             proxy = build(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
+            if isinstance(proxy, EnOceanProxy):
+                proxy.serves = self._serves(c)  # a fallback: no port of its own
             self.proxies[connection_id] = proxy
             task = asyncio.create_task(proxy.run())
             task.add_done_callback(partial(self._proxy_ended, connection_id))
             self._proxy_tasks[connection_id] = task
             if c.name not in touched:
                 touched.append(c.name)
+        self._wire_fallbacks()
         return touched
+
+    def _serves(self, c: Connection) -> str:
+        """The name of the gateway this EnOcean connection is the fallback of, or ""."""
+        main = self.config.fallback_of(c.id) if c.kind == "enocean" else None
+        return main.name if main is not None else ""
+
+    def _wire_fallbacks(self) -> None:
+        """Attach each EnOcean gateway's fallback proxy (again after either restarted)."""
+        for proxy in self.proxies.values():
+            if not isinstance(proxy, EnOceanProxy) or proxy.serves:
+                continue
+            fallback = self.proxies.get(proxy.c.fallback) if proxy.c.fallback else None
+            proxy.attach_fallback(fallback if isinstance(fallback, EnOceanProxy) else None)
 
     def _proxy_ended(self, connection_id: str, task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (err := task.exception()) is not None:
@@ -646,7 +708,7 @@ class Controller:
         down = [
             p.c.name
             for p in self.proxies.values()
-            if isinstance(p, EnOceanProxy) and not p.listening
+            if isinstance(p, EnOceanProxy) and not p.listening and not p.serves
         ]
         with contextlib.suppress(OSError):  # only the Docker health check reads it
             health.write(down, self.health_file)
@@ -804,6 +866,7 @@ class Controller:
         now = time.time() if now is None else now
         settings = self.config.settings
         texts = NOTES[settings.notify_language]
+        reasons = REASONS[settings.notify_language]
         found: dict[str, tuple[str, str]] = {}
 
         def add(key: str, kind: str, **values: object) -> None:
@@ -826,7 +889,10 @@ class Controller:
                     device=c.device,
                     since=clock(since),
                 )
+            fallback = proxy.fallback_info() if isinstance(proxy, EnOceanProxy) else None
+            # running on the fallback: that notification says it, with the reason
             down = not missing and proxy.reachable is False
+            down = down and not (fallback and fallback["active"] == "fallback")
             if c.notify_missing and (since := self._lasting(c.id, "unreachable", down, now)):
                 add(
                     f"device_proxy_{c.id}_unreachable",
@@ -851,6 +917,23 @@ class Controller:
                 share = proxy.duty_cycle()["of_limit"]
                 if share >= DUTY_NOTE:
                     add(f"device_proxy_{c.id}_duty", "duty", name=c.name, share=round(share))
+            if fallback and fallback["active"] == "fallback":
+                add(
+                    f"device_proxy_{c.id}_fallback",
+                    "fallback",
+                    name=c.name,
+                    fallback=fallback["name"] or "?",
+                    reason=reasons.get(fallback["reason"], fallback["reason"]),
+                    since=clock(fallback["active_since"]),
+                )
+            elif fallback and not fallback["ready"] and c.notify_missing:
+                add(
+                    f"device_proxy_{c.id}_fallback_unready",
+                    "fallback_unready",
+                    name=c.name,
+                    fallback=fallback["name"] or "?",
+                    reason=reasons.get(fallback["not_ready"], fallback["not_ready"]),
+                )
         for c in self.active:
             if not c.enabled:
                 continue
@@ -1024,6 +1107,50 @@ class Controller:
             "base_id": proxy.base_id,
             "writes_left": proxy.base_id_writes_left,
         }
+
+    def enocean_switch(self, connection_id: str, to: str) -> dict[str, object]:
+        """Switch a gateway to its fallback or back by hand."""
+        proxy = self._enocean(connection_id)
+        proxy.switch(to)
+        return {"active": proxy.active}
+
+    async def enocean_promote(self, connection_id: str, old: str) -> ApplyResult:
+        """The fallback's hardware becomes the gateway's (e.g. the gateway broke): the
+        connection keeps its name, port, clients and history; the old hardware goes to the
+        fallback's connection, which is then switched off, kept as fallback or deleted."""
+        if old not in ("off", "keep", "delete"):
+            raise ValueError("old: off, keep or delete")
+        swapped: list[tuple[str, str]] = []
+
+        def build(config: AppConfig) -> AppConfig:
+            main = config.connection(connection_id)
+            fallback = config.connection(main.fallback) if main and main.fallback else None
+            if main is None or fallback is None:
+                raise ValueError("the gateway has no fallback")
+            mine = {f: getattr(main, f) for f in model.GATEWAY_HARDWARE}
+            theirs = {f: getattr(fallback, f) for f in model.GATEWAY_HARDWARE}
+            config = config.with_connection(replace(main, **theirs))
+            config = config.with_connection(
+                replace(fallback, **mine, enabled=fallback.enabled and old != "off")
+            )
+            if old == "delete":
+                config = config.without_connection(fallback.id)
+            config.validate()
+            swapped[:] = [(fallback.upstream, main.upstream)]
+            return config
+
+        result = await self.apply(build, "ui")
+        new, previous = swapped[0]
+        action = {"off": "switched off", "keep": "the fallback now", "delete": "deleted"}[old]
+        self.events.emit(
+            "info",
+            "enocean_fallback_promoted",
+            connection=connection_id,
+            new=new,
+            old=previous,
+            action=action,
+        )
+        return result
 
     def start_capture(self, connection_id: str, exclusive_peer: str | None) -> dict[str, object]:
         proxy = self._enocean(connection_id)
@@ -1239,7 +1366,7 @@ class Controller:
             "present": present,
             "tty": device.tty if device else None,
             "usb": device.to_dict() if device else None,
-            "running": bool(proxy and proxy.listening),
+            "running": bool(proxy and (proxy.listening or getattr(proxy, "serves", ""))),
             "pending": None,
             "clients": [kind.client_row(cl) for cl in (proxy.clients.values() if proxy else [])],
             "kept_open": False,
