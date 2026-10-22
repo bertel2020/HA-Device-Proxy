@@ -59,6 +59,12 @@ export function fmtAgo(ts) {
 }
 
 /** Where a proxy's device is: the serial device or host:port. */
+/** Items joined sixteen to a line, so hex and ASCII break at the same bytes. */
+export const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.length / 16) }, (_, i) => items.slice(i * 16, i * 16 + 16).join(sep)).join("\n");
+
+/** The badge word of a live line: the direction as seen from the device, or the Modbus request/answer. */
+export const dirLabel = (direction, kind) => (direction === "rx" || direction === "tx" ? t(`${kind === "modbus" ? "dirmb" : "dir"}_${direction}`) : direction.toUpperCase());
+
 export const usesDevice = (c) => c.kind === "serial" || c.link === "rtu" || c.link === "serial";
 export const proxyTarget = (c) => usesDevice(c) ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
 export const modbusTarget = proxyTarget;

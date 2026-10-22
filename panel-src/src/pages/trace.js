@@ -2,14 +2,11 @@ import { css, html } from "lit";
 import { api, saveConnection, toConnection, url } from "../api.js";
 import { Page } from "../app.js";
 import { t } from "../i18n.js";
-import { confirmDialog, copyText, fmtBytes, fmtTime, icon, navigate } from "../ui.js";
+import { confirmDialog, copyText, dirLabel, fmtBytes, fmtTime, icon, lines16, navigate } from "../ui.js";
 
 const MODES = ["off", "rx", "tx", "both"];
 const KEEP = 400;
 const PATH = "/addon_configs/…_device_proxy/trace/";
-
-/** Items joined sixteen to a line, so hex and ASCII break at the same bytes. */
-const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.length / 16) }, (_, i) => items.slice(i * 16, i * 16 + 16).join(sep)).join("\n");
 
 export class TracePage extends Page {
   static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true } };
@@ -110,7 +107,7 @@ export class TracePage extends Page {
                 <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
             ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
               <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
-              <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction === "rx" || ch.direction === "tx" ? t(`${current && current.kind === "modbus" ? "dirmb" : "dir"}_${ch.direction}`) : ch.direction.toUpperCase()}</span></td>
+              <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
               ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex">${ch.hex ? lines16(ch.hex.split(" "), " ") : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>

@@ -3,7 +3,7 @@ import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
 import { eventText, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -39,8 +39,9 @@ export class DetailPage extends Page {
     .counters b { display: block; font-size: 20px; font-weight: 500; }
     .live { max-height: 340px; overflow: auto; }
     .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
-    .live td { border: none; padding: 2px 8px; white-space: pre; }
-    .dir { display: inline-block; min-width: 30px; text-align: center; border-radius: 6px; padding: 0 6px; }
+    .live td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
+    .live .info { white-space: normal; overflow-wrap: anywhere; }
+    .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
@@ -267,7 +268,7 @@ export class DetailPage extends Page {
         <div class="row"><div><h2 id="t-live" style="display:inline">${t("live")}</h2>
           <span class="hint"> · <span class="dot" style="color:${last ? "var(--ok)" : "var(--muted)"}"></span>${last ? `${t("liveLast", { ago: fmtAgo(last.ts) })}${rate ? ` · ${t(modbus ? "liveRateMb" : "liveRate", { n: rate.toLocaleString() })}` : ""}` : t("liveNone")}</span></div>
           <button class="btn btn-g" @click=${() => this._setOpen(true)}>${t("liveShow")}</button></div>
-        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(undefined, { hour12: false })} · ${last.direction.toUpperCase()} · ${line}</div>`
+        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(undefined, { hour12: false })} · ${dirLabel(last.direction, kind)} · ${line}</div>`
           : html`<p class="hint" style="margin:0">${t(enocean ? "liveEmptyEo" : modbus ? "liveEmptyMb" : "liveEmpty")} ${t("liveAutoOpen")}</p>`}
       </section>`;
     }
@@ -280,18 +281,16 @@ export class DetailPage extends Page {
         </div></div>
       ${enocean ? html`<div class="row" style="justify-content:flex-start;gap:8px">
         <input class="inp" style="flex:1 1 200px" type="search" aria-label=${t("eoSearch")} placeholder=${t("eoSearch")} .value=${this.search} @input=${(e) => { this.search = e.target.value; }}>
-        <div class="seg" role="group" aria-label=${t("eoDirection")}>${[["", t("eoBoth")], ["rx", "RX"], ["tx", "TX"]].map(([v, l]) => html`<button type="button" aria-pressed=${this.dir === v ? "true" : "false"} @click=${() => { this.dir = v; }}>${l}</button>`)}</div>
+        <div class="seg" role="group" aria-label=${t("eoDirection")}>${[["", t("eoBoth")], ["rx", t("dir_rx")], ["tx", t("dir_tx")]].map(([v, l]) => html`<button type="button" aria-pressed=${this.dir === v ? "true" : "false"} @click=${() => { this.dir = v; }}>${l}</button>`)}</div>
         ${this.search || this.dir ? html`<span class="hint">${t("eoShown", { n: rows.length, m: all.length })}</span>` : ""}</div>` : ""}
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
           <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
-          <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${ch.direction.toUpperCase()}</span></td>
-          ${ch.info ? html`<td style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
-            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(ch.info)}</td>` : ""}
-          ${enocean ? html`<td style="white-space:nowrap"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></td>` : ""}
-          <td>${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex}</td>
-          ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${ch.text.replace(/[^\x20-\x7e]/g, ".")}</td>` : ""}
+          <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
+          <td>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
+            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(ch.info)}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? lines16(ch.hex.split(" "), " ") : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
+          ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}
         </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
     </section>`;
   }
