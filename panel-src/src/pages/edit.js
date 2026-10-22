@@ -31,7 +31,7 @@ const TEMPLATES = {
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Feintuning" and counts when it differs from the default
-const MODBUS_TUNING = ["retries", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
+const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open"];
@@ -279,6 +279,10 @@ export class EditPage extends Page {
         ${d.link === "rtu" ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
           ${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>
           <span class="hint">${t("mbHostHint")}</span>`}
+        <div class="grid2">
+          ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
+          ${this._input("retries", t("mbRetries"), { number: true, hint: t("mbRetriesHint") })}
+        </div>
       </section>
 
       <section class="card" aria-labelledby="t-proxy">
@@ -286,7 +290,6 @@ export class EditPage extends Page {
         <div class="grid2">
           ${this._input("port", t("mbPort"), { number: true, hint: t("mbPortHint") })}
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("mbClientsHint") })}
-          ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
         </div>
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
         ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
@@ -308,7 +311,6 @@ export class EditPage extends Page {
           <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
           <div class="grid2">
-            ${this._input("retries", t("mbRetries"), { number: true })}
             ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
             ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
             ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
