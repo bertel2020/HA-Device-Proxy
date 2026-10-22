@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Texts**: the network level "Home Assistant and apps" showed as `listen_apps`, Modbus exception 8 as
+  `ex_8`; the English import preview said "höchstens 5 Clients". Errors of the Modbus write tool,
+  of a restore and of the MQTT test are translated to German. The events "own ser2net.yaml cannot
+  be used" and "import failed" show the reason in both languages (English showed a Python list).
+  39 texts nothing used any more are gone.
+
 - **Modbus write lock**: a read only passes when its request has exactly the length of that read. On
   RTU and RTU over TCP the proxy passes the bytes on as they are, so a write frame hidden behind a
   read reached the device although writing was locked.
