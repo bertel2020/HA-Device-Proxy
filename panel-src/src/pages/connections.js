@@ -138,8 +138,8 @@ export class ConnectionsPage extends Page {
           : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       </div>
       <div class="foot">
-        <div class="addr"><span class="mono">${primaryAddress(c)}</span>${modbus ? html`<span class="hint" style="font-size:12px">${t("hostPort")}</span>` : ""}
-          <button class="btn btn-g" style="min-height:36px" @click=${() => this._copy(c)} aria-label=${t("copy")}>${icon("copy", 16)}${this.copied === c.id ? t("copied") : t("copy")}</button></div>
+        <div class="addr" title=${modbus ? `${primaryAddress(c)} ${t("hostPort")}` : primaryAddress(c)}><span class="mono">${primaryAddress(c)}</span>
+          <button class="btn btn-g" style="min-height:36px;padding:0 10px" @click=${() => this._copy(c)} aria-label=${this.copied === c.id ? t("copied") : t("copy")} title=${this.copied === c.id ? t("copied") : t("copy")}>${icon(this.copied === c.id ? "check" : "copy", 16)}</button></div>
         <div style="display:flex;gap:4px;align-items:center"><a class="btn btn-s" href="#/connection/${c.id}">${t("details")}</a>
           <a class="iconbtn" href="#/edit/${c.id}" aria-label=${t("edit")} title=${t("edit")}>${icon("pencil", 18)}</a></div>
       </div>
