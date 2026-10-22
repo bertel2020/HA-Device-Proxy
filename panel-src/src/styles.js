@@ -28,6 +28,11 @@ export const base = css`
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
     box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
   .card > .row:first-child { min-height: 32px; }
+  details.fold > summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; list-style: none; }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::before { content: "›"; font-size: 20px; line-height: 1; transition: transform .15s; }
+  details.fold[open] > summary::before { transform: rotate(90deg); }
+  details.fold > summary:hover { text-decoration: underline; }
   .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stack { display: flex; flex-direction: column; gap: 20px; }
   .cols, .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }

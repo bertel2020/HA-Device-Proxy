@@ -31,7 +31,6 @@ export class ImportDialog extends Page {
     .on .num, .past .num { background: var(--accent); color: var(--on-accent); }
     .drop { border: 2px dashed var(--input-line); border-radius: 16px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; background: var(--surface-2); }
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-    .formats summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     .formats p { margin: 6px 0 0; }
     .imp { min-width: 680px; }
     .imp td.nm { min-width: 130px; }
@@ -122,7 +121,7 @@ export class ImportDialog extends Page {
         ${icon("upload", 40)}<b style="font-size:16px;font-weight:500">${t("importDrop")}</b>
         <label class="btn btn-p">${t("chooseFile")}<input type="file" class="sr" accept=".yaml,.yml,.conf,.json,text/plain" @change=${(e) => this._file(e.target.files[0])}></label>
       </div>
-      <details class="formats"><summary>${t("formatsMore")}</summary><p class="hint">${t("importFormats")}</p></details>
+      <details class="formats fold"><summary>${t("formatsMore")}</summary><p class="hint">${t("importFormats")}</p></details>
       <label class="fld"><span class="lbl">${t("pasteHere")}</span>
         <textarea class="inp mono" rows="6" .value=${this.text} @input=${(e) => { this.text = e.target.value; }}></textarea></label>
       ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}

@@ -243,7 +243,7 @@ export class EnOceanTools extends LitElement {
               ${hosts.map((h) => html`<option value=${h} ?selected=${this.peer === h}>${h}</option>`)}</select>
             <span class="hint">${t("eoLockHint")}</span></label></div>
           <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${() => this._capture(true)}>${t("eoCaptureStart")}</button></div>
-          <details><summary class="hint" style="cursor:pointer">${t("eoPct14")}</summary><ol class="hint" style="margin:8px 0 0 18px;padding:0">${t("eoPct14Steps").split("|").map((s) => html`<li>${s}</li>`)}</ol></details>`}
+          <details class="fold"><summary>${t("eoPct14")}</summary><ol class="hint" style="margin:8px 0 0 18px;padding:0">${t("eoPct14Steps").split("|").map((s) => html`<li>${s}</li>`)}</ol></details>`}
     `, !!this.test || this.answers.length > 0 || !!mine);
   }
 }
