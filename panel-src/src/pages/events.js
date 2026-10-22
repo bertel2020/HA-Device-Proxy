@@ -121,7 +121,7 @@ export class EventsPage extends Page {
         ${[...byDay.entries()].slice(0, 30).map(([key, items]) => html`<div class="day">
           <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${this._dayLabel(items[0].ts)}</div>
           ${(this.expanded.has(key) ? items : items.slice(0, 50)).map((e) => html`<div class="item"><span class="mono hint">${fmtTime(e.ts, false)}</span>
-            <span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--muted)"}"></span>
+            <span class="dot" role="img" aria-label=${t(`lv_${e.level}`)} title=${t(`lv_${e.level}`)} style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--muted)"}"></span>
             <span>${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
           ${items.length > 50 ? html`<div class="hint" style="font-size:13px">${this.expanded.has(key) ? "" : `${t("moreEntries", { n: items.length - 50 })} · `}<a href="#/events" @click=${(e) => { e.preventDefault(); const x = new Set(this.expanded); x.has(key) ? x.delete(key) : x.add(key); this.expanded = x; }}>${this.expanded.has(key) ? t("showLess") : t("showAll")}</a></div>` : ""}
         </div>`)}

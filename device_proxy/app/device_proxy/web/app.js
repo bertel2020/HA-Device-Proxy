@@ -825,7 +825,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         ${[...s.entries()].slice(0,30).map(([i,o])=>a`<div class="day">
           <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${this._dayLabel(o[0].ts)}</div>
           ${(this.expanded.has(i)?o:o.slice(0,50)).map(l=>a`<div class="item"><span class="mono hint">${C(l.ts,!1)}</span>
-            <span class="dot" style="color:${l.level==="warning"?"var(--warn)":l.level==="error"?"var(--bad)":"var(--muted)"}"></span>
+            <span class="dot" role="img" aria-label=${t(`lv_${l.level}`)} title=${t(`lv_${l.level}`)} style="color:${l.level==="warning"?"var(--warn)":l.level==="error"?"var(--bad)":"var(--muted)"}"></span>
             <span>${this._who(l)} ${Q(l)}${l.count>1?a` <span class="chip">${t("summed",{n:l.count})}</span>`:""}</span></div>`)}
           ${o.length>50?a`<div class="hint" style="font-size:13px">${this.expanded.has(i)?"":`${t("moreEntries",{n:o.length-50})} \xB7 `}<a href="#/events" @click=${l=>{l.preventDefault();let d=new Set(this.expanded);d.has(i)?d.delete(i):d.add(i),this.expanded=d}}>${this.expanded.has(i)?t("showLess"):t("showAll")}</a></div>`:""}
         </div>`)}
