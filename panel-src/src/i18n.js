@@ -64,6 +64,7 @@ const TEXT = {
     // import
     importTitle: "Verbindungen importieren", stepChoose: "Datei wählen", stepPreview: "Vorschau prüfen", stepDone: "Übernommen",
     importChoose: "ser2net.yaml, ser2net.conf oder Modbus-Proxy-Konfiguration auswählen", importDrop: "Datei auswählen oder Inhalt einfügen", importFormats: "ser2net 4 (YAML, Version 1 und 2), ser2net 3 (ser2net.conf) oder die Optionen von ha-modbusproxy bzw. modbus-proxy (YAML aus dessen Konfigurations-Tab)",
+    importNone: "Darin habe ich keine Verbindungen gefunden.",
     chooseFile: "Datei auswählen", pasteHere: "… oder den Inhalt hier einfügen", readPreview: "Vorschau", otherFile: "Andere Datei",
     format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML Version 1", format_2: "ser2net 4 · YAML Version 2", format_10: "ha-modbusproxy (Optionen)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (Optionen)",
     importMax: "höchstens {n} Clients", confl_port: "Port {p} ist belegt von „{n}“", confl_device: "Gerät ist belegt von „{n}“", confl_name: "Name gibt es schon: „{n}“", takeAll: "Alle auswählen", modeRaw: "roh", importOff: "wird ausgeschaltet importiert", willGo: "Diese Verbindungen werden entfernt:", doneHead: "Import abgeschlossen", sum_added: "hinzugefügt", sum_changed: "ersetzt", sum_removed: "entfernt", sum_skipped: "übersprungen", doneOff: "Ausgeschaltet importiert: {n}. Prüfe Geräte-Pfade und Ports und schalte sie dann ein.",
@@ -408,6 +409,7 @@ const TEXT = {
     deleteConfirm: "Delete connection “{n}”? Its clients are disconnected.", errorsBelow: "Please check the marked fields.",
     importTitle: "Import connections", stepChoose: "Choose file", stepPreview: "Check preview", stepDone: "Done",
     importChoose: "Choose ser2net.yaml, ser2net.conf or a Modbus proxy configuration", importDrop: "Choose a file or paste its content", importFormats: "ser2net 4 (YAML, version 1 and 2), ser2net 3 (ser2net.conf) or the options of ha-modbusproxy or modbus-proxy (YAML from its configuration tab)",
+    importNone: "I found no connections in it.",
     chooseFile: "Choose file", pasteHere: "… or paste the content here", readPreview: "Preview", otherFile: "Other file",
     format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML version 1", format_2: "ser2net 4 · YAML version 2", format_10: "ha-modbusproxy (options)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (options)",
     importMax: "höchstens {n} Clients", confl_port: "Port {p} is used by “{n}”", confl_device: "The device is used by “{n}”", confl_name: "The name exists: “{n}”", takeAll: "Select all", modeRaw: "raw", importOff: "imported switched off", willGo: "These connections are removed:", doneHead: "Import finished", sum_added: "added", sum_changed: "replaced", sum_removed: "removed", sum_skipped: "skipped", doneOff: "Imported switched off: {n}. Check device paths and ports, then switch them on.",

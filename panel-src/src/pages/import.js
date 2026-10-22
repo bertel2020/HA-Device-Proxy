@@ -48,7 +48,12 @@ export class ImportDialog extends Page {
   async _preview() {
     this.error = "";
     try {
-      this.preview = await api("api/import/preview", { method: "POST", body: { text: this.text } });
+      const preview = await api("api/import/preview", { method: "POST", body: { text: this.text } });
+      if (!preview.items.length) {
+        this.error = [t("importNone"), ...preview.notes.filter((n) => n.code !== "no_connections").map(noteText)].join(" ");
+        return;
+      }
+      this.preview = preview;
       this.take = new Set(this.preview.items.filter((i) => i.connection && !Object.keys(i.conflicts).length).map((i) => i.alias));
       this.choice = Object.fromEntries(this.preview.items.filter((i) => Object.keys(i.conflicts).length).map((i) => [i.alias, "skip"]));
     } catch (err) {
