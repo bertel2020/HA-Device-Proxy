@@ -1231,7 +1231,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
           ${e.connections.map(c=>a`<div class="conn ${c.id===this.selected?"on":""}">
             <button class="pick" aria-current=${c.id===this.selected?"true":"false"} @click=${()=>R(`#/trace/${c.id}`)}>
               <b style="font-weight:500">${c.name}</b>
-              <span class="hint ${c.trace==="off"?"":"rec"}">${c.trace==="off"?t("notRecording"):a`● ${t("recording",{m:this._label(c,c.trace)})}`}</span></button>
+              ${c.trace==="off"?"":a`<span class="hint rec">● ${t("recording",{m:this._label(c,c.trace)})}</span>`}</button>
           </div>`)}
         </section>
         <div class="main-col">

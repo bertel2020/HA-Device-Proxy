@@ -93,7 +93,7 @@ export class TracePage extends Page {
           ${s.connections.map((c) => html`<div class="conn ${c.id === this.selected ? "on" : ""}">
             <button class="pick" aria-current=${c.id === this.selected ? "true" : "false"} @click=${() => navigate(`#/trace/${c.id}`)}>
               <b style="font-weight:500">${c.name}</b>
-              <span class="hint ${c.trace === "off" ? "" : "rec"}">${c.trace === "off" ? t("notRecording") : html`● ${t("recording", { m: this._label(c, c.trace) })}`}</span></button>
+              ${c.trace === "off" ? "" : html`<span class="hint rec">● ${t("recording", { m: this._label(c, c.trace) })}</span>`}</button>
           </div>`)}
         </section>
         <div class="main-col">
