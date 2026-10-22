@@ -349,7 +349,8 @@ export class DetailPage extends Page {
         <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
-          <span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
+          <span class="hint" style="font-size:13px">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+          ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none"><span class="dot"></span>${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}</a>` : ""}
           ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>

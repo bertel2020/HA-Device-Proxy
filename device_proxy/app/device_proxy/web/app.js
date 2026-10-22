@@ -406,7 +406,8 @@ var It=Object.defineProperty;var Ut=(r,e,n)=>e in r?It(r,e,{enumerable:!0,config
         <div class="row" style="justify-content:flex-start"><h1>${n.name}</h1>
           <span class="chip ${i}"><span class="dot"></span>${t(s)}</span>
           ${n.kept_open?a`<span class="chip info">${t("keptOpen")}</span>`:""}
-          <span class="hint" style="font-size:13px">${t("clientsOf",{n:n.clients.length,m:n.max_clients})}</span>
+          <span class="hint" style="font-size:13px">${t("clientsLine",{n:n.clients.length,m:n.max_clients})}</span>
+          ${n.trace!=="off"?a`<a class="chip info" href="#/trace/${n.id}" style="text-decoration:none"><span class="dot"></span>${t("recording",{m:t(`${c?"trmb":"tr"}_${n.trace}`)})}</a>`:""}
           ${g?a`<span class="chip">${n.esp_protocol.toUpperCase()}</span>${m.base_id?a`<span class="chip info mono">Base-ID ${m.base_id}</span>`:""}`:""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${n.id}">${t("navTrace")}</a>
