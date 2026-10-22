@@ -160,6 +160,13 @@ export class EditPage extends Page {
     return t("netFollows", { what });
   }
 
+  /** A bind address of 127.x lets only this host in, so allowed clients elsewhere can never connect. */
+  _bindWarn(d) {
+    if (!d.bind || !d.bind.startsWith("127.")) return "";
+    const outside = (d.remaddr || "").split(/[\s,;]+/).filter((x) => x && !x.startsWith("127.") && x !== "::1" && x !== "localhost");
+    return outside.length ? html`<div class="note warn" role="status">${t("bindWarn", { b: d.bind, a: outside.join(", ") })}</div>` : "";
+  }
+
   _kind(kind) {
     if (kind === this.draft.kind) return;
     this.otherDevice = false;
@@ -298,7 +305,7 @@ export class EditPage extends Page {
         </div>
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
         ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
-        <span class="hint">${this._follows(d)}</span>
+        <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
       </section>
 
       <section class="card" aria-labelledby="t-write">
@@ -409,7 +416,7 @@ export class EditPage extends Page {
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
         ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
         ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
-        <span class="hint">${this._follows(d)}</span>
+        <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
       </section>
 
       <section class="card" aria-labelledby="t-eoreplay">
@@ -528,7 +535,7 @@ export class EditPage extends Page {
             <span class="hint">${t(`mode_${d.mode}`)}</span></div>
           ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
           ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
-          <span class="hint">${this._follows(d)}</span>
+          <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
         </section>
 
         <section class="card" aria-labelledby="t-adv">
