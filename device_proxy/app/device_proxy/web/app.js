@@ -816,7 +816,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
           <div style="display:flex;gap:20px">
             <div><div class="hint">${t("drops",{d:e})}</div><div style="font-size:22px;font-weight:500">${o.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(o.availability*100).toLocaleString(_,{maximumFractionDigits:2})} %</div></div></div>
-          <div class="bars" role="img" aria-label="${t("drops",{d:e})}: ${o.drops}">${o.per_day.map(d=>a`<span style="height:${d?20+d/l*80:8}%;${d?"background:var(--warn)":""}"></span>`)}</div>
+          <div class="bars" role="img" aria-label="${t("drops",{d:e})}: ${o.drops}">${o.per_day.map((d,c)=>a`<span title="${this._dayLabel(Date.now()/1e3-(e-1-c)*86400)}: ${d?t("unstable",{n:d}):t("stable")}" style="height:${d?20+d/l*80:8}%;${d?"background:var(--warn)":""}"></span>`)}</div>
           <div class="row hint" style="font-size:11px"><span>${t("daysAgo",{d:e})}</span><span>${t("today")}</span></div>
         </section>`})}</div>
       <section class="card" aria-labelledby="t-tl">
