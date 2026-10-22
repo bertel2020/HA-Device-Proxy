@@ -164,7 +164,10 @@ export class SettingsPage extends Page {
   async _changeListen(v) {
     if (v === this.state.settings.listen) return;
     if (!(await confirmDialog(this, t("listenConfirm"), t("confirm")))) return;
-    this._saveSettings({ listen: v });
+    const saved = (this.state.settings.lan_networks || "").split(/[\s,;]+/).filter(Boolean).sort().join(" ");
+    const legacy = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"].join(" ");
+    // Home network starts with just this host's network; a list the user built stays
+    this._saveSettings(v === "lan" && (!saved || saved === legacy) ? { listen: v, lan_networks: "own" } : { listen: v });
   }
 
   async _useOwn() {
