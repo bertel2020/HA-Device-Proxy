@@ -1273,7 +1273,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; min-height: 48px; justify-content: center; width: 100%; }
     .pickbox { display: none; }
     @media (max-width: 700px) { .side-col { display: none; } .pickbox { display: flex; } }
-    .rec { color: var(--bad, #c0392b); }
+    .rec { color: var(--accent); }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
     .view table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
