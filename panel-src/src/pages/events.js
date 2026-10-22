@@ -117,7 +117,7 @@ export class EventsPage extends Page {
             <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size:22px;font-weight:500">${st.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
           <div class="bars" role="img" aria-label="${t("drops", { d: days })}: ${st.drops}">${st.per_day.map((v, i) => html`<span title="${this._dayLabel(Date.now() / 1000 - (days - 1 - i) * 86400)}: ${v ? t("unstable", { n: v }) : t("stable")}" style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
-          <div class="row hint" style="font-size:11px"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
+          <div class="row hint" style="font-size:12px"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
       <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-tl">

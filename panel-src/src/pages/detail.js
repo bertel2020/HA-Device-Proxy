@@ -345,7 +345,7 @@ export class DetailPage extends Page {
       <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
       <div><b style="font-size:22px;font-weight:500">${(m.requests ?? 0).toLocaleString()}</b> <span class="hint">${summary}</span></div>
       ${this._sparkline(rq, t("mbRate"))}
-      <div class="row hint" style="font-size:11px"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
+      <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
       <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
       <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
       ${problems.length || m.cached || m.probes || (m.queue ?? 0) > 1 ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -476,7 +476,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           ${modbus ? "" : html`<section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
-            <div class="row hint" style="font-size:11px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
+            <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
           </section>`}
           <section class="card" aria-labelledby="t-recent">

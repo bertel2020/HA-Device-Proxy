@@ -4,7 +4,7 @@ import { css } from "lit";
 export const tokens = css`
   :host {
     --bg: light-dark(#f4f6f9, #0f1216); --surface: light-dark(#ffffff, #1b1f24); --surface-2: light-dark(#f5f7f9, #22272e); --line: light-dark(#e1e5ea, #2d333b);
-    --line-2: light-dark(#eef0f3, #262c33); --text: light-dark(#1b1f24, #e6e9ed); --muted: light-dark(#5b6270, #9aa4b1); --accent: light-dark(#0a6aa8, #5bb2ea);
+    --line-2: light-dark(#eef0f3, #262c33); --text: light-dark(#1b1f24, #e6e9ed); --muted: light-dark(#505766, #a9b2be); --accent: light-dark(#0a6aa8, #5bb2ea);
     --accent-hover: light-dark(#07507f, #8ccaf2); --accent-soft: light-dark(#eaf3fa, #16324a); --ok: light-dark(#1e6b34, #7fd49a); --ok-soft: light-dark(#e6f4ea, #173a24);
     --warn: light-dark(#8a4b00, #f2c27a); --warn-soft: light-dark(#fff1de, #3a2a12); --warn-line: light-dark(#f3d19e, #6b4a1c); --bad: light-dark(#a1261b, #f2a29a);
     --bad-soft: light-dark(#fdecea, #3d1c19); --bad-line: light-dark(#f2b8b5, #6e2f2a); --neutral-soft: light-dark(#eef1f4, #2a3038); --neutral: light-dark(#3a414c, #c5ccd5);
@@ -23,7 +23,7 @@ export const base = css`
   h2 { margin: 0; font-size: 16px; font-weight: 500; }
   p { margin: 0; }
   .sub { color: var(--muted); margin-top: 6px; }
-  .hint { font-size: 12px; color: var(--muted); }
+  .hint { font-size: 13px; color: var(--muted); }
   .mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
     box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
@@ -60,8 +60,8 @@ export const base = css`
   .well { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
   .fld { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; min-width: 0; }
   .actions { display: flex; justify-content: flex-end; }
-  .lbl { font-size: 12px; font-weight: 500; color: var(--muted); }
-  .err { font-size: 12px; color: var(--bad); }
+  .lbl { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .err { font-size: 13px; color: var(--bad); }
   .inp { min-height: 42px; padding: 0 12px; border: 1px solid var(--input-line); border-radius: 10px; font: inherit;
     color: var(--text); background: var(--surface); width: 100%; }
   .inp[aria-invalid="true"] { border-color: var(--bad); }
@@ -79,7 +79,7 @@ export const base = css`
   .choice[aria-pressed="true"], .choice[aria-checked="true"] { background: var(--accent-soft); border: 2px solid var(--accent); }
   .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
   table { width: 100%; border-collapse: collapse; }
-  th { font-weight: 500; font-size: 12px; color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 500; font-size: 13px; color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
   .scroll { overflow-x: auto; }
   .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
@@ -92,7 +92,7 @@ export const base = css`
   .track { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-2); }
   .track .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--level); transition: width .4s ease; }
   .track .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .35; }
-  .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .scale { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stats .well { display: flex; flex-direction: column; gap: 2px; }
   .stats b { font-size: 18px; font-weight: 500; }

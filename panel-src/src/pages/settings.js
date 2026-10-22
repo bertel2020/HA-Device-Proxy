@@ -349,7 +349,7 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:11px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:12px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "lan" ? html`<div class="grp" style="gap:12px">
             <div><h3>${t("lanTitle")}</h3><div class="hint" style="margin-top:2px">${t("lanSub")}</div></div>
             <div class="pills">
