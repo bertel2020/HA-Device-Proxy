@@ -488,7 +488,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
                 ${Object.entries(h.urls).map(([b,$])=>a`<div class="row" style="gap:4px;margin-top:4px">
                   <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${$}</span>
                   <button class="btn btn-g" style="min-height:32px" @click=${()=>this._copy(`${h.target}${b}`,$)}>${this.copied===`${h.target}${b}`?t("copied"):t("copy")}</button></div>`)}
-                ${h.reachable?"":a`<div class="hint" style="margin-top:2px">${h.host?t(`why_${h.why}`,{a:n.remaddr}):t("lanUnknown")}${h.why==="network"?a` <a href="#/settings">${t("settingsTitle")}</a>`:a` <a href="#/edit/${n.id}">${t("edit")}</a>`}</div>`}
+                ${h.reachable?"":a`<div class="hint" style="margin-top:2px">${h.host?a`${t(`why_${h.why}`,{a:n.remaddr})}${h.why==="network"?a` <a href="#/settings">${t("settingsTitle")}</a>`:a` <a href="#/edit/${n.id}">${t("edit")}</a>`}`:t("lanUnknown")}</div>`}
               </div>`)}
             </div>
           </section>
