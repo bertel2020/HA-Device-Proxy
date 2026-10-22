@@ -37,7 +37,8 @@ SERIAL_LINKS = {"rtu", "serial"}  # the links that open a serial device of this 
 ESP_PROTOCOLS = ("esp2", "esp3")
 WRITE_ACCESS = ("all", "none", "listed")
 
-HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?|\[?[0-9A-Fa-f:.]+\]?")
+_LABEL = r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?"  # a name between dots
+HOST = re.compile(rf"{_LABEL}(\.{_LABEL})*|\[?[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*\]?")  # name, IPv4, IPv6
 PRIVATE_NETWORKS = (
     "127.0.0.0/8",
     "10.0.0.0/8",

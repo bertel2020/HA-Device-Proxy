@@ -61,6 +61,8 @@ LISTEN_RETRY = 10  # seconds between attempts to open the port
 OPEN_TIMEOUT = 10.0  # seconds for connecting to a network gateway
 RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
 CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before it is dropped
+CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
+CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
 REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
 
 EventSink = Callable[..., None]  # (level, kind, **params)
@@ -95,6 +97,7 @@ class _Client:
     started: bool = False  # the replay request is only accepted as the very first bytes
     bytes_in: int = 0
     bytes_out: int = 0
+    queued: int = 0  # frames waiting in the outgoing queue
 
 
 def restart_key(c: Connection, listen: str) -> Connection:
@@ -204,10 +207,10 @@ class EnOceanProxy:
             self._server.close()
         for client in list(self.clients.values()):  # first: wait_closed waits for clients
             if client.writer is not None:
-                client.writer.close()
+                client.writer.transport.abort()  # a client that does not read: no waiting
         if self._server is not None:
             with contextlib.suppress(Exception):
-                await self._server.wait_closed()
+                await asyncio.wait_for(self._server.wait_closed(), CLOSE_TIMEOUT)
         await self.link.close()
         self._save_replay()
 
@@ -219,7 +222,7 @@ class EnOceanProxy:
         while True:
             try:
                 await self.link.open(OPEN_TIMEOUT)
-            except (OSError, TimeoutError) as err:
+            except Exception as err:  # also a bad host name or a termios error
                 self._down(_text(err))
                 delay = RECONNECT_DELAYS[min(attempt, len(RECONNECT_DELAYS) - 1)]
                 attempt += 1
@@ -237,7 +240,10 @@ class EnOceanProxy:
                         continue  # a quiet hour
                     self.stats.bytes_from_device += len(data)
                     for frame in splitter.feed(data):
-                        self._from_gateway(frame)
+                        try:
+                            self._from_gateway(frame)
+                        except Exception:  # a bug must not stop the gateway
+                            _LOGGER.exception("%s: frame from the gateway failed", self.c.name)
             except ConnectionError as err:
                 self._down(str(err) or "connection lost")
             finally:
@@ -273,7 +279,12 @@ class EnOceanProxy:
             info = f"{info} · {address}" if info else address
         self.on_trace(Chunk(time.time(), direction, frame, info=info))
         for observer in list(self.observers):
-            observer(direction, frame, address)
+            try:
+                observer(direction, frame, address)
+            except Exception:  # e.g. the disk of a capture is full: the capture ends
+                _LOGGER.exception("%s: observer failed and is removed", self.c.name)
+                with contextlib.suppress(ValueError):
+                    self.observers.remove(observer)
 
     def _from_gateway(self, frame: bytes) -> None:
         self.stats.from_gateway += 1
@@ -305,6 +316,7 @@ class EnOceanProxy:
     async def _writer_loop(self) -> None:
         while True:
             client, frame = await self._outgoing.get()
+            client.queued -= 1
             if not self.link.is_open:
                 self.stats.dropped += 1
                 continue
@@ -321,8 +333,11 @@ class EnOceanProxy:
                 continue
             self.stats.to_gateway += 1
             self.stats.bytes_to_device += len(frame)
-            self._trace("tx", frame, client.address)
-            self._count_airtime(frame)
+            try:
+                self._trace("tx", frame, client.address)
+                self._count_airtime(frame)
+            except Exception:  # a bug must not stop the sending
+                _LOGGER.exception("%s: frame to the gateway failed", self.c.name)
             await asyncio.sleep(self.c.send_gap_ms / 1000)
 
     # client side
@@ -343,7 +358,7 @@ class EnOceanProxy:
                 return
             oldest = min(self.clients.values(), key=lambda cl: cl.since)
             if oldest.writer is not None:
-                oldest.writer.close()
+                oldest.writer.transport.abort()
             self.clients.pop(oldest.address, None)
         client = _Client(address, host, time.time(), writer, esp.Splitter(self.protocol))
         self.clients[address] = client
@@ -353,6 +368,8 @@ class EnOceanProxy:
             while chunk := await asyncio.wait_for(reader.read(1024), idle):
                 client.bytes_in += len(chunk)
                 self._from_client(client, chunk)
+                while client.queued >= CLIENT_QUEUE_MAX:  # the gateway is slower: wait
+                    await asyncio.sleep(self.c.send_gap_ms / 1000 or 0.05)
         except (OSError, TimeoutError):
             pass
         finally:
@@ -396,6 +413,7 @@ class EnOceanProxy:
                     self._start_replay(client, timestamps=line == REPLAY_REQUEST_TS)
         data, client.pending = bytes(client.pending), bytearray()
         for frame in client.splitter.feed(data):
+            client.queued += 1
             self._outgoing.put_nowait((client, frame))
 
     def _start_replay(self, client: _Client, *, timestamps: bool = False) -> None:
@@ -485,6 +503,7 @@ class EnOceanProxy:
             raise ConnectionError("gateway not connected")
         inbox: asyncio.Queue[bytes] = asyncio.Queue()
         local = _Client("app", "app", time.time(), None, esp.Splitter(self.protocol), inbox)
+        local.queued += 1
         self._outgoing.put_nowait((local, frame))
         if not esp.expects_response(self.protocol, frame):
             return None

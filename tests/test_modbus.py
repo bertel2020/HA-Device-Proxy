@@ -360,3 +360,28 @@ async def test_clients_get_an_answer_at_once_while_the_device_is_not_reachable()
     assert proxy.reachable is False and proxy.stats.failed == 3
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
+
+
+def test_a_termios_error_is_an_oserror(tmp_path: object) -> None:
+    import os
+    import tempfile
+
+    import pytest
+
+    from device_proxy.detect import configure
+
+    with tempfile.TemporaryFile() as f, pytest.raises(OSError):  # not a tty
+        configure(f.fileno(), 9600, 8, "n", 1)
+    assert os.name == "posix"
+
+
+def test_host_names_with_empty_or_long_labels_are_refused() -> None:
+    import pytest
+
+    from device_proxy.model import ValidationError
+
+    for host in ("a..b", ".", "a.", "-a", "a" * 64 + ".de"):
+        with pytest.raises(ValidationError):
+            Connection("WR", "", 15020, kind="modbus", host=host, host_port=502).validate()
+    for host in ("wr.local", "192.168.1.5", "a" * 63, "[fd00::1]"):
+        Connection("WR", "", 15020, kind="modbus", host=host, host_port=502).validate()

@@ -28,6 +28,7 @@ import struct
 import time
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,7 @@ HOUSEKEEPING = 6 * 3600  # seconds between history clean-ups
 STUCK_BYTES = 4096  # a client with this much waiting ...
 STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
+PROXY_RESTART = 30  # seconds before a proxy that ended by an error starts again
 TRACE_POLL = 0.5  # seconds between reads of the traces
 NOTIFY_POLL = 5  # seconds between checks for notifications
 MQTT_KEYS = (
@@ -232,6 +234,7 @@ class Controller:
         self._paused: set[str] = set()  # connections a tool has taken over
         self.proxies: dict[str, AppProxy] = {}  # connection id → running proxy
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
+        self._proxy_failed: dict[str, float] = {}  # connection id → when its proxy ended
         self.mqtt = HaBridge(self)
         self.enocean_ha = EnOceanHa(self)
         self.captures = Captures(self.trace.record_dir)
@@ -560,6 +563,7 @@ class Controller:
             if isinstance(proxy, EnOceanProxy):
                 self._capture_ends(proxy)
             task = self._proxy_tasks.pop(connection_id)
+            self._proxy_failed.pop(connection_id, None)
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)  # frees the port
             del self.proxies[connection_id]
@@ -571,16 +575,34 @@ class Controller:
             proxy = build(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
             self.proxies[connection_id] = proxy
             task = asyncio.create_task(proxy.run())
-            task.add_done_callback(self._proxy_ended)
+            task.add_done_callback(partial(self._proxy_ended, connection_id))
             self._proxy_tasks[connection_id] = task
             if c.name not in touched:
                 touched.append(c.name)
         return touched
 
-    @staticmethod
-    def _proxy_ended(task: asyncio.Task[None]) -> None:
+    def _proxy_ended(self, connection_id: str, task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (err := task.exception()) is not None:
-            _LOGGER.error("Proxy ended", exc_info=err)
+            _LOGGER.error("Proxy ended, starts again in %d s", PROXY_RESTART, exc_info=err)
+            self._proxy_failed[connection_id] = time.monotonic()
+
+    async def _restart_failed(self) -> None:
+        """Start a proxy again that an unexpected error has ended."""
+        now = time.monotonic()
+        due = [i for i, at in self._proxy_failed.items() if now - at >= PROXY_RESTART]
+        if not due:
+            return
+        async with self._lock:
+            for connection_id in due:
+                self._proxy_failed.pop(connection_id, None)
+                task = self._proxy_tasks.get(connection_id)
+                if task is None or not task.done():
+                    continue
+                del self._proxy_tasks[connection_id]
+                proxy = self.proxies.pop(connection_id)
+                if isinstance(proxy, EnOceanProxy):
+                    self._capture_ends(proxy)
+            await self._reconcile_proxies()
 
     def _proxy_event(self, connection_id: str) -> Callable[..., None]:
         def emit(level: str, kind: str, **params: object) -> None:
@@ -606,6 +628,7 @@ class Controller:
         for proxy in self.proxies.values():
             s = proxy.stats
             self._rate(proxy.c.alias, s.bytes_from_device, s.bytes_to_device, now)
+        await self._restart_failed()
 
     # devices
 
@@ -939,7 +962,7 @@ class Controller:
         if not 1 <= first <= last <= 247 or not 50 <= timeout_ms <= 5000:
             raise ValueError("units 1 to 247, timeout 50 to 5000 ms")
         job_id = self._new_job(connection_id, last - first + 1)
-        self._spawn(self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
+        self._spawn(job_id, self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
         return job_id
 
     def _enocean(self, connection_id: str) -> EnOceanProxy:
@@ -1016,9 +1039,20 @@ class Controller:
         }
         return job_id
 
-    def _spawn(self, coro: Coroutine[Any, Any, None]) -> None:
-        """A background task, kept referenced until it ends (asyncio holds it weakly)."""
-        task = asyncio.create_task(coro)
+    def _spawn(self, job_id: str, coro: Coroutine[Any, Any, None]) -> None:
+        """A tool run in the background, kept referenced until it ends (asyncio holds it
+        weakly); an unexpected error ends the run instead of leaving it running forever."""
+
+        async def run() -> None:
+            try:
+                await coro
+            except Exception as err:
+                _LOGGER.exception("Tool run failed")
+                job = self.jobs.get(job_id)
+                if job is not None and job.get("state") == "running":
+                    job["state"], job["error"] = "failed", str(err) or type(err).__name__
+
+        task = asyncio.create_task(run())
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
@@ -1050,7 +1084,7 @@ class Controller:
         if c.kind != "serial":
             raise ValueError("only for ser2net's connections")
         job_id = self._new_job(connection_id, 0)
-        self._spawn(self._detect(job_id, c))
+        self._spawn(job_id, self._detect(job_id, c))
         return job_id
 
     async def _detect(self, job_id: str, c: Connection) -> None:

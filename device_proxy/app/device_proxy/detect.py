@@ -42,6 +42,13 @@ def configure(fd: int, baud: int, data_bits: int, parity: str, stop_bits: int) -
         raise OSError(errno.EINVAL, f"the serial port has no baud rate {baud}")
     if parity not in ("n", "e", "o"):
         raise OSError(errno.EINVAL, "the serial port supports no mark or space parity")
+    try:
+        _configure(fd, speed, data_bits, parity, stop_bits)
+    except termios.error as err:  # not an OSError: callers only expect those
+        raise OSError(*err.args) from err
+
+
+def _configure(fd: int, speed: int, data_bits: int, parity: str, stop_bits: int) -> None:
     attrs = termios.tcgetattr(fd)
     attrs[0] = termios.IGNBRK  # iflag: raw, no flow control
     attrs[1] = 0  # oflag

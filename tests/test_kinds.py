@@ -1,9 +1,11 @@
 import asyncio
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 
 import pytest
 
+from device_proxy import controller as controller_module
 from device_proxy.controller import Controller
 from device_proxy.db import Database
 from device_proxy.events import EventLog
@@ -97,6 +99,43 @@ async def test_an_enocean_gateway_in_the_controller(tmp_path: Path) -> None:
         assert "127.0.0.1:9" in problems["device_proxy_0000000c_unreachable"][1]
         topics = controller.mqtt.configs()
         assert any(t.endswith("device_proxy_0000000c/duty_cycle/config") for t in topics)
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()
+
+
+async def test_a_proxy_that_ended_by_an_error_starts_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    modbus = Connection(
+        "WR", "", 15022, id="0000000d", kind="modbus", host="127.0.0.1", host_port=9
+    )
+    config = AppConfig(connections=(modbus,))
+    store.save(AppConfig(), config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    monkeypatch.setattr(controller_module, "PROXY_RESTART", 0)
+    try:
+        await controller._reconcile_proxies()
+        first = controller.proxies["0000000d"]
+
+        async def broken() -> None:
+            raise RuntimeError("bug")
+
+        task = asyncio.create_task(broken())
+        task.add_done_callback(partial(controller._proxy_ended, "0000000d"))
+        old = controller._proxy_tasks["0000000d"]
+        old.cancel()
+        await asyncio.gather(old, return_exceptions=True)
+        controller._proxy_tasks["0000000d"] = task
+        await asyncio.gather(task, return_exceptions=True)
+        await controller._proxy_tick()
+        assert controller.proxies["0000000d"] is not first  # a new one
+        assert not controller._proxy_tasks["0000000d"].done()
     finally:
         controller.config = AppConfig()
         await controller._reconcile_proxies()

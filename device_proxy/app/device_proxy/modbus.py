@@ -369,7 +369,7 @@ class SerialLink(Link):
         try:
             fcntl.ioctl(fd, termios.TIOCEXCL)  # no other program opens it meanwhile
             configure(fd, *self.settings)
-        except (OSError, AttributeError):
+        except BaseException:
             os.close(fd)
             raise
         self.buffer.clear()
@@ -769,7 +769,7 @@ class ModbusProxy:
             return  # a device that closed an idle connection is connected on the next request
         try:
             await self._connect(path)
-        except (OSError, TimeoutError) as err:
+        except Exception as err:  # also a host name that cannot be looked up at all
             self._down(_text(err), connect=True)
 
     async def _shutdown(self) -> None:
@@ -924,7 +924,7 @@ class ModbusProxy:
             if not path.link.is_open:
                 try:
                     await self._connect(path)
-                except (OSError, TimeoutError) as err:
+                except Exception as err:
                     self._down(_text(err), connect=True)
                     code = EXC_PATH
                     break  # connecting again at once would only make the client wait longer

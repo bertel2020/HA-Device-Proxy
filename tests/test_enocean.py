@@ -678,3 +678,42 @@ async def test_the_base_id_is_read_once_after_connecting() -> None:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         await gateway.stop()
+
+
+async def test_a_stop_does_not_wait_for_a_client_that_does_not_read() -> None:
+    gateway = await FakeGateway().start()
+    c = Connection(
+        "FAM", "", 0, kind="enocean", link="tcp", host="127.0.0.1", host_port=gateway.port
+    )
+    proxy = EnOceanProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    proxy.ask_base_id = False
+    task = asyncio.create_task(proxy.run())
+    await _until(lambda: proxy.listening and proxy.link.is_open)
+    _reader, writer = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    client = next(iter(proxy.clients.values()))
+    assert client.writer is not None
+    client.writer.transport.pause_reading()
+    client.writer.transport.set_write_buffer_limits(high=1 << 30)
+    for _ in range(20000):  # more than the socket takes: some stays queued
+        proxy._send(client, FRAME_A)
+    task.cancel()
+    await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 3)
+    writer.close()
+    await gateway.stop()
+
+
+async def test_a_failing_observer_does_not_stop_the_gateway(setup: Setup) -> None:
+    gateway, proxy = setup.gateway, setup.proxy
+
+    def full_disk(direction: str, frame: bytes, address: str) -> None:
+        raise OSError(28, "No space left on device")
+
+    proxy.observers.append(full_disk)
+    reader, writer = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    gateway.send(FRAME_A)
+    gateway.send(FRAME_B)
+    assert await reader.readexactly(28) == FRAME_A + FRAME_B
+    assert proxy.observers == [] and proxy.link.is_open
+    writer.close()

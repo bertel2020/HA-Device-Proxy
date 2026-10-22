@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Modbus and EnOcean proxies**: one that ends by an unexpected error starts again after 30 s
+  (before, its port stayed closed until the next change or a restart of the app). Causes that ended
+  it are caught now: a USB adapter pulled while it is opened, a host name like `a..b` (refused when
+  saving as well), a full disk while capturing (only the capture ends).
+- **EnOcean**: stopping or restarting a gateway no longer hangs when a client has stopped reading
+  (a sleeping PC); saving hung with it. A client that sends faster than the gateway is no longer
+  buffered without limit.
+- **Tools**: an unexpected error ends a run as failed instead of leaving it "running" and locking the
+  tools of that connection until a restart (e.g. baud rate detection on a device that is no tty).
+
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
