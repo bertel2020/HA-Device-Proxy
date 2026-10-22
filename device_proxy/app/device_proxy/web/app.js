@@ -839,6 +839,10 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     form { display: contents; }
     .grid2 { align-items: start; }
     .fld { justify-content: flex-start; }
+    .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; margin-top: 6px; }
+    .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
+    .grp p { margin: 0; }
+    .grp p + .grid2 { margin-top: 6px; }
     .fold { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     fieldset { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
