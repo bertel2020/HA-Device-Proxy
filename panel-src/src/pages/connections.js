@@ -26,7 +26,7 @@ export class ConnectionsPage extends Page {
     .band b { font-weight: 500; }
     .band .warn { color: var(--warn); }
     .band .ok { color: var(--ok); }
-    .band a { margin-left: auto; font-size: 13px; }
+    .band a { font-size: 13px; }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
@@ -175,8 +175,7 @@ export class ConnectionsPage extends Page {
         ${problems ? html`<span class="warn"><b>${problems}</b> ${t("bandProblems")}</span>` : html`<span class="ok">${t("bandFine")}</span>`}
         ${clients ? html`<span><b>${clients}</b> ${t("bandClients")}</span>` : ""}
         ${errors ? html`<span class="warn"><b>${errors}</b> ${t("tileErrors")}</span>` : ""}
-        <span>${t("tileReach")}: <b>${reach(s)}</b></span>
-        <a href="#/settings" @click=${(e) => { e.preventDefault(); navigate("#/settings"); setTimeout(() => window.scrollTo(0, 0)); }}>${t("changeBtn")}</a>
+        <span>${t("tileReach")}: <b>${reach(s)}</b> · <a href="#/settings" @click=${(e) => { e.preventDefault(); navigate("#/settings"); setTimeout(() => window.scrollTo(0, 0)); }}>${t("changeBtn")}</a></span>
       </div>
       ${KINDS.filter((k) => counts[k]).length > 1 || problems ? html`<div class="filters" role="group" aria-label=${t("filterLabel")}>
         <button aria-pressed=${filter === "all" ? "true" : "false"} @click=${() => this._filter("all")}>${t("filterAll", { n: all.length })}</button>

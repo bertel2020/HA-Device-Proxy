@@ -263,8 +263,7 @@ var qt=Object.defineProperty;var It=(r,e,n)=>e in r?qt(r,e,{enumerable:!0,config
         ${d?a`<span class="warn"><b>${d}</b> ${t("bandProblems")}</span>`:a`<span class="ok">${t("bandFine")}</span>`}
         ${f?a`<span><b>${f}</b> ${t("bandClients")}</span>`:""}
         ${u?a`<span class="warn"><b>${u}</b> ${t("tileErrors")}</span>`:""}
-        <span>${t("tileReach")}: <b>${wn(e)}</b></span>
-        <a href="#/settings" @click=${m=>{m.preventDefault(),I("#/settings"),setTimeout(()=>window.scrollTo(0,0))}}>${t("changeBtn")}</a>
+        <span>${t("tileReach")}: <b>${wn(e)}</b> · <a href="#/settings" @click=${m=>{m.preventDefault(),I("#/settings"),setTimeout(()=>window.scrollTo(0,0))}}>${t("changeBtn")}</a></span>
       </div>
       ${Xe.filter(m=>i[m]).length>1||d?a`<div class="filters" role="group" aria-label=${t("filterLabel")}>
         <button aria-pressed=${l==="all"?"true":"false"} @click=${()=>this._filter("all")}>${t("filterAll",{n:s.length})}</button>
@@ -281,7 +280,7 @@ var qt=Object.defineProperty;var It=(r,e,n)=>e in r?qt(r,e,{enumerable:!0,config
     .band b { font-weight: 500; }
     .band .warn { color: var(--warn); }
     .band .ok { color: var(--ok); }
-    .band a { margin-left: auto; font-size: 13px; }
+    .band a { font-size: 13px; }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
