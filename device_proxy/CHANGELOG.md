@@ -20,6 +20,11 @@
   (else folded away), buttons disabled with a reason, the check shows its time and what to do
   without data; the data chart is labelled and counts bytes "since start"; the line hint sits in
   the Line card; "Recent events" links to the events of this connection.
+- **Modbus details**: one status card (requests per second, problems only as chips when they
+  occur) instead of six counters and the meaningless data-rate card; clients and units in one card;
+  tools folded away; clearer labels; "Use in Home Assistant" now leads with the device's
+  integration in the interface (host, port and unit id with copy buttons) and keeps the YAML hub
+  as the fallback.
 - **Live data** on the detail page can be collapsed to one living line (last data, rate, last
   block); the choice is remembered per connection, a card never opened yet opens when data
   arrives, and a collapsed card polls only every five seconds.

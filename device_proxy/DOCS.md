@@ -165,10 +165,14 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 Tool requests are not counted as the clients' and do not change the device's state.
 
-**Use in Home Assistant**: the details show the hub part for the Modbus integration's
-`configuration.yaml` to copy (`type: tcp`, host `127.0.0.1`, the port); add the sensors as
-the integration's documentation describes. Integrations set up in the interface (e.g.
-SolarEdge Modbus Multi) only need host and port.
+**Use in Home Assistant**: most devices have an integration of their own (e.g. SolarEdge
+Modbus). Add it under **Settings → Devices & services → Add integration**, choose the network
+connection (Modbus TCP) and enter the host and port the details page shows (`127.0.0.1` and the
+connection's port, each with a copy button). The unit id (called device id in some integrations)
+is the one of the device, usually 1. Only if no integration supports your device, use a Modbus
+hub in `configuration.yaml`: the details page has the snippet to copy (`type: tcp`, host, port);
+add the sensors as the Modbus integration's documentation describes (`address` and
+`device_address`, the unit id).
 
 Saving restarts only Modbus connections whose device or proxy settings changed; their
 clients connect again. Name, trace and notifications change without a restart.

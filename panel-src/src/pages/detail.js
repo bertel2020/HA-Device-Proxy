@@ -74,10 +74,15 @@ export class DetailPage extends Page {
   }
 
   willUpdate(changed) {
-    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this.search = ""; this.dir = ""; }
+    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this._rqSamples = []; this._rq = null; this.search = ""; this.dir = ""; }
     if (changed.has("state")) {
       const c = this.connection(this.connectionId);
       if (c) this._samples = [...this._samples, c.rate_from_device].slice(-SAMPLES);
+      if (c && c.kind === "modbus" && c.modbus && typeof c.modbus.requests === "number") {
+        const now = Date.now() / 1000, last = this._rq;
+        if (last && now > last.t && c.modbus.requests >= last.n) this._rqSamples = [...(this._rqSamples || []), (c.modbus.requests - last.n) / (now - last.t)].slice(-SAMPLES);
+        this._rq = { t: now, n: c.modbus.requests };
+      }
     }
   }
 
@@ -174,8 +179,11 @@ export class DetailPage extends Page {
     const signed = (v) => (v > 32767 ? v - 65536 : v);
     const hex4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, "0")}`;
     const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: t(`ex_${code}`) });
+    const pref = (() => { try { return localStorage.getItem("device_proxy.mbtools"); } catch { return null; } })();
     return html`<section class="card" aria-labelledby="t-mtools">
-      <h2 id="t-mtools">${t("tools")}</h2>
+      <details ?open=${pref === "1" || !!r || !!sc} @toggle=${(e) => { try { localStorage.setItem("device_proxy.mbtools", e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
+      <summary style="cursor:pointer;display:flex;align-items:baseline;gap:8px"><h2 id="t-mtools" style="display:inline">${t("tools")}</h2><span class="hint">· ${t("mbToolsSub")}</span></summary>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div><b style="font-weight:500">${t("mbReadTitle")}</b><p class="hint">${t("mbReadSub")}</p></div>
       <div class="grid4">
         ${this._num(f, "unit", t("mbUnit"), "mbForm")}
@@ -184,7 +192,7 @@ export class DetailPage extends Page {
         ${this._num(f, "address", t("mbAddress"), "mbForm")}
         ${this._num(f, "count", t("mbCount"), "mbForm")}
       </div>
-      <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button></div>
+      <div style="display:flex;justify-content:flex-end"><button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button></div>
       ${r ? r.ok ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th>
           ${r.form.function >= 3 ? html`<th style="text-align:right">${t("mbUnsigned")}</th><th style="text-align:right">${t("mbSigned")}</th><th style="text-align:right">Hex</th>` : html`<th style="text-align:right">${t("mbBit")}</th>`}</tr></thead>
           <tbody>${r.values.map((v, i) => html`<tr><td class="mono">${r.form.address + i}</td>
@@ -196,13 +204,14 @@ export class DetailPage extends Page {
         ${this._num(this.scanForm, "first", t("mbFirst"), "scanForm")}
         ${this._num(this.scanForm, "last", t("mbLast"), "scanForm")}
         ${this._num(this.scanForm, "timeout_ms", t("mbScanTimeout"), "scanForm")}
-        <div class="fld"><span class="lbl">&nbsp;</span><button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button></div>
       </div>
+      <div style="display:flex;justify-content:flex-end"><button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button></div>
       ${sc ? html`${sc.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: sc.done, t: sc.total })}</p>` : ""}
         ${sc.state === "failed" ? html`<div class="note bad">${t("error")}: ${sc.error}</div>` : ""}
         ${sc.results.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${sc.results.map((u) => html`<button class="chip ${u.exception === null ? "ok" : "info"}" style="cursor:pointer;border:none"
           title=${u.exception === null ? "" : exText(u.exception)} @click=${() => { this.mbForm = { ...this.mbForm, unit: u.unit }; }}>Unit ${u.unit}</button>`)}</div>`
           : sc.state === "done" ? html`<p class="hint">${t("mbScanNone")}</p>` : ""}` : ""}
+      </div></details>
     </section>`;
   }
 
@@ -299,10 +308,16 @@ export class DetailPage extends Page {
     const ha = c.addresses.find((a) => a.target === "ha");
     if (!ha || !ha.reachable) return "";
     const yaml = `modbus:\n  - name: ${JSON.stringify(c.name)}\n    type: tcp\n    host: ${ha.host}\n    port: ${c.port}\n    # ${t("haSnippetComment")}`;
+    const row = (label, value, key) => html`<div class="row" style="justify-content:flex-start;gap:12px"><span class="hint" style="min-width:48px">${label}</span><span class="mono">${value}</span>
+      <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(key, String(value))}>${this.copied === key ? t("copied") : t("copy")}</button></div>`;
     return html`<section class="card" aria-labelledby="t-ha">
-      <div class="row"><div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haSnippetSub", { h: ha.host, p: c.port })}</p></div>
-        <button class="btn btn-g" @click=${() => this._copy("ha-yaml", yaml)}>${this.copied === "ha-yaml" ? t("copied") : t("copy")}</button></div>
-      <div class="code">${yaml}</div>
+      <div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haUiSteps")}</p></div>
+      <div class="well" style="display:flex;flex-direction:column;gap:4px">${row("Host", ha.host, "ha-host")}${row("Port", c.port, "ha-port")}</div>
+      <p class="hint" style="margin:0">${t("haUnitHint")} <a href="https://www.home-assistant.io/integrations/modbus/" target="_blank" rel="noopener">${t("haDocs")}</a></p>
+      <details style="border-top:1px solid var(--line-2);padding-top:10px"><summary class="hint" style="cursor:pointer">${t("haYamlSummary")}</summary>
+        <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("haYamlSub")}</p>
+          <button class="btn btn-g" @click=${() => this._copy("ha-yaml", yaml)}>${this.copied === "ha-yaml" ? t("copied") : t("copy")}</button></div>
+        <div class="code">${yaml}</div></details>
     </section>`;
   }
 
@@ -322,27 +337,32 @@ export class DetailPage extends Page {
 
   _modbusCard(m) {
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
-    const counters = [["mbRequests", m.requests], ["mbAnswered", m.answered], ["mbExceptions", m.exceptions], ["mbTimeouts", m.timeouts], ["mbErrors", m.errors], ["mbQueue", `${m.queue ?? 0} / ${m.queue_max ?? 0}`]];
-    if (m.blocked) counters.push(["mbBlocked", m.blocked]);
-    if (m.cached) counters.push(["mbCached", m.cached]);
-    if (m.probes) counters.push(["mbProbes", m.probes]);
+    const rq = this._rqSamples || [];
+    const problems = [["mbTimeouts", m.timeouts], ["mbExceptions", m.exceptions], ["mbErrors", m.errors], ["mbBlocked", m.blocked]].filter(([, v]) => v);
+    const summary = !m.requests ? t("mbNoRequests") : m.answered === m.requests ? t("mbAllAnswered") : t("mbSomeAnswered", { a: m.answered });
+    const rate = rq.length ? rq.slice(-5).reduce((x, y) => x + y, 0) / Math.min(rq.length, 5) : 0;
     return html`<section class="card" aria-labelledby="t-mb">
       <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
-      <div class="counters">${counters.map(([k, v]) => html`<div class="well"><span class="hint">${t(k)}</span>
-        <b style=${(k === "mbTimeouts" || k === "mbErrors") && v ? "color:var(--warn)" : ""}>${v ?? 0}</b></div>`)}</div>
+      <div><b style="font-size:22px;font-weight:500">${(m.requests ?? 0).toLocaleString()}</b> <span class="hint">${summary}</span></div>
+      ${this._sparkline(rq, t("mbRate"))}
+      <div class="row hint" style="font-size:11px"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
       <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
       <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
+      ${problems.length || m.cached || m.probes || (m.queue ?? 0) > 1 ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${problems.map(([k, v]) => html`<span class="chip warn">${v} ${t(k)}</span>`)}
+        ${m.cached ? html`<span class="chip">${m.cached} ${t("mbCached")}</span>` : ""}${m.probes ? html`<span class="chip">${m.probes} ${t("mbProbes")}</span>` : ""}
+        ${(m.queue ?? 0) > 1 ? html`<span class="chip">${t("mbQueue")} ${m.queue} / ${m.queue_max ?? 0}</span>` : ""}</div>` : ""}
       ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
       ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
     </section>`;
   }
 
-  _sparkline() {
-    const values = this._samples.length > 1 ? this._samples : [0, 0];
+  _sparkline(samples = this._samples, label = t("dataFromDevice")) {
+    const values = samples.length > 1 ? samples : [0, 0];
     const max = Math.max(...values, 1);
     const step = 300 / (values.length - 1);
     const points = values.map((v, i) => `${(i * step).toFixed(1)},${(66 - (v / max) * 56).toFixed(1)}`);
-    return html`<svg viewBox="0 0 300 70" width="100%" height="70" role="img" aria-label=${t("dataFromDevice")}>
+    return html`<svg viewBox="0 0 300 70" width="100%" height="70" role="img" aria-label=${label}>
       ${svg`<path d="M0,70 L${points.join(" L")} L300,70 Z" fill="var(--accent-soft)"></path>
       <path d="M${points.join(" L")}" fill="none" stroke="var(--accent)" stroke-width="2"></path>`}</svg>`;
   }
@@ -377,9 +397,9 @@ export class DetailPage extends Page {
           ${enocean ? issuesCard(issues(c, s.capture)) : ""}
           ${enocean ? meterCards(c) : ""}
           ${this._live(c.kind)}
-          ${modbus ? this._modbusTools(c) : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
-          ${c.clients.length ? html`<section class="card" aria-labelledby="t-clients">
-            <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
+          ${modbus ? "" : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
+          ${c.clients.length || (modbus && (m.units || []).length) ? html`<section class="card" aria-labelledby="t-clients">
+            <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right">${t("mbFailed")}</th><th style="text-align:right">${t("mbBlocked")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
@@ -396,14 +416,12 @@ export class DetailPage extends Page {
                 <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
-          </section>` : ""}
-          ${modbus && (m.units || []).length ? html`<section class="card" aria-labelledby="t-units">
-            <div class="row"><h2 id="t-units">${t("mbUnits")}</h2><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
+          ${modbus && (m.units || []).length ? html`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size:14px;font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
             <div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right">${t("mbExceptions")}</th><th style="text-align:right">${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
               <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
-                <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div>
+                <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>` : ""}
           ${modbus ? this._haSnippet(c) : ""}
           <section class="card" aria-labelledby="t-conf">
@@ -417,13 +435,13 @@ export class DetailPage extends Page {
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
             </div>` : modbus ? html`<div class="kv">
-              <span>${t("mbLink")}</span><span>${t(`link_${c.link}`)}</span>
-              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
+              <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
+              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
               ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
-              <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}
+              <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, n: c.retries })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
-              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port}</span>
+              <span>${t("mbClientPort")}</span><span>${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
@@ -442,6 +460,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("who")}</span><span>${who(c, s)}</span>
             </div>`}
           </section>
+          ${modbus ? this._modbusTools(c) : ""}
         </div>
         <aside class="side-col">
           ${this._addresses(c)}
@@ -454,12 +473,12 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               : ""}
             <p class="hint" style="margin:0">${le || !c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</p>
           </section>`}
-          <section class="card" aria-labelledby="t-rate">
+          ${modbus ? "" : html`<section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
             <div class="row hint" style="font-size:11px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
-          </section>
+          </section>`}
           <section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
             <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
