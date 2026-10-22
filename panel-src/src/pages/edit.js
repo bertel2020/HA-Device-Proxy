@@ -47,7 +47,7 @@ export class EditPage extends Page {
   static properties = {
     state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
-    otherDevice: { state: true }, replayOpen: { state: true }, yamlOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
+    otherDevice: { state: true }, replayOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
   };
 
@@ -112,6 +112,7 @@ export class EditPage extends Page {
       : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
     if (!existing && this.draft.kind === "serial") this._suggestName();
+    this.tplOpen = false;
     this._orig = JSON.stringify(this.draft);
     this._preview();
   }
@@ -339,13 +340,28 @@ export class EditPage extends Page {
     this._set(patch);
   }
 
-  _eoTemplates() {
-    const d = this.draft;
-    return html`<section class="card" aria-labelledby="t-eotpl">
-      <div><h2 id="t-eotpl">${t("eoTemplate")}</h2><p class="hint" style="margin-top:4px">${t("eoTemplateSub")}</p></div>
-      <div class="choices">${Object.keys(EO_TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
-        @click=${() => this._eoTemplate(k)}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
+  /** The template card: the choices for a new connection; for an existing one folded, and a pick asks first because it overwrites fields. */
+  _tplCard(id, title, sub, keys, apply) {
+    const d = this.draft, existing = !!d.id;
+    if (existing && !this.tplOpen) {
+      return html`<section class="card" aria-labelledby=${id}>
+        <div class="fold"><div><h2 id=${id}>${title}</h2><p class="hint" style="margin-top:4px">${t("tplCurrent", { t: d.template ? t(`tpl_${d.template}`) : t("tplNone") })}</p></div>
+          <button type="button" class="btn btn-g" @click=${() => { this.tplOpen = true; }}>${t("changeBtn")}</button></div>
+      </section>`;
+    }
+    const pick = async (k) => {
+      if (existing && !(await confirmDialog(this, t("tplConfirm"), t("tplApply")))) return;
+      apply(k);
+    };
+    return html`<section class="card" aria-labelledby=${id}>
+      <div><h2 id=${id}>${title}</h2><p class="hint" style="margin-top:4px">${sub}</p></div>
+      <div class="choices">${keys.map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
+        @click=${() => pick(k)}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
     </section>`;
+  }
+
+  _eoTemplates() {
+    return this._tplCard("t-eotpl", t("eoTemplate"), t("eoTemplateSub"), Object.keys(EO_TEMPLATES), (k) => this._eoTemplate(k));
   }
 
   _enoceanSections(chosen) {
@@ -470,11 +486,7 @@ export class EditPage extends Page {
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
         </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
-        <section class="card" aria-labelledby="t-tpl">
-          <div><h2 id="t-tpl">${t("template")}</h2><p class="hint" style="margin-top:4px">${t("templateSub")}</p></div>
-          <div class="choices">${Object.keys(TEMPLATES).map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
-            @click=${() => this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) })}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
-        </section>
+        ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) }))}
 
         <section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>

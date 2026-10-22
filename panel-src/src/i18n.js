@@ -33,7 +33,7 @@ const TEXT = {
     dataFromDevice: "Daten vom Gerät", lastData: "Letzte Daten", never: "noch nie", recent: "Letzte Ereignisse", allEvents: "Alle Ereignisse",
     device: "Gerät", resolved: "Aufgelöst", usb: "USB", serialNo: "Seriennr.", interface: "Schnittstelle", network: "Netzwerk",
     // edit
-    newConnection: "Neue Verbindung", editConnection: "Verbindung bearbeiten", template: "Vorlage", templateSub: "Füllt die Felder passend vor. Alles bleibt änderbar.",
+    newConnection: "Neue Verbindung", editConnection: "Verbindung bearbeiten", template: "Vorlage", tplCurrent: "Aktuell: {t}", tplNone: "keine", tplApply: "Übernehmen", tplConfirm: "Die Vorlage überschreibt die dazugehörigen Felder dieser Verbindung, zum Beispiel Baudrate, Modus und Clients. Fortfahren?", templateSub: "Füllt die Felder passend vor. Alles bleibt änderbar.",
     tpl_ehz_sml: "eHZ SML", tpl_ehz_d0: "eHZ D0", tpl_zwave: "Z-Wave-Stick", tpl_generic: "Allgemein",
     tplsub_ehz_sml: "9600 8N1 · bis 5 Clients", tplsub_ehz_d0: "9600 7E1 · bis 5 Clients", tplsub_zwave: "115200 8N1 · nodelay", tplsub_generic: "9600 8N1 · 1 Client",
     basics: "Grunddaten", name: "Name", enabled: "Aktiv", enabledText: "Nach dem Speichern bereitstellen", devicePick: "Gerät",
@@ -378,7 +378,7 @@ const TEXT = {
     frame: "Frame", parity: "Parity", overrun: "Overrun", brk: "Break", bufOverrun: "Buffer",
     dataFromDevice: "Data from the device", lastData: "Last data", never: "never", recent: "Recent events", allEvents: "All events",
     device: "Device", resolved: "Resolved", usb: "USB", serialNo: "Serial no.", interface: "Interface", network: "Network",
-    newConnection: "New connection", editConnection: "Edit connection", template: "Template", templateSub: "Fills in the fields; everything stays editable.",
+    newConnection: "New connection", editConnection: "Edit connection", template: "Template", tplCurrent: "Current: {t}", tplNone: "none", tplApply: "Apply", tplConfirm: "The template overwrites the matching fields of this connection, for example baud rate, mode and clients. Continue?", templateSub: "Fills in the fields; everything stays editable.",
     tpl_ehz_sml: "eHZ SML", tpl_ehz_d0: "eHZ D0", tpl_zwave: "Z-Wave stick", tpl_generic: "Generic",
     tplsub_ehz_sml: "9600 8N1 · up to 5 clients", tplsub_ehz_d0: "9600 7E1 · up to 5 clients", tplsub_zwave: "115200 8N1 · nodelay", tplsub_generic: "9600 8N1 · 1 client",
     basics: "Basics", name: "Name", enabled: "Active", enabledText: "Share after saving", devicePick: "Device",
