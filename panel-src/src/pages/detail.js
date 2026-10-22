@@ -10,6 +10,15 @@ const LIVE_MS = 1000;
 const eoInfo = (info) => info.replace(/^(answer|bus|command)\b/, (w) => t(`eoKind_${w}`));
 const SAMPLES = 90; // 3 minutes of state polls
 
+/** Who may connect to a connection without a bind address of its own: the network setting. */
+function reach(c, s) {
+  if (c.remaddr) return c.remaddr;
+  const { listen, lan_networks: list = "" } = s.settings, net = s.lan_net;
+  if (listen !== "lan") return t(`listen_${listen}`);
+  const nets = list.split(/[\s,;]+/).filter(Boolean).map((x) => (x === "own" ? net || t("lanOwn") : x));
+  return nets.length ? t("listen_lan_n", { nets: nets.join(", ") }) : t("listen_lan_none");
+}
+
 export class DetailPage extends Page {
   static properties = {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
@@ -298,6 +307,7 @@ export class DetailPage extends Page {
         <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
+          <span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
           ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
@@ -311,7 +321,7 @@ export class DetailPage extends Page {
           ${enocean ? meterCards(c) : ""}
           ${this._live(c.kind)}
           ${modbus ? this._modbusTools(c) : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
-          <section class="card" aria-labelledby="t-clients">
+          ${c.clients.length ? html`<section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t("clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right">${t("mbFailed")}</th><th style="text-align:right">${t("mbBlocked")}</th></tr></thead>
@@ -329,7 +339,7 @@ export class DetailPage extends Page {
                 <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
-          </section>
+          </section>` : ""}
           ${modbus && (m.units || []).length ? html`<section class="card" aria-labelledby="t-units">
             <div class="row"><h2 id="t-units">${t("mbUnits")}</h2><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
             <div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
@@ -356,7 +366,7 @@ export class DetailPage extends Page {
               <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
               <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
               ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
-              <span>${t("network")}</span><span>Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+              <span>${t("network")}</span><span>Port ${c.port} · ${c.bind || reach(c, s)}</span>
               <span>${t("allowed")}</span><span class="mono" style="font-size:13px">${c.remaddr || t("eoAllNets")}</span>
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
@@ -367,7 +377,7 @@ export class DetailPage extends Page {
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
               <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
-              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || reach(c, s)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
 
@@ -381,23 +391,24 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
               ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
               <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? " · local" : ""}</span>
-              <span>${t("network")}</span><span>${c.mode} · Port ${c.port} · ${c.bind || t(`listen_${s.settings.listen}`)}</span>
+              <span>${t("network")}</span><span>${c.mode} · Port ${c.port} · ${c.bind || reach(c, s)}</span>
             </div>`}
           </section>
         </div>
         <aside class="side-col">
-          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
+          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : le ? html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
               ${[["frame", le.frame], ["parity", le.parity], ["overrun", le.overrun], ["brk", le.break], ["bufOverrun", le.buffer_overrun]].map(([k, v]) =>
                 html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
-              : html`<p class="hint">${c.line_errors === null && c.clients.length ? t("lineUnsupported") : t("lineClosed")}</p>`}
-          </section>`}
+              : ""}
+          </section>` : ""}
           <section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${fmtBytes(c.bytes_from_device)}</span></div>
+            ${!modbus && !enocean && !le ? html`<p class="hint">${c.line_errors === null && c.clients.length ? t("lineUnsupported") : t("lineClosed")}</p>` : ""}
           </section>
           <section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events" style="font-size:13px">${t("allEvents")}</a></div>
