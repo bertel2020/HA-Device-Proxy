@@ -69,6 +69,7 @@ export const base = css`
   .inp { min-height: 42px; padding: 0 12px; border: 1px solid var(--input-line); border-radius: 10px; font: inherit;
     color: var(--text); background: var(--surface); width: 100%; }
   .inp[aria-invalid="true"] { border-color: var(--bad); }
+  .inp:disabled { color: var(--muted); background: var(--surface-2); cursor: not-allowed; }
   textarea.inp { padding: 10px 12px; min-height: 84px; resize: vertical; }
   .inp.mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .chk { display: flex; align-items: flex-start; gap: 10px; min-height: 32px; cursor: pointer; }

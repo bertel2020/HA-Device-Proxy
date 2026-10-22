@@ -267,10 +267,10 @@ export class EditPage extends Page {
     return w ? html`<span class="hint" id="e-${key}" style="color:var(--warn)">${t("portWarn", { w: fieldError(w) })}</span>` : "";
   }
 
-  _input(key, label, { type = "text", hint = "", mono = false, number = false } = {}) {
+  _input(key, label, { type = "text", hint = "", mono = false, number = false, disabled = false } = {}) {
     const value = this.draft[key];
     return html`<label class="fld"><span class="lbl">${label}</span>
-      <input class="inp ${mono ? "mono" : ""}" type=${type} .value=${String(value ?? "")} inputmode=${number ? "numeric" : "text"}
+      <input class="inp ${mono ? "mono" : ""}" type=${type} .value=${String(value ?? "")} inputmode=${number ? "numeric" : "text"} ?disabled=${disabled}
         aria-invalid=${this._shown()[key] ? "true" : "false"} aria-describedby="e-${key}"
         @input=${(e) => this._set({ [key]: number ? Number(e.target.value || 0) : e.target.value })}>
       ${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</label>`;
@@ -424,6 +424,7 @@ export class EditPage extends Page {
 
   _enoceanSections(chosen) {
     const d = this.draft;
+    const resting = !!this._mainOf(); // a fallback: its port and clients rest
     const serial = d.link === "serial";
     const advancedCount = ENOCEAN_ADVANCED.filter((k) => d[k]).length + ["timeout"].filter((k) => d[k]).length + (d.trace !== "off" ? 1 : 0);
     return html`
@@ -453,14 +454,14 @@ export class EditPage extends Page {
         <div><h2 id="t-eoproxy">${t("ifNetOnly")}</h2><p class="hint" style="margin-top:4px">${t("ifNetSub")}</p></div>
         ${this._mainOf() ? html`<div class="note info">${t("fbPortNote", { a: this._mainOf().name })}</div>` : ""}
         <div class="grid2">
-          ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint") })}
-          ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
+          ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint"), disabled: resting })}
+          ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint"), disabled: resting })}
         </div>
-        ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
-        ${d.remaddr !== HA_ONLY || d.remaddr ? html`<div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint"), disabled: resting })}
+        ${!resting && (d.remaddr !== HA_ONLY || d.remaddr) ? html`<div style="display:flex;flex-wrap:wrap;gap:8px">
           ${d.remaddr !== HA_ONLY ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button>` : ""}
           ${d.remaddr ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button>` : ""}</div>` : ""}
-        ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
+        ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint"), disabled: resting })}
         <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
       </section>
 
