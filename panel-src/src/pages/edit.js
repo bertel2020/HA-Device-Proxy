@@ -349,7 +349,7 @@ export class EditPage extends Page {
       </section>
 
       <section class="card" aria-labelledby="t-eoproxy">
-        <h2 id="t-eoproxy">${t("eoProxy")}</h2>
+        <div><h2 id="t-eoproxy">${t("ifNetOnly")}</h2><p class="hint" style="margin-top:4px">${t("ifNetSub")}</p></div>
         <div class="grid2">
           ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint") })}
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
@@ -453,9 +453,13 @@ export class EditPage extends Page {
         </section>
 
         <section class="card" aria-labelledby="t-base">
-          <div><h2 id="t-base">${t("devicePick")}</h2><p class="hint" style="margin-top:4px">${t("deviceSub")}</p></div>
+          <h2 id="t-base">${t("basics")}</h2>
+          ${this._input("name", t("name"), { hint: t("deviceSub") })}
+        </section>
+
+        <section class="card" aria-labelledby="t-dev">
+          <h2 id="t-dev">${t("devicePick")}</h2>
           ${this._devicePicker(chosen)}
-          ${this._input("name", t("name"))}
         </section>
 
         <section class="card" aria-labelledby="t-if">
