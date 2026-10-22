@@ -1,11 +1,13 @@
 // Talks to the app's JSON API. All URLs are relative, so the page works under the ingress path.
+import { fieldError } from "./i18n.js";
+
 const base = new URL(".", location.href.split("#")[0]);
 
 export const url = (path) => new URL(path, base).href;
 
 export class ApiError extends Error {
   constructor(status, data) {
-    super((data && data.error) || `HTTP ${status}`);
+    super(fieldError((data && data.error) || `HTTP ${status}`));
     this.status = status;
     this.data = data || {};
   }

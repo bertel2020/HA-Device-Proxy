@@ -15,6 +15,8 @@ export class TracePage extends Page {
     .conn { padding: 4px 12px; border-radius: 12px; border: 1px solid transparent; }
     .conn.on { background: var(--accent-soft); border-color: var(--accent); }
     .pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; min-height: 48px; justify-content: center; width: 100%; }
+    .pickbox { display: none; }
+    @media (max-width: 700px) { .side-col { display: none; } .pickbox { display: flex; } }
     .rec { color: var(--bad, #c0392b); }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
@@ -92,9 +94,10 @@ export class TracePage extends Page {
               <b style="font-weight:500">${c.name}</b>
               <span class="hint ${c.trace === "off" ? "" : "rec"}">${c.trace === "off" ? t("notRecording") : html`● ${t("recording", { m: this._label(c, c.trace) })}`}</span></button>
           </div>`)}
-          <p class="hint" style="padding:10px 8px 4px">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
         </section>
         <div class="main-col">
+          <label class="fld pickbox"><span class="lbl">${t("navConnections")}</span><select class="inp" @change=${(e) => navigate(`#/trace/${e.target.value}`)}>
+            ${s.connections.map((c) => html`<option value=${c.id} ?selected=${c.id === this.selected}>${c.name}${c.trace === "off" ? "" : ` · ● ${this._label(c, c.trace)}`}</option>`)}</select></label>
           <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-view">
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
               <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
@@ -116,6 +119,7 @@ export class TracePage extends Page {
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
               <button class="btn btn-g mono" style="font-size:12px" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
+            <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
             ${files.length ? html`<div class="scroll"><table style="min-width:560px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
               <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size:13px">${f.name}</td>
                 <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}</td>

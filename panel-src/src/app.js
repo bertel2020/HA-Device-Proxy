@@ -25,9 +25,10 @@ export class DeviceProxyApp extends LitElement {
     header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
     .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
-    .brand b { font-size: 18px; display: block; line-height: 1.2; }
-    nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0; }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 12px 0; min-width: 0; }
+    .brand .name { display: flex; flex-direction: column; }
+    .brand b { font-size: 18px; display: block; line-height: 1.2; white-space: nowrap; }
+    nav { display: flex; gap: 4px; padding: 8px 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
     nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-weight: 500; color: var(--muted); text-decoration: none; border-radius: 20px; transition: background .15s, color .15s; }
     nav a:hover { color: var(--text); background: var(--neutral-soft); }
     nav a[aria-current="page"] { color: var(--accent-hover); background: var(--accent-soft); }
@@ -35,7 +36,7 @@ export class DeviceProxyApp extends LitElement {
     .offline { max-width: 1200px; margin: 12px auto 0; padding: 0 24px; }
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--surface);
       padding: 12px 18px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: min(560px, calc(100vw - 32px)); z-index: 10; }
-    @media (max-width: 600px) { .bar, main, .offline { padding-left: 16px; padding-right: 16px; } }
+    @media (max-width: 600px) { .bar, main, .offline { padding-left: 16px; padding-right: 16px; } nav { flex: 1 1 100%; gap: 0; } nav a { padding: 0 5px; font-size: 13px; white-space: nowrap; } }
   `];
 
   constructor() {
@@ -147,11 +148,11 @@ export class DeviceProxyApp extends LitElement {
     const problems = s ? s.connections.filter((c) => connectionState(c, running)[1] === "bad").length : 0;
     return html`
       <header><div class="bar">
-        <div class="brand">${logo()}<div><b>${t("appTitle")}</b>
+        <div class="brand">${logo()}<div class="name"><b>${t("appTitle")}</b>
           <span class="hint">${s ? `App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}` : ""}</span></div>
           ${s && serial ? html`<span class="chip ${running ? "ok" : "bad"}"><span class="dot"></span>${t(running ? "running" : "notRunning")}</span>` : ""}
           ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
-          ${s && problems ? html`<a class="chip warn" href="#/connections" style="text-decoration:none"><span class="dot"></span>${t("problems", { n: problems })}</a>`
+          ${s && problems ? (page === "connections" ? "" : html`<a class="chip warn" href="#/connections" style="text-decoration:none"><span class="dot"></span>${t("problems", { n: problems })}</a>`)
             : s && !serial ? html`<span class="chip ok"><span class="dot"></span>${t("appRunning")}</span>` : ""}
         </div>
 

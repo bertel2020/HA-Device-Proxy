@@ -779,9 +779,26 @@ const FIELD_ERRORS_DE = [
 
 export function fieldError(message) {
   if (lang !== "de") return message;
-  for (const [pattern, text] of FIELD_ERRORS_DE) if (pattern.test(message)) return message.replace(pattern, text);
+  for (const [pattern, text] of [...FIELD_ERRORS_DE, ...API_ERRORS_DE]) if (pattern.test(message)) return message.replace(pattern, text);
   return message;
 }
+
+// Answers of the API and the tools in English; shown as a toast or note.
+const API_ERRORS_DE = [
+  [/^a host name or address$/, "ein Hostname oder eine Adresse"], [/^used by (.+)$/, "belegt von $1"],
+  [/^(.+) would let everyone in; use the network setting “all”$/, "„$1“ würde alle hereinlassen; nimm die Netzwerk-Einstellung „Alle“"],
+  [/^no such connection$/, "diese Verbindung gibt es nicht"], [/^no such (version|file|job)$/, "nicht gefunden"],
+  [/^save your own ser2net\.yaml first$/, "Speichere zuerst deine eigene ser2net.yaml"], [/^internal error, see the app log$/, "interner Fehler, siehe Protokoll der App"],
+  [/^the body is not JSON$/, "die Anfrage ist kein JSON"], [/^body too large$/, "die Datei ist zu groß"], [/^not allowed$/, "nicht erlaubt"],
+  [/^the connection is not active$/, "die Verbindung ist nicht aktiv"], [/^already running$/, "läuft schon"], [/^only for ser2net's connections$/, "nur für Verbindungen über ser2net"],
+  [/^the gateway is not connected$/, "das Gateway ist nicht verbunden"], [/^only hex digit pairs$/, "nur Hex-Ziffernpaare"],
+  [/^not exactly one complete (.+) frame$/, "nicht genau ein vollständiges $1-Telegramm"], [/^a capture of (.+) is running$/, "ein Mitschnitt von „$1“ läuft"],
+  [/^reserved for (.+) during a capture$/, "während eines Mitschnitts für $1 reserviert"], [/^count: 1 to 100$/, "Anzahl: 1 bis 100"],
+  [/^unit 1 to 255, address 0 to 65535$/, "Unit 1 bis 255, Adresse 0 bis 65535"], [/^units 1 to 247, timeout 50 to 5000 ms$/, "Units 1 bis 247, Zeitlimit 50 bis 5000 ms"],
+  [/^function 1 to 4, 1 to (\d+) values$/, "Funktion 1 bis 4, 1 bis $1 Werte"], [/^device not reachable$/, "Gerät nicht erreichbar"],
+  [/^connection to the device closed$/, "Verbindung zum Gerät geschlossen"], [/^the device does not speak Modbus TCP$/, "das Gerät spricht kein Modbus TCP"],
+  [/^numbers needed: (.+)$/, "Zahlen nötig: $1"], [/^HTTP (\d+)$/, "Fehler $1"],
+];
 
 /** For the build's check that both languages have the same texts. */
 export const LANGUAGES = { TEXT, NOTES };
