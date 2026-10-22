@@ -31,7 +31,7 @@ const TEMPLATES = {
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Feintuning" and counts when it differs from the default
-const MODBUS_TUNING = ["retries", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "remaddr", "bind", "kickolduser", "low_latency"];
+const MODBUS_TUNING = ["retries", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open"];
@@ -85,9 +85,8 @@ export class EditPage extends Page {
     this.errors = {};
     this.touched = new Set(existing ? Object.keys(DEFAULTS) : []);
     const flags = { modbus: MODBUS_ADVANCED, enocean: ENOCEAN_ADVANCED }[this.draft.kind] || ADVANCED;
-    const remaddr = this.draft.kind === "enocean" ? this.draft.remaddr !== HA_ONLY && this.draft.remaddr : this.draft.remaddr;
     this.advanced = this.draft.kind === "modbus" ? MODBUS_TUNING.concat("trace").some((k) => this.draft[k] !== (DEFAULTS[k] ?? "off"))
-      : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || remaddr || this.draft.bind || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
+      : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
     if (!existing && this.draft.kind === "serial") this._suggestName();
     this._preview();
@@ -263,6 +262,8 @@ export class EditPage extends Page {
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("mbClientsHint") })}
           ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
         </div>
+        ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
+        ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
         <span class="hint">${this._follows(d)}</span>
       </section>
 
@@ -298,8 +299,6 @@ export class EditPage extends Page {
             </div></div>
           <div class="opts">${this._check("kickolduser", true)}${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
           ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
-          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
-          ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
           ${this._trace()}` : ""}
       </section>
 
@@ -328,7 +327,7 @@ export class EditPage extends Page {
   _enoceanSections(chosen) {
     const d = this.draft;
     const serial = d.link === "serial";
-    const advancedCount = ENOCEAN_ADVANCED.filter((k) => d[k]).length + ["bind", "timeout"].filter((k) => d[k]).length + (d.remaddr !== HA_ONLY ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
+    const advancedCount = ENOCEAN_ADVANCED.filter((k) => d[k]).length + ["timeout"].filter((k) => d[k]).length + (d.trace !== "off" ? 1 : 0);
     return html`
       <section class="card" aria-labelledby="t-eogw">
         <h2 id="t-eogw">${t("eoGateway")}</h2>
@@ -356,6 +355,9 @@ export class EditPage extends Page {
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
           ${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}
         </div>
+        ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
+        ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
+        ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
       </section>
 
       <section class="card" aria-labelledby="t-eoreplay">
@@ -377,10 +379,8 @@ export class EditPage extends Page {
           <span><h2 id="t-adv">${t("eoAccess")}</h2><span class="hint">${t("eoAccessSub")}</span></span>
           <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
-          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
-          ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
           <div class="opts">${this._check("kickolduser", true)}${serial && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
-          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}</div>
+          ${this._input("timeout", t("mbIdle"), { number: true })}
           ${this._trace()}` : ""}
       </section>
 
@@ -431,7 +431,7 @@ export class EditPage extends Page {
     if (!d) return html`<p class="hint">${t("loading")}</p>`;
     const devices = this.state.devices;
     const chosen = devices.find((x) => x.stable === d.device || x.by_id.includes(d.device) || x.by_path.includes(d.device));
-    const advancedCount = ADVANCED.filter((k) => d[k]).length + ["remaddr", "bind", "rs485", "banner", "openstr", "closestr"].filter((k) => d[k]).length + (d.extra.length ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
+    const advancedCount = ADVANCED.filter((k) => d[k]).length + ["rs485", "banner", "openstr", "closestr"].filter((k) => d[k]).length + (d.extra.length ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
     const isNew = !d.id;
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${isNew ? t("newConnection") : d.name}</p>
@@ -472,6 +472,8 @@ export class EditPage extends Page {
           <div class="fld"><span class="lbl" id="l-mode">${t("mode")}</span>
             <div class="seg" role="group" aria-labelledby="l-mode">${["raw", "rfc2217", "telnet"].map((m) => html`<button type="button" aria-pressed=${d.mode === m ? "true" : "false"} @click=${() => this._set({ mode: m })}>${m === "rfc2217" ? "RFC2217" : m}</button>`)}</div>
             <span class="hint">${t(`mode_${d.mode}`)}</span></div>
+          ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
+          ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
           <span class="hint">${this._follows(d)}</span>
         </section>
 
@@ -494,12 +496,10 @@ export class EditPage extends Page {
             <fieldset><legend>${t("connectionSide")}</legend>
               <div class="opts">${this._check("kickolduser")}${this._check("chardelay")}</div>
               <div class="grid2">${this._input("timeout", t("timeout"), { number: true })}${this._input("connector_retry_time", t("retry"), { number: true })}</div>
-              ${this._input("remaddr", t("remaddr"), { mono: true, hint: t("remaddrHint") })}
               <div class="grid2">${this._input("banner", t("banner"))}${this._input("openstr", t("openstr"), { mono: true })}${this._input("closestr", t("closestr"), { mono: true })}</div>
             </fieldset>
             <fieldset><legend>${t("tcpSide")}</legend>
               <div class="opts">${this._check("nodelay")}</div>
-              ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
             </fieldset>
             <label class="fld"><span class="lbl">${t("extra")}</span>
               <textarea class="inp mono" rows="3" .value=${this.extraRaw} aria-invalid=${this._shown().extra ? "true" : "false"}
