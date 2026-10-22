@@ -13,7 +13,8 @@ const SAMPLES = 90; // 3 minutes of state polls
 /** Who may connect: the connection's own rule, else the network setting. */
 function who(c, s) {
   const bind = c.bind ? `${t("bind")} ${c.bind} · ` : "";
-  return bind + (c.remaddr ? t("whoOwn", { a: c.remaddr }) : reach(c, s));
+  const local = c.bind && (c.bind.startsWith("127.") || c.bind === "::1");
+  return bind + (c.remaddr ? t("whoOwn", { a: c.remaddr }) : local ? t("listen_local") : reach(c, s));
 }
 
 function reach(c, s) {
