@@ -510,7 +510,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
       ${this._addresses(c)}
-      ${pair(conf, recentCard)}`
+      ${conf}
+      ${recentCard}`
     : modbus ? html`
       ${pair(stateCard, conf)}
       ${clientsCard}
@@ -525,7 +526,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       ${this.state.source === "custom" ? "" : this._tools(c)}
       ${this._addresses(c)}
-      ${pair(conf, recentCard)}`;
+      ${conf}
+      ${recentCard}`;
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
       <div class="head" style="margin-top:12px">

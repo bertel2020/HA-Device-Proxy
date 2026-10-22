@@ -538,7 +538,8 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       ${this._live(n.kind)}
       <dp-enocean-tools .connection=${n} .capture=${e.capture}></dp-enocean-tools>
       ${this._addresses(n)}
-      ${h(m,D)}`:d?a`
+      ${m}
+      ${D}`:d?a`
       ${h(y,m)}
       ${f}
       ${this._live(n.kind)}
@@ -551,7 +552,8 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       ${this._live(n.kind)}
       ${this.state.source==="custom"?"":this._tools(n)}
       ${this._addresses(n)}
-      ${h(m,D)}`;return a`
+      ${m}
+      ${D}`;return a`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${n.name}</p>
       <div class="head" style="margin-top:12px">
         <div class="row" style="justify-content:flex-start"><h1>${n.name}</h1>
