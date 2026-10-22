@@ -45,7 +45,9 @@ export class DetailPage extends Page {
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
-    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    @media (max-width: 560px) { .grid4 { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2) { grid-column: span 2; } .grid3 { grid-template-columns: 1fr 1fr; } }
 
   `];
 
@@ -200,7 +202,7 @@ export class DetailPage extends Page {
           <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>`
         : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
-      <div class="grid4">
+      <div class="grid3">
         ${this._num(this.scanForm, "first", t("mbFirst"), "scanForm")}
         ${this._num(this.scanForm, "last", t("mbLast"), "scanForm")}
         ${this._num(this.scanForm, "timeout_ms", t("mbScanTimeout"), "scanForm")}

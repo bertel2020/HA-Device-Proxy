@@ -343,7 +343,7 @@ var jt=Object.defineProperty;var Kt=(r,e,n)=>e in r?jt(r,e,{enumerable:!0,config
             ${s.form.function>=3?a`<td style="text-align:right">${p}</td><td style="text-align:right">${o(p)}</td><td class="mono" style="text-align:right">${l(p)}</td>`:a`<td style="text-align:right">${p}</td>`}</tr>`)}</tbody></table></div>
           <p class="hint">${t("mbReadTime",{ms:s.time_ms})}</p>`:a`<div class="note warn">${c(s.exception)}</div>`:""}
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
-      <div class="grid4">
+      <div class="grid3">
         ${this._num(this.scanForm,"first",t("mbFirst"),"scanForm")}
         ${this._num(this.scanForm,"last",t("mbLast"),"scanForm")}
         ${this._num(this.scanForm,"timeout_ms",t("mbScanTimeout"),"scanForm")}
@@ -549,7 +549,9 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
-    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    @media (max-width: 560px) { .grid4 { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2) { grid-column: span 2; } .grid3 { grid-template-columns: 1fr 1fr; } }
 
   `]);var L={name:"",device:"",port:3333,enabled:!0,template:"generic",baud:9600,data_bits:8,parity:"n",stop_bits:1,mode:"raw",max_clients:1,local:!0,rtscts:!1,xonxoff:!1,hangup_when_done:!1,nobreak:!1,dtr:"",rts:"",rs485:"",low_latency:!1,timeout:0,kickolduser:!1,chardelay:!0,remaddr:"",banner:"",openstr:"",closestr:"",connector_retry_time:0,nodelay:!1,bind:"",extra:[],keep_open:!1,stuck_disconnect:!1,trace:"off",notify_missing:!0,notify_no_client:!1,silence_minutes:0,kind:"serial",link:"tcp",host:"",host_port:502,request_timeout_ms:3e3,connect_delay_ms:0,retries:1,request_gap_ms:0,write_access:"all",write_clients:"",cache_ms:0,unit_map:"",device_connections:1,probe_seconds:0,probe_unit:1,probe_function:3,probe_address:0,esp_protocol:"esp2",send_gap_ms:10,replay_size:1e3,replay_max_age_s:900,replay_persist:!1},Nn={kind:"modbus",template:"modbus",link:"tcp",max_clients:10,mode:"raw",keep_open:!1,stuck_disconnect:!1,silence_minutes:0,write_access:"listed",write_clients:"127.0.0.1, 172.30.32.0/23"},Mn=["tcp","rtu","rtu_tcp"],Ut="127.0.0.1, 172.30.32.0/23",Re={ehz_sml:{baud:9600,data_bits:8,parity:"n",stop_bits:1,max_clients:5,chardelay:!0,nodelay:!1},ehz_d0:{baud:9600,data_bits:7,parity:"e",stop_bits:1,max_clients:5,chardelay:!0,nodelay:!1},zwave:{baud:115200,data_bits:8,parity:"n",stop_bits:1,max_clients:2,chardelay:!1,nodelay:!0,remaddr:Ut},generic:{baud:9600,data_bits:8,parity:"n",stop_bits:1,max_clients:1,chardelay:!0,nodelay:!1}},On=[300,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600],Hn=["kickolduser","low_latency"],Ft=["retries","connect_delay_ms","request_gap_ms","cache_ms","device_connections","probe_seconds","unit_map","timeout","kickolduser","low_latency"],qt=["kickolduser","low_latency"],Rn=[9600,19200,57600,115200],Bt=["rtscts","xonxoff","hangup_when_done","nobreak","low_latency","kickolduser","nodelay","keep_open"],zn=r=>r.map(([e,n])=>`${e}: ${n}`).join(`
 `),Ln=r=>r.split(`
