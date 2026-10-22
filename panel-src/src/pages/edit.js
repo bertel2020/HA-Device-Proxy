@@ -67,6 +67,7 @@ export class EditPage extends Page {
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .toggle-head .chip::after, .arrow::after { content: "›"; font-size: 18px; line-height: 1; margin-left: 2px; transition: transform .15s; }
     .toggle-head[aria-expanded="true"] .chip::after, .arrow[aria-expanded="true"]::after { transform: rotate(90deg); }
+    .side-col { position: sticky; top: 64px; }
     .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
     .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
@@ -465,6 +466,7 @@ export class EditPage extends Page {
         <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub", { ms: d.request_timeout_ms, n: d.retries })}</span></li>
         <li><b>${t(`link_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
+      ${this._follows(d) ? html`<div class="note info">${this._follows(d)}</div>` : ""}
       ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
     </section>`;
   }

@@ -731,6 +731,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub",{ms:e.request_timeout_ms,n:e.retries})}</span></li>
         <li><b>${t(`link_${e.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${n}</span></li>
       </ol>
+      ${this._follows(e)?a`<div class="note info">${this._follows(e)}</div>`:""}
       ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([s,i])=>a`<div><span class="mono">${s}</span>: ${D(i)}</div>`)}</div>`:""}
     </section>`}_deviceLabel(e){let n=[e.manufacturer,e.product].filter(Boolean).join(" ")||e.driver||e.tty,s=e.serial?`${t("serialNo")} ${e.serial}`:t("noSerial"),i=e.used_by&&e.used_by!==this.draft.name?` (${t("usedBy",{n:e.used_by})})`:"";return`${n} \xB7 ${s} \xB7 ${e.tty}${i}`}render(){let e=this.draft;if(!e)return a`<p class="hint">${t("loading")}</p>`;let s=this.state.devices.find(l=>l.stable===e.device||l.by_id.includes(e.device)||l.by_path.includes(e.device)),i=Bt.filter(l=>e[l]).length+["rs485","banner","openstr","closestr"].filter(l=>e[l]).length+(e.extra.length?1:0)+(e.trace!=="off"?1:0),o=!e.id;return a`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${o?t("newConnection"):e.name}</p>
@@ -851,6 +852,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .toggle-head .chip::after, .arrow::after { content: "›"; font-size: 18px; line-height: 1; margin-left: 2px; transition: transform .15s; }
     .toggle-head[aria-expanded="true"] .chip::after, .arrow[aria-expanded="true"]::after { transform: rotate(90deg); }
+    .side-col { position: sticky; top: 64px; }
     .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
     .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
