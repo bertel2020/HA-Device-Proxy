@@ -27,6 +27,7 @@ export const base = css`
   .mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
     box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
+  .card > .row:first-child { min-height: 32px; }
   .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stack { display: flex; flex-direction: column; gap: 20px; }
   .cols, .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }

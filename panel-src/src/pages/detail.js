@@ -35,8 +35,11 @@ export class DetailPage extends Page {
   static styles = [...Page.styles, css`
     .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
     .kv > :nth-child(odd) { color: var(--muted); }
-    .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
-    .counters b { display: block; font-size: 20px; font-weight: 500; }
+    .counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .counters .well { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .counters b { font-size: 18px; font-weight: 500; }
+    .counters .hint { overflow-wrap: anywhere; hyphens: auto; }
+    @media (max-width: 480px) { .counters { grid-template-columns: repeat(2, 1fr); } }
     .live { max-height: 340px; overflow: auto; }
     .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .live td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
@@ -460,16 +463,16 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           </section>`;
     const clientsCard =           html`<section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
-            ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+            ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>`
-            : c.clients.length && enocean ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+            : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
-            : c.clients.length ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
+            : c.clients.length ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
                 <td class="mono" style="font-size:12px">${cl.address} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
@@ -477,7 +480,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
           ${modbus && (m.units || []).length ? html`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size:14px;font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
-            <div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
+            <div class="scroll"><table><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right" title=${t("mbTipExceptions")}>${t("mbExceptions")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
               <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>

@@ -27,6 +27,7 @@ var jt=Object.defineProperty;var Kt=(r,e,n)=>e in r?jt(r,e,{enumerable:!0,config
   .mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
     box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
+  .card > .row:first-child { min-height: 32px; }
   .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stack { display: flex; flex-direction: column; gap: 20px; }
   .cols, .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
@@ -163,8 +164,8 @@ var jt=Object.defineProperty;var Kt=(r,e,n)=>e in r?jt(r,e,{enumerable:!0,config
       <span class="hint">${t("eoBaseId")}</span><span class="mono">${e.base_id||t("eoBaseUnknown")}</span>
       ${e.connected_since?a`<span class="hint">${t("eoSince")}</span><span>${R(e.connected_since)}</span>`:""}
     </div>
-    <div class="counters">${i.map(([o,l])=>a`<div class="well"><span class="hint">${t(o)}</span>
-      <b style=${["eoDropped","eoRefused"].includes(o)&&l?"color:var(--warn)":""}>${Ae(l)}</b></div>`)}</div>
+    <div class="counters">${i.map(([o,l])=>a`<div class="well"><b style=${["eoDropped","eoRefused"].includes(o)&&l?"color:var(--warn)":""}>${Ae(l)}</b>
+      <span class="hint">${t(o)}</span></div>`)}</div>
     ${e.last_error&&!e.connected?a`<div class="note bad">${e.last_error}${e.last_error_at?` \xB7 ${T(e.last_error_at,!0,!0)}`:""}</div>`:""}
   </section>`}function Ot(r){let e=r.enocean||{},n=e.duty_cycle||{of_limit:0,telegrams:0,ms:0},s=e.replay||{},i=e.frames||{},o=n.of_limit,l=o>=80?"bad":o>=50?"warn":"ok",c=[["ok","check","eoAirOk"],["warn","info","eoAirMid"],["bad","warn","eoAirHigh"]][o>=80?2:o>=50?1:0],d=s.kept??0,u=s.size??r.replay_size??0,v=u?Math.min(100,d/u*100):0,p=u>0&&d>=u,g=(r.clients||[]).some(D=>D.replay),m=u?p?["warn","warn","eoRbFullWarn"]:g?["ok","check","eoRbLive"]:["info","info","eoRbCollect"]:["","info","eoRbOff"],$=s.oldest_s==null?t("eoRbNone"):s.oldest_s<90?`${Math.round(s.oldest_s)} s`:`${Math.round(s.oldest_s/60)} min`,A=(n.ms||0)/1e3;return a`<div class="meters">
     <section class="card meter ${l}" aria-labelledby="t-air">
@@ -485,21 +486,21 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             </div>`}
           </section>`,m=a`<section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t(d?"mbClientsUnits":"clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf",{n:n.clients.length,m:n.max_clients})}</span></div>
-            ${n.clients.length&&d?a`<div class="scroll"><table style="min-width:520px"><thead><tr>
+            ${n.clients.length&&d?a`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
               <tbody>${n.clients.map(b=>a`<tr><td class="mono" style="font-size:12px">${b.address}</td><td>${b.since?T(b.since):"\u2013"}</td>
-                <td style="text-align:right">${b.requests}</td><td style="text-align:right;${b.failed?"color:var(--warn)":""}">${b.failed}</td><td style="text-align:right">${b.blocked}</td></tr>`)}</tbody></table></div>`:n.clients.length&&v?a`<div class="scroll"><table style="min-width:520px"><thead><tr>
+                <td style="text-align:right">${b.requests}</td><td style="text-align:right;${b.failed?"color:var(--warn)":""}">${b.failed}</td><td style="text-align:right">${b.blocked}</td></tr>`)}</tbody></table></div>`:n.clients.length&&v?a`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
               <tbody>${n.clients.map(b=>a`<tr><td class="mono" style="font-size:12px">${b.address}</td><td>${b.since?T(b.since):"\u2013"}</td>
                 <td>${b.replay?a`<span class="chip info">${t("eoReplayChip")}</span>`:"\u2013"}</td>
-                <td style="text-align:right">${M(b.bytes_to_client)}</td><td style="text-align:right">${M(b.bytes_from_client)}</td></tr>`)}</tbody></table></div>`:n.clients.length?a`<div class="scroll"><table style="min-width:520px"><thead><tr>
+                <td style="text-align:right">${M(b.bytes_to_client)}</td><td style="text-align:right">${M(b.bytes_from_client)}</td></tr>`)}</tbody></table></div>`:n.clients.length?a`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${n.clients.map(b=>a`<tr>
                 <td class="mono" style="font-size:12px">${b.address} ${b.stuck?a`<span class="chip bad">${t("stuck",{a:""})}</span>`:""}</td>
                 <td>${b.since?T(b.since):"\u2013"}</td><td style="text-align:right">${M(b.bytes_to_client)}</td>
                 <td style="text-align:right">${M(b.bytes_from_client)}</td><td style="text-align:right">${M(b.queued)}</td></tr>`)}</tbody></table></div>`:a`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
           ${d&&(u.units||[]).length?a`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size:14px;font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
-            <div class="scroll"><table style="min-width:520px"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
+            <div class="scroll"><table><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right" title=${t("mbTipExceptions")}>${t("mbExceptions")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
               <tbody>${u.units.map(b=>a`<tr><td class="mono">${b.unit}</td><td style="text-align:right">${b.requests}</td>
                 <td style="text-align:right">${b.exceptions}</td><td style="text-align:right;${b.failed?"color:var(--warn)":""}">${b.failed}</td>
@@ -557,8 +558,11 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       <div class="stack">${E}</div>`}};w(le,"properties",{state:{attribute:!1},events:{attribute:!1},connectionId:{},chunks:{state:!0},paused:{state:!0},ascii:{state:!0},copied:{state:!0},meter:{state:!0},job:{state:!0},search:{state:!0},dir:{state:!0},mbForm:{state:!0},mbResult:{state:!0},wrForm:{state:!0},wrResult:{state:!0},scan:{state:!0},scanForm:{state:!0}}),w(le,"styles",[...k.styles,x`
     .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
     .kv > :nth-child(odd) { color: var(--muted); }
-    .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
-    .counters b { display: block; font-size: 20px; font-weight: 500; }
+    .counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .counters .well { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .counters b { font-size: 18px; font-weight: 500; }
+    .counters .hint { overflow-wrap: anywhere; hyphens: auto; }
+    @media (max-width: 480px) { .counters { grid-template-columns: repeat(2, 1fr); } }
     .live { max-height: 340px; overflow: auto; }
     .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .live td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }

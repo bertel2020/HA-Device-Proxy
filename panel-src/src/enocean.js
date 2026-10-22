@@ -104,8 +104,8 @@ export function statusCard(c) {
       <span class="hint">${t("eoBaseId")}</span><span class="mono">${e.base_id || t("eoBaseUnknown")}</span>
       ${e.connected_since ? html`<span class="hint">${t("eoSince")}</span><span>${fmtAgo(e.connected_since)}</span>` : ""}
     </div>
-    <div class="counters">${counters.map(([k, v]) => html`<div class="well"><span class="hint">${t(k)}</span>
-      <b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b></div>`)}</div>
+    <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
+      <span class="hint">${t(k)}</span></div>`)}</div>
     ${e.last_error && !e.connected ? html`<div class="note bad">${e.last_error}${e.last_error_at ? ` · ${fmtTime(e.last_error_at, true, true)}` : ""}</div>` : ""}
   </section>`;
 }
