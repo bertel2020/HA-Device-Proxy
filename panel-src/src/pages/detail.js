@@ -49,8 +49,12 @@ export class DetailPage extends Page {
     .live td.frame .info { display: inline-block; margin-right: 16px; }
     .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
-    ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-    li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
+    ol { list-style: none; margin: 0; padding: 0; }
+    ol.recent { display: grid; grid-template-columns: max-content auto 1fr; column-gap: 10px; row-gap: 10px; align-items: baseline; }
+    ol.recent li { display: contents; }
+    ol.recent time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    ol.recent .dot { align-self: center; }
+    ol.recent .txt { overflow-wrap: anywhere; min-width: 0; }
     .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
     .grid5 { display: grid; grid-template-columns: repeat(4, 1fr) 7rem; gap: 10px; align-items: end; }
     .grid5 > .btn:last-child { grid-column: 5; justify-self: end; }
@@ -493,8 +497,9 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           </section>`;
     const recentCard = html`<section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
-            <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
-              <div><div>${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</div><div class="hint">${fmtTime(e.ts)}</div></div></li>`)}</ol>
+            ${recent.length ? html`<ol class="recent">${recent.map((e) => html`<li><time>${fmtTime(e.ts)}</time><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
+              <span class="txt">${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></li>`)}</ol>`
+              : html`<p class="hint">${t("noEntries")}</p>`}
           </section>`;
     const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;
     // connect-state-measure-act-set up: what is wrong first, what is needed once only last
