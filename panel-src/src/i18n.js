@@ -72,10 +72,11 @@ const TEXT = {
     toConnections: "Zu den Verbindungen",
     exportDisabled: "Deaktivierte Verbindungen mitnehmen", fileNotes: "Hinweise zur Datei",
     // events
-    eventsTitle: "Ereignisse", eventsSub: "Live-Log der App und Historie.", tabLive: "Live-Log", tabHistory: "Historie", allConnections: "Alle Verbindungen",
+    eventsTitle: "Ereignisse", eventsSub: "Aktuell: alles seit dem Start der App. Verlauf: gespeichert für {d} Tage, mit der Stabilität je Verbindung.", tabLive: "Aktuell", tabHistory: "Verlauf und Stabilität", allConnections: "Alle Verbindungen",
     search: "Suche", searchPh: "z. B. getrennt, 192.168.1.20", lv_info: "Info", lv_warning: "Warnung", lv_error: "Fehler", lv_debug: "Debug",
     entries: "{n} Einträge", both: "Beide", paused: "Pausiert", liveState: "Live", noEntries: "Keine Einträge für diesen Filter.",
     drops: "Abbrüche ({d} T.)", availability: "Verfügbar", stable: "stabil", unstable: "{n}× getrennt", timeline: "Zeitleiste", retention: "Aufbewahrung {d} Tage",
+    moreEntries: "und {n} weitere Einträge an diesem Tag", daysAgo: "vor {d} Tagen",
     today: "Heute", yesterday: "Gestern", summed: "{n}× zusammengefasst",
     // trace
     traceTitle: "Mitschnitt", traceSub: "Bytes zwischen Gerät und Clients. Aufzeichnen trennt keine Clients; Dateien rotieren automatisch.",
@@ -403,10 +404,11 @@ const TEXT = {
     selected: "{n} of {m} selected", apply: "Take over {n}", doneTitle: "{n} connections taken over", doneText: "The previous state is in the configuration history.",
     toConnections: "To the connections",
     exportDisabled: "Include disabled connections", fileNotes: "Notes on the file",
-    eventsTitle: "Events", eventsSub: "The app's live log and history.", tabLive: "Live log", tabHistory: "History", allConnections: "All connections",
+    eventsTitle: "Events", eventsSub: "Current: everything since the app started. History: kept for {d} days, with the stability of each connection.", tabLive: "Current", tabHistory: "History and stability", allConnections: "All connections",
     search: "Search", searchPh: "e.g. disconnected, 192.168.1.20", lv_info: "Info", lv_warning: "Warning", lv_error: "Error", lv_debug: "Debug",
     entries: "{n} entries", both: "Both", paused: "Paused", liveState: "Live", noEntries: "No entries for this filter.",
     drops: "Drops ({d} d)", availability: "Available", stable: "stable", unstable: "{n}× disconnected", timeline: "Timeline", retention: "Kept {d} days",
+    moreEntries: "and {n} more entries that day", daysAgo: "{d} days ago",
     today: "Today", yesterday: "Yesterday", summed: "{n}× summed up",
     traceTitle: "Trace", traceSub: "Bytes between device and clients. Recording disconnects no client; files rotate on their own.",
     recording: "recording · {m}", notRecording: "not recording", files: "Files", fileTh: "File", sizeTh: "Size", changedTh: "Changed",
@@ -843,7 +845,20 @@ export function changesText(changes) {
   return (changes || []).map(changeText).join("; ");
 }
 
+/** Technical error texts of the system in plain words. */
+export function plain(text) {
+  const de = lang === "de";
+  return String(text)
+    .replace(/\[Errno (?:61|111)\] Connect call failed \('([^']+)', (\d+)\)/g, (_, h, p) => (de ? `Verbindung abgelehnt: auf ${h}:${p} lauscht niemand` : `Connection refused: nothing listens on ${h}:${p}`))
+    .replace(/\[Errno (?:113|65)\][^)]*/g, de ? "Kein Weg zum Host" : "No route to host")
+    .replace(/\btimed out\b/g, de ? "Zeitüberschreitung" : "timed out");
+}
+
 export function eventText(event) {
+  return plain(rawEventText(event));
+}
+
+function rawEventText(event) {
   const template = EVENTS[lang][event.kind];
   if (!template) return event.message;
   const params = { ...event.params };

@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { eventText, lang, t } from "../i18n.js";
-import { fmtTime } from "../ui.js";
+import { fmtTime, icon } from "../ui.js";
 
 const LEVELS = ["info", "warning", "error", "debug"];
 
@@ -22,7 +22,11 @@ export class EventsPage extends Page {
     .lv[aria-pressed="true"].warning { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
     .lv[aria-pressed="true"].error { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
     .lv[aria-pressed="true"].debug { background: var(--neutral-soft); color: var(--neutral); border-color: var(--neutral); }
-    .log { max-height: 640px; overflow: auto; }
+    .log { max-height: max(320px, calc(100vh - 330px)); overflow: auto; }
+    .dayrow { padding: 6px 16px; font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
+    .lv { display: inline-flex; align-items: center; gap: 6px; }
+    .name { font-weight: 500; color: inherit; text-decoration: none; }
+    a.name:hover { text-decoration: underline; }
     .line { display: grid; grid-template-columns: 130px 78px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 8px 16px; border-bottom: 1px solid var(--line-2); }
     @media (max-width: 600px) { .line { grid-template-columns: auto auto; } .line > :last-child { grid-column: 1 / -1; } }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
@@ -52,24 +56,37 @@ export class EventsPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
-  _filtered(list) {
+  _dayLabel(ts) {
+    const key = new Date(ts * 1000).toDateString();
+    const today = new Date().toDateString(), yesterday = new Date(Date.now() - 86400000).toDateString();
+    if (key === today) return t("today");
+    if (key === yesterday) return t("yesterday");
+    return new Date(key).toLocaleDateString(lang, { weekday: "short", day: "2-digit", month: "2-digit" });
+  }
+
+  _who(e) {
+    const known = e.connection && this.state.connections.some((c) => c.id === e.connection);
+    return known ? html`<a class="name" href="#/connection/${e.connection}">[${e.name}]</a>` : html`<b class="name">[${e.name}]</b>`;
+  }
+
+  _filtered(list, anyLevel = false) {
     const q = this.query.trim().toLowerCase();
-    return list.filter((e) => this.levels.has(e.level) && (!this.conn || e.connection === this.conn)
+    return list.filter((e) => (anyLevel || this.levels.has(e.level)) && (!this.conn || e.connection === this.conn)
       && (!q || `${e.name} ${eventText(e)}`.toLowerCase().includes(q)));
   }
 
   _live() {
     const source = this.paused || this.events;
-    const lines = this._filtered(source).slice(-500).reverse();
+    const lines = this._filtered(source).sort((a, b) => b.ts - a.ts).slice(0, 500);
     const color = { info: "info", warning: "warn", error: "bad", debug: "" };
     return html`<section class="card" style="padding:0;gap:0;overflow:hidden" aria-label=${t("tabLive")}>
       <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
         <span class="hint" style="font-size:13px;display:flex;align-items:center;gap:8px"><span class="dot" style="color:${this.paused ? "var(--muted)" : "var(--ok)"}"></span>
           ${this.paused ? t("paused") : t("liveState")} · ${t("entries", { n: lines.length })}</span>
         <button class="btn btn-g" @click=${() => { this.paused = this.paused ? null : [...this.events]; }}>${this.paused ? t("resume") : t("pause")}</button></div>
-      <div class="log" role="log">${lines.map((e) => html`<div class="line">
-        <span class="mono hint">${fmtTime(e.ts, true, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
-        <span style="overflow-wrap:anywhere"><b style="font-weight:500">[${e.name}]</b> ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
+      <div class="log" role="log">${lines.map((e, i) => html`${i === 0 || this._dayLabel(lines[i - 1].ts) !== this._dayLabel(e.ts) ? html`<div class="dayrow">${this._dayLabel(e.ts)}</div>` : ""}<div class="line">
+        <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
+        <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
         ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size:14px">${t("noEntries")}</p>`}</div>
     </section>`;
   }
@@ -84,12 +101,6 @@ export class EventsPage extends Page {
       if (!byDay.has(key)) byDay.set(key, []);
       byDay.get(key).push(e);
     }
-    const dayLabel = (key) => {
-      const today = new Date().toDateString(), yesterday = new Date(Date.now() - 86400000).toDateString();
-      if (key === today) return t("today");
-      if (key === yesterday) return t("yesterday");
-      return new Date(key).toLocaleDateString(lang, { weekday: "short", day: "2-digit", month: "2-digit" });
-    };
     return html`
       <div class="stats">${conns.map((c) => {
         const st = this.stats.connections[c.id] || { drops: 0, availability: 1, per_day: Array(days).fill(0) };
@@ -100,25 +111,29 @@ export class EventsPage extends Page {
             <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size:22px;font-weight:500">${st.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
           <div class="bars" role="img" aria-label="${t("drops", { d: days })}: ${st.drops}">${st.per_day.map((v) => html`<span style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
+          <div class="row hint" style="font-size:11px"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
       <section class="card" aria-labelledby="t-tl">
         <div class="row"><h2 id="t-tl">${t("timeline")}</h2><span class="hint">${t("retention", { d: this.state.settings.history_days })}</span></div>
         ${[...byDay.entries()].slice(0, 30).map(([key, items]) => html`<div class="day">
-          <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${dayLabel(key)}</div>
+          <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${this._dayLabel(items[0].ts)}</div>
+          ${items.length > 50 ? html`<div class="hint" style="font-size:13px">${t("moreEntries", { n: items.length - 50 })}</div>` : ""}
           ${items.slice(0, 50).map((e) => html`<div class="item"><span class="mono hint">${fmtTime(e.ts, false)}</span>
             <span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--muted)"}"></span>
-            <span><b style="font-weight:500">${e.name}</b> · ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
+            <span>${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
         </div>`)}
         ${byDay.size ? "" : html`<p class="hint" style="font-size:14px">${t("noEntries")}</p>`}
       </section>`;
   }
 
   render() {
+    const base = this._filtered(this.tab === "live" ? this.paused || this.events : this.history || [], true);
+    const counts = Object.fromEntries(LEVELS.map((lv) => [lv, base.filter((e) => e.level === lv).length]));
     const tabButton = (key, label) => html`<button role="tab" aria-selected=${this.tab === key ? "true" : "false"}
       @click=${() => { this.tab = key; if (key === "history") this._loadHistory(); }}>${t(label)}</button>`;
     return html`
-      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${t("eventsSub")}</p></div>
+      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${t("eventsSub", { d: this.state.settings.history_days })}</p></div>
         <div class="tabs" role="tablist">${tabButton("live", "tabLive")}${tabButton("history", "tabHistory")}</div></div>
       <div class="filters">
         <label class="fld"><span class="lbl">${t("navConnections")}</span>
@@ -128,7 +143,7 @@ export class EventsPage extends Page {
         <label class="fld" style="flex:1 1 220px"><span class="lbl">${t("search")}</span>
           <input class="inp" type="search" .value=${this.query} placeholder=${t("searchPh")} @input=${(e) => { this.query = e.target.value; }}></label>
         <div role="group" aria-label="Level" style="display:flex;flex-wrap:wrap;gap:6px">${LEVELS.map((lv) => html`<button class="lv ${lv}" aria-pressed=${this.levels.has(lv) ? "true" : "false"}
-          @click=${() => { const s = new Set(this.levels); s.has(lv) ? s.delete(lv) : s.add(lv); this.levels = s; }}>${t(`lv_${lv}`)}</button>`)}</div>
+          @click=${() => { const s = new Set(this.levels); s.has(lv) ? s.delete(lv) : s.add(lv); this.levels = s; }}>${this.levels.has(lv) ? icon("check", 14) : ""}${t(`lv_${lv}`)}${counts[lv] ? html` <span style="opacity:.8">${counts[lv]}</span>` : ""}</button>`)}</div>
       </div>
       ${this.tab === "live" ? this._live() : this._historyView()}`;
   }

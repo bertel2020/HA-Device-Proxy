@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
-import { t } from "../i18n.js";
+import { plain, t } from "../i18n.js";
 import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
@@ -132,7 +132,7 @@ export class ConnectionsPage extends Page {
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
         ${c.clients.length ? "" : off ? html`<div class="hint" style="font-size:14px">${t("disabledText")}</div>`
           : missing ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t("missingHint", { d: c.device })}</div>`
-          : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t(enocean ? "eoDownText" : "mbDownText", { e: (c[c.kind] || {}).last_error || "?" })}</div>` : ""}
+          : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       </div>
       <div class="foot">
         <div class="addr"><span class="mono">${primaryAddress(c)}</span>${modbus ? html`<span class="hint" style="font-size:12px">${t("hostPort")}</span>` : ""}
