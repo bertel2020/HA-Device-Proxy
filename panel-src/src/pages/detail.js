@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
-import { eventText, t } from "../i18n.js";
+import { eventText, retriesText, t } from "../i18n.js";
 import { confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
@@ -405,7 +405,7 @@ export class DetailPage extends Page {
               <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
               ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
-              <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, n: c.retries })}
+              <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, r: retriesText(c.retries) })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
               <span>${t("mbClientPort")}</span><span>${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>

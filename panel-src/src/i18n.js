@@ -140,7 +140,7 @@ const TEXT = {
     mbIdle: "Untätige Clients trennen nach (s, 0 = nie)", allowed: "Erlaubte Clients",
     trmb_off: "aus", trmb_rx: "Antworten", trmb_tx: "Anfragen", trmb_both: "Anfragen und Antworten",
     mbPreview: "So arbeitet der Proxy", mbPreviewSub: "Alle Anfragen gehen nacheinander über eine Verbindung zum Gerät.",
-    mbFlowClients: "Bis zu {n} Clients", mbFlowQueue: "Warteschlange", mbFlowQueueSub: "eine Anfrage nach der anderen · Timeout {ms} ms · {n} weitere Versuche",
+    mbFlowClients: "Bis zu {n} Clients", mbFlowQueue: "Warteschlange", mbFlowQueueSub: "eine Anfrage nach der anderen · Timeout {ms} ms · {r}",
     stPortBusy: "Port belegt", stStarting: "Startet", stUnreachable: "Nicht erreichbar",
     mbAvg: "Ø {ms} ms", mbFailedN: "{n} ohne Antwort", mbDownText: "Gerät nicht erreichbar: {e}",
     liveSubMb: "Anfragen an das Gerät und seine Antworten, mit Unit-ID und Funktion.", liveClientOnly: "Client: {a}.", liveEmptyMb: "Noch keine Anfragen. Sobald ein Client fragt, erscheinen hier Anfragen und Antworten.",
@@ -166,7 +166,7 @@ const TEXT = {
     mbUnitMap: "Unit-IDs umschreiben", mbUnitMapHint: "Client-Unit=Geräte-Unit, z. B. 1=3, 2=5 – für Clients, die fest Unit 1 erwarten. Leer: unverändert.", mbUnitMapShort: "Unit-IDs",
     mbLinks: "Verbindungen zum Gerät", mbLinksHint: "Mehr als 1 nur, wenn das Gerät so viele gleichzeitig erlaubt; dann laufen Anfragen parallel.",
     mbLinksShort: "Verbindungen zum Gerät", mbLinksVal: "{o} von {n} offen",
-    mbNoRequests: "noch keine Anfragen", mbAllAnswered: "Anfragen, alle beantwortet", mbSomeAnswered: "Anfragen, {a} beantwortet", mbRate: "Anfragen pro Sekunde", mbRateNow: "{n} Anfragen/s", mbClientsUnits: "Clients und Units", mbToolsSub: "Register lesen, Bus scannen", mbKind: "Art", mbAddrOfDevice: "Adresse des Geräts", mbTimeLimit: "Zeitlimit", mbConf2: "{s} s, {n} Wiederholungen", mbClientPort: "Port für Clients",
+    mbNoRequests: "noch keine Anfragen", mbAllAnswered: "Anfragen, alle beantwortet", mbSomeAnswered: "Anfragen, {a} beantwortet", mbRate: "Anfragen pro Sekunde", mbRateNow: "{n} Anfragen/s", mbClientsUnits: "Clients und Units", mbToolsSub: "Register lesen, Bus scannen", mbKind: "Art", mbAddrOfDevice: "Adresse des Geräts", mbTimeLimit: "Zeitlimit", mbConf2: "{s} s, {r}", retries_0: "keine Wiederholung", retries_1: "1 Wiederholung", retries_n: "{n} Wiederholungen", mbClientPort: "Port für Clients",
     haUiSteps: "Meist genügt die Integration deines Geräts (z. B. SolarEdge Modbus): Einstellungen → Geräte & Dienste → Integration hinzufügen. Als Verbindung wählst du die Netzwerkverbindung (Modbus TCP) und trägst Host {h} und Port {p} ein, zum Kopieren in der Karte „Adressen zum Kopieren“.", haUnitHint: "Die Unit-ID (bei manchen „Geräte-ID“) trägst du wie am Gerät ein, meist 1.", haDocs: "Doku von Home Assistant", haYamlSummary: "Keine Integration für dein Gerät? Modbus in YAML", haYamlSub: "Nur nötig, wenn es für dein Gerät keine Integration gibt: ein Modbus-Hub in configuration.yaml.",
     haSnippetComment: "sensors:, switches: … je Eintrag address und device_address (= Unit-ID), siehe Doku", haSnippet: "In Home Assistant verwenden", haSnippetSub: "Für die Modbus-Integration in configuration.yaml. Integrationen mit eigener Einrichtung (z. B. SolarEdge Modbus Multi) brauchen nur Host {h} und Port {p}.",
     mbBlocked: "abgewiesen", mbCached: "aus Zwischenspeicher", mbCacheShort: "Zwischenspeicher",
@@ -480,7 +480,7 @@ const TEXT = {
     mbIdle: "Disconnect idle clients after (s, 0 = never)", allowed: "Allowed clients",
     trmb_off: "off", trmb_rx: "answers", trmb_tx: "requests", trmb_both: "requests and answers",
     mbPreview: "How the proxy works", mbPreviewSub: "All requests go to the device one after another over one connection.",
-    mbFlowClients: "Up to {n} clients", mbFlowQueue: "Queue", mbFlowQueueSub: "one request after the other · timeout {ms} ms · {n} further attempts",
+    mbFlowClients: "Up to {n} clients", mbFlowQueue: "Queue", mbFlowQueueSub: "one request after the other · timeout {ms} ms · {r}",
     stPortBusy: "Port in use", stStarting: "Starting", stUnreachable: "Not reachable",
     mbAvg: "avg {ms} ms", mbFailedN: "{n} unanswered", mbDownText: "Device not reachable: {e}",
     liveSubMb: "Requests to the device and its answers, with unit id and function.", liveClientOnly: "Client: {a}.", liveEmptyMb: "No requests yet. As soon as a client asks, requests and answers show here.",
@@ -506,7 +506,7 @@ const TEXT = {
     mbUnitMap: "Rewrite unit ids", mbUnitMapHint: "client unit=device unit, e.g. 1=3, 2=5 – for clients that always ask unit 1. Empty: unchanged.", mbUnitMapShort: "Unit ids",
     mbLinks: "Connections to the device", mbLinksHint: "More than 1 only when the device allows that many at once; requests then run in parallel.",
     mbLinksShort: "Connections to the device", mbLinksVal: "{o} of {n} open",
-    mbNoRequests: "no requests yet", mbAllAnswered: "requests, all answered", mbSomeAnswered: "requests, {a} answered", mbRate: "Requests per second", mbRateNow: "{n} requests/s", mbClientsUnits: "Clients and units", mbToolsSub: "read registers, scan the bus", mbKind: "Type", mbAddrOfDevice: "Device address", mbTimeLimit: "Time limit", mbConf2: "{s} s, {n} retries", mbClientPort: "Port for clients",
+    mbNoRequests: "no requests yet", mbAllAnswered: "requests, all answered", mbSomeAnswered: "requests, {a} answered", mbRate: "Requests per second", mbRateNow: "{n} requests/s", mbClientsUnits: "Clients and units", mbToolsSub: "read registers, scan the bus", mbKind: "Type", mbAddrOfDevice: "Device address", mbTimeLimit: "Time limit", mbConf2: "{s} s, {r}", retries_0: "no retry", retries_1: "1 retry", retries_n: "{n} retries", mbClientPort: "Port for clients",
     haUiSteps: "Usually the integration for your device is enough (e.g. SolarEdge Modbus): Settings → Devices & services → Add integration. As the connection choose the network connection (Modbus TCP) and enter host {h} and port {p}, to copy from the “Addresses to copy” card.", haUnitHint: "Enter the unit ID (called “device ID” in some integrations) as on the device, usually 1.", haDocs: "Home Assistant documentation", haYamlSummary: "No integration for your device? Modbus in YAML", haYamlSub: "Only needed when no integration supports your device: a Modbus hub in configuration.yaml.",
     haSnippetComment: "sensors:, switches: … per entry address and device_address (= unit ID), see the docs", haSnippet: "Use in Home Assistant", haSnippetSub: "For the Modbus integration in configuration.yaml. Integrations with their own setup (e.g. SolarEdge Modbus Multi) only need host {h} and port {p}.",
     mbBlocked: "refused",
@@ -840,6 +840,7 @@ const fill = (text, params = {}) =>
     return Array.isArray(value) ? value.join(", ") : typeof value === "object" ? JSON.stringify(value) : String(value);
   });
 
+export const retriesText = (n) => t(n === 0 ? "retries_0" : n === 1 ? "retries_1" : "retries_n", { n });
 export const t = (key, params) => fill(TEXT[lang][key] ?? TEXT.en[key] ?? key, params);
 
 const STATE_WORDS = { de: { active: "aktiv", disabled: "deaktiviert" }, en: {} };

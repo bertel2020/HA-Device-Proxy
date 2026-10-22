@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
-import { fieldError, t } from "../i18n.js";
+import { fieldError, retriesText, t } from "../i18n.js";
 import { confirmDialog, icon, navigate, toggle } from "../ui.js";
 
 const DEFAULTS = {
@@ -463,7 +463,7 @@ export class EditPage extends Page {
       <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("mbPreviewSub")}</p></div>
       <ol class="flow">
         <li><b>${t("mbFlowClients", { n: d.max_clients })}</b><span class="hint">Modbus TCP → ${t("port")} ${d.port}</span></li>
-        <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub", { ms: d.request_timeout_ms, n: d.retries })}</span></li>
+        <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub", { ms: d.request_timeout_ms, r: retriesText(d.retries) })}</span></li>
         <li><b>${t(`link_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
       ${this._follows(d) ? html`<div class="note info">${this._follows(d)}</div>` : ""}
