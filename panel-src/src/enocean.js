@@ -151,7 +151,7 @@ export function meterCards(c) {
 
 export function issuesCard(list) {
   if (!list.length) return html`<div class="note ok" role="status">${t("eoAllWell")}</div>`;
-  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); ev.currentTarget.getRootNode().getElementById(i.jump)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
+  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); const target = ev.currentTarget.getRootNode().getElementById(i.jump); const fold = target?.querySelector("details"); if (fold) fold.open = true; target?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
 }
 
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */

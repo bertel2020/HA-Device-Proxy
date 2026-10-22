@@ -3,7 +3,7 @@ import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
 import { eventText, retriesText, t } from "../i18n.js";
-import { toolsCard, confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -358,8 +358,7 @@ export class DetailPage extends Page {
   }
 
   _addresses(c) {
-    return html`<section class="card" id="addresses" aria-labelledby="t-addr">
-      <h2 id="t-addr">${t("addresses")}</h2>
+    return foldCard("device_proxy.addresses", "t-addr", t("addresses"), t("addressesSub"), html`
       <div class="addrs">
               ${c.addresses.map((a) => html`<div class="well">
                 <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
@@ -370,7 +369,7 @@ export class DetailPage extends Page {
                 ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
               </div>`)}
     </div>
-    </section>`;
+    `, false, "addresses");
   }
 
   _modbusCard(m) {

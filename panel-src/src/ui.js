@@ -1,5 +1,5 @@
 // Small helpers shared by the pages: formats, icons, the switch, copying, confirming.
-import { html, svg } from "lit";
+import { html, nothing, svg } from "lit";
 import { lang, t } from "./i18n.js";
 
 export const logo = (size = 36) => html`<svg width=${size} height=${size} viewBox="0 0 128 128" aria-hidden="true" style="flex:none">
@@ -132,11 +132,11 @@ export function connectionState(c, ser2netRunning) {
   return ["stRunning", "ok"];
 }
 
-/** The Tools card, folded by default and remembering per kind whether it was opened. */
-export function toolsCard(key, id, sub, body, force = false) {
+/** A card folded by default that remembers in the browser whether it was opened; `sectionId` is the anchor to jump to. */
+export function foldCard(key, id, title, sub, body, force = false, sectionId = "") {
   let pref = null;
   try { pref = localStorage.getItem(key); } catch { /* private window */ }
-  return html`<section class="card" aria-labelledby=${id}>
+  return html`<section class="card" id=${sectionId || nothing} aria-labelledby=${id}>
     <style>
       .tc > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; list-style: none; border-radius: 10px; margin: -6px -8px; padding: 6px 8px; }
       .tc > summary::-webkit-details-marker { display: none; }
@@ -147,12 +147,15 @@ export function toolsCard(key, id, sub, body, force = false) {
       .tc .chev .on { display: none; } .tc[open] .chev .on { display: inline; } .tc[open] .chev .off { display: none; }
     </style>
     <details class="tc" ?open=${pref === "1" || force} @toggle=${(e) => { try { localStorage.setItem(key, e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
-      <summary><h2 id=${id} style="display:inline">${t("tools")}</h2><span class="hint">· ${sub}</span>
+      <summary><h2 id=${id} style="display:inline">${title}</h2><span class="hint">· ${sub}</span>
         <span class="chev"><span class="off">${t("toolsShow")}</span><span class="on">${t("toolsHide")}</span>${icon("chevron", 18)}</span></summary>
       <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">${body}</div>
     </details>
   </section>`;
 }
+
+/** The Tools card. */
+export const toolsCard = (key, id, sub, body, force = false) => foldCard(key, id, t("tools"), sub, body, force);
 
 export const navigate = (hash) => { location.hash = hash; };
 

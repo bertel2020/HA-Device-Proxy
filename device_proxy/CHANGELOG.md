@@ -5,6 +5,8 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Addresses**: the card is just called "Addresses", is folded at first like the tools (they are only
+  needed for setup) and opens by itself when "Show addresses" in a hint jumps to it.
 - **Foldable parts**: "More tools", "How it works with PCT14", the Home Assistant YAML and "Which formats
   work?" in the import get the same "›" marker as the ones in the settings; it turns when opened.
 - **Tools card**: shows it can be folded: "Show" or "Collapse" with a chevron on the right, and the
