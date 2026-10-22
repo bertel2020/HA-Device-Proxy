@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
+
+EnOcean gateways get a fallback: a second gateway with the same base ID stands in when one
+fails. Also new: setting the base ID with the tools.
 
 - **EnOcean fallback gateway**: a second gateway with the same base ID stands in when one fails.
   It is set up as a normal connection and then picked in the first gateway's form; while it is
