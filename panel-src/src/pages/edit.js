@@ -30,7 +30,7 @@ const TEMPLATES = {
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
-// Modbus: what is folded into "Feintuning" and counts when it differs from the default
+// Modbus: what is folded into "Erweitert" and counts when it differs from the default
 const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
