@@ -19,7 +19,7 @@ in the sidebar instead.
 ## Getting started
 
 1. Install the app and start it; open **Device Proxy** in the sidebar.
-2. Either **import** your existing configuration (**Connections → Import / Export**:
+2. Either **import** your existing configuration (**Settings → Back up and transfer → Import connections**:
    ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf` or the options of ha-modbusproxy), or
    **add a connection**: choose serial device or Modbus device; for a serial device pick a
    template (smart meter SML or D0, Z-Wave stick, generic), the device from the list and a
@@ -57,7 +57,11 @@ type.
 `remaddr`:
 
 - **This host only** – 127.0.0.1, reachable by Home Assistant only.
-- **LAN** (default) – only from private networks (10/8, 172.16/12, 192.168/16, IPv6 local).
+- **LAN** (default) – Home Assistant, its apps and the networks listed under **Allowed networks**.
+  "Own network" (the host's network, read from the Supervisor) is predefined; add further
+  networks such as `192.168.80.0/24` or use the private ranges. An empty list lets only Home
+  Assistant and the apps in. Existing installations keep the private ranges
+  (10/8, 172.16/12, 192.168/16).
 - **All networks** – no limit. ser2net has no login: whoever reaches the port can read and
   control the device.
 
@@ -234,7 +238,7 @@ told it. Tools:
   data rate and the last data from the device.
 - **Live data and traces**: ser2net traces every connection into memory and the app reads
   along. The live view works at any time and takes no client place. **Recording** to files
-  (from the device, to the device or both) is switched per connection without touching
+  (from the device, to the device or both) is switched per connection on the **Trace** page without touching
   ser2net – no client is disconnected. Files: `/addon_configs/<…>_device_proxy/trace/<name>.log`,
   rotated by size (**Settings → Logging and storage**).
 - **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
@@ -259,7 +263,7 @@ On a connection's details:
 **Events** shows the live log (filter by connection, level and text) and the history:
 drops and availability per connection over 30 days and a timeline. Repeating events, such as
 a stick that keeps dropping out, are summed up. The history is kept 30 days by default.
-**Settings → Configuration history** keeps the last 20 configurations with their
+**Settings → Configuration history** keeps the last 25 configurations with their
 differences; each one can be restored.
 
 ## Notifications
@@ -305,7 +309,7 @@ entities**; the entity names follow the language of the notifications.
 ## Coming from ha-modbusproxy
 
 Copy the options of ha-modbusproxy (its **Configuration** tab → ⋮ → **Edit in YAML**) and
-paste them under **Connections → Import / Export**; each device becomes a Modbus connection
+paste them under **Settings → Back up and transfer → Import connections**; each device becomes a Modbus connection
 with the same ports, timeout and `connection_time`. A modbus-proxy configuration file
 (YAML or TOML, `devices` with `modbus: url`, `listen: bind` and `unit_id_remapping`) works
 too. At the start a file
@@ -316,7 +320,7 @@ port 502. The clients (e.g. the Modbus integration) need no change when the port
 
 ## Coming from the EnOcean Proxy app
 
-**Connections → Import / Export → Fetch from the EnOcean Proxy app** reads its options from
+**Settings → Back up and transfer → Import connections → Fetch from the EnOcean Proxy app** reads its options from
 Home Assistant. If that is not possible, copy its options (**Configuration** tab → ⋮ →
 **Edit in YAML**) and paste them there, or put them as `import/enocean_proxy.yaml` into the
 app's config folder. Each gateway becomes an EnOcean connection with the same port, protocol
@@ -350,7 +354,16 @@ listen on the same port.
 ser2net ignores the modem lines only with `local`; the forms set it for new connections, an
 import keeps what the file says.
 
-**Export** writes the connections as a ser2net 4 `ser2net.yaml` for any ser2net.
+**Export as ser2net YAML** writes the serial connections as a ser2net 4 `ser2net.yaml` for any
+ser2net; Modbus and EnOcean connections are not part of it, because the app serves them itself.
+
+## Backup and restore
+
+**Settings → Back up and transfer** saves everything the app was set up with – all
+connections (serial, Modbus, EnOcean) and the settings – as one JSON file. **Restore from
+backup** shows what the file holds and replaces the current configuration after you confirm;
+the old state stays in the configuration history. The file contains the MQTT login, so do not
+pass it on. The app's data is also part of Home Assistant's own backups.
 
 ## Using your own ser2net.yaml
 

@@ -62,7 +62,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 - **Status at a glance**: device present, clients with address and bytes, data rate, last data, line errors from the driver, Modbus requests and answer times; clients that stop reading are spotted.
 - **Live data and traces** without taking a client place, decoded for Modbus; recording to rotating files without disconnecting anyone.
 - **Smart meter tools**: SML (with CRC check) and D0 decoded, baud rate detection.
-- **Import and export**: ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf`, the options of the ha-modbusproxy or EnOcean Proxy app or a modbus-proxy file, with a preview. Or use your own `ser2net.yaml` as it is.
+- **Backup and restore** of the whole configuration as one file (**Settings → Back up and transfer**), and **import and export**: ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf`, the options of the ha-modbusproxy or EnOcean Proxy app or a modbus-proxy file, with a preview. Or use your own `ser2net.yaml` as it is.
 - **Events and history** (30 days, drops and availability), configuration history with differences and restore.
 - **Notifications** in Home Assistant, optionally to a phone, and **entities over MQTT discovery**: one device per connection with its state and a switch.
 - German and English, light and dark (following Home Assistant's theme), phone width.
@@ -75,13 +75,13 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 
 2. Install **Device Proxy** and start it. Until prebuilt images are published, Home Assistant builds the app on install (gensio and ser2net included), which takes a few minutes the first time.
 3. Open **Device Proxy** in the sidebar and add a connection: pick the device and a template, save. The card shows the address to enter in the integration, for example `tcp://127.0.0.1:3333` or a Modbus host and port.
-4. Coming from ser2net, ha-modbusproxy or the EnOcean Proxy app? **Import / Export** takes over the existing configuration with a preview.
+4. Coming from ser2net, ha-modbusproxy or the EnOcean Proxy app? **Settings → Back up and transfer → Import connections** takes over the existing configuration with a preview.
 
 Every page, every setting and help when something does not work: **[documentation](device_proxy/DOCS.md)** (also shown in Home Assistant on the app's Documentation tab).
 
 ## Safety in short
 
-- The ports are plain TCP without a login. New connections accept clients from private networks only; the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed further.
+- The ports are plain TCP without a login. New connections accept clients from private networks only; the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed further, and the home networks that count as "LAN" can be listed.
 - Modbus connections let only Home Assistant and the apps write by default; other clients can only read. EnOcean gateways take Home Assistant and the apps only, unless more addresses are allowed.
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
 - Diagnostics leave out host names and personal names.

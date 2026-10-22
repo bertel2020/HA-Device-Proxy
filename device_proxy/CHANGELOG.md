@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.2
+
+- **Home network**: who counts as "LAN" is now a list under **Settings → Network → Allowed
+  networks**. The host's own network is predefined, further networks can be added; Home
+  Assistant and the apps are always allowed. Existing installations keep the private ranges.
+- **Backup and restore**: **Settings → Back up and transfer** saves all connections (serial,
+  Modbus, EnOcean) and the settings as one file and restores them after a preview and a
+  confirmation. Import and the ser2net export moved there; the export says it holds the serial
+  connections only.
+- **Connections overview**: one status band instead of four tiles, problems first with their own
+  filter and a next step, compact cards that open the details as a whole.
+- **Connection pages**: device before name, serial interface and network access as separate
+  cards, alerts block, "Active" as its own switch, delete set apart; the detail page shows one
+  connection card with the real networks and reachability per target.
+- **Events**: log sorted by time with day rows, level buttons with counts, plain-language
+  connection errors, names link to the connection, labelled history bars.
+- **Trace**: one recording switch for the chosen connection in plain words, live view with line
+  count, clear and millisecond times, recorded files name their connection, copyable path.
+- **Import**: collisions in plain words, select all, the connections "Replace all" removes are
+  named, and the finished step counts added, replaced and skipped connections.
+- Confirmations before switching off a connection with clients, before an import replaces
+  connections and before deleting.
+- Narrow screens: header chips wrap, the navigation fits one row, the trace page picks the
+  connection from a list. Messages of the API and the tools are shown in German as well.
+
 ## 0.2.1
 
 - **Looks**: a sticky header with pill tabs, softer cards with a light shadow, connection cards
