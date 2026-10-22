@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
-import { confirmDialog, fmtTime } from "../ui.js";
+import { confirmDialog, fmtTime, logo } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 const LABELS = { history_days: "historyDays", trace_file_mb: "traceMb", trace_keep: "traceKeep", debounce_count: "debounceCount", debounce_minutes: "debounceMinutes" };
@@ -244,10 +244,11 @@ export class SettingsPage extends Page {
         </section>
 
         <section id="about" class="card" aria-labelledby="t-about">
-          <h2 id="t-about">${t("sAbout")}</h2>
-          <div style="display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);gap:8px 16px">
-            <span class="hint" style="font-size:14px">${t("app")}</span><span>${s.version} · ${t("license")}</span>
-            <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} (GPL-2.0)</span>
+          <div style="display:flex;align-items:center;gap:16px">${logo(64)}
+            <div style="min-width:0"><h2 id="t-about" style="margin:0;font-size:22px">${t("appTitle")}</h2>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
+          <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
+            <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
             <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
           </div>
         </section>
