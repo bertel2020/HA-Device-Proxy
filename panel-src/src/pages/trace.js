@@ -48,15 +48,23 @@ export class TracePage extends Page {
 
   willUpdate(changed) {
     if (changed.has("selected")) { this.chunks = []; this._after = 0; }
+    if (changed.has("state") && this.state) {
+      if (this._boot && this.state.boot !== this._boot) { this.chunks = []; this._after = 0; }  // the app restarted
+      this._boot = this.state.boot;
+    }
     if (!this.selected && this.state?.connections.length) this.selected = this.state.connections[0].id;
   }
 
   async _poll() {
-    if (this.paused || !this.selected || document.hidden) return;
+    if (this.paused || !this.selected || document.hidden || this._polling) return;
+    const id = this.selected, after = this._after;
+    this._polling = true;
     try {
-      const fresh = await api(`api/live/${this.selected}?after=${this._after}`);
-      if (fresh.length) { this._after = fresh[fresh.length - 1].seq; this.chunks = [...this.chunks, ...fresh].slice(-KEEP); }
-    } catch { /* shown by the frame */ }
+      const fresh = await api(`api/live/${id}?after=${after}`);
+      if (fresh.length && id === this.selected && after === this._after) {  // not for another one
+        this._after = fresh[fresh.length - 1].seq; this.chunks = [...this.chunks, ...fresh].slice(-KEEP);
+      }
+    } catch { /* shown by the frame */ } finally { this._polling = false; }
   }
 
   async _mode(c, trace) {

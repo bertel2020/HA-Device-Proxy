@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Unsaved changes**: leaving the connection form by the header, the breadcrumb, a chip or the
+  browser's back button now asks first, like Cancel did (before, the changes were gone).
+- **After an app restart**: an open page shows new events and live data again (they stood still until
+  the new counters passed the old ones).
+- **Saving while the app is not reachable**: shows "no connection to the app" instead of nothing.
+- **Settings after a restore**: the form shows the restored values (Save could put the old ones back),
+  and the configuration history fills again after restoring a backup.
+- **Connection details**: results of the scan or the baud rate detection no longer carry over to the
+  next connection, and live data no longer shows twice on a slow connection.
+- **Dialogs**: Tab stays inside, and the focus goes back to where it was. The level filter of the
+  events has a German label; no id is used twice on the settings page.
+
 - **Texts**: the network level "Home Assistant and apps" showed as `listen_apps`, Modbus exception 8 as
   `ex_8`; the English import preview said "höchstens 5 Clients". Errors of the Modbus write tool,
   of a restore and of the MQTT test are translated to German. The events "own ser2net.yaml cannot

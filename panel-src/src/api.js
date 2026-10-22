@@ -14,12 +14,17 @@ export class ApiError extends Error {
 }
 
 export async function api(path, { method = "GET", body } = {}) {
-  const response = await fetch(url(path), {
-    method,
-    credentials: "same-origin",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(url(path), {
+      method,
+      credentials: "same-origin",
+      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, { error: "network error" });  // the app is not reachable (restarting)
+  }
   const type = response.headers.get("content-type") || "";
   const data = type.includes("json") ? await response.json() : await response.text();
   if (!response.ok) throw new ApiError(response.status, typeof data === "object" ? data : { error: data });

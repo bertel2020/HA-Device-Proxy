@@ -40,6 +40,7 @@ from .store import PASSWORD_KEPT, hidden
 _LOGGER = logging.getLogger(__name__)
 
 BACKUP_MARK = "device_proxy_backup"
+BOOT = f"{time.time():.0f}-{os.getpid()}"
 
 INGRESS_HOSTS = ("172.30.32.1", "0.0.0.0")  # the Supervisor network first, else everywhere
 INGRESS_PEERS = ("172.30.32.2",)  # the Supervisor's ingress proxy
@@ -287,6 +288,7 @@ class WebServer:
         data["version"] = self.version
         data["ser2net_version"] = self.c.ser2net_version
         data["events_seq"] = self.c.events.seq
+        data["boot"] = BOOT  # a new one after a restart: the page's sequence numbers start over
         return ok(data)
 
     async def events(self, request: Request) -> Response:

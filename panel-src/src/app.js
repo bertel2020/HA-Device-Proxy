@@ -5,7 +5,7 @@ import { api } from "./api.js";
 import { lang, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { applyTheme } from "./theme.js";
-import { connectionState, logo, recordRates } from "./ui.js";
+import { confirmDialog, connectionState, focused, logo, recordRates, trapTab } from "./ui.js";
 
 const POLL_MS = 2000;
 const EVENTS_KEPT = 1500;
@@ -48,7 +48,27 @@ export class DeviceProxyApp extends LitElement {
     this._seq = 0;
     this.importOpen = false;
     this.route = this._parse();
-    this._onHash = () => { this.route = this._parse(); window.scrollTo(0, 0); };
+    this._hash = location.hash;
+    this._onHash = () => this._leave();
+  }
+
+  /** Going to another page: a form with unsaved changes asks first. */
+  async _leave() {
+    if (this._asking) return;
+    const page = this.renderRoot?.querySelector("main > *");
+    if (location.hash !== this._hash && page?._dirty?.()) {
+      const target = location.hash;
+      history.replaceState(null, "", this._hash || "#/");  // stay on the form while asking
+      this._asking = true;
+      const leave = await confirmDialog(page, t("discardConfirm"), t("discard"));
+      this._asking = false;
+      if (!leave) return;
+      page.discard?.();
+      history.replaceState(null, "", target);
+    }
+    this._hash = location.hash;
+    this.route = this._parse();
+    window.scrollTo(0, 0);
   }
 
   connectedCallback() {
@@ -101,6 +121,12 @@ export class DeviceProxyApp extends LitElement {
     try {
       const [state, events] = await Promise.all([api("api/state"), api(`api/events?after=${this._seq}`)]);
       recordRates(state.connections);
+      if (this._boot && state.boot !== this._boot) {  // the app restarted: its numbers start over
+        this._seq = 0;
+        this.events = [];
+        this._loadHistory();
+      }
+      this._boot = state.boot;
       this.state = state;
       if (events.length) {
         this._seq = events[events.length - 1].seq;
@@ -188,12 +214,18 @@ export class DeviceProxyConfirm extends LitElement {
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
   `];
 
-  firstUpdated() { this.renderRoot.querySelector(".btn-g").focus(); }
+  firstUpdated() {
+    this._before = focused();  // gets the focus back when the dialog closes
+    this.renderRoot.querySelector(".btn-g").focus();
+  }
 
-  _done(value) { this.dispatchEvent(new CustomEvent("done", { detail: value })); }
+  _done(value) {
+    this._before?.focus?.();
+    this.dispatchEvent(new CustomEvent("done", { detail: value }));
+  }
 
   render() {
-    return html`<div class="back" @keydown=${(e) => e.key === "Escape" && this._done(false)}>
+    return html`<div class="back" @keydown=${(e) => { if (e.key === "Escape") this._done(false); else trapTab(e, this.renderRoot.querySelector(".box")); }}>
       <div class="box" role="alertdialog" aria-modal="true" aria-label=${t("confirm")}>
         <p>${this.message}</p>
         <div class="actions"><button class="btn btn-g" @click=${() => this._done(false)}>${t("cancel")}</button>

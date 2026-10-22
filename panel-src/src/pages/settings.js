@@ -100,6 +100,13 @@ export class SettingsPage extends Page {
     if (!this.draft && this.state) this.draft = { ...this.state.settings };
   }
 
+  /** After a restore: the form shows the restored settings, not the ones before. */
+  async _afterRestore() {
+    this.refresh();
+    this._loadVersions();
+    try { this.draft = { ...(await api("api/state")).settings }; } catch { this.draft = null; }
+  }
+
   async _loadVersions() {
     try { this.versions = await api("api/versions"); } catch { this.versions = []; }
   }
@@ -258,8 +265,7 @@ export class SettingsPage extends Page {
       if (!(await confirmDialog(this, t("backupConfirm", { when: p.created || "–", n: p.total, kinds: kinds || "–", cur: p.current }), t("restoreDo")))) return;
       await api("api/restore", { method: "POST", body: { text } });
       this.toast(t("restoreDone"));
-      this.refresh();
-      this.versions = null;
+      this._afterRestore();
     } catch (err) {
       this.toast(`${t("error")}: ${err.data?.errors ? Object.values(err.data.errors).map(fieldError).join("; ") : err.message}`);
     }
@@ -310,8 +316,7 @@ export class SettingsPage extends Page {
     try {
       await api(`api/versions/${v.id}/restore`, { method: "POST" });
       this.toast(t("saved"));
-      this.refresh();
-      this._loadVersions();
+      this._afterRestore();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
@@ -568,7 +573,7 @@ export class SettingsPage extends Page {
           </div>
           <div class="grp">
           <div style="display:flex;align-items:center;gap:16px">${logo(64)}
-              <div style="min-width:0"><h2 id="t-about" style="margin:0;font-size:22px">${t("appTitle")}</h2>
+              <div style="min-width:0"><h2 id="t-app" style="margin:0;font-size:22px">${t("appTitle")}</h2>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
             <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
               <span class="hint" style="font-size:14px">${t("language")}</span>

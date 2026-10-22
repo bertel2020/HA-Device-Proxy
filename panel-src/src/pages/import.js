@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
-import { confirmDialog, fmtSerial, icon, modbusTarget } from "../ui.js";
+import { confirmDialog, fmtSerial, focused, icon, modbusTarget, trapTab } from "../ui.js";
 
 /** A missing device that also has an unstable name is one note, not two. */
 const joinNotes = (notes) => notes.flatMap((n) => {
@@ -205,11 +205,19 @@ export class ImportDialog extends Page {
     this.dispatchEvent(new CustomEvent("dp-import-close", { bubbles: true, composed: true }));
   }
 
-  firstUpdated() { this.renderRoot.querySelector(".box").focus(); }
+  firstUpdated() {
+    this._before = focused();  // gets the focus back when the dialog closes
+    this.renderRoot.querySelector(".box").focus();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._before?.focus?.();
+  }
 
   render() {
     const step = this.done ? 2 : this.preview ? 1 : 0;
-    return html`<div class="back" @keydown=${(e) => e.key === "Escape" && this._close()}>
+    return html`<div class="back" @keydown=${(e) => { if (e.key === "Escape") this._close(); else trapTab(e, this.renderRoot.querySelector(".box")); }}>
       <div class="box" role="dialog" aria-modal="true" aria-labelledby="t-imp" tabindex="-1">
         <div class="row"><h2 id="t-imp" style="margin:0">${t("importTitle")}</h2>
           <button class="btn btn-g" aria-label=${t("close")} @click=${this._close}>${icon("x")}</button></div>

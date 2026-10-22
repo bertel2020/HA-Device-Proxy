@@ -90,6 +90,9 @@ export class EditPage extends Page {
   /** Has the form been changed since it was loaded? */
   _dirty() { return !!this.draft && JSON.stringify(this.draft) !== this._orig; }
 
+  /** The frame leaves the page after asking: the changes are given up. */
+  discard() { this._orig = JSON.stringify(this.draft); }
+
   async _cancel(e, href) {
     if (!this._dirty()) return;
     e.preventDefault();

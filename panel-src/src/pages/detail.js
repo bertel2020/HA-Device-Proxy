@@ -85,10 +85,38 @@ export class DetailPage extends Page {
   disconnectedCallback() {
     super.disconnectedCallback();
     clearInterval(this._timer);
+    this._stopJobs();
+  }
+
+  /** The polls of tool runs (baud rate, scan): they belong to the connection shown. */
+  _jobPoll(job, set) {
+    const id = this.connectionId;
+    const timer = setInterval(async () => {
+      try {
+        const result = await api(`api/jobs/${job}`);
+        if (this.connectionId !== id) { this._stopJobs(); return; }
+        set(result);
+        if (result.state !== "running") { clearInterval(timer); this._jobs.delete(timer); }
+      } catch { clearInterval(timer); this._jobs.delete(timer); }
+    }, 1000);
+    (this._jobs ||= new Set()).add(timer);
+  }
+
+  _stopJobs() {
+    for (const timer of this._jobs || []) clearInterval(timer);
+    this._jobs?.clear();
   }
 
   willUpdate(changed) {
-    if (changed.has("connectionId")) { this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this._rqSamples = []; this._rq = null; this.search = ""; this.dir = ""; }
+    if (changed.has("connectionId")) {
+      this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this._rqSamples = []; this._rq = null; this.search = ""; this.dir = "";
+      this.job = this.scan = this.meter = this.mbResult = this.wrResult = null; this.copied = false;
+      this._stopJobs();
+    }
+    if (changed.has("state") && this.state) {
+      if (this._boot && this.state.boot !== this._boot) { this.chunks = []; this._after = 0; }  // the app restarted
+      this._boot = this.state.boot;
+    }
     if (changed.has("state")) {
       const c = this.connection(this.connectionId);
       if (c) this._samples = [...this._samples, c.rate_from_device].slice(-SAMPLES);
@@ -120,13 +148,16 @@ export class DetailPage extends Page {
     this._n = (this._n || 0) + 1;
     if (!this._liveOpen() && (this._n - 1) % 5) return; // closed: only now and then, for the summary line
     this.requestUpdate();
+    if (this._polling) return;  // the last one is still on its way
+    const id = this.connectionId, after = this._after;
+    this._polling = true;
     try {
-      const fresh = await api(`api/live/${this.connectionId}?after=${this._after}`);
-      if (fresh.length) {
+      const fresh = await api(`api/live/${id}?after=${after}`);
+      if (fresh.length && id === this.connectionId && after === this._after) {  // not for another one
         this._after = fresh[fresh.length - 1].seq;
         this.chunks = [...this.chunks, ...fresh].slice(-300);
       }
-    } catch { /* shown by the frame */ }
+    } catch { /* shown by the frame */ } finally { this._polling = false; }
   }
 
   async _enable(c, enabled) {
@@ -146,12 +177,7 @@ export class DetailPage extends Page {
     try {
       const { job } = await api(`api/tools/${this.connectionId}/detect`, { method: "POST" });
       this.job = { state: "running", done: 0, total: 0 };
-      const poll = setInterval(async () => {
-        try {
-          this.job = await api(`api/jobs/${job}`);
-          if (this.job.state !== "running") clearInterval(poll);
-        } catch { clearInterval(poll); }
-      }, 1000);
+      this._jobPoll(job, (result) => { this.job = result; });
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
@@ -185,12 +211,7 @@ export class DetailPage extends Page {
     try {
       const { job } = await api(`api/tools/${this.connectionId}/modbus/scan`, { method: "POST", body: this.scanForm });
       this.scan = { state: "running", done: 0, total: this.scanForm.last - this.scanForm.first + 1, results: [] };
-      const poll = setInterval(async () => {
-        try {
-          this.scan = await api(`api/jobs/${job}`);
-          if (this.scan.state !== "running") clearInterval(poll);
-        } catch { clearInterval(poll); }
-      }, 1000);
+      this._jobPoll(job, (result) => { this.scan = result; });
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 

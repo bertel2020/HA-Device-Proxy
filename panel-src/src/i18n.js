@@ -177,7 +177,7 @@ const TEXT = {
     mbCache: "Lesewerte zwischenspeichern (ms, 0 = aus)", mbCacheHint: "Gleiche Leseanfragen mehrerer Clients innerhalb dieser Zeit fragen das Gerät nur einmal. Schreiben leert den Speicher.",
     mbTime: "Antwortzeit Ø / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Letzte Antwort", mbListenError: "Port kann nicht geöffnet werden: {e}", mbLastError: "Letzter Fehler",
     // generic
-    error: "Fehler", loading: "Lädt …", confirm: "Bestätigen", close: "Schließen", language: "Sprache",
+    error: "Fehler", loading: "Lädt …", confirm: "Bestätigen", close: "Schließen", language: "Sprache", levelGroup: "Stufe",
     connectionLost: "Keine Verbindung zur App – zeige den letzten Stand.",
     // EnOcean
     eoKind_answer: "Antwort", eoKind_bus: "Bus", eoKind_command: "Befehl", eoDownText: "Gateway nicht erreichbar: {e}", captureChip: "Aufzeichnung läuft: {n}",
@@ -517,7 +517,7 @@ const TEXT = {
     mbCache: "Cache reads (ms, 0 = off)", mbCacheHint: "The same read from several clients within this time asks the device once. A write empties the cache.",
 
     mbTime: "Answer time avg / max", mbTimeVal: "{a} / {m} ms", mbLastAnswer: "Last answer", mbListenError: "Port cannot be opened: {e}", mbLastError: "Last error",
-    error: "Error", loading: "Loading …", confirm: "Confirm", close: "Close", language: "Language",
+    error: "Error", loading: "Loading …", confirm: "Confirm", close: "Close", language: "Language", levelGroup: "Level",
     connectionLost: "No connection to the app – showing the last state.",
     // EnOcean
     eoKind_answer: "answer", eoKind_bus: "bus", eoKind_command: "command", eoDownText: "Gateway not reachable: {e}", captureChip: "Recording running: {n}",

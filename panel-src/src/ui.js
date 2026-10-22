@@ -159,6 +159,23 @@ export const toolsCard = (key, id, sub, body, force = false) => foldCard(key, id
 
 export const navigate = (hash) => { location.hash = hash; };
 
+/** The focused element, also inside shadow roots. */
+export function focused() {
+  let el = document.activeElement;
+  while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+  return el;
+}
+
+/** Keeps Tab inside a dialog's box. */
+export function trapTab(e, box) {
+  if (e.key !== "Tab" || !box) return;
+  const items = [...box.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1], now = focused();
+  if (e.shiftKey && (now === first || !box.contains(now))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (now === last || !box.contains(now))) { e.preventDefault(); first.focus(); }
+}
+
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */
 export function confirmDialog(host, message, confirmLabel) {
   return new Promise((resolve) => {
