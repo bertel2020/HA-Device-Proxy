@@ -55,7 +55,9 @@ SETTLE_MAX = 0.5  # s an RTU line gets after a timeout or a broken answer, for l
 BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
 # functions that only read; anything else (also a vendor's own, like 0x41) counts as a write.
 # 8 (diagnostics) is one only with sub-function 0 (an echo), 43 only as 14 (read device id)
-READ_ONLY_FUNCTIONS = {1, 2, 3, 4, 7, 11, 12, 17, 20, 24}
+# the reads that pass without write access, with the exact length of their request: on RTU
+# more bytes would go to the device as they are, e.g. a write frame behind a read
+READ_LENGTHS = {1: 5, 2: 5, 3: 5, 4: 5, 7: 1, 11: 1, 12: 1, 17: 1, 24: 3}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
 CACHE_SIZE = 2000  # answers kept at most
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
@@ -117,7 +119,7 @@ def rtu_length(head: bytes) -> int | None:
         return 5
     if function in (1, 2, 3, 4, 12, 17, 20, 21, 23):
         return 3 + head[2] + 2  # byte count
-    if function in (5, 6, 8, 11, 15, 16):
+    if function in (5, 6, 11, 15, 16):
         return 8
     if function == 22:
         return 10
@@ -163,13 +165,17 @@ def answers(pdu: bytes, answer: bytes) -> bool:
 
 
 def is_write(pdu: bytes) -> bool:
+    """Anything but a known read of the right length (a broken read counts as a write)."""
     if not pdu:
         return False
-    if pdu[0] == 8:
-        return pdu[1:3] != b"\x00\x00"  # 0: return query data (an echo)
-    if pdu[0] == 43:
-        return pdu[1:2] != b"\x0e"
-    return pdu[0] not in READ_ONLY_FUNCTIONS
+    function = pdu[0]
+    if function == 8:  # sub-function 0: return query data (an echo of two bytes)
+        return pdu[1:3] != b"\x00\x00" or len(pdu) != 5
+    if function == 43:  # MEI type 14: read device identification
+        return pdu[1:2] != b"\x0e" or len(pdu) != 4
+    if function == 20:  # read file record: a byte count and sub-requests of 7 bytes
+        return len(pdu) < 2 or pdu[1] != len(pdu) - 2 or pdu[1] % 7 != 0
+    return READ_LENGTHS.get(function) != len(pdu)
 
 
 def read_result(function: int, count: int, answer: bytes | None) -> dict[str, Any]:
@@ -1015,6 +1021,7 @@ class ModbusProxy:
                 return
             oldest = min(self.clients.values(), key=lambda cl: cl.info.since)
             oldest.writer.close()
+            self.clients.pop(oldest.info.address, None)  # its place is free now
         client = _Client(ClientInfo(address, time.time()), writer, asyncio.current_task())
         self.clients[address] = client
         self.on_event("info", "client_connected", address=address)

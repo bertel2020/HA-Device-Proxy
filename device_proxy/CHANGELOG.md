@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Modbus write lock**: a read only passes when its request has exactly the length of that read. On
+  RTU and RTU over TCP the proxy passes the bytes on as they are, so a write frame hidden behind a
+  read reached the device although writing was locked.
+- **Modbus RTU**: the echo of diagnostics (function 8) is read to its end instead of being cut after
+  8 bytes. With "kick old user" a new client no longer gets in beside one that is still being
+  pushed out.
+
 - **EnOcean ESP3**: garbage whose first bytes look like a long frame no longer holds back every
   telegram until that many bytes have arrived (hours); the data CRC is checked, lengths are capped,
   and an unfinished frame is given up after 0.5 s.

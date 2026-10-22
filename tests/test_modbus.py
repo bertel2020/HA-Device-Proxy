@@ -288,7 +288,14 @@ def test_only_known_reads_pass_without_write_access() -> None:
     from device_proxy.modbus import is_write
 
     assert not is_write(bytes.fromhex("030000000a"))
-    assert not is_write(bytes.fromhex("08000012"))  # diagnostics: echo
+    assert not is_write(bytes.fromhex("0800001234"))  # diagnostics: echo
+    assert not is_write(bytes.fromhex("140e" + "06000100020001" * 2))  # read file record
+    # a read with a write frame behind it (RTU passes the bytes on as they are)
+    smuggled = (
+        bytes.fromhex("0300000001") + bytes.fromhex("840a") + rtu_frame(1, b"\x06\x00\x64\xbe\xef")
+    )
+    assert is_write(smuggled)
+    assert is_write(bytes.fromhex("0300000001ff"))
     assert not is_write(bytes.fromhex("2b0e0100"))  # read device identification
     assert is_write(bytes.fromhex("06000100ff"))
     assert is_write(bytes.fromhex("0800010000"))  # diagnostics: restart
@@ -385,3 +392,32 @@ def test_host_names_with_empty_or_long_labels_are_refused() -> None:
             Connection("WR", "", 15020, kind="modbus", host=host, host_port=502).validate()
     for host in ("wr.local", "192.168.1.5", "a" * 63, "[fd00::1]"):
         Connection("WR", "", 15020, kind="modbus", host=host, host_port=502).validate()
+
+
+async def test_kickolduser_keeps_the_limit() -> None:
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        bind="127.0.0.1",
+        host_port=9,
+        max_clients=1,
+        kickolduser=True,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    writers = []
+    for _ in range(3):
+        _reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writers.append(writer)
+        await asyncio.sleep(0.05)
+        assert len(proxy.clients) == 1
+    for writer in writers:
+        writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
