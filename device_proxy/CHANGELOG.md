@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.3.1
+
+A pass over every page of the interface.
+
+- **Connections**: each card shows its clients as a small fill bar and the data rate as a curve of
+  the last minute; a problem card shows its state once (stripe and chip) with a calm sentence
+  below; the copy button is an icon, the recording chip sits in the chip row.
+- **Detail page**: the addresses to copy have their own card at the top of the side column; live data
+  uses the same direction words and sixteen-byte lines as the trace page, can be collapsed to one
+  living line and wraps long lines; a connection bound to 127.x says it is reachable from this
+  host only; the header carries a short recording chip that links to the trace; side cards with
+  short tool buttons, a labelled data chart and "Recent events" for this connection.
+- **Modbus details**: one status card (requests per second, problems only as chips) instead of six
+  counters; clients and units in one card with tooltips on the column headers ("error replies"
+  instead of "exceptions"); the Connection card moves to the side column; the read and scan forms
+  fit one row; "Use in Home Assistant" leads with the device's integration in the interface and
+  keeps the YAML as the fallback; "1 retry" instead of "1 retries"; the live view names the client
+  once when only one asks.
+- **Edit pages**: serial connections get a Basics card with the name like the other kinds; a
+  sticky Delete / Cancel / Save bar, a "Not saved" chip, a confirmation on Cancel and a warning
+  when the tab is closed with changes; templates folded for an existing connection and a
+  confirmation before one overwrites fields; arrows on folded cards; the preview stays in view and
+  says who may connect; Modbus answer timeout and retries sit with the device, the advanced options
+  are grouped (pacing, clients, probe, recording) and the EnOcean send pause sits with the
+  gateway. A bind address of 127.x now says only this host may connect, and a warning appears
+  when allowed clients name networks that address can never serve.
+- **Import**: content without any connection stays at the first step with an error; the first step
+  names each thing once and folds the list of formats away; one conflict chip per holder and one
+  note per device; paths no longer break inside short names; on a phone the steps stay in one row
+  and each entry is a card; the footer with "Take over" stays at the bottom of a long list.
+- **Events and trace**: Live and History share one filter bar and one row format; connections as a
+  chip bar on the trace page; hex and ASCII in sixteen-byte lines at every width; direction
+  badges use the words of the recording switch.
+- **Settings**: every card's Save button is active only after a change and says "Not saved"; the
+  side navigation marks the section in view; the card for an own ser2net.yaml offers "From the
+  forms" and "Own file", the editor on demand and an automatic check while typing, with saving
+  locked on errors.
+- **Readability**: hints, field labels and table headers are 13 px, the grey text has more
+  contrast in light and dark.
+
 ## 0.3.0
 
 - **Home network**: who counts as "LAN" is now a list under **Settings → Network → Allowed
@@ -14,27 +54,12 @@
 - **Connection pages**: device before name, serial interface and network access as separate
   cards, alerts block, "Active" as its own switch, delete set apart; the detail page shows one
   connection card with the real networks and reachability per target.
-- **Events**: Live and History share one filter bar and one row format; log sorted by time with day rows, level buttons with counts, plain-language
+- **Events**: log sorted by time with day rows, level buttons with counts, plain-language
   connection errors, names link to the connection, labelled history bars.
-- **Detail page, side cards**: tools with short buttons, the meter check on top only for meters
-  (else folded away), buttons disabled with a reason, the check shows its time and what to do
-  without data; the data chart is labelled and counts bytes "since start"; the line hint sits in
-  the Line card; "Recent events" links to the events of this connection.
-- **Modbus details**: one status card (requests per second, problems only as chips when they
-  occur) instead of six counters and the meaningless data-rate card; clients and units in one card;
-  tools folded away; clearer labels; "Use in Home Assistant" now leads with the device's
-  integration in the interface (host, port and unit id with copy buttons) and keeps the YAML hub
-  as the fallback.
-- **Live data** on the detail page can be collapsed to one living line (last data, rate, last
-  block); the choice is remembered per connection, a card never opened yet opens when data
-  arrives, and a collapsed card polls only every five seconds.
 - **Trace**: one recording switch for the chosen connection in plain words, live view with line
   count, clear and millisecond times, recorded files name their connection, copyable path.
 - **Import**: collisions in plain words, select all, the connections "Replace all" removes are
   named, and the finished step counts added, replaced and skipped connections.
-- **Own ser2net.yaml**: a card of its own with the two choices "From the forms" and "Own file", the
-  editor only when you want it, an automatic check while typing, saving locked on errors and a
-  button to refill the file from the forms.
 - Confirmations before switching off a connection with clients, before an import replaces
   connections and before deleting.
 - Narrow screens: header chips wrap, the navigation fits one row, the trace page picks the
