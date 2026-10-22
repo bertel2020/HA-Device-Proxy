@@ -5,6 +5,9 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Live data** (detail page and recording): time and direction take only the room they need; on
+  Modbus and EnOcean the description and the bytes share a line and wrap only when the card is
+  narrow, instead of breaking every 16 bytes.
 - **Detail page**: no side column any more; cards sit in pairs of two equal columns, in the order
   state, measurements, live data, tools, then addresses and settings last (the "no program
   connected" hint links to the addresses). Same order for serial, Modbus and EnOcean.

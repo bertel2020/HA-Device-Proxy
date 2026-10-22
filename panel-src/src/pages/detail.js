@@ -41,6 +41,9 @@ export class DetailPage extends Page {
     .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .live td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .live .info { white-space: normal; overflow-wrap: anywhere; }
+    .live td.fit { width: 1%; }
+    .live td.frame { white-space: normal; overflow-wrap: anywhere; }
+    .live td.frame .info { display: inline-block; margin-right: 16px; }
     .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
@@ -306,10 +309,10 @@ export class DetailPage extends Page {
         ${this.search || this.dir ? html`<span class="hint">${t("eoShown", { n: rows.length, m: all.length })}</span>` : ""}</div>` : ""}
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
-          <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
-          <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
-          <td>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
-            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? lines16(ch.hex.split(" "), " ") : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
+          <td class="fit" style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
+          <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
+          <td class=${ch.info ? "frame" : ""}>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
+            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
             <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
           ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}
         </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}

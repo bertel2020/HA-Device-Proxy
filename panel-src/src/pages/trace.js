@@ -22,6 +22,8 @@ export class TracePage extends Page {
     .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
     .view td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .view td.hex, .view td.asc { white-space: pre; }
+    .view td.fit { width: 1%; }
+    .view td.hex.frame { white-space: normal; overflow-wrap: anywhere; }
     .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
   `];
@@ -106,9 +108,9 @@ export class TracePage extends Page {
               ${file ? html`<span class="hint" style="flex-basis:100%">${t("recFile")}: <span class="mono">${file.name}</span> · ${fmtBytes(file.size)}
                 <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
             ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
-              <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
-              <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
-              ${ch.info ? html`<td style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex">${ch.hex ? lines16(ch.hex.split(" "), " ") : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
+              <td class="fit" style="color:#8f9ba8">${this._time(ch.ts)}</td>
+              <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
+              ${ch.info ? html`<td class="fit" style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex ${ch.info ? "frame" : ""}">${ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
