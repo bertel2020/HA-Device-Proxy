@@ -63,7 +63,7 @@ const TEXT = {
     deleteConfirm: "Verbindung „{n}“ löschen? Ihre Clients werden getrennt.", errorsBelow: "Bitte die markierten Felder prüfen.",
     // import
     importTitle: "Verbindungen importieren", stepChoose: "Datei wählen", stepPreview: "Vorschau prüfen", stepDone: "Übernommen",
-    importChoose: "ser2net.yaml, ser2net.conf oder Modbus-Proxy-Konfiguration auswählen", importDrop: "Datei auswählen oder Inhalt einfügen", importFormats: "ser2net 4 (YAML, Version 1 und 2), ser2net 3 (ser2net.conf) oder die Optionen von ha-modbusproxy bzw. modbus-proxy (YAML aus dessen Konfigurations-Tab)",
+    importChoose: "Woher kommen die Verbindungen?", importDrop: "Datei hierher ziehen", formatsMore: "Welche Formate gehen?", importFormats: "ser2net 4 (YAML, Version 1 und 2), ser2net 3 (ser2net.conf) oder die Optionen von ha-modbusproxy bzw. modbus-proxy (YAML aus dessen Konfigurations-Tab)",
     importNone: "Darin habe ich keine Verbindungen gefunden.",
     chooseFile: "Datei auswählen", pasteHere: "… oder den Inhalt hier einfügen", readPreview: "Vorschau", otherFile: "Andere Datei",
     format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML Version 1", format_2: "ser2net 4 · YAML Version 2", format_10: "ha-modbusproxy (Optionen)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (Optionen)",
@@ -408,7 +408,7 @@ const TEXT = {
     saveHint: "Only this connection is rebuilt. The others stay connected.", saved: "Saved.", savedRebuilt: "Saved. Rebuilt: {n}.", savedReconnect: " Clients reconnected: {n}.",
     deleteConfirm: "Delete connection “{n}”? Its clients are disconnected.", errorsBelow: "Please check the marked fields.",
     importTitle: "Import connections", stepChoose: "Choose file", stepPreview: "Check preview", stepDone: "Done",
-    importChoose: "Choose ser2net.yaml, ser2net.conf or a Modbus proxy configuration", importDrop: "Choose a file or paste its content", importFormats: "ser2net 4 (YAML, version 1 and 2), ser2net 3 (ser2net.conf) or the options of ha-modbusproxy or modbus-proxy (YAML from its configuration tab)",
+    importChoose: "Where do the connections come from?", importDrop: "Drop a file here", formatsMore: "Which formats work?", importFormats: "ser2net 4 (YAML, version 1 and 2), ser2net 3 (ser2net.conf) or the options of ha-modbusproxy or modbus-proxy (YAML from its configuration tab)",
     importNone: "I found no connections in it.",
     chooseFile: "Choose file", pasteHere: "… or paste the content here", readPreview: "Preview", otherFile: "Other file",
     format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML version 1", format_2: "ser2net 4 · YAML version 2", format_10: "ha-modbusproxy (options)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (options)",
