@@ -160,7 +160,7 @@ def test_diagnostics_hide_the_own_mqtt_broker_and_its_login() -> None:
     data = build(
         version="1",
         ser2net_version="4",
-        snapshot={"error": "cannot reach emqx.example.org"},
+        snapshot={"error": "cannot reach emqx.example.org", "settings": dict(config["settings"])},
         config=config,
         runtime_yaml="",
         events=[],

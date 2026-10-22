@@ -35,6 +35,7 @@ from .model import (
 )
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services
+from .store import PASSWORD_KEPT, hidden
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -380,10 +381,16 @@ class WebServer:
         data = request.json().get("settings")
         if not isinstance(data, dict):
             raise HttpError(400, "a settings object is needed")
-        settings = Settings.from_dict({**self.c.config.settings.to_dict(), **data})
-        if settings.source == "custom" and not self.c.custom_file.exists():
-            raise HttpError(409, "save your own ser2net.yaml first")
-        return await self._save(lambda config: replace(config, settings=settings))
+        if data.get("mqtt_password") == PASSWORD_KEPT:
+            data = {k: v for k, v in data.items() if k != "mqtt_password"}
+
+        def build(config: AppConfig) -> AppConfig:  # from the settings as they are by then
+            settings = Settings.from_dict({**config.settings.to_dict(), **data})
+            if settings.source == "custom" and not self.c.custom_file.exists():
+                raise HttpError(409, "save your own ser2net.yaml first")
+            return replace(config, settings=settings)
+
+        return await self._save(build)
 
     async def import_preview(self, request: Request) -> Response:
         text = str(request.json().get("text", ""))
@@ -480,7 +487,7 @@ class WebServer:
                 host,
                 port,
                 str(data.get("user") or ""),
-                str(data.get("password") or ""),
+                self._password(data.get("password")),
                 bool(data.get("tls")),
             )
         else:
@@ -524,6 +531,12 @@ class WebServer:
             return ok({"error": "invalid", "check": asdict(err.check)}, 400)
         return ok(asdict(result))
 
+    def _password(self, value: object) -> str:
+        """The password of a form; the saved one when the form kept it."""
+        if value == PASSWORD_KEPT:
+            return self.c.config.settings.mqtt_password
+        return str(value or "")
+
     async def versions(self, request: Request) -> Response:
         return ok(self.c.store.versions())
 
@@ -531,7 +544,9 @@ class WebServer:
         config = self.c.store.version(int(request.params["id"]))
         if config is None:
             raise HttpError(404, "no such version")
-        return ok(config.to_dict())
+        data = config.to_dict()
+        data["settings"] = hidden(data["settings"], {"mqtt_password"}, PASSWORD_KEPT)
+        return ok(data)
 
     async def restore(self, request: Request) -> Response:
         config = self.c.store.version(int(request.params["id"]))

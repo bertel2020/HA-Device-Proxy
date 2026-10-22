@@ -17,6 +17,12 @@ _LOGGER = logging.getLogger(__name__)
 PATH = Path("/data/config.json")
 KEEP_VERSIONS = 25
 SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, never the value
+PASSWORD_KEPT = "••••••••"  # the browser gets this for a set password; sent back: unchanged
+
+
+def hidden(settings: dict[str, Any], keys: set[str] | frozenset[str], mask: str) -> dict[str, Any]:
+    """The settings with the set values of these keys replaced by the mask."""
+    return {k: (mask if k in keys and v else v) for k, v in settings.items()}
 
 
 Change = dict[str, Any]  # {"connection": name | None, "change": ..., "fields": [...]}

@@ -18,6 +18,8 @@ import time
 import zipfile
 from typing import Any
 
+from .store import SECRET_SETTINGS, hidden
+
 IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 IPV6 = re.compile(r"[0-9A-Fa-f]*:[0-9A-Fa-f:]*:[0-9A-Fa-f]*")
 KEEP = {"127.0.0.0", "127.0.0.1", "10.0.0.0", "172.16.0.0", "192.168.0.0", "0.0.0.0"}
@@ -71,13 +73,8 @@ def build(
     events: list[dict[str, Any]],
 ) -> bytes:
     snapshot = dict(snapshot)
-    config = {
-        **config,
-        "settings": {
-            k: ("***" if k in ("mqtt_user", "mqtt_password") and v else v)
-            for k, v in (config.get("settings") or {}).items()
-        },
-    }
+    config = {**config, "settings": hidden(config.get("settings") or {}, SECRET_SETTINGS, "***")}
+    snapshot["settings"] = hidden(snapshot.get("settings") or {}, SECRET_SETTINGS, "***")
     for c in snapshot.get("connections", []):
         c["clients"] = len(c.get("clients", []))  # how many, not who
         c.pop("addresses", None)

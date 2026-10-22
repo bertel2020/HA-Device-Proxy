@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Diagnostics**: the user name and password of an own MQTT broker were still in `status.json` of
+  the ZIP (only `config.json` hid them). Both are replaced now.
+- **MQTT password**: no longer sent to the browser (status every 2 s, configuration history). The form
+  shows dots for a set password; sent back unchanged, the saved one stays, also for "Test".
+- **Settings**: a settings change and saving the own ser2net.yaml at the same time no longer undo
+  each other; the own file is written in turn with other changes and synced to disk.
+
 - **Modbus and EnOcean proxies**: one that ends by an unexpected error starts again after 30 s
   (before, its port stayed closed until the next change or a restart of the app). Causes that ended
   it are caught now: a USB adapter pulled while it is opened, a host name like `a..b` (refused when

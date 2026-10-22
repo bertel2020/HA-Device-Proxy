@@ -50,7 +50,7 @@ from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result, write_pdu
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
-from .store import Change, Store, summary
+from .store import PASSWORD_KEPT, Change, Store, hidden, summary
 from .trace import Chunk, TraceHub
 
 _LOGGER = logging.getLogger(__name__)
@@ -402,13 +402,23 @@ class Controller:
         check = self.check_custom(text)
         if not check.ok:
             raise CustomError(check)
-        self.custom_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.custom_file.with_suffix(".tmp")
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, self.custom_file)
+
+        def build(config: AppConfig) -> AppConfig:
+            # in turn with other changes: the file and the settings as they are by then
+            self.custom_file.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.custom_file.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.custom_file)
+            if not use:
+                return config
+            return replace(config, settings=replace(config.settings, source="custom"))
+
+        result = await self.apply(build, "custom")
         self.events.emit("info", "custom_saved", connections=len(check.connections))
-        settings = replace(self.config.settings, source="custom") if use else self.config.settings
-        return await self.apply(lambda config: replace(config, settings=settings), "custom")
+        return result
 
     # import
 
@@ -1168,7 +1178,7 @@ class Controller:
         return {
             "ser2net_running": self.ser2net.running and self.admin.connected.is_set(),
             "source": settings.source,
-            "settings": settings.to_dict(),
+            "settings": hidden(settings.to_dict(), {"mqtt_password"}, PASSWORD_KEPT),
             "lan_ip": self.lan_ip,
             "lan_net": self.lan_net,
             "connections": connections,

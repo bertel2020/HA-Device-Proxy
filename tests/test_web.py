@@ -122,3 +122,37 @@ async def test_backup_and_restore(tmp_path: Path) -> None:
     status, state = await request(port, "GET", "api/state")
     assert isinstance(state, dict) and [c["name"] for c in state["connections"]] == ["eHZ"]
     await web.stop()
+
+
+async def test_the_mqtt_password_stays_on_the_server(tmp_path: Path) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    secret = {"mqtt_host": "emqx", "mqtt_user": "anna", "mqtt_password": "geheim"}
+    assert (await request(port, "PUT", "api/settings", {"settings": secret}))[0] == 200
+    status, state = await request(port, "GET", "api/state")
+    assert isinstance(state, dict) and "geheim" not in json.dumps(state)
+    kept = state["settings"]["mqtt_password"]
+    assert kept and state["settings"]["mqtt_user"] == "anna"
+    # the form sends back what it got, with another change: the password stays
+    status, _ = await request(
+        port, "PUT", "api/settings", {"settings": {**state["settings"], "mqtt_port": 1884}}
+    )
+    assert status == 200
+    assert controller.config.settings.mqtt_password == "geheim"
+    assert controller.config.settings.mqtt_port == 1884
+    status, versions = await request(port, "GET", "api/versions")
+    assert isinstance(versions, list)
+    for v in versions:
+        _, config = await request(port, "GET", f"api/versions/{v['id']}")
+        assert "geheim" not in json.dumps(config)
+    await web.stop()
