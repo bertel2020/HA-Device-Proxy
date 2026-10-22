@@ -91,6 +91,7 @@ export class DetailPage extends Page {
   }
 
   async _enable(c, enabled) {
+    if (!enabled && c.clients.length && !(await confirmDialog(this, t("offConfirm", { n: c.name, c: c.clients.length }), t("switchOff")))) return;
     try {
       await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
       this.refresh();

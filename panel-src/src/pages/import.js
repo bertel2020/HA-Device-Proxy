@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
-import { fmtSerial, icon, modbusTarget } from "../ui.js";
+import { confirmDialog, fmtSerial, icon, modbusTarget } from "../ui.js";
 
 /** The import as a dialog over any page: choose a file, check the preview, done. */
 export class ImportDialog extends Page {
@@ -53,8 +53,10 @@ export class ImportDialog extends Page {
   }
 
   async _apply() {
-    this.busy = true;
     const take = [...this.preview.items.filter((i) => i.connection && (this.take.has(i.alias) || (this.choice[i.alias] && this.choice[i.alias] !== "skip"))).map((i) => i.alias)];
+    const replaced = this.replaceAll ? this.state.connections.length : take.filter((a) => this.choice[a] === "replace").length;
+    if (replaced && !(await confirmDialog(this, t("importReplaceConfirm", { n: replaced }), t("importReplace")))) return;
+    this.busy = true;
     try {
       const result = await api("api/import", { method: "POST", body: { text: this.text, replace_all: this.replaceAll, take, on_conflict: this.choice } });
       this.done = result;

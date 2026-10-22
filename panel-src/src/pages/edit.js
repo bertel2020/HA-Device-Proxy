@@ -3,7 +3,7 @@ import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, t } from "../i18n.js";
-import { confirmDialog, icon, navigate } from "../ui.js";
+import { confirmDialog, icon, navigate, toggle } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -513,11 +513,15 @@ export class EditPage extends Page {
           ${this._input("silence_minutes", t("silence"), { number: true })}
         </section>`}
 
+        <section class="card" aria-labelledby="t-on">
+          <div class="fold"><div><h2 id="t-on">${isNew ? t("startNow") : t("enabled")}</h2><p class="hint" style="margin-top:4px">${isNew ? t("startNowSub") : t("enabledSub")}</p></div>
+            ${toggle(d.enabled, isNew ? t("startNow") : t("enabled"), (v) => this._set({ enabled: v }))}</div>
+        </section>
+
         <div class="actions">
-          <label class="chk" style="align-items:center"><input type="checkbox" .checked=${d.enabled} @change=${(e) => this._set({ enabled: e.target.checked })}><span>${isNew ? t("startNow") : t("enabled")}</span></label>
-          <span class="hint" style="display:flex;align-items:center;gap:8px;margin-left:auto">${icon("info", 16)}${isNew ? t("saveHintNew") : t("saveHint")}</span>
-          <div style="display:flex;gap:8px">
-            ${isNew ? "" : html`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
+          ${isNew ? "" : html`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
+          <span class="hint" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end">${icon("info", 16)}${isNew ? t("saveHintNew") : t("saveHint")}</span>
+          <div style="display:flex;gap:8px;margin-left:auto">
             <a class="btn btn-g" href=${isNew ? "#/connections" : `#/connection/${d.id}`}>${t("cancel")}</a>
             <button type="submit" class="btn btn-p" ?disabled=${this.saving}>${t("save")}</button>
           </div>

@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { plain, t } from "../i18n.js";
-import { connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -69,6 +69,7 @@ export class ConnectionsPage extends Page {
   }
 
   async _enable(c, enabled) {
+    if (!enabled && c.clients.length && !(await confirmDialog(this, t("offConfirm", { n: c.name, c: c.clients.length }), t("switchOff")))) return;
     this.busy = c.id;
     try {
       await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
