@@ -103,7 +103,11 @@ export class ImportDialog extends Page {
 
   _result(item) {
     if (!item.connection) return html`<span class="chip bad">${t("resNo")}</span>`;
-    if (Object.keys(item.conflicts).length && !this.replaceAll) return html`${Object.entries(item.conflicts).map(([k, v]) => html`<div><span class="chip bad">${t(`confl_${k}`, { p: item.connection.port, n: v })}</span></div>`)}`;
+    if (Object.keys(item.conflicts).length && !this.replaceAll) {
+      const c = item.conflicts;
+      const same = c.port && c.port === c.device;  // one connection holds both the port and the device
+      return html`${Object.entries(c).filter(([k]) => !(same && k === "device")).map(([k, v]) => html`<div><span class="chip bad">${t(same && k === "port" ? "confl_port_device" : `confl_${k}`, { p: item.connection.port, n: v })}</span></div>`)}`;
+    }
     return item.notes.length ? html`<span class="chip warn">${t("resNotes")}</span>` : html`<span class="chip ok">${t("resOk")}</span>`;
   }
 
