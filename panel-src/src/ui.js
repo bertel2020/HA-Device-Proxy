@@ -121,6 +121,8 @@ export function connectionState(c, ser2netRunning) {
   if (c.kind !== "serial") {
     const m = c[c.kind] || {};
     if (m.listen_error) return ["stPortBusy", "bad"];
+    if (m.serves) return !m.connected ? ["stConnecting", "warn"] : ["stFbStandby", "info"];
+    if (m.fallback?.active === "fallback") return ["stOnFallback", "warn"];
     if (!m.listening) return ["stStarting", "warn"];
     if (m.reachable === false) return ["stUnreachable", "bad"];
     if (m.exclusive_peer) return ["stReserved", "info"];

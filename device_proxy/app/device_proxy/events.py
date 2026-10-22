@@ -99,7 +99,7 @@ MESSAGES = {
     "enocean_fallback_ready": "Fallback {fallback} ready",
     "enocean_fallback_unready": "Fallback {fallback} not ready: {reason}",
     "enocean_fallback_promoted": (
-        "The fallback's hardware became this gateway's: {new}; the old one ({old}) is {action}"
+        "The fallback's hardware became this gateway's: {new}; the old one ({old}): {action}"
     ),
     "duty_cycle_high": "{of_limit} % of the 1 % duty cycle used in the last hour",
     "client_dropped": "Client {address} stopped reading and was disconnected ({queued} bytes)",

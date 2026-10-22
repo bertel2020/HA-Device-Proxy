@@ -3,7 +3,7 @@ import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
-import { confirmDialog, icon, navigate, toggle } from "../ui.js";
+import { confirmDialog, icon, navigate, proxyTarget, toggle } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -14,6 +14,7 @@ const DEFAULTS = {
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
+  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
@@ -47,7 +48,7 @@ export class EditPage extends Page {
   static properties = {
     state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
-    otherDevice: { state: true }, replayOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
+    otherDevice: { state: true }, replayOpen: { state: true }, fbOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
   };
 
@@ -120,6 +121,8 @@ export class EditPage extends Page {
     this.advanced = this.draft.kind === "modbus" ? MODBUS_TUNING.concat("trace").some((k) => this.draft[k] !== (DEFAULTS[k] ?? "off"))
       : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
+    this.fbOpen = this.draft.fallback_trigger !== DEFAULTS.fallback_trigger || this.draft.fallback_return !== DEFAULTS.fallback_return || this.draft.fallback_listen;
+    this._jump = location.hash.endsWith("/fallback");
     if (!existing && this.draft.kind === "serial") this._suggestName();
     this.tplOpen = false;
     this._orig = JSON.stringify(this.draft);
@@ -194,8 +197,35 @@ export class EditPage extends Page {
     } catch { /* keep the last preview */ }
   }
 
+  updated() {
+    if (!this._jump) return;
+    const target = this.renderRoot.getElementById("fallback");
+    if (!target) return;
+    this._jump = false;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /** The gateway this connection is the fallback of (from the state), or undefined. */
+  _mainOf() {
+    const d = this.draft;
+    return d.id ? this.state.connections.find((c) => c.kind === "enocean" && c.fallback === d.id && c.id !== d.id) : undefined;
+  }
+
+  /** Before a gateway becomes the fallback: what changes for it. */
+  async _confirmFallback() {
+    const d = this.draft, before = this.connection(this.connectionId);
+    if (d.kind !== "enocean" || !d.fallback || (before && before.fallback === d.fallback)) return true;
+    const b = this.state.connections.find((c) => c.id === d.fallback);
+    if (!b) return true;
+    const mine = before?.enocean?.base_id, theirs = b.enocean?.base_id;
+    const base = mine && theirs ? (mine === theirs ? t("fbBaseSame", { id: mine }) : t("fbBaseDiffers", { b: b.name, theirs, mine })) : t("fbBaseUnknown");
+    const clients = b.clients.length ? t("fbConfirmClients", { n: b.clients.length }) : "";
+    return confirmDialog(this, t("fbConfirm", { a: d.name, b: b.name, p: b.port, clients, base }), t("fbConfirmBtn"));
+  }
+
   async _save(e) {
     e.preventDefault();
+    if (!(await this._confirmFallback())) return;
     this.saving = true;
     this.touched = new Set(Object.keys(DEFAULTS));
     try {
@@ -204,6 +234,7 @@ export class EditPage extends Page {
       if (result.disconnected.length) text += t("savedReconnect", { n: result.disconnected.join(", ") });
       this.toast(text);
       this.refresh();
+      this.discard(); // saved: leaving the form asks nothing
       navigate(`#/connection/${this.draft.id || result.id}`);
     } catch (err) {
       this.errors = fieldErrors(err.data.errors);
@@ -214,7 +245,9 @@ export class EditPage extends Page {
   }
 
   async _delete() {
-    if (!(await confirmDialog(this, t("deleteConfirm", { n: this.draft.name }), t("delete")))) return;
+    const d = this.draft, main = this._mainOf(), fallback = d.fallback && this.state.connections.find((c) => c.id === d.fallback);
+    const note = main ? ` ${t("fbDeleteNote", { n: d.name, a: main.name })}` : fallback ? ` ${t("fbDeleteMain", { b: fallback.name })}` : "";
+    if (!(await confirmDialog(this, t("deleteConfirm", { n: d.name }) + note, t("delete")))) return;
     try {
       await api(`api/connections/${this.draft.id}`, { method: "DELETE" });
       this.refresh();
@@ -411,8 +444,11 @@ export class EditPage extends Page {
         <div class="grid2">${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}</div>
       </section>
 
+      ${this._fallbackSection()}
+
       <section class="card" aria-labelledby="t-eoproxy">
         <div><h2 id="t-eoproxy">${t("ifNetOnly")}</h2><p class="hint" style="margin-top:4px">${t("ifNetSub")}</p></div>
+        ${this._mainOf() ? html`<div class="note info">${t("fbPortNote", { a: this._mainOf().name })}</div>` : ""}
         <div class="grid2">
           ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint") })}
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
@@ -453,6 +489,42 @@ export class EditPage extends Page {
         <h2 id="t-app">${t("alerts")}</h2>
         <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}</div>
       </section>`;
+  }
+
+  /** EnOcean: the fallback gateway, picked from the other EnOcean connections. */
+  _fallbackSection() {
+    const d = this.draft, main = this._mainOf();
+    if (main) {
+      return html`<section class="card" id="fallback" aria-labelledby="t-fb">
+        <h2 id="t-fb">${t("fbTitle")}</h2>
+        <div class="note info">${t("fbIsFallback", { a: main.name })} <a href="#/connection/${main.id}">${t("fbToMain", { a: main.name })}</a></div>
+      </section>`;
+    }
+    const all = this.state.connections;
+    const taken = new Set(all.filter((c) => c.kind === "enocean" && c.fallback && c.id !== d.id).map((c) => c.fallback));
+    const candidates = all.filter((c) => c.kind === "enocean" && c.id !== d.id && c.esp_protocol === d.esp_protocol && !c.fallback && !taken.has(c.id));
+    const chosen = all.find((c) => c.id === d.fallback);
+    const mine = this.connection(this.connectionId)?.enocean?.base_id, theirs = chosen?.enocean?.base_id;
+    const base = !chosen ? "" : mine && theirs ? (mine === theirs ? ["ok", t("fbBaseSame", { id: mine })] : ["bad", t("fbBaseDiffers", { b: chosen.name, theirs, mine })]) : ["info", t("fbBaseUnknown")];
+    const seg = (key, values) => html`<div class="seg" role="group" aria-labelledby="l-${key}">${values.map((v) => html`<button type="button" aria-pressed=${d[key] === v ? "true" : "false"}
+      @click=${() => this._set({ [key]: v })}>${t(`${key === "fallback_trigger" ? "fbtrig" : "fbret"}_${v}`)}</button>`)}</div>`;
+    return html`<section class="card" id="fallback" aria-labelledby="t-fb">
+      <div><h2 id="t-fb">${t("fbTitle")}</h2><p class="hint" style="margin-top:4px">${t("fbSub")}</p></div>
+      ${candidates.length || chosen ? html`<label class="fld"><span class="lbl">${t("fbPick")}</span>
+        <select class="inp" aria-invalid=${this._shown().fallback ? "true" : "false"} @change=${(e) => this._set({ fallback: e.target.value })}>
+          <option value="" ?selected=${!d.fallback}>${t("fbNone")}</option>
+          ${[...new Set([...(chosen ? [chosen] : []), ...candidates])].map((c) => html`<option value=${c.id} ?selected=${d.fallback === c.id}>${c.name} · ${proxyTarget(c)}</option>`)}
+        </select>${this._err("fallback")}<span class="hint">${t("fbPickHint")}</span></label>`
+        : html`<div class="note info">${t("fbNoCandidates", { p: d.esp_protocol.toUpperCase() })}</div>`}
+      ${base ? html`<div class="note ${base[0]}">${base[1]}</div>` : ""}
+      ${d.fallback ? html`<div class="fold"><div><b style="font-weight:500">${t("fbSwitching")}</b><p class="hint" style="margin-top:4px">${t("fbSwitchingSub")}</p></div>
+          <button type="button" class="btn btn-g" aria-expanded=${this.fbOpen ? "true" : "false"} @click=${() => { this.fbOpen = !this.fbOpen; }}>${this.fbOpen ? t("closeA") : t("changeBtn")}</button></div>
+        ${this.fbOpen ? html`<div class="grid2">
+          <div class="fld"><span class="lbl" id="l-fallback_trigger">${t("fbTrigger")}</span>${seg("fallback_trigger", ["probe", "disconnect"])}<span class="hint">${t(`fbtrigsub_${d.fallback_trigger}`)}</span></div>
+          <div class="fld"><span class="lbl" id="l-fallback_return">${t("fbReturn")}</span>${seg("fallback_return", ["auto", "manual"])}<span class="hint">${t(`fbretsub_${d.fallback_return}`)}</span></div></div>
+          <label class="chk"><input type="checkbox" .checked=${!!d.fallback_listen} @change=${(e) => this._set({ fallback_listen: e.target.checked })}>
+            <span>${t("fbListen")}<br><span class="hint">${t("fbListenHint")}</span></span></label>` : ""}` : ""}
+    </section>`;
   }
 
   _enoceanPreview() {

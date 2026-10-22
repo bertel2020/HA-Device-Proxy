@@ -1,7 +1,7 @@
 import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
-import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
+import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { eventText, retriesText, t } from "../i18n.js";
 import { confirmDialog, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -429,6 +429,18 @@ export class DetailPage extends Page {
       <path d="M${points.join(" L")}" fill="none" stroke="var(--accent)" stroke-width="2"></path>`}</svg>`;
   }
 
+  /** In the head: the fallback of this gateway, or whose fallback it is. */
+  _fallbackChip(c) {
+    const e = c.enocean || {}, fb = e.fallback;
+    if (e.serves) {
+      const main = mainOf(c, this.state.connections);
+      return html`<a class="chip info" href=${main ? `#/connection/${main.id}` : "#/connections"} style="text-decoration:none">${t("fbChipServes", { a: e.serves })}</a>`;
+    }
+    if (!fb || fb.active === "fallback") return ""; // on the fallback the state chip says it
+    const [cls, text] = fb.ready ? ["ok", t("stFbStandby")] : ["bad", t("eoI_fbUnready", { b: fb.name || "?" })];
+    return html`<span class="chip ${cls}"><span class="dot"></span>${text}</span>`;
+  }
+
   render() {
     const s = this.state;
     const c = this.connection(this.connectionId);
@@ -525,8 +537,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
     const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;
     // connect-state-measure-act-set up: what is wrong first, what is needed once only last
     const body = enocean ? html`
-      ${issuesCard(issues(c, s.capture))}
-      ${pair(stateCard, clientsCard)}
+      ${issuesCard(issues(c, s.capture, mainOf(c, s.connections)))}
+      ${c.fallback ? html`${pair(html`<dp-eo-gateways .connection=${c} .connections=${s.connections}></dp-eo-gateways>`, stateCard)}${clientsCard}` : pair(stateCard, clientsCard)}
       ${meterCards(c)}
       ${this._live(c.kind)}
       <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
@@ -557,7 +569,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
           <span class="hint" style="font-size:13px">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
           ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
-          ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
+          ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}${this._fallbackChip(c)}` : ""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
           <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>

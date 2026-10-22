@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "app"))
 
 from device_proxy import controller as controller_module  # noqa: E402
-from device_proxy import process  # noqa: E402
+from device_proxy import enocean, process  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
 from device_proxy.events import EventLog  # noqa: E402
@@ -151,7 +151,8 @@ async def enocean_client(port: int, stop: asyncio.Event) -> None:
         await reader.read(4096)
 
 
-async def main(port: int) -> None:
+async def main(port: int, offset: int = 0) -> None:
+    """offset moves the example connections' ports, so two dev servers can run at once."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     process.RESTART_DELAYS = (3600,)  # no ser2net here: do not retry
     controller_module.STATUS_POLL = 3600
@@ -161,16 +162,19 @@ async def main(port: int) -> None:
         device_port = device.sockets[0].getsockname()[1]
         gateway = await asyncio.start_server(esp2_gateway, "127.0.0.1", 0)
         gateway_port = gateway.sockets[0].getsockname()[1]
+        spare = await asyncio.start_server(esp2_gateway, "127.0.0.1", 0)  # same base ID
+        spare_port = spare.sockets[0].getsockname()[1]
+        enocean.BASE_ID_FILE = data / "enocean_base_ids.json"
         db = Database(data / "history.db")
         events = EventLog(db)
         store = Store(db, data / "config.json")
         config = AppConfig(
-            settings=Settings(enocean_status_port=19199),
+            settings=Settings(enocean_status_port=19199 + offset),
             connections=(
                 Connection(
                     "eHZ Stromzähler",
                     "/dev/null",
-                    3335,
+                    3335 + offset,
                     template="ehz_sml",
                     max_clients=5,
                     trace="rx",
@@ -178,17 +182,19 @@ async def main(port: int) -> None:
                 Connection(
                     "Z-Wave-Gateway",
                     "/dev/zero",
-                    3333,
+                    3333 + offset,
                     baud=115200,
                     max_clients=2,
                     nodelay=True,
                     template="zwave",
                 ),
-                Connection("BWT AQA perla", "/dev/ttyMISSING0", 3334, baud=19200, max_clients=2),
+                Connection(
+                    "BWT AQA perla", "/dev/ttyMISSING0", 3334 + offset, baud=19200, max_clients=2
+                ),
                 Connection(
                     "SolarEdge Wechselrichter",
                     "",
-                    15020,
+                    15020 + offset,
                     kind="modbus",
                     template="modbus",
                     host="127.0.0.1",
@@ -200,7 +206,8 @@ async def main(port: int) -> None:
                 Connection(
                     "FAM-USB",
                     "",
-                    19100,
+                    19100 + offset,
+                    id="0000fa01",
                     kind="enocean",
                     template="fam_usb",
                     link="tcp",
@@ -210,11 +217,26 @@ async def main(port: int) -> None:
                     remaddr="127.0.0.1, 172.30.32.0/23",
                     bind="127.0.0.1",
                     trace="both",
+                    fallback="0000fa02",
+                ),
+                Connection(
+                    "FAM-USB Ersatz",
+                    "",
+                    19102 + offset,
+                    id="0000fa02",
+                    kind="enocean",
+                    template="fam_usb",
+                    link="tcp",
+                    host="127.0.0.1",
+                    host_port=spare_port,
+                    max_clients=4,
+                    remaddr="127.0.0.1, 172.30.32.0/23",
+                    bind="127.0.0.1",
                 ),
                 Connection(
                     "MGW-ETH",
                     "",
-                    19101,
+                    19101 + offset,
                     kind="enocean",
                     template="mgw_eth",
                     esp_protocol="esp3",
@@ -228,7 +250,7 @@ async def main(port: int) -> None:
                 Connection(
                     "Wärmepumpe",
                     "",
-                    15021,
+                    15021 + offset,
                     kind="modbus",
                     template="modbus",
                     host="127.0.0.1",
@@ -255,8 +277,8 @@ async def main(port: int) -> None:
         await asyncio.sleep(0.5)
         alias = controller.config.connections[0].alias
         feeder = asyncio.create_task(meter(trace, alias, stop))
-        poller = asyncio.create_task(modbus_client(15020, stop))
-        home_assistant = asyncio.create_task(enocean_client(19100, stop))
+        poller = asyncio.create_task(modbus_client(15020 + offset, stop))
+        home_assistant = asyncio.create_task(enocean_client(19100 + offset, stop))
         print(f"Open http://127.0.0.1:{port}/  (Ctrl+C ends)")
         try:
             await asyncio.Event().wait()
@@ -266,6 +288,7 @@ async def main(port: int) -> None:
             poller.cancel()
             home_assistant.cancel()
             gateway.close()
+            spare.close()
             device.close()
             await task
             await web.stop()
@@ -273,6 +296,7 @@ async def main(port: int) -> None:
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main(int(sys.argv[1]) if len(sys.argv) > 1 else 8399))
+        port = int(sys.argv[1]) if len(sys.argv) > 1 else 8399
+        asyncio.run(main(port, int(sys.argv[2]) if len(sys.argv) > 2 else 0))
     except KeyboardInterrupt:
         pass

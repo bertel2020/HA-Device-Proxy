@@ -110,12 +110,14 @@ export class ConnectionsPage extends Page {
     if (modbus && m.answered) chips.push(t("mbAvg", { ms: m.time_avg_ms }));
     if (enocean && eo) chips.push(t("eoDutyChip", { p: eo.duty_cycle.of_limit.toLocaleString() }));
     if (enocean && eo && eo.base_id) chips.push(`ID ${eo.base_id}`);
+    const fallbackOf = enocean && eo?.serves ? eo.serves : "";
+    const fallback = enocean && c.fallback ? (this.state.connections.find((x) => x.id === c.fallback) || {}).name : "";
     if (c.nodelay && !proxied) chips.push("nodelay");
     if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
     const tech = [t(`kind_${c.kind}`), ...chips].join(" · ");
     const stuck = c.clients.filter((cl) => cl.stuck);
     const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) }) : "";
-    const hasChips = recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
+    const hasChips = fallbackOf || fallback || recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
     return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""}" aria-label=${c.name} data-go
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
       <div class="top">
@@ -127,6 +129,8 @@ export class ConnectionsPage extends Page {
       </div>
       <div class="tech">${tech}</div>
       ${hasChips ? html`      <div class="chips">
+        ${fallbackOf ? html`<span class="chip info">${t("fbChipServes", { a: fallbackOf })}</span>` : ""}
+        ${fallback ? html`<span class="chip ${eo?.fallback?.active === "fallback" ? "warn" : eo?.fallback?.ready ? "" : "bad"}">${eo?.fallback?.active === "fallback" ? t("eoI_fallback", { b: fallback }) : t("fbChipHas", { b: fallback })}</span>` : ""}
         ${recording ? html`<span class="chip info"><span class="dot"></span>${recording}</span>` : ""}
         ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
         ${enocean && c.clients.some((cl) => cl.replay) ? html`<span class="chip info">${t("eoReplayChip")}</span>` : ""}
@@ -165,7 +169,11 @@ export class ConnectionsPage extends Page {
     const problems = all.filter(isBad).length;
     const filter = this.filter === "problems" ? (problems ? "problems" : "all") : this.filter !== "all" && counts[this.filter] ? this.filter : "all";
     const shown = filter === "all" ? all : filter === "problems" ? all.filter(isBad) : all.filter((c) => c.kind === filter);
-    const list = [...shown].sort((a, b) => Number(isBad(b)) - Number(isBad(a))); // problems first, else as configured
+    const sorted = [...shown].sort((a, b) => Number(isBad(b)) - Number(isBad(a))); // problems first, else as configured
+    // a fallback right after the gateway it stands in for
+    const fallbacks = new Map(all.filter((c) => c.kind === "enocean" && c.fallback).map((c) => [c.fallback, c.id]));
+    const list = sorted.filter((c) => !fallbacks.has(c.id) || !sorted.some((x) => x.id === fallbacks.get(c.id)))
+      .flatMap((c) => [c, ...sorted.filter((x) => x.id === c.fallback && fallbacks.get(x.id) === c.id)]);
     const active = all.filter((c) => c.enabled).length;
     const clients = all.reduce((n, c) => n + c.clients.length, 0);
     const errors = all.reduce((n, c) => n + (c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0), 0);

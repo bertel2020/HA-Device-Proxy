@@ -655,6 +655,8 @@ class Controller:
                 continue
             fallback = self.proxies.get(proxy.c.fallback) if proxy.c.fallback else None
             proxy.attach_fallback(fallback if isinstance(fallback, EnOceanProxy) else None)
+            known = self.config.connection(proxy.c.fallback) if proxy.c.fallback else None
+            proxy.fallback_label = known.name if known is not None else ""
 
     def _proxy_ended(self, connection_id: str, task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (err := task.exception()) is not None:
@@ -1141,14 +1143,13 @@ class Controller:
 
         result = await self.apply(build, "ui")
         new, previous = swapped[0]
-        action = {"off": "switched off", "keep": "the fallback now", "delete": "deleted"}[old]
         self.events.emit(
             "info",
             "enocean_fallback_promoted",
             connection=connection_id,
             new=new,
             old=previous,
-            action=action,
+            action=old,
         )
         return result
 

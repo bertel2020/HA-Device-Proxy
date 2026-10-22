@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, icon, toolsCard } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, icon, proxyTarget, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", link: "serial", baud: 9600 },
@@ -21,6 +21,7 @@ export const DEFAULTS = {
   kind: "enocean", template: "fam_usb", ...TEMPLATES.fam_usb, data_bits: 8, parity: "n", stop_bits: 1, mode: "raw",
   max_clients: 4, remaddr: "", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
   send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
+  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
 
 const hx = (n) => n.toString(16).toUpperCase().padStart(2, "0");
@@ -78,13 +79,19 @@ export function checkBaseId(text, current) {
   return { ok: true, msg: t("eoBaseRange") };
 }
 
+/** The EnOcean gateway a connection is the fallback of, from the app state. */
+export const mainOf = (c, connections) => connections.find((x) => x.kind === "enocean" && x.fallback === c.id && x.id !== c.id);
+
 /** What is wrong with a gateway, worst first: [{level, title, text}]. */
-export function issues(c, capture) {
+export function issues(c, capture, main = null) {
   const e = c.enocean;
   if (!c.enabled || !e) return [];
   const f = e.frames, out = [];
   const add = (level, key, values = {}) => out.push({ level, title: t(`eoI_${key}`, values), text: t(`eoIt_${key}`, values) });
   if (e.listen_error) add("bad", "port", { port: c.port, e: e.listen_error });
+  const fb = e.fallback;
+  if (fb && fb.active === "fallback") add("warn", fb.reason === "by_hand" ? "fallbackHand" : "fallback", { b: fb.name || "?", r: t(`fbReason_${fb.reason}`), t: fmtAgo(fb.active_since) });
+  else if (fb && !fb.ready) add("warn", "fbUnready", { b: fb.name || "?", r: t(`fbReason_${fb.not_ready}`) });
   if (c.present === false) add("bad", "missing", { d: c.device });
   else if (!e.connected) e.reachable === false ? add("bad", "down", { e: e.last_error || "?" }) : add("warn", "connecting");
   const duty = e.duty_cycle.of_limit;
@@ -96,6 +103,7 @@ export function issues(c, capture) {
   if (f.refused) add("warn", "refused", { n: f.refused });
   if (f.locked) add("info", "held", { n: f.locked });
   if (!c.clients.length && e.listening) { add("info", "noClients", { port: c.port }); out[out.length - 1].jump = "addresses"; }
+  if (e.serves) out.push({ level: "info", title: t("eoI_serves", { a: e.serves }), text: t(main?.enocean?.fallback?.active === "fallback" ? "eoIt_servesActive" : "eoIt_serves", { a: e.serves }), link: main ? [`#/connection/${main.id}`, t("fbToMain", { a: main.name })] : null });
   if (capture && capture.connection === c.id) add("info", "capture", { f: capture.file });
   return out;
 }
@@ -119,7 +127,86 @@ export function statusCard(c) {
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
       <span class="hint">${t(k)}</span></div>`)}</div>
     ${e.last_error && !e.connected ? html`<div class="note bad">${e.last_error}${e.last_error_at ? ` · ${fmtTime(e.last_error_at, true, true)}` : ""}</div>` : ""}
+    ${!c.fallback && !e.serves ? html`<a href="#/edit/${c.id}/fallback" style="font-size:13px">${t("fbAdd")}</a>` : ""}
   </section>`;
+}
+
+/** One gateway in the card "Gateways": role, state, base ID, answer time. */
+function gatewayBox(role, name, href, connected, stateText, stateClass, baseId, same, probeMs, current) {
+  return html`<div class="well" style="display:flex;flex-direction:column;gap:6px;${current ? "outline:2px solid var(--accent);outline-offset:-2px" : ""}">
+    <div class="row"><b style="font-weight:500">${role} · ${href ? html`<a href=${href}>${name}</a>` : name}</b>
+      <span class="chip ${stateClass}"><span class="dot"></span>${stateText}</span></div>
+    <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
+      <span class="hint">${t("eoBaseId")}</span><span><span class="mono">${baseId || t("eoBaseUnknown")}</span>${same === true ? html` <span style="color:var(--ok)">✓ ${t("fbSame")}</span>` : same === false ? html` <span style="color:var(--bad)">${t("fbDiffers")}</span>` : ""}</span>
+      <span class="hint">${t("fbAnswer")}</span><span>${connected ? (probeMs != null ? `${probeMs.toLocaleString(lang)} ms` : "–") : t("fbDown")}</span>
+    </div></div>`;
+}
+
+/** The card of a gateway with a fallback: both gateways, which one is in use, switching and the hardware swap. */
+export class EnOceanGateways extends LitElement {
+  static properties = { connection: { attribute: false }, connections: { attribute: false }, busy: { state: true }, old: { state: true } };
+
+  static styles = [tokens, base, css`:host { display: block; } .stack { display: flex; flex-direction: column; gap: 10px; }`];
+
+  constructor() { super(); this.old = "off"; }
+
+  _toast(text) { this.dispatchEvent(new CustomEvent("dp-toast", { detail: text, bubbles: true, composed: true })); }
+
+  _refresh() { this.dispatchEvent(new CustomEvent("dp-refresh", { bubbles: true, composed: true })); }
+
+  async _switch(to) {
+    const c = this.connection, fb = c.enocean.fallback;
+    if (to === "fallback" && !(await confirmDialog(this, t("fbSwitchConfirm", { a: c.name, b: fb.name }), t("fbToFallback")))) return;
+    this.busy = true;
+    try {
+      await api(`api/tools/${c.id}/enocean/switch`, { method: "POST", body: { to } });
+      this._toast(t("fbSwitched"));
+      this._refresh();
+    } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = false; }
+  }
+
+  async _promote() {
+    const c = this.connection, other = this.connections.find((x) => x.id === c.fallback);
+    if (!other) return;
+    const what = t(`fbold_${this.old}`, { b: other.name });
+    if (!(await confirmDialog(this, t("fbPromoteConfirm", { a: c.name, new: proxyTarget(other), old: proxyTarget(c), what }), t("fbPromote")))) return;
+    this.busy = true;
+    try {
+      await api(`api/connections/${c.id}/promote_fallback`, { method: "POST", body: { old: this.old } });
+      this._toast(t("fbPromoted"));
+      this._refresh();
+    } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = false; }
+  }
+
+  render() {
+    const c = this.connection, e = c.enocean || {}, fb = e.fallback || {};
+    const other = this.connections.find((x) => x.id === c.fallback);
+    const onFallback = fb.active === "fallback";
+    const mine = e.base_id;
+    const same = fb.base_id && mine ? fb.base_id === mine : null;
+    const mainState = onFallback ? [e.connected ? t("fbStandby") : t("fbDown"), e.connected ? "info" : "bad"] : [t("fbActive"), "ok"];
+    const fbState = !other?.enabled ? [t("fbNotReady"), "bad"] : onFallback ? [t("fbActive"), "warn"] : fb.ready ? [fb.listen ? t("fbStandbyListen") : t("fbStandby"), "ok"] : [t("fbNotReady"), "bad"];
+    const h = fb.heard || {};
+    return html`<section class="card" aria-labelledby="t-gws"><div class="stack">
+      <div class="row"><h2 id="t-gws">${t("fbCardTitle")}</h2><span class="hint">${c.fallback_return === "manual" ? t("fbReturnManual") : t("fbReturnAuto")}</span></div>
+      ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback)}
+      ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback)}
+      ${!fb.ready && fb.not_ready ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
+      ${onFallback ? html`<p class="hint" style="margin:0">${t("fbSince", { t: fmtAgo(fb.active_since) })} · ${t(`fbReason_${fb.reason}`)}${fb.manual ? ` · ${t("fbManualNote")}` : ""}</p>` : ""}
+      <div class="row" style="justify-content:flex-start;gap:8px">
+        ${onFallback ? html`<button class="btn btn-s" ?disabled=${this.busy || !e.connected} @click=${() => this._switch("main")}>${t("fbBack", { a: c.name })}</button>`
+          : html`<button class="btn btn-s" ?disabled=${this.busy || !fb.ready} @click=${() => this._switch("fallback")}>${t("fbToFallback")}</button>`}
+      </div>
+      ${fb.listen ? html`<div style="border-top:1px solid var(--line-2);padding-top:10px"><b style="font-weight:500">${t("fbHeard")}</b></div>
+        <div class="counters">${[["fbHeardMain", h.main], ["fbHeardFallback", h.fallback], ["fbHeardDup", h.duplicates], ["fbHeardOwn", h.own]].map(([k, v]) =>
+          html`<div class="well"><b>${num(v)}</b><span class="hint">${t(k, { a: c.name, b: fb.name || "?" })}</span></div>`)}</div>` : ""}
+      ${other ? html`<details class="fold" style="border-top:1px solid var(--line-2);padding-top:10px"><summary>${t("fbPromote")}</summary>
+        <div class="stack" style="margin-top:8px"><p class="hint" style="margin:0">${t("fbPromoteSub", { a: c.name, b: other.name })}</p>
+          <label class="fld"><span class="lbl">${t("fbOld")}</span><select class="inp" @change=${(ev) => { this.old = ev.target.value; }}>
+            ${["off", "keep", "delete"].map((v) => html`<option value=${v} ?selected=${this.old === v}>${t(`fbold_${v}`, { b: other.name })}</option>`)}</select></label>
+          <div><button class="btn btn-s" ?disabled=${this.busy} @click=${this._promote}>${t("fbPromote")}</button></div></div></details>` : ""}
+    </div></section>`;
+  }
 }
 
 /** The two meters at the top of a gateway's page: air time against the 1 % limit, and the replay buffer. */
@@ -163,7 +250,7 @@ export function meterCards(c) {
 
 export function issuesCard(list) {
   if (!list.length) return html`<div class="note ok" role="status">${t("eoAllWell")}</div>`;
-  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); const target = ev.currentTarget.getRootNode().getElementById(i.jump); const fold = target?.querySelector("details"); if (fold) fold.open = true; target?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
+  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.link ? html` <a href=${i.link[0]}>${i.link[1]}</a>` : ""}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); const target = ev.currentTarget.getRootNode().getElementById(i.jump); const fold = target?.querySelector("details"); if (fold) fold.open = true; target?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
 }
 
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */

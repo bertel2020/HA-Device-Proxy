@@ -1,5 +1,5 @@
 import { DeviceProxyApp, DeviceProxyConfirm } from "./app.js";
-import { EnOceanTools } from "./enocean.js";
+import { EnOceanGateways, EnOceanTools } from "./enocean.js";
 import { ConnectionsPage } from "./pages/connections.js";
 import { DetailPage } from "./pages/detail.js";
 import { EditPage } from "./pages/edit.js";
@@ -15,6 +15,7 @@ const elements = {
   "dp-detail": DetailPage,
   "dp-edit": EditPage,
   "dp-enocean-tools": EnOceanTools,
+  "dp-eo-gateways": EnOceanGateways,
   "dp-events": EventsPage,
   "dp-import": ImportDialog,
   "dp-settings": SettingsPage,

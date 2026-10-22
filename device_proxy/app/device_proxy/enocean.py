@@ -198,6 +198,7 @@ class EnOceanProxy:
         self.serves = ""
         self.listeners: list[Callable[[bytes], None]] = []  # B: A gets B's frames here
         self.fallback: EnOceanProxy | None = None  # A: B, attached by the controller
+        self.fallback_label = ""  # A: B's name, also while B is switched off
         self.active = "main"  # A: "main" or "fallback", whose gateway the clients use
         self.active_since = time.time()
         self.switch_reason = ""
@@ -313,7 +314,7 @@ class EnOceanProxy:
 
     def _up(self) -> None:
         self.connected_since = time.time()
-        self._misses, self._probed = 0, self._clock()
+        self._misses, self._probed = 0, 0.0  # the first check right away
         self._ok_since = self._clock() if self.c.fallback_trigger == "disconnect" else None
         if self.reachable is not True:
             if self.reachable is False:
@@ -740,7 +741,9 @@ class EnOceanProxy:
             self.on_event("info", "enocean_failback", fallback=name, reason=reason)
 
     def _fallback_name(self) -> str:
-        return self.fallback.c.name if self.fallback is not None else self.c.fallback
+        if self.fallback is not None:
+            return self.fallback.c.name
+        return self.fallback_label or self.c.fallback
 
     def fallback_info(self) -> dict[str, Any] | None:
         """A's fallback for the state: None without one."""
@@ -749,7 +752,7 @@ class EnOceanProxy:
         fallback = self.fallback
         return {
             "id": self.c.fallback,
-            "name": fallback.c.name if fallback is not None else None,
+            "name": self._fallback_name(),
             "main": self.c.name,
             "active": self.active,
             "active_since": self.active_since,
