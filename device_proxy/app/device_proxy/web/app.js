@@ -770,6 +770,13 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             ${te(e.enabled,o?t("startNow"):t("enabled"),c=>this._set({enabled:c}))}</div>
         </section>
 
+        ${e.kind==="modbus"||e.kind==="enocean"?"":a`<section class="card" aria-labelledby="t-prev">
+          <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
+            <button type="button" class="btn btn-g" aria-expanded=${this.yamlOpen?"true":"false"} @click=${()=>{this.yamlOpen=!this.yamlOpen}}>${this.yamlOpen?t("closeA"):t("open")}</button></div>
+          ${this.yamlOpen?a`<div class="code" style="white-space:pre-wrap">${this.yaml?this.yaml.replace(/([,;])(?=\S)/g,"$1\u200B"):"\u2026"}</div>`:""}
+          ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([c,l])=>a`<div><span class="mono">${c}</span>: ${P(l)}</div>`)}</div>`:""}
+        </section>`}
+
         <div class="actions">
           ${o?"":a`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
           <span class="hint" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end">${v("info",16)}${o?t("saveHintNew"):t("saveHint")}</span>
@@ -780,13 +787,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         </div>
       </form>
 
-      <aside class="side-col">
-        ${e.kind==="modbus"?this._modbusPreview():e.kind==="enocean"?this._enoceanPreview():a`<section class="card" aria-labelledby="t-prev">
-          <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
-          <div class="code" style="white-space:pre-wrap">${this.yaml?this.yaml.replace(/([,;])(?=\S)/g,"$1\u200B"):"\u2026"}</div>
-          ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([c,l])=>a`<div><span class="mono">${c}</span>: ${P(l)}</div>`)}</div>`:""}
-        </section>`}
-      </aside></div>`}};y(le,"properties",{state:{attribute:!1},connectionId:{},draft:{state:!0},errors:{state:!0},yaml:{state:!0},advanced:{state:!0},otherDevice:{state:!0},replayOpen:{state:!0},saving:{state:!0},extraRaw:{state:!0},touched:{state:!0},warnings:{state:!0}}),y(le,"styles",[...k.styles,x`
+      ${e.kind==="modbus"||e.kind==="enocean"?a`<aside class="side-col">${e.kind==="modbus"?this._modbusPreview():this._enoceanPreview()}</aside>`:""}</div>`}};y(le,"properties",{state:{attribute:!1},connectionId:{},draft:{state:!0},errors:{state:!0},yaml:{state:!0},advanced:{state:!0},otherDevice:{state:!0},replayOpen:{state:!0},yamlOpen:{state:!0},saving:{state:!0},extraRaw:{state:!0},touched:{state:!0},warnings:{state:!0}}),y(le,"styles",[...k.styles,x`
     form { display: contents; }
     .grid2 { align-items: start; }
     .fld { justify-content: flex-start; }

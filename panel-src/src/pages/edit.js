@@ -47,7 +47,7 @@ export class EditPage extends Page {
   static properties = {
     state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
-    otherDevice: { state: true }, replayOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
+    otherDevice: { state: true }, replayOpen: { state: true }, yamlOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
   };
 
@@ -518,6 +518,13 @@ export class EditPage extends Page {
             ${toggle(d.enabled, isNew ? t("startNow") : t("enabled"), (v) => this._set({ enabled: v }))}</div>
         </section>
 
+        ${d.kind === "modbus" || d.kind === "enocean" ? "" : html`<section class="card" aria-labelledby="t-prev">
+          <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
+            <button type="button" class="btn btn-g" aria-expanded=${this.yamlOpen ? "true" : "false"} @click=${() => { this.yamlOpen = !this.yamlOpen; }}>${this.yamlOpen ? t("closeA") : t("open")}</button></div>
+          ${this.yamlOpen ? html`<div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>` : ""}
+          ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+        </section>`}
+
         <div class="actions">
           ${isNew ? "" : html`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
           <span class="hint" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end">${icon("info", 16)}${isNew ? t("saveHintNew") : t("saveHint")}</span>
@@ -528,12 +535,6 @@ export class EditPage extends Page {
         </div>
       </form>
 
-      <aside class="side-col">
-        ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : html`<section class="card" aria-labelledby="t-prev">
-          <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
-          <div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>
-          ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
-        </section>`}
-      </aside></div>`;
+      ${d.kind === "modbus" || d.kind === "enocean" ? html`<aside class="side-col">${d.kind === "modbus" ? this._modbusPreview() : this._enoceanPreview()}</aside>` : ""}</div>`;
   }
 }
