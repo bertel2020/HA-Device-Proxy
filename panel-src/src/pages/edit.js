@@ -66,7 +66,8 @@ export class EditPage extends Page {
     .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
     .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
-    .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; bottom: 0; z-index: 5;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; box-shadow: 0 -6px 16px -8px var(--shadow-c); }
   `];
 
   willUpdate(changed) {
