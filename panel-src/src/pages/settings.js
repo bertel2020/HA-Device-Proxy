@@ -19,7 +19,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
-    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true }, active: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -31,6 +31,7 @@ export class SettingsPage extends Page {
     }
     .side a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 10px; text-decoration: none; color: var(--neutral); }
     .side a:hover { background: var(--line); color: var(--text); }
+    .side a[aria-current="true"] { background: var(--accent-soft); color: var(--accent-hover); }
     .content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
     .card { scroll-margin-top: calc(var(--header-h) + 16px); }
     ol { list-style: none; margin: 0; padding: 0; }
@@ -79,7 +80,21 @@ export class SettingsPage extends Page {
     this._loadVersions();
     this._loadCustom();
     api("api/notify/services").then((list) => { this.services = list; }).catch(() => { this.services = []; });
+    this._onScroll = () => {
+      const sections = [...this.renderRoot.querySelectorAll("section.card[id]")];
+      const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      const here = bottom ? sections[sections.length - 1] : sections.filter((el) => el.getBoundingClientRect().top <= 140).pop() || sections[0];
+      if (here && here.id !== this.active) this.active = here.id;
+    };
+    window.addEventListener("scroll", this._onScroll, { passive: true });
   }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("scroll", this._onScroll);
+  }
+
+  firstUpdated() { this._onScroll(); }
 
   willUpdate() {
     if (!this.draft && this.state) this.draft = { ...this.state.settings };
@@ -320,7 +335,7 @@ export class SettingsPage extends Page {
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
         ${[["net", "sNetNav"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
-          html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
+          html`<a href="#/settings" aria-current=${(this.active || "net") === id ? "true" : "false"} @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
         <section id="net" class="card" aria-labelledby="t-net">
