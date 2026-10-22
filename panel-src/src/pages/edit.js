@@ -531,7 +531,7 @@ export class EditPage extends Page {
       <aside class="side-col">
         ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : html`<section class="card" aria-labelledby="t-prev">
           <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
-          <div class="code">${this.yaml || "…"}</div>
+          <div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>
           ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
         </section>`}
       </aside></div>`;

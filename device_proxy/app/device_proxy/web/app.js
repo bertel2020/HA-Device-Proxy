@@ -783,7 +783,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       <aside class="side-col">
         ${e.kind==="modbus"?this._modbusPreview():e.kind==="enocean"?this._enoceanPreview():a`<section class="card" aria-labelledby="t-prev">
           <div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
-          <div class="code">${this.yaml||"\u2026"}</div>
+          <div class="code" style="white-space:pre-wrap">${this.yaml?this.yaml.replace(/([,;])(?=\S)/g,"$1\u200B"):"\u2026"}</div>
           ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([d,l])=>a`<div><span class="mono">${d}</span>: ${D(l)}</div>`)}</div>`:""}
         </section>`}
       </aside></div>`}};y(oe,"properties",{state:{attribute:!1},connectionId:{},draft:{state:!0},errors:{state:!0},yaml:{state:!0},advanced:{state:!0},otherDevice:{state:!0},replayOpen:{state:!0},saving:{state:!0},extraRaw:{state:!0},touched:{state:!0},warnings:{state:!0}}),y(oe,"styles",[...k.styles,x`
