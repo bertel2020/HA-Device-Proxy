@@ -52,10 +52,9 @@ export class DetailPage extends Page {
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
     .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
-    .grid5 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr auto; gap: 10px; align-items: end; }
-    .grid5.wide { grid-template-columns: 1fr 2fr 1fr 2fr auto; }
-    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    @media (max-width: 560px) { .grid4, .grid5, .grid5.wide { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2), .grid5 > :nth-child(2) { grid-column: span 2; } .grid5 > .btn { grid-column: span 2; justify-self: end; } .grid3 { grid-template-columns: 1fr 1fr; } }
+    .grid5 { display: grid; grid-template-columns: repeat(4, 1fr) 7rem; gap: 10px; align-items: end; }
+    .grid5 > .btn:last-child { grid-column: 5; justify-self: end; }
+    @media (max-width: 560px) { .grid4, .grid5 { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2), .grid5 > label:has(select) { grid-column: span 2; } .grid5 > .btn:last-child { grid-column: span 2; justify-self: end; } }
 
   `];
 
@@ -220,7 +219,7 @@ export class DetailPage extends Page {
           <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>`
         : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("mbWriteTitle")}</b><p class="hint">${t("mbWriteToolSub")}</p></div>
-      <div class="grid5 wide">
+      <div class="grid5">
         ${this._num(w, "unit", t("mbUnit"), "wrForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.wrForm = { ...w, function: Number(e.target.value) }; }}>
           ${[6, 16, 5, 15].map((v) => html`<option value=${v} ?selected=${w.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
@@ -234,12 +233,12 @@ export class DetailPage extends Page {
           · <b>${same ? t("mbReadbackSame") : t("mbReadbackDiff")}</b>` : ""}</div>`
         : html`<div class="note warn">${exText(wr.exception)}</div>` : ""}
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
-      <div class="grid3">
+      <div class="grid5">
         ${this._num(this.scanForm, "first", t("mbFirst"), "scanForm")}
         ${this._num(this.scanForm, "last", t("mbLast"), "scanForm")}
         ${this._num(this.scanForm, "timeout_ms", t("mbScanTimeout"), "scanForm")}
+        <button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button>
       </div>
-      <div style="display:flex;justify-content:flex-end"><button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button></div>
       ${sc ? html`${sc.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: sc.done, t: sc.total })}</p>` : ""}
         ${sc.state === "failed" ? html`<div class="note bad">${t("error")}: ${sc.error}</div>` : ""}
         ${sc.results.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${sc.results.map((u) => html`<button class="chip ${u.exception === null ? "ok" : "info"}" style="cursor:pointer;border:none"

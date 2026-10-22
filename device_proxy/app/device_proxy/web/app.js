@@ -344,7 +344,7 @@ var Kt=Object.defineProperty;var Zt=(r,e,n)=>e in r?Kt(r,e,{enumerable:!0,config
             ${s.form.function>=3?a`<td style="text-align:right">${m}</td><td style="text-align:right">${u(m)}</td><td class="mono" style="text-align:right">${v(m)}</td>`:a`<td style="text-align:right">${m}</td>`}</tr>`)}</tbody></table></div>
           <p class="hint">${t("mbReadTime",{ms:s.time_ms})}</p>`:a`<div class="note warn">${p(s.exception)}</div>`:""}
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("mbWriteTitle")}</b><p class="hint">${t("mbWriteToolSub")}</p></div>
-      <div class="grid5 wide">
+      <div class="grid5">
         ${this._num(o,"unit",t("mbUnit"),"wrForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${m=>{this.wrForm={...o,function:Number(m.target.value)}}}>
           ${[6,16,5,15].map(m=>a`<option value=${m} ?selected=${o.function===m}>${t(`fcw_${m}`)}</option>`)}</select></label>
@@ -357,12 +357,12 @@ var Kt=Object.defineProperty;var Zt=(r,e,n)=>e in r?Kt(r,e,{enumerable:!0,config
       ${l?l.ok?a`<div class="note ok">${t("mbWritten",{ms:l.time_ms})}${l.readback&&l.readback.ok?a` · ${t("mbReadback",{v:l.readback.values.join(", ")})}
           · <b>${d?t("mbReadbackSame"):t("mbReadbackDiff")}</b>`:""}</div>`:a`<div class="note warn">${p(l.exception)}</div>`:""}
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
-      <div class="grid3">
+      <div class="grid5">
         ${this._num(this.scanForm,"first",t("mbFirst"),"scanForm")}
         ${this._num(this.scanForm,"last",t("mbLast"),"scanForm")}
         ${this._num(this.scanForm,"timeout_ms",t("mbScanTimeout"),"scanForm")}
+        <button class="btn btn-s" ?disabled=${!e.enabled||i&&i.state==="running"} @click=${this._mbScan}>${t("start")}</button>
       </div>
-      <div style="display:flex;justify-content:flex-end"><button class="btn btn-s" ?disabled=${!e.enabled||i&&i.state==="running"} @click=${this._mbScan}>${t("start")}</button></div>
       ${i?a`${i.state==="running"?a`<p class="hint" role="status">${t("detecting",{d:i.done,t:i.total})}</p>`:""}
         ${i.state==="failed"?a`<div class="note bad">${t("error")}: ${i.error}</div>`:""}
         ${i.results.length?a`<div style="display:flex;flex-wrap:wrap;gap:6px">${i.results.map(m=>a`<button class="chip ${m.exception===null?"ok":"info"}" style="cursor:pointer;border:none"
@@ -572,10 +572,9 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
     .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
-    .grid5 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr auto; gap: 10px; align-items: end; }
-    .grid5.wide { grid-template-columns: 1fr 2fr 1fr 2fr auto; }
-    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    @media (max-width: 560px) { .grid4, .grid5, .grid5.wide { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2), .grid5 > :nth-child(2) { grid-column: span 2; } .grid5 > .btn { grid-column: span 2; justify-self: end; } .grid3 { grid-template-columns: 1fr 1fr; } }
+    .grid5 { display: grid; grid-template-columns: repeat(4, 1fr) 7rem; gap: 10px; align-items: end; }
+    .grid5 > .btn:last-child { grid-column: 5; justify-self: end; }
+    @media (max-width: 560px) { .grid4, .grid5 { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2), .grid5 > label:has(select) { grid-column: span 2; } .grid5 > .btn:last-child { grid-column: span 2; justify-self: end; } }
 
   `]);var L={name:"",device:"",port:3333,enabled:!0,template:"generic",baud:9600,data_bits:8,parity:"n",stop_bits:1,mode:"raw",max_clients:1,local:!0,rtscts:!1,xonxoff:!1,hangup_when_done:!1,nobreak:!1,dtr:"",rts:"",rs485:"",low_latency:!1,timeout:0,kickolduser:!1,chardelay:!0,remaddr:"",banner:"",openstr:"",closestr:"",connector_retry_time:0,nodelay:!1,bind:"",extra:[],keep_open:!1,stuck_disconnect:!1,trace:"off",notify_missing:!0,notify_no_client:!1,silence_minutes:0,kind:"serial",link:"tcp",host:"",host_port:502,request_timeout_ms:3e3,connect_delay_ms:0,retries:1,request_gap_ms:0,write_access:"all",write_clients:"",cache_ms:0,unit_map:"",device_connections:1,probe_seconds:0,probe_unit:1,probe_function:3,probe_address:0,esp_protocol:"esp2",send_gap_ms:10,replay_size:1e3,replay_max_age_s:900,replay_persist:!1},Rn={kind:"modbus",template:"modbus",link:"tcp",max_clients:10,mode:"raw",keep_open:!1,stuck_disconnect:!1,silence_minutes:0,write_access:"listed",write_clients:"127.0.0.1, 172.30.32.0/23"},zn=["tcp","rtu","rtu_tcp"],Gt="127.0.0.1, 172.30.32.0/23",Le={ehz_sml:{baud:9600,data_bits:8,parity:"n",stop_bits:1,max_clients:5,chardelay:!0,nodelay:!1},ehz_d0:{baud:9600,data_bits:7,parity:"e",stop_bits:1,max_clients:5,chardelay:!0,nodelay:!1},zwave:{baud:115200,data_bits:8,parity:"n",stop_bits:1,max_clients:2,chardelay:!1,nodelay:!0,remaddr:Gt},generic:{baud:9600,data_bits:8,parity:"n",stop_bits:1,max_clients:1,chardelay:!0,nodelay:!1}},Mn=[300,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600],On=["kickolduser","low_latency"],Bt=["connect_delay_ms","request_gap_ms","cache_ms","device_connections","probe_seconds","unit_map","timeout","kickolduser","low_latency"],qt=["kickolduser","low_latency"],Hn=[9600,19200,57600,115200],It=["rtscts","xonxoff","hangup_when_done","nobreak","low_latency","kickolduser","nodelay","keep_open"],Ln=r=>r.map(([e,n])=>`${e}: ${n}`).join(`
 `),Fn=r=>r.split(`

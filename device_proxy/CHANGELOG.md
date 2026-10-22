@@ -8,6 +8,8 @@
 - **Tools card**: on all kinds (serial, Modbus, EnOcean) the card is folded at first, shows in its
   title what it holds, remembers per kind whether it was opened, and opens by itself when a result
   is there.
+- **Modbus tools**: read, write and scan share one grid, so the fields line up in four columns and the
+  buttons sit in one column on the right (the scan's Start button no longer has a row of its own).
 - **Modbus tools**: new "Write registers" (functions 5, 6, 15, 16) next to "Read registers". It asks
   for confirmation first, reads the value back afterwards and says whether it matches, and writes an
   event to the log. It stays locked on connections whose write access is "Nobody". The Read button
