@@ -1195,7 +1195,9 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .act.on { background: var(--accent-soft); border-color: var(--accent); }
     .act.on b { color: var(--accent-hover); }
     pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre; }
-    details.expert > summary { cursor: pointer; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 32px; }
+    details.expert > summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; }
+    details.expert > summary::before { content: "›"; font-size: 20px; line-height: 1; transition: transform .15s; }
+    details.expert[open] > summary::before { transform: rotate(90deg); }
     .expert-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; }
     .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
