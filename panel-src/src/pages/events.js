@@ -8,7 +8,7 @@ const LEVELS = ["info", "warning", "error", "debug"];
 
 export class EventsPage extends Page {
   static properties = {
-    state: { attribute: false }, events: { attribute: false }, tab: { state: true }, conn: { state: true },
+    state: { attribute: false }, events: { attribute: false }, preset: {}, tab: { state: true }, conn: { state: true },
     query: { state: true }, levels: { state: true }, paused: { state: true }, stats: { state: true }, history: { state: true },
   };
 
@@ -41,6 +41,10 @@ export class EventsPage extends Page {
     this.query = "";
     this.levels = new Set(["info", "warning", "error"]);
     this.paused = null;
+  }
+
+  willUpdate(changed) {
+    if (changed.has("preset") && this.preset && this.preset !== this.conn) { this.conn = this.preset; if (this.tab === "history") this._loadHistory(); }
   }
 
   async _loadHistory() {

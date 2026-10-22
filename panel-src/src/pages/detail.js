@@ -117,7 +117,7 @@ export class DetailPage extends Page {
   }
 
   async _checkMeter() {
-    try { this.meter = await api(`api/tools/${this.connectionId}/meter`); } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+    try { this.meter = await api(`api/tools/${this.connectionId}/meter`); this.meterAt = Date.now() / 1000; } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
   async _detect() {
@@ -209,25 +209,30 @@ export class DetailPage extends Page {
     const best = job && job.state === "done" ? job.results.filter((r) => r.score >= 0.6) : [];
     const fmt = (r) => `${r.baud} ${r.data_bits}${r.parity.toUpperCase()}${r.stop_bits}`;
     const value = (r) => typeof r.value === "number" && r.unit === "Wh" ? `${(r.value / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} kWh` : `${r.value} ${r.unit}`;
-    return html`<section class="card" aria-labelledby="t-tools">
-      <h2 id="t-tools">${t("tools")}</h2>
-      <div class="row"><div><b style="font-weight:500">${t("meterCheck")}</b><p class="hint">${t("meterCheckSub")}</p></div>
-        <button class="btn btn-s" @click=${this._checkMeter}>${t("meterCheck")}</button></div>
+    const blocked = !c.enabled ? "toolOff" : c.present === false ? "toolMissing" : "";
+    const meterFirst = ["ehz_sml", "ehz_d0"].includes(c.template) || !!(m && m.bytes && m.protocol !== "unknown");
+    const meter = (head) => html`<div class="row ${head ? "" : "sep"}"><div><b style="font-weight:500">${t("meterCheck")}</b>${blocked ? "" : html`<p class="hint">${t("meterCheckSub")}</p>`}${blocked ? html`<p class="hint" style="color:var(--bad)">${t(blocked)}</p>` : ""}</div>
+        <button class="btn btn-s" ?disabled=${!!blocked} @click=${this._checkMeter}>${t("toolCheck")}</button></div>
       ${m ? m.bytes ? html`<div class="well" style="display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip ${m.protocol === "unknown" ? "warn" : "info"}">${t(`proto_${m.protocol}`)}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="chip ${m.protocol === "unknown" ? "warn" : "info"}">${t(`proto_${m.protocol}`)}</span>
             ${m.telegrams ? html`<span class="chip">${t("telegrams", { n: m.telegrams })}</span>
-              <span class="chip ${m.valid === m.telegrams ? "ok" : "warn"}">${t(m.protocol === "sml" ? "validCrc" : "validD0", { n: m.valid })}</span>` : ""}</div>
+              <span class="chip ${m.valid === m.telegrams ? "ok" : "warn"}">${t(m.protocol === "sml" ? "validCrc" : "validD0", { n: m.valid })}</span>` : ""}
+            ${this.meterAt ? html`<span class="hint" style="margin-left:auto">${t("checkedAt", { t: fmtTime(this.meterAt, false) })}</span>` : ""}</div>
           ${m.readings.length ? html`<table><tbody>${m.readings.slice(0, 12).map((r) => html`<tr><td class="mono" style="font-size:12px">${r.obis}</td><td>${r.name ? t(`obis_${r.obis}`) : ""}</td><td style="text-align:right">${value(r)}</td></tr>`)}</tbody></table>` : ""}
-        </div>` : html`<p class="hint">${t("noData30")}</p>` : ""}
-      <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("baudDetect")}</b><p class="hint">${t("baudDetectSub")}</p></div>
-        <button class="btn btn-s" ?disabled=${job && job.state === "running"} @click=${this._detect}>${t("baudDetect")}</button></div>
+        </div>` : html`<div class="well hint" style="font-size:13px">${t("noData30")} ${t("noData30Help")} <a href="#/edit/${c.id}">${t("edit")}</a></div>` : ""}`;
+    const baud = (head) => html`<div class="row ${head ? "" : "sep"}"><div><b style="font-weight:500">${t("baudDetect")}</b>${blocked ? html`<p class="hint" style="color:var(--bad)">${t(blocked)}</p>` : html`<p class="hint">${t("baudDetectSub")}</p>`}</div>
+        <button class="btn btn-s" ?disabled=${!!blocked || (job && job.state === "running")} @click=${this._detect}>${t("toolStart")}</button></div>
       ${job ? job.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: job.done, t: job.total || "…" })}</p>`
         : job.state === "failed" ? html`<div class="note bad">${t("error")}: ${job.error}</div>`
         : best.length ? html`<div class="note ok"><b>${t("detected", { b: best[0].baud, f: fmt(best[0]).split(" ")[1] })}</b> · ${t(`proto_${best[0].protocol}`)}</div>
           <div class="hint">${t("candidates")}:</div>
           ${best.slice(0, 3).map((r) => html`<div class="row well"><span class="mono">${fmt(r)}</span><span class="hint">${t("score")} ${Math.round(r.score * 100)} %</span>
             <button class="btn btn-g" @click=${() => this._useCandidate(c, r)}>${t("applyThis")}</button></div>`)}`
-        : html`<div class="note warn">${t("noDetect")}</div>` : ""}
+        : html`<div class="note warn">${t("noDetect")}</div>` : ""}`;
+    return html`<section class="card" aria-labelledby="t-tools">
+      <h2 id="t-tools">${t("tools")}</h2>
+      ${meterFirst ? html`${meter(true)}${baud(false)}` : html`${baud(true)}
+        <details class="sep" ?open=${!!m}><summary class="hint" style="cursor:pointer">${t("moreTools")}</summary><div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">${meter(true)}</div></details>`}
     </section>`;
   }
 
@@ -434,22 +439,23 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           </section>
         </div>
         <aside class="side-col">
-          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : le ? html`<section class="card" aria-labelledby="t-line">
+          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
               ${[["frame", le.frame], ["parity", le.parity], ["overrun", le.overrun], ["brk", le.break], ["bufOverrun", le.buffer_overrun]].map(([k, v]) =>
                 html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
               : ""}
-          </section>` : ""}
+            <p class="hint" style="margin:0">${le || !c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</p>
+          </section>`}
           <section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
-            <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${fmtBytes(c.bytes_from_device)}</span></div>
-            ${!modbus && !enocean && !le ? html`<p class="hint">${c.line_errors === null && c.clients.length ? t("lineUnsupported") : t("lineClosed")}</p>` : ""}
+            <div class="row hint" style="font-size:11px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
+            <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
           </section>
           <section class="card" aria-labelledby="t-recent">
-            <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events" style="font-size:13px">${t("allEvents")}</a></div>
+            <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
             <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
               <div><div>${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</div><div class="hint">${fmtTime(e.ts)}</div></div></li>`)}</ol>
           </section>

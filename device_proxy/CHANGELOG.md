@@ -16,6 +16,10 @@
   connection card with the real networks and reachability per target.
 - **Events**: Live and History share one filter bar and one row format; log sorted by time with day rows, level buttons with counts, plain-language
   connection errors, names link to the connection, labelled history bars.
+- **Detail page, side cards**: tools with short buttons, the meter check on top only for meters
+  (else folded away), buttons disabled with a reason, the check shows its time and what to do
+  without data; the data chart is labelled and counts bytes "since start"; the line hint sits in
+  the Line card; "Recent events" links to the events of this connection.
 - **Live data** on the detail page can be collapsed to one living line (last data, rate, last
   block); the choice is remembered per connection, a card never opened yet opens when data
   arrives, and a collapsed card polls only every five seconds.
