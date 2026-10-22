@@ -70,6 +70,26 @@ export class EditPage extends Page {
       background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; box-shadow: 0 -6px 16px -8px var(--shadow-c); }
   `];
 
+  connectedCallback() {
+    super.connectedCallback();
+    this._leave = (e) => { if (this._dirty()) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", this._leave);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("beforeunload", this._leave);
+  }
+
+  /** Has the form been changed since it was loaded? */
+  _dirty() { return !!this.draft && JSON.stringify(this.draft) !== this._orig; }
+
+  async _cancel(e, href) {
+    if (!this._dirty()) return;
+    e.preventDefault();
+    if (await confirmDialog(this, t("discardConfirm"), t("discard"))) { this._orig = JSON.stringify(this.draft); navigate(href); }
+  }
+
   willUpdate(changed) {
     if (changed.has("connectionId") || (this.draft === undefined && this.state)) this._load();
   }
@@ -92,6 +112,7 @@ export class EditPage extends Page {
       : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
     if (!existing && this.draft.kind === "serial") this._suggestName();
+    this._orig = JSON.stringify(this.draft);
     this._preview();
   }
 
@@ -534,9 +555,10 @@ export class EditPage extends Page {
 
         <div class="actions">
           ${isNew ? "" : html`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
+          ${this._dirty() ? html`<span class="chip warn">${t("unsaved")}</span>` : ""}
           <span class="hint" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end">${icon("info", 16)}${isNew ? t("saveHintNew") : t("saveHint")}</span>
           <div style="display:flex;gap:8px;margin-left:auto">
-            <a class="btn btn-g" href=${isNew ? "#/connections" : `#/connection/${d.id}`}>${t("cancel")}</a>
+            <a class="btn btn-g" href=${isNew ? "#/connections" : `#/connection/${d.id}`} @click=${(e) => this._cancel(e, isNew ? "#/connections" : `#/connection/${d.id}`)}>${t("cancel")}</a>
             <button type="submit" class="btn btn-p" ?disabled=${this.saving}>${t("save")}</button>
           </div>
         </div>
