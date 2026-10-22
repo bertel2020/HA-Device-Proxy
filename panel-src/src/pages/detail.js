@@ -29,7 +29,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, scan: { state: true }, scanForm: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -49,8 +49,10 @@ export class DetailPage extends Page {
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
     li { display: flex; gap: 10px; } li .dot { margin-top: 6px; }
     .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
+    .grid5 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr auto; gap: 10px; align-items: end; }
+    .grid5.wide { grid-template-columns: 1fr 2fr 1fr 2fr auto; }
     .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    @media (max-width: 560px) { .grid4 { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2) { grid-column: span 2; } .grid3 { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .grid4, .grid5, .grid5.wide { grid-template-columns: 1fr 1fr; } .grid4 > :nth-child(2), .grid5 > :nth-child(2) { grid-column: span 2; } .grid5 > .btn { grid-column: span 2; justify-self: end; } .grid3 { grid-template-columns: 1fr 1fr; } }
 
   `];
 
@@ -64,6 +66,7 @@ export class DetailPage extends Page {
     this._samples = [];
     this._after = 0;
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
+    this.wrForm = { unit: 1, function: 6, address: 0, values: "0" };
     this.scanForm = { first: 1, last: 247, timeout_ms: 200 };
   }
 
@@ -161,6 +164,17 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  async _mbWrite(c) {
+    const f = this.wrForm;
+    const values = f.values.split(/[\s,;]+/).filter(Boolean).map(Number);
+    if (!values.length || values.some((v) => !Number.isInteger(v))) { this.toast(`${t("error")}: ${t("mbValues")}`); return; }
+    const shown = values.length > 6 ? `${values.slice(0, 6).join(", ")} …` : values.join(", ");
+    if (!(await confirmDialog(this, t("mbWriteAsk", { n: c.name, u: f.unit, f: String(f.function).padStart(2, "0"), a: f.address, v: shown }), t("mbWriteBtn")))) return;
+    try {
+      this.wrResult = { ...(await api(`api/tools/${this.connectionId}/modbus/write`, { method: "POST", body: { unit: f.unit, function: f.function, address: f.address, values } })), form: { ...f }, values };
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   async _mbScan() {
     try {
       const { job } = await api(`api/tools/${this.connectionId}/modbus/scan`, { method: "POST", body: this.scanForm });
@@ -180,7 +194,9 @@ export class DetailPage extends Page {
   }
 
   _modbusTools(c) {
-    const f = this.mbForm, r = this.mbResult, sc = this.scan;
+    const f = this.mbForm, r = this.mbResult, sc = this.scan, w = this.wrForm, wr = this.wrResult;
+    const locked = c.write_access === "none";
+    const same = !!(wr && wr.ok && wr.readback && wr.readback.ok && wr.readback.values.length === wr.values.length && wr.readback.values.every((v, i) => v === wr.values[i]));
     const signed = (v) => (v > 32767 ? v - 65536 : v);
     const hex4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, "0")}`;
     const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: t(`ex_${code}`) });
@@ -190,20 +206,34 @@ export class DetailPage extends Page {
       <summary style="cursor:pointer;display:flex;align-items:baseline;gap:8px"><h2 id="t-mtools" style="display:inline">${t("tools")}</h2><span class="hint">· ${t("mbToolsSub")}</span></summary>
       <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div><b style="font-weight:500">${t("mbReadTitle")}</b><p class="hint">${t("mbReadSub")}</p></div>
-      <div class="grid4">
+      <div class="grid5">
         ${this._num(f, "unit", t("mbUnit"), "mbForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.mbForm = { ...f, function: Number(e.target.value) }; }}>
           ${[3, 4, 1, 2].map((v) => html`<option value=${v} ?selected=${f.function === v}>${t(`fc_${v}`)}</option>`)}</select></label>
         ${this._num(f, "address", t("mbAddress"), "mbForm")}
         ${this._num(f, "count", t("mbCount"), "mbForm")}
+        <button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button>
       </div>
-      <div style="display:flex;justify-content:flex-end"><button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button></div>
       ${r ? r.ok ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th>
           ${r.form.function >= 3 ? html`<th style="text-align:right">${t("mbUnsigned")}</th><th style="text-align:right">${t("mbSigned")}</th><th style="text-align:right">Hex</th>` : html`<th style="text-align:right">${t("mbBit")}</th>`}</tr></thead>
           <tbody>${r.values.map((v, i) => html`<tr><td class="mono">${r.form.address + i}</td>
             ${r.form.function >= 3 ? html`<td style="text-align:right">${v}</td><td style="text-align:right">${signed(v)}</td><td class="mono" style="text-align:right">${hex4(v)}</td>` : html`<td style="text-align:right">${v}</td>`}</tr>`)}</tbody></table></div>
           <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>`
         : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
+      <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("mbWriteTitle")}</b><p class="hint">${t("mbWriteToolSub")}</p></div>
+      <div class="grid5 wide">
+        ${this._num(w, "unit", t("mbUnit"), "wrForm")}
+        <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.wrForm = { ...w, function: Number(e.target.value) }; }}>
+          ${[6, 16, 5, 15].map((v) => html`<option value=${v} ?selected=${w.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
+        ${this._num(w, "address", t("mbAddress"), "wrForm")}
+        <label class="fld"><span class="lbl">${t("mbValues")}</span><input class="inp mono" .value=${w.values} placeholder=${w.function === 5 || w.function === 15 ? "1" : "300"}
+          @input=${(e) => { this.wrForm = { ...w, values: e.target.value }; }}></label>
+        <button class="btn btn-s" ?disabled=${!c.enabled || locked} @click=${() => this._mbWrite(c)}>${t("mbWriteBtn")}</button>
+      </div>
+      ${locked ? html`<p class="hint">${t("mbWriteLocked")} <a href="#/edit/${c.id}">${t("edit")}</a></p>` : ""}
+      ${wr ? wr.ok ? html`<div class="note ok">${t("mbWritten", { ms: wr.time_ms })}${wr.readback && wr.readback.ok ? html` · ${t("mbReadback", { v: wr.readback.values.join(", ") })}
+          · <b>${same ? t("mbReadbackSame") : t("mbReadbackDiff")}</b>` : ""}</div>`
+        : html`<div class="note warn">${exText(wr.exception)}</div>` : ""}
       <div class="row" style="border-top:1px solid var(--line-2);padding-top:12px"><div><b style="font-weight:500">${t("mbScanTitle")}</b><p class="hint">${t("mbScanSub")}</p></div></div>
       <div class="grid3">
         ${this._num(this.scanForm, "first", t("mbFirst"), "scanForm")}

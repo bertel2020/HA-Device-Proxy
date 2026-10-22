@@ -5,6 +5,10 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Modbus tools**: new "Write registers" (functions 5, 6, 15, 16) next to "Read registers". It asks
+  for confirmation first, reads the value back afterwards and says whether it matches, and writes an
+  event to the log. It stays locked on connections whose write access is "Nobody". The Read button
+  moved into the row of fields.
 - **Live data** (detail page and recording): time and direction take only the room they need; on
   Modbus and EnOcean the description and the bytes share a line and wrap only when the card is
   narrow, instead of breaking every 16 bytes.

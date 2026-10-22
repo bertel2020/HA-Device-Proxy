@@ -296,6 +296,28 @@ def test_only_known_reads_pass_without_write_access() -> None:
     assert is_write(bytes.fromhex("2b0d0000"))  # MEI type other than 14
 
 
+def test_the_write_tool_builds_the_four_write_requests() -> None:
+    import pytest
+
+    from device_proxy.modbus import write_pdu
+
+    assert write_pdu(5, 7, [1]).hex() == "050007ff00"
+    assert write_pdu(5, 7, [0]).hex() == "0500070000"
+    assert write_pdu(6, 40017, [300]).hex() == "069c51012c"
+    assert write_pdu(15, 0, [1, 0, 1, 1, 0, 0, 0, 0, 1]).hex() == "0f00000009020d01"
+    assert write_pdu(16, 2, [1, 65535]).hex() == "1000020002040001ffff"
+    for bad in (
+        (3, 0, [1]),
+        (6, 0, [65536]),
+        (5, 0, [2]),
+        (6, 0, [1, 2]),
+        (16, 65535, [1, 2]),
+        (16, 0, []),
+    ):
+        with pytest.raises(ValueError):
+            write_pdu(*bad)
+
+
 def test_an_unusual_baud_rate_is_an_error_not_a_crash() -> None:
     import pytest
 

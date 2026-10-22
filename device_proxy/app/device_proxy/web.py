@@ -153,6 +153,7 @@ class WebServer:
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/detect", self.detect)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/read", self.modbus_read)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/write", self.modbus_write)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
@@ -580,6 +581,20 @@ class WebServer:
         try:
             return ok(
                 await self.c.modbus_read(request.params["id"], unit, function, address, count)
+            )
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def modbus_write(self, request: Request) -> Response:
+        data = request.json()
+        unit, function, address = self._ints(data, "unit", "function", "address")
+        try:
+            values = [int(v) for v in data["values"]]
+        except (KeyError, TypeError, ValueError):
+            raise HttpError(400, "numbers needed: values") from None
+        try:
+            return ok(
+                await self.c.modbus_write(request.params["id"], unit, function, address, values)
             )
         except ValueError as err:
             raise HttpError(409, str(err)) from None

@@ -185,6 +185,38 @@ def read_result(function: int, count: int, answer: bytes | None) -> dict[str, An
     return {"ok": True, "values": values, "hex": data.hex(" ").upper()}
 
 
+WRITE_TOOL_FUNCTIONS = (5, 6, 15, 16)
+
+
+def write_pdu(function: int, address: int, values: list[int]) -> bytes:
+    """The request of the write tool: one coil or register (5, 6) or a run of them (15, 16)."""
+    if function not in WRITE_TOOL_FUNCTIONS:
+        raise ValueError("function 5, 6, 15 or 16")
+    if not 0 <= address <= 65535:
+        raise ValueError("address 0 to 65535")
+    single = function in (5, 6)
+    limit = 1 if single else 1968 if function == 15 else 123
+    if not 1 <= len(values) <= limit:
+        raise ValueError(f"{'one value' if single else f'1 to {limit} values'}")
+    if address + len(values) > 65536:
+        raise ValueError("address 0 to 65535")
+    coils = function in (5, 15)
+    if any(not 0 <= v <= (1 if coils else 65535) for v in values):
+        raise ValueError("values 0 or 1" if coils else "values 0 to 65535")
+    if function == 5:
+        return struct.pack(">BHH", 5, address, 0xFF00 if values[0] else 0)
+    if function == 6:
+        return struct.pack(">BHH", 6, address, values[0])
+    if function == 15:
+        packed = bytearray((len(values) + 7) // 8)
+        for i, v in enumerate(values):
+            packed[i // 8] |= v << (i % 8)
+        return struct.pack(">BHHB", 15, address, len(values), len(packed)) + bytes(packed)
+    return struct.pack(">BHHB", 16, address, len(values), len(values) * 2) + b"".join(
+        struct.pack(">H", v) for v in values
+    )
+
+
 def exception(pdu: bytes, code: int) -> bytes:
     return bytes([(pdu[0] if pdu else 0) | 0x80, code])
 

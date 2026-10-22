@@ -45,7 +45,7 @@ from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .kinds import PROXIED, AppProxy
 from .meter import analyze
-from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result
+from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result, write_pdu
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
@@ -896,6 +896,42 @@ class Controller:
         answer = await proxy.ask(unit, struct.pack(">BHH", function, address, count))
         result = read_result(function, count, answer)
         return {**result, "time_ms": round((time.monotonic() - started) * 1000, 1)}
+
+    async def modbus_write(
+        self, connection_id: str, unit: int, function: int, address: int, values: list[int]
+    ) -> dict[str, object]:
+        """Write coils or registers through a Modbus connection's proxy, then read them back.
+        A connection whose write access is "none" stays locked for the tool too."""
+        proxy = self._modbus(connection_id)
+        if proxy.c.write_access == "none":
+            raise ValueError("writing is locked for this connection")
+        if not 1 <= unit <= 255:
+            raise ValueError("unit 1 to 255")
+        pdu = write_pdu(function, address, values)
+        started = time.monotonic()
+        answer = await proxy.ask(unit, pdu)
+        time_ms = round((time.monotonic() - started) * 1000, 1)
+        if not answer or answer[0] & 0x80:
+            code = answer[1] if answer and len(answer) > 1 else None
+            result: dict[str, object] = {"ok": False, "exception": code, "time_ms": time_ms}
+        else:
+            result = {"ok": True, "time_ms": time_ms}
+        self.events.emit(
+            "info" if result["ok"] else "warning",
+            "tool_write" if result["ok"] else "tool_write_failed",
+            connection=connection_id,
+            unit=unit,
+            function=function,
+            address=address,
+            values=" ".join(str(v) for v in values[:8]) + (" …" if len(values) > 8 else ""),
+        )
+        if result["ok"]:
+            back = await proxy.ask(
+                unit,
+                struct.pack(">BHH", 1 if function in (5, 15) else 3, address, len(values)),
+            )
+            result["readback"] = read_result(1 if function in (5, 15) else 3, len(values), back)
+        return result
 
     def start_scan(self, connection_id: str, first: int, last: int, timeout_ms: int) -> str:
         """Find the unit ids that answer, e.g. on an RS485 bus."""

@@ -50,6 +50,12 @@ MESSAGES = {
         "{state}: {device} · {format} · {mode} · port {port} · up to {max_clients} clients"
     ),
     "config_changed": "Configuration saved: {summary}",
+    "tool_write": (
+        "Written with the tool: unit {unit}, function {function}, address {address} = {values}"
+    ),
+    "tool_write_failed": (
+        "Writing with the tool failed: unit {unit}, function {function}, address {address}"
+    ),
     "clients_reconnect": "{count} client(s) disconnected so the change takes effect",
     "client_connected": "Client connected: {address}",
     "client_disconnected": "Client disconnected: {address}",
