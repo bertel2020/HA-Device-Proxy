@@ -409,6 +409,7 @@ export class EditPage extends Page {
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
         ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
         ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
+        <span class="hint">${this._follows(d)}</span>
       </section>
 
       <section class="card" aria-labelledby="t-eoreplay">
@@ -451,7 +452,8 @@ export class EditPage extends Page {
         <li><b>${t("eoFlowQueue")}</b><span class="hint">${t("eoFlowQueueSub", { ms: d.send_gap_ms })}</span></li>
         <li><b>${d.esp_protocol.toUpperCase()} · ${t(`eolink_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
-      <div class="note ${d.remaddr === HA_ONLY ? "info" : "warn"}">${d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr || t("eoAllNets") })}</div>
+      ${d.bind && d.bind.startsWith("127.") ? html`<div class="note info">${this._follows(d)}</div>`
+        : html`<div class="note ${d.remaddr === HA_ONLY ? "info" : "warn"}">${d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr || t("eoAllNets") })}</div>`}
       ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
     </section>`;
   }

@@ -686,6 +686,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         ${this._input("remaddr",t("allowed"),{mono:!0,hint:t("eoAllowedHint")})}
         ${n.remaddr!==ae?a`<div><button type="button" class="btn btn-g" @click=${()=>this._set({remaddr:ae})}>${t("eoHaOnly")}</button></div>`:""}
         ${this._input("bind",t("bind"),{mono:!0,hint:t("bindHint")})}
+        <span class="hint">${this._follows(n)}</span>
       </section>
 
       <section class="card" aria-labelledby="t-eoreplay">
@@ -722,7 +723,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         <li><b>${t("eoFlowQueue")}</b><span class="hint">${t("eoFlowQueueSub",{ms:e.send_gap_ms})}</span></li>
         <li><b>${e.esp_protocol.toUpperCase()} · ${t(`eolink_${e.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${n}</span></li>
       </ol>
-      <div class="note ${e.remaddr===ae?"info":"warn"}">${e.remaddr===ae?t("eoHaOnlyNote"):t("eoLanNote",{a:e.remaddr||t("eoAllNets")})}</div>
+      ${e.bind&&e.bind.startsWith("127.")?a`<div class="note info">${this._follows(e)}</div>`:a`<div class="note ${e.remaddr===ae?"info":"warn"}">${e.remaddr===ae?t("eoHaOnlyNote"):t("eoLanNote",{a:e.remaddr||t("eoAllNets")})}</div>`}
       ${Object.keys(this._shown()).length?a`<div class="note bad">${Object.entries(this._shown()).map(([s,i])=>a`<div><span class="mono">${s}</span>: ${D(i)}</div>`)}</div>`:""}
     </section>`}_modbusPreview(){let e=this.draft,n=e.link==="rtu"?`${e.device||"\u2013"} \xB7 ${e.baud} ${e.data_bits}${e.parity.toUpperCase()}${e.stop_bits}`:`${e.host||"\u2013"}:${e.host_port}`;return a`<section class="card" aria-labelledby="t-prev">
       <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("mbPreviewSub")}</p></div>
