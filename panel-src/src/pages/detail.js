@@ -3,7 +3,7 @@ import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, meterCards, statusCard } from "../enocean.js";
 import { eventText, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, lines16, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -252,6 +252,11 @@ export class DetailPage extends Page {
     </section>`;
   }
 
+  _copyBtn(key, text) {
+    const label = this.copied === key ? t("copied") : t("copy");
+    return html`<button class="btn btn-g" style="min-height:32px;padding:0 8px" aria-label=${label} title=${label} @click=${() => this._copy(key, text)}>${icon(this.copied === key ? "check" : "copy", 16)}</button>`;
+  }
+
   async _copy(key, text) {
     if (await copyText(text)) { this.copied = key; setTimeout(() => { if (this.copied === key) this.copied = ""; }, 2000); }
   }
@@ -323,7 +328,7 @@ export class DetailPage extends Page {
       <p class="hint" style="margin:0">${t("haUnitHint")} <a href="https://www.home-assistant.io/integrations/modbus/" target="_blank" rel="noopener">${t("haDocs")}</a></p>
       <details style="border-top:1px solid var(--line-2);padding-top:10px"><summary class="hint" style="cursor:pointer">${t("haYamlSummary")}</summary>
         <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("haYamlSub")}</p>
-          <button class="btn btn-g" @click=${() => this._copy("ha-yaml", yaml)}>${this.copied === "ha-yaml" ? t("copied") : t("copy")}</button></div>
+          ${this._copyBtn("ha-yaml", yaml)}</div>
         <div class="code">${yaml}</div></details>
     </section>`;
   }
@@ -336,7 +341,7 @@ export class DetailPage extends Page {
                   <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
                 ${Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
                   <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
-                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)}
+                  ${this._copyBtn(`${a.target}${k}`, u)}</div>`)}
                 ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
               </div>`)}
     </section>`;
