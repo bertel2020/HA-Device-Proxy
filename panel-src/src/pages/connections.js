@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { plain, t } from "../i18n.js";
-import { confirmDialog, connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, connectionState, copyText, fmtAgo, fmtRate, fmtSerial, icon, navigate, primaryAddress, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -43,6 +43,12 @@ export class ConnectionsPage extends Page {
     .dev { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .meter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .slots { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .bar { display: block; width: 72px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+    .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+    .bar.full i { background: var(--warn); }
+    .rate { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
     .client { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
     .tech { font-size: 13px; color: var(--muted); }
     .iconbtn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; color: var(--muted); }
@@ -130,7 +136,11 @@ export class ConnectionsPage extends Page {
         ${stuck.map((cl) => html`<span class="chip bad">${t("stuck", { a: cl.address })}</span>`)}
       </div>` : ""}
       <div class="clients">
-        <div class="row hint" style="font-weight:500"><span>${t("clientsLine", { n: c.clients.length, m: c.max_clients })}${c.enabled && (c.present || proxied) ? html` · ${fmtRate(c.rate_from_device)}` : ""}</span></div>
+        <div class="meter">
+          <div class="slots"><span class="hint" style="font-weight:500">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+            <span class="bar ${c.clients.length >= c.max_clients ? "full" : ""}" aria-hidden="true"><i style="width:${Math.min(100, (c.clients.length / (c.max_clients || 1)) * 100)}%"></i></span></div>
+          ${c.enabled && (c.present || proxied) ? html`<div class="rate">${sparkline(rateHistory(c.id), { label: t("dataFromDevice") })}<span class="hint" style="font-weight:500">${fmtRate(c.rate_from_device)}</span></div>` : ""}
+        </div>
         ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span></span>
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
         ${c.clients.length ? "" : off ? html`<div class="hint" style="font-size:14px">${t("disabledText")}</div>`

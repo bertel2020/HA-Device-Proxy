@@ -5,7 +5,7 @@ import { api } from "./api.js";
 import { lang, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { applyTheme } from "./theme.js";
-import { connectionState, logo } from "./ui.js";
+import { connectionState, logo, recordRates } from "./ui.js";
 
 const POLL_MS = 2000;
 const EVENTS_KEPT = 1500;
@@ -100,6 +100,7 @@ export class DeviceProxyApp extends LitElement {
   async refresh() {
     try {
       const [state, events] = await Promise.all([api("api/state"), api(`api/events?after=${this._seq}`)]);
+      recordRates(state.connections);
       this.state = state;
       if (events.length) {
         this._seq = events[events.length - 1].seq;

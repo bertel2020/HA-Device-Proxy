@@ -35,6 +35,28 @@ export function fmtBytes(n) {
   return `${value.toLocaleString(lang, { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`;
 }
 
+const RATE_KEPT = 30; // about a minute of state polls
+const rates = new Map();
+
+/** Remember the data rate of every connection from each state poll, so a card has a curve when the page opens. */
+export function recordRates(connections) {
+  const ids = new Set(connections.map((c) => c.id));
+  for (const id of rates.keys()) if (!ids.has(id)) rates.delete(id);
+  for (const c of connections) rates.set(c.id, [...(rates.get(c.id) || []), c.rate_from_device || 0].slice(-RATE_KEPT));
+}
+
+export const rateHistory = (id) => rates.get(id) || [];
+
+/** A small area curve of the values, scaled to their peak. */
+export function sparkline(values, { w = 84, h = 26, label = "" } = {}) {
+  const v = values.length > 1 ? values : [0, 0];
+  const max = Math.max(...v, 1), step = w / (v.length - 1);
+  const points = v.map((x, i) => `${(i * step).toFixed(1)},${(h - 2 - (x / max) * (h - 5)).toFixed(1)}`).join(" L");
+  return html`<svg viewBox="0 0 ${w} ${h}" width=${w} height=${h} role="img" aria-label=${label} style="flex:none">
+    ${svg`<path d="M0,${h} L${points} L${w},${h} Z" fill="var(--accent-soft)"></path>
+    <path d="M${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"></path>`}</svg>`;
+}
+
 export const fmtRate = (bytesPerSecond) => `${fmtBytes(Math.round(bytesPerSecond || 0))}/s`;
 
 export function fmtTime(ts, withDate = true, seconds = false) {
