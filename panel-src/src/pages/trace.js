@@ -103,7 +103,7 @@ export class TracePage extends Page {
               <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
                 <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}</p></div>
               <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <button class="btn btn-g" @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>
+                <div class="seg" role="group" aria-label=${t("liveView")}>${[[false, "hexOnly"], [true, "hexAscii"]].map(([v, k]) => html`<button type="button" aria-pressed=${this.ascii === v ? "true" : "false"} @click=${() => { this.ascii = v; }}>${t(k)}</button>`)}</div>
                 <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
                 <button class="btn btn-g" ?disabled=${!this.chunks.length} @click=${() => { this.chunks = []; }}>${t("clearView")}</button></div></div>
             ${current ? html`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>

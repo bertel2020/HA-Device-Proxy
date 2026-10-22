@@ -1242,7 +1242,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
               <div><h2 id="t-view">${t("liveView")}${n?a` · ${n.name}`:""}</h2>
                 <p class="hint" style="margin:2px 0 0">${t("liveCap",{n:zt})}</p></div>
               <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <button class="btn btn-g" @click=${()=>{this.ascii=!this.ascii}}>${this.ascii?t("hexOnly"):t("hexAscii")}</button>
+                <div class="seg" role="group" aria-label=${t("liveView")}>${[[!1,"hexOnly"],[!0,"hexAscii"]].map(([l,d])=>a`<button type="button" aria-pressed=${this.ascii===l?"true":"false"} @click=${()=>{this.ascii=l}}>${t(d)}</button>`)}</div>
                 <button class="btn btn-g" @click=${()=>{this.paused=!this.paused}}>${this.paused?t("resume"):t("pause")}</button>
                 <button class="btn btn-g" ?disabled=${!this.chunks.length} @click=${()=>{this.chunks=[]}}>${t("clearView")}</button></div></div>
             ${n?a`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
