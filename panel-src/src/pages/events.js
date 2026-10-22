@@ -93,7 +93,10 @@ export class EventsPage extends Page {
   }
 
   _historyView() {
-    if (!this.stats || !this.history) return html`<p class="hint">${t("loading")}</p>`;
+    if (!this.stats || !this.history) {
+      const shown = this.state.connections.filter((c) => !this.conn || c.id === this.conn);
+      return html`<div class="stats" aria-busy="true">${shown.map((c, i) => html`<section class="card" aria-label=${c.name} style="min-height:150px"><b style="font-weight:500">${c.name}</b>${i ? "" : html`<span class="hint">${t("loading")}</span>`}</section>`)}</div>`;
+    }
     const days = this.stats.days;
     const conns = this.state.connections.filter((c) => !this.conn || c.id === this.conn);
     const byDay = new Map();
