@@ -209,3 +209,12 @@ def test_next_free_port_skips_the_reserved_one_and_the_end_of_the_range() -> Non
     alias = result.items[0].alias
     merged = merge(top, result, replace_all=False, take={alias}, on_conflict={alias: "new_port"})
     assert len(merged.connections) == 1  # skipped, not an error
+
+
+def test_export_without_serial_connections_has_a_commented_example() -> None:
+    text = export(AppConfig())
+    assert "# connection: &example" in text
+    assert "\nconnection:" not in text  # all commented out
+    assert "example" not in export(
+        AppConfig(connections=(Connection("eHZ", "/dev/ttyUSB0", 3335),))
+    )

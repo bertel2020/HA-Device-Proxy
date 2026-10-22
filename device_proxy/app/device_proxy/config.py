@@ -154,4 +154,12 @@ def export(config: AppConfig, *, include_disabled: bool = True) -> str:
         if c.enabled or include_disabled:
             text = block(c, config.settings.listen, trace=False)
             parts.append(text.replace(f"&{c.alias}", f"&{readable_alias(c.name, taken)}", 1))
+    if not taken:
+        sample = Connection("example", "/dev/ttyUSB0", 3333)
+        text = block(sample, config.settings.listen, trace=False).replace(
+            f"&{sample.alias}", "&example", 1
+        )
+        commented = "\n".join(f"# {line}".rstrip() for line in text.splitlines())
+        note = '# No serial connections yet. An example; remove the leading "# " to use it:'
+        parts.append(f"{note}\n{commented}\n")
     return "\n".join(parts)

@@ -58,7 +58,8 @@ export const base = css`
   .code { background: var(--code-bg); color: var(--code-text); border-radius: 12px; padding: 14px 16px; font-size: 12px;
     line-height: 1.7; white-space: pre; overflow-x: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; }
   .well { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
-  .fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .fld { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; min-width: 0; }
+  .actions { display: flex; justify-content: flex-end; }
   .lbl { font-size: 12px; font-weight: 500; color: var(--muted); }
   .err { font-size: 12px; color: var(--bad); }
   .inp { min-height: 42px; padding: 0 12px; border: 1px solid var(--input-line); border-radius: 10px; font: inherit;

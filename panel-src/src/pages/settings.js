@@ -154,7 +154,8 @@ export class SettingsPage extends Page {
             <div class="seg" role="group" aria-labelledby="t-src">
               <button aria-pressed=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>${t("forms")}</button>
               <button aria-pressed=${own ? "true" : "false"} ?disabled=${!this.custom?.exists} @click=${() => this._useOwn()}>${t("own")}</button></div></div>
-          <div class="note warn" role="note">${t("ownWarn")}</div>
+          ${own ? html`<div class="note warn" role="note">${t("ownWarn")}</div>` : ""}
+          <div class="hint">${t("ownHint")}</div>
           <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => { this.customText = e.target.value; this.customCheck = null; }}></textarea>
           <div class="row">
             ${check ? check.errors.length ? html`<div class="note bad" style="flex:1">${check.errors.map((n) => html`<div>${noteText(n)}</div>`)}</div>`
@@ -194,7 +195,7 @@ export class SettingsPage extends Page {
           <div class="grid2" style="gap:6px 16px">${[["notify_dismiss", "notifyDismiss"], ["notify_resolved", "notifyResolved"], ["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) =>
             html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
           <p class="hint">${t("notifyPerConnection")}</p>
-          <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 
         <section id="mqtt" class="card" aria-labelledby="t-mqtt">
@@ -210,7 +211,7 @@ export class SettingsPage extends Page {
               @input=${(e) => { this.draft = { ...this.draft, mqtt_interval: Number(e.target.value || 0) }; }}></label>
           </div>
           <p class="hint">${t("mqttNames")}</p>
-          <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">
@@ -221,7 +222,7 @@ export class SettingsPage extends Page {
           <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
             @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: Number(e.target.value || 0) }; }}>
             <span class="hint">${t("eoStatusPortHint")}</span></label>
-          <div><button class="btn btn-p" @click=${() => this._saveSettings({ enocean_discovery: d.enocean_discovery, enocean_status_port: d.enocean_status_port })}>${t("save")}</button></div>
+          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings({ enocean_discovery: d.enocean_discovery, enocean_status_port: d.enocean_status_port })}>${t("save")}</button></div>
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">
@@ -234,7 +235,7 @@ export class SettingsPage extends Page {
             <label class="fld"><span class="lbl">${t("language")}</span><select class="inp" @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
               <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select></label>
           </div>
-          <div><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
+          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
         </section>
 
         <section id="diag" class="card" aria-labelledby="t-diag">
