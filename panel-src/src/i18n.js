@@ -57,7 +57,7 @@ const TEXT = {
     banner: "Banner", openstr: "openstr", closestr: "closestr", bind: "Bind-Adresse", bindHint: "Leer: nach der globalen Einstellung.",
     extra: "Weitere Optionen", extraHint: "Eine pro Zeile: name: wert", traceMode: "Mitschnitt aufzeichnen", silence: "Warnen, wenn keine Daten seit (min, 0 = nie)",
     tr_off: "aus", tr_rx: "vom Gerät", tr_tx: "zum Gerät", tr_both: "beide Richtungen",
-    preview: "Vorschau ser2net.yaml", previewSub: "So wird die Verbindung an ser2net übergeben.", save: "Speichern", cancel: "Abbrechen", delete: "Löschen",
+    preview: "Vorschau ser2net.yaml", previewSub: "So wird die Verbindung an ser2net übergeben.", save: "Speichern", unsaved: "Nicht gespeichert", cancel: "Abbrechen", delete: "Löschen",
     saveHint: "Nur diese Verbindung wird neu aufgebaut. Andere bleiben verbunden.", saved: "Gespeichert.", savedRebuilt: "Gespeichert. Neu aufgebaut: {n}.", savedReconnect: " Clients neu verbunden: {n}.",
     deleteConfirm: "Verbindung „{n}“ löschen? Ihre Clients werden getrennt.", errorsBelow: "Bitte die markierten Felder prüfen.",
     // import
@@ -398,7 +398,7 @@ const TEXT = {
     banner: "Banner", openstr: "openstr", closestr: "closestr", bind: "Bind address", bindHint: "Empty: as the global setting.",
     extra: "Further options", extraHint: "One per line: name: value", traceMode: "Record trace", silence: "Warn when no data for (min, 0 = never)",
     tr_off: "off", tr_rx: "from the device", tr_tx: "to the device", tr_both: "both directions",
-    preview: "Preview ser2net.yaml", previewSub: "This is what ser2net gets.", save: "Save", cancel: "Cancel", delete: "Delete",
+    preview: "Preview ser2net.yaml", previewSub: "This is what ser2net gets.", save: "Save", unsaved: "Not saved", cancel: "Cancel", delete: "Delete",
     saveHint: "Only this connection is rebuilt. The others stay connected.", saved: "Saved.", savedRebuilt: "Saved. Rebuilt: {n}.", savedReconnect: " Clients reconnected: {n}.",
     deleteConfirm: "Delete connection “{n}”? Its clients are disconnected.", errorsBelow: "Please check the marked fields.",
     importTitle: "Import connections", stepChoose: "Choose file", stepPreview: "Check preview", stepDone: "Done",

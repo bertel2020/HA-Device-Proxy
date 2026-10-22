@@ -138,6 +138,13 @@ export class SettingsPage extends Page {
     } catch { /* stays empty */ }
   }
 
+  /** The Save button of a card: active once one of the card's settings differs from the saved one. */
+  _saveRow(keys) {
+    const dirty = keys.some((k) => this.draft[k] !== this.state.settings[k]);
+    return html`<div class="actions" style="align-items:center;gap:12px">${dirty ? html`<span class="hint">${t("unsaved")}</span>` : ""}
+      <button class="btn btn-p" ?disabled=${!dirty} @click=${() => this._saveSettings(Object.fromEntries(keys.map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>`;
+  }
+
   async _saveSettings(patch) {
     try {
       await api("api/settings", { method: "PUT", body: { settings: patch } });
@@ -361,7 +368,7 @@ export class SettingsPage extends Page {
             ${this.lanErr ? html`<div class="note bad" role="alert">${this.lanErr}</div>` : ""}
             <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
               <a href="#/settings" @click=${(e) => { e.preventDefault(); this.lanDraft = { own: false, nets: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] }; }}>${t("lanPrivate")}</a>
-              <button class="btn btn-p" style="margin-left:auto" ?disabled=${!lanDirty} @click=${() => this._lanSave()}>${t("save")}</button>
+              ${lanDirty ? html`<span class="hint" style="margin-left:auto">${t("unsaved")}</span>` : ""}<button class="btn btn-p" style="${lanDirty ? "" : "margin-left:auto"}" ?disabled=${!lanDirty} @click=${() => this._lanSave()}>${t("save")}</button>
             </div>
           </div>` : ""}
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
@@ -424,7 +431,7 @@ export class SettingsPage extends Page {
             </div>
             <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
           </div>
-          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+          ${this._saveRow(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"])}
         </section>
 
         <section id="mqtt" class="card" aria-labelledby="t-mqtt">
@@ -466,7 +473,7 @@ export class SettingsPage extends Page {
               </div>
             </details>
           </div>
-          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
+          ${this._saveRow(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"])}
         </section>
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">
@@ -483,7 +490,7 @@ export class SettingsPage extends Page {
                 <span class="hint">${t("eoStatusPortHint")}</span></label>
             </div>
           </details>
-          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings({ enocean_discovery: d.enocean_discovery, enocean_status_port: d.enocean_status_port })}>${t("save")}</button></div>
+          ${this._saveRow(["enocean_discovery", "enocean_status_port"])}
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">
@@ -510,7 +517,7 @@ export class SettingsPage extends Page {
             </div>
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>
-          <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
+          ${this._saveRow(["log_level", ...NUMBERS])}
         </section>
 
         <section id="src" class="card" aria-labelledby="t-src">
