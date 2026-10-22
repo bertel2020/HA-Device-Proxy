@@ -674,6 +674,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             ${[...new Set([...zn,n.baud])].sort((o,l)=>o-l).map(o=>a`<option value=${o} ?selected=${o===n.baud}>${o}</option>`)}</select>
             ${this._err("baud")}</label>`:a`<div class="grid2">
           ${this._input("host",t("mbHost"),{mono:!0,hint:t("eoHostHint")})}${this._input("host_port",t("mbHostPort"),{number:!0})}</div>`}
+        <div class="grid2">${this._input("send_gap_ms",t("eoGap"),{number:!0,hint:t("eoGapHint")})}</div>
       </section>
 
       <section class="card" aria-labelledby="t-eoproxy">
@@ -681,7 +682,6 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         <div class="grid2">
           ${this._input("port",t("eoPort"),{number:!0,hint:t("eoPortHint")})}
           ${this._input("max_clients",t("maxClients"),{number:!0,hint:t("eoClientsHint")})}
-          ${this._input("send_gap_ms",t("eoGap"),{number:!0,hint:t("eoGapHint")})}
         </div>
         ${this._input("remaddr",t("allowed"),{mono:!0,hint:t("eoAllowedHint")})}
         ${n.remaddr!==ae?a`<div><button type="button" class="btn btn-g" @click=${()=>this._set({remaddr:ae})}>${t("eoHaOnly")}</button></div>`:""}

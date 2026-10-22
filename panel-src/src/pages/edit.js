@@ -397,6 +397,7 @@ export class EditPage extends Page {
             ${[...new Set([...ENOCEAN_BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>
             ${this._err("baud")}</label>` : html`<div class="grid2">
           ${this._input("host", t("mbHost"), { mono: true, hint: t("eoHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
+        <div class="grid2">${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}</div>
       </section>
 
       <section class="card" aria-labelledby="t-eoproxy">
@@ -404,7 +405,6 @@ export class EditPage extends Page {
         <div class="grid2">
           ${this._input("port", t("eoPort"), { number: true, hint: t("eoPortHint") })}
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
-          ${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}
         </div>
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
         ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
