@@ -26,6 +26,28 @@ export class ImportDialog extends Page {
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
     .formats summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     .formats p { margin: 6px 0 0; }
+    .imp { min-width: 680px; }
+    .imp td.nm { min-width: 130px; }
+    .imp td.dev { font-size: 12px; overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
+    .allt { display: none; }
+    @media (max-width: 640px) {
+      .steps { flex-wrap: nowrap; margin-bottom: 14px; }
+      .steps li:not(.on) .stl { display: none; }
+      .steps li:not(.on) { padding-right: 6px; }
+      .imp { min-width: 0; }
+      .imp, .imp thead, .imp tbody, .imp thead tr { display: block; }
+      .imp thead th:not(:first-child) { display: none; }
+      .imp thead th { display: block; border: 0; padding: 0 0 8px; }
+      .allt { display: inline; margin-left: 8px; font-weight: 400; }
+      .imp .all { display: flex; align-items: center; }
+      .imp tbody tr { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+      .imp td { display: block; border: 0; padding: 0; }
+      .imp td:not(:first-child) { grid-column: 2; }
+      .imp td.nm, .imp td.dev { min-width: 0; max-width: none; }
+      .imp td[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-family: system-ui, sans-serif; }
+      .imp .chip { white-space: normal; height: auto; min-height: 24px; padding-block: 3px; border-radius: 14px; }
+      .imp td[data-l]:empty { display: none; }
+    }
     .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
     .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
@@ -81,7 +103,7 @@ export class ImportDialog extends Page {
 
   _steps(step) {
     return html`<ol class="steps" aria-label=${t("importTitle")}>${["stepChoose", "stepPreview", "stepDone"].map((k, i) => html`<li class=${i === step ? "on" : i < step ? "past" : ""} aria-current=${i === step ? "step" : "false"}>
-      <span class="num">${i < step ? "✓" : i + 1}</span>${t(k)}</li>`)}</ol>`;
+      <span class="num">${i < step ? "✓" : i + 1}</span><span class="stl">${t(k)}</span></li>`)}</ol>`;
   }
 
   _choose() {
@@ -124,16 +146,16 @@ export class ImportDialog extends Page {
           <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
       ${this.replaceAll && this.state.connections.length ? html`<div class="gone" role="alert"><b style="font-weight:500">${t("willGo")}</b> ${this.state.connections.map((c) => c.name).join(", ")}</div>` : ""}
       ${p.notes.length ? html`<div class="note warn"><b>${t("fileNotes")}</b>${p.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
-      <div class="scroll"><table style="min-width:680px"><thead><tr><th><input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${t("takeAll")}" .checked=${count > 0 && count === takeable.filter((i) => !Object.keys(i.conflicts).length || this.replaceAll).length} @change=${(e) => this._all(e.target.checked, takeable)}></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
+      <div class="scroll"><table class="imp"><thead><tr><th><label class="all"><input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${t("takeAll")}" .checked=${count > 0 && count === takeable.filter((i) => !Object.keys(i.conflicts).length || this.replaceAll).length} @change=${(e) => this._all(e.target.checked, takeable)}><span class="allt">${t("takeAll")}</span></label></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
         <tbody>${p.items.map((item) => {
           const c = item.connection;
           const conflict = Object.keys(item.conflicts).length && !this.replaceAll;
           return html`<tr>
             <td>${c && !conflict ? html`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${item.alias} ${t("take")}"
               .checked=${this.take.has(item.alias)} @change=${(e) => { const s = new Set(this.take); e.target.checked ? s.add(item.alias) : s.delete(item.alias); this.take = s; }}>` : ""}</td>
-            <td style="min-width:130px"><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
-            <td class="mono">${c ? c.port : ""}</td>
-            <td class="mono" style="font-size:12px;overflow-wrap:break-word;min-width:120px;max-width:200px">${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
+            <td class="nm"><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
+            <td class="mono" data-l=${t("port")}>${c ? c.port : ""}</td>
+            <td class="mono dev" data-l=${t("device")}>${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
               ${item.notes.length ? html`<ul class="notes">${item.notes.map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
               ${conflict ? html`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>

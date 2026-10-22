@@ -889,7 +889,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .bars { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
     .bars span { flex: 1; min-width: 2px; border-radius: 2px; background: var(--line); }
   `]);var ce=class extends k{constructor(){super(),this.text="",this.replaceAll=!1,this.take=new Set,this.choice={}}async _file(e){e&&(this.text=await e.text(),this._preview())}async _preview(){this.error="";try{let e=await f("api/import/preview",{method:"POST",body:{text:this.text}});if(!e.items.length){this.error=[t("importNone"),...e.notes.filter(n=>n.code!=="no_connections").map(R)].join(" ");return}this.preview=e,this.take=new Set(this.preview.items.filter(n=>n.connection&&!Object.keys(n.conflicts).length).map(n=>n.alias)),this.choice=Object.fromEntries(this.preview.items.filter(n=>Object.keys(n.conflicts).length).map(n=>[n.alias,"skip"]))}catch(e){this.error=e.data.note?R(e.data.note):e.message}}async _apply(){let e=[...this.preview.items.filter(s=>s.connection&&(this.take.has(s.alias)||this.choice[s.alias]&&this.choice[s.alias]!=="skip")).map(s=>s.alias)],n=this.replaceAll?this.state.connections.length:e.filter(s=>this.choice[s]==="replace").length;if(!(n&&!await S(this,t("importReplaceConfirm",{n}),t("importReplace")))){this.busy=!0;try{let s=await f("api/import",{method:"POST",body:{text:this.text,replace_all:this.replaceAll,take:e,on_conflict:this.choice}});this.done=s,this.refresh()}catch(s){this.toast(`${t("error")}: ${s.data.note?R(s.data.note):s.message}`)}finally{this.busy=!1}}}_steps(e){return a`<ol class="steps" aria-label=${t("importTitle")}>${["stepChoose","stepPreview","stepDone"].map((n,s)=>a`<li class=${s===e?"on":s<e?"past":""} aria-current=${s===e?"step":"false"}>
-      <span class="num">${s<e?"\u2713":s+1}</span>${t(n)}</li>`)}</ol>`}_choose(){return a`<section class="card" aria-labelledby="t-file"><h2 id="t-file">${t("importChoose")}</h2>
+      <span class="num">${s<e?"\u2713":s+1}</span><span class="stl">${t(n)}</span></li>`)}</ol>`}_choose(){return a`<section class="card" aria-labelledby="t-file"><h2 id="t-file">${t("importChoose")}</h2>
       <div class="drop" @dragover=${e=>{e.preventDefault(),e.currentTarget.classList.add("over")}}
         @dragleave=${e=>e.currentTarget.classList.remove("over")}
         @drop=${e=>{e.preventDefault(),e.currentTarget.classList.remove("over"),this._file(e.dataTransfer.files[0])}}>
@@ -911,13 +911,13 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
           <b style="font-weight:500">${t(o)}</b><span class="hint">${t(l)}</span></button>`)}</div>
       ${this.replaceAll&&this.state.connections.length?a`<div class="gone" role="alert"><b style="font-weight:500">${t("willGo")}</b> ${this.state.connections.map(i=>i.name).join(", ")}</div>`:""}
       ${e.notes.length?a`<div class="note warn"><b>${t("fileNotes")}</b>${e.notes.map(i=>a`<div>${R(i)}</div>`)}</div>`:""}
-      <div class="scroll"><table style="min-width:680px"><thead><tr><th><input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${t("takeAll")}" .checked=${s>0&&s===n.filter(i=>!Object.keys(i.conflicts).length||this.replaceAll).length} @change=${i=>this._all(i.target.checked,n)}></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
+      <div class="scroll"><table class="imp"><thead><tr><th><label class="all"><input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${t("takeAll")}" .checked=${s>0&&s===n.filter(i=>!Object.keys(i.conflicts).length||this.replaceAll).length} @change=${i=>this._all(i.target.checked,n)}><span class="allt">${t("takeAll")}</span></label></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
         <tbody>${e.items.map(i=>{let o=i.connection,l=Object.keys(i.conflicts).length&&!this.replaceAll;return a`<tr>
             <td>${o&&!l?a`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${i.alias} ${t("take")}"
               .checked=${this.take.has(i.alias)} @change=${d=>{let c=new Set(this.take);d.target.checked?c.add(i.alias):c.delete(i.alias),this.take=c}}>`:""}</td>
-            <td style="min-width:130px"><b style="font-weight:500">${i.alias}</b>${o?a`<div class="hint">${this._kind(o)} · ${t("importMax",{n:o.max_clients})}${o.enabled?"":` \xB7 ${t("importOff")}`}</div>`:""}</td>
-            <td class="mono">${o?o.port:""}</td>
-            <td class="mono" style="font-size:12px;overflow-wrap:break-word;min-width:120px;max-width:200px">${o?o.kind!=="serial"?kt(o):o.device:""}</td>
+            <td class="nm"><b style="font-weight:500">${i.alias}</b>${o?a`<div class="hint">${this._kind(o)} · ${t("importMax",{n:o.max_clients})}${o.enabled?"":` \xB7 ${t("importOff")}`}</div>`:""}</td>
+            <td class="mono" data-l=${t("port")}>${o?o.port:""}</td>
+            <td class="mono dev" data-l=${t("device")}>${o?o.kind!=="serial"?kt(o):o.device:""}</td>
             <td>${this._result(i)}
               ${i.notes.length?a`<ul class="notes">${i.notes.map(d=>a`<li>${R(d)}</li>`)}</ul>`:""}
               ${l?a`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>
@@ -954,6 +954,28 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
     .formats summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     .formats p { margin: 6px 0 0; }
+    .imp { min-width: 680px; }
+    .imp td.nm { min-width: 130px; }
+    .imp td.dev { font-size: 12px; overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
+    .allt { display: none; }
+    @media (max-width: 640px) {
+      .steps { flex-wrap: nowrap; margin-bottom: 14px; }
+      .steps li:not(.on) .stl { display: none; }
+      .steps li:not(.on) { padding-right: 6px; }
+      .imp { min-width: 0; }
+      .imp, .imp thead, .imp tbody, .imp thead tr { display: block; }
+      .imp thead th:not(:first-child) { display: none; }
+      .imp thead th { display: block; border: 0; padding: 0 0 8px; }
+      .allt { display: inline; margin-left: 8px; font-weight: 400; }
+      .imp .all { display: flex; align-items: center; }
+      .imp tbody tr { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+      .imp td { display: block; border: 0; padding: 0; }
+      .imp td:not(:first-child) { grid-column: 2; }
+      .imp td.nm, .imp td.dev { min-width: 0; max-width: none; }
+      .imp td[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-family: system-ui, sans-serif; }
+      .imp .chip { white-space: normal; height: auto; min-height: 24px; padding-block: 3px; border-radius: 14px; }
+      .imp td[data-l]:empty { display: none; }
+    }
     .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
     .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
