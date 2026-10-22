@@ -25,6 +25,7 @@ from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
 from .model import INGRESS_PORT, AppConfig, Connection, Settings, ValidationError, new_id
+from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -127,6 +128,7 @@ class WebServer:
         self._route("POST", r"api/import", self.run_import)
         self._route("GET", r"api/export", self.export)
         self._route("GET", r"api/runtime", self.runtime_yaml)
+        self._route("POST", r"api/mqtt/test", self.mqtt_test)
         self._route("GET", r"api/import/enocean_proxy", self.enocean_proxy_options)
         self._route("GET", r"api/custom", self.get_custom)
         self._route("POST", r"api/custom/check", self.check_custom)
@@ -414,6 +416,30 @@ class WebServer:
             "application/x-yaml; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="ser2net-{stamp}.yaml"'},
         )
+
+    async def mqtt_test(self, request: Request) -> Response:
+        """Try the broker of the form (or the Supervisor's when the host is empty)."""
+        data = request.json()
+        host = str(data.get("host") or "").strip()
+        if host:
+            try:
+                port = int(data.get("port") or 1883)
+            except (TypeError, ValueError):
+                return ok({"ok": False, "error": "port"}, 400)
+            broker = Broker(
+                host,
+                port,
+                str(data.get("user") or ""),
+                str(data.get("password") or ""),
+                bool(data.get("tls")),
+            )
+        else:
+            found = await asyncio.to_thread(supervisor_broker)
+            if found is None:
+                return ok({"ok": False, "target": "", "error": "no broker offered"})
+            broker = found
+        error = await check_broker(broker)
+        return ok({"ok": not error, "target": f"{broker.host}:{broker.port}", "error": error})
 
     async def runtime_yaml(self, request: Request) -> Response:
         """The ser2net.yaml the app hands to ser2net right now."""

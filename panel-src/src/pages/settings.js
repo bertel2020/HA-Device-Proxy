@@ -19,7 +19,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -85,6 +85,23 @@ export class SettingsPage extends Page {
 
   async _loadVersions() {
     try { this.versions = await api("api/versions"); } catch { this.versions = []; }
+  }
+
+  _brokerMode(own) {
+    this.ownBroker = own;
+    if (!own) this.draft = { ...this.draft, mqtt_host: "" };
+    this.mqttTest = null;
+  }
+
+  async _testBroker() {
+    const d = this.draft;
+    this.mqttTest = { busy: true };
+    try {
+      const body = { host: this.ownBroker ?? !!d.mqtt_host ? d.mqtt_host : "", port: d.mqtt_port, user: d.mqtt_user, password: d.mqtt_password, tls: d.mqtt_tls };
+      this.mqttTest = await api("api/mqtt/test", { method: "POST", body });
+    } catch (err) {
+      this.mqttTest = { ok: false, error: err.message };
+    }
   }
 
   async _toggleRuntime() {
@@ -218,6 +235,11 @@ export class SettingsPage extends Page {
     const conns = s.connections || [];
     const noClient = conns.some((c) => c.notify_no_client);
     const deviating = conns.filter((c) => c.bind || c.remaddr).length;
+    const ownBroker = this.ownBroker ?? !!d.mqtt_host;
+    const advanced = d.mqtt_prefix !== "homeassistant" || d.mqtt_base !== "device_proxy" || d.mqtt_interval !== 10;
+    const mqttChip = !s.settings.mqtt_enabled ? html`<span class="chip">${t("mqttStateOff")}</span>`
+      : !s.mqtt.broker ? html`<span class="chip warn">${t("mqttStateNone")}</span>`
+      : html`<span class="chip ${s.mqtt.connected ? "ok" : "warn"}">${s.mqtt.connected ? t("mqttConnected") : t("mqttDisconnected")}</span>`;
     const gateways = conns.filter((c) => c.kind === "enocean" && c.enabled).length;
     const check = this.customCheck;
     return html`<div class="layout">
@@ -315,25 +337,43 @@ export class SettingsPage extends Page {
 
         <section id="mqtt" class="card" aria-labelledby="t-mqtt">
           <div class="row"><div><h2 id="t-mqtt">${t("sMqtt")}</h2><p class="hint" style="margin-top:4px">${t("sMqttSub")}</p></div>
-            ${s.mqtt.broker ? html`<span class="chip ${s.mqtt.connected ? "ok" : "warn"}">${s.mqtt.connected ? t("mqttConnected") : t("mqttDisconnected")}</span>` : ""}</div>
-          ${s.mqtt.broker ? html`<p class="hint">${t("mqttBroker", { b: s.mqtt.broker })}${s.mqtt.error ? ` · ${s.mqtt.error}` : ""}</p>`
-            : s.settings.mqtt_enabled ? html`<div class="note warn">${t("mqttNoBroker")}</div>` : ""}
+            ${mqttChip}</div>
+          <details class="expert"><summary>${t("mqttWhat")}</summary>
+            <ul class="hint" style="margin:8px 0 0;padding-left:18px">${["mqttWhatSerial", "mqttWhatModbus", "mqttWhatEnocean"].map((k) => html`<li style="border:0;padding:0;display:list-item">${t(k)}</li>`)}</ul></details>
           <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_enabled} @change=${(e) => { this.draft = { ...this.draft, mqtt_enabled: e.target.checked }; }}><span>${t("mqttOn")}</span></label>
-          <div class="grid2">
-            ${[["mqtt_prefix", "mqttPrefix"], ["mqtt_base", "mqttBase"]].map(([k, l]) => html`<label class="fld"><span class="lbl">${t(l)}</span>
-              <input class="inp mono" .value=${d[k]} @input=${(e) => { this.draft = { ...this.draft, [k]: e.target.value }; }}></label>`)}
-            <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)}
-              @input=${(e) => { this.draft = { ...this.draft, mqtt_interval: Number(e.target.value || 0) }; }}></label>
+          <div style="display:flex;flex-direction:column;gap:16px;${d.mqtt_enabled ? "" : "opacity:.5"}" ?inert=${!d.mqtt_enabled}>
+            <div class="grp">
+              <h3>${t("mqttBrokerTitle")}</h3>
+              <div class="choices" role="radiogroup" aria-label=${t("mqttBrokerTitle")}>${[[false, "mqttAuto", "mqttAutoSub"], [true, "mqttOwn", "mqttOwnSub"]].map(([own, k, sub]) => html`
+                <button type="button" class="choice" role="radio" aria-checked=${ownBroker === own ? "true" : "false"} @click=${() => this._brokerMode(own)}>
+                  <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
+              ${ownBroker ? html`
+                <div class="grid2">
+                  <label class="fld"><span class="lbl">${t("mqttHost")}</span><input class="inp mono" .value=${d.mqtt_host} @input=${(e) => { this.draft = { ...this.draft, mqtt_host: e.target.value.trim() }; }}></label>
+                  <label class="fld"><span class="lbl">${t("mqttPort")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_port)} @input=${(e) => { this.draft = { ...this.draft, mqtt_port: Number(e.target.value || 0) }; }}><span class="hint">${t("mqttTlsHint")}</span></label>
+                  <label class="fld"><span class="lbl">${t("mqttUser")}</span><input class="inp" autocomplete="off" .value=${d.mqtt_user} @input=${(e) => { this.draft = { ...this.draft, mqtt_user: e.target.value }; }}></label>
+                  <label class="fld"><span class="lbl">${t("mqttPassword")}</span><input class="inp" type="password" autocomplete="new-password" .value=${d.mqtt_password} @input=${(e) => { this.draft = { ...this.draft, mqtt_password: e.target.value }; }}></label>
+                </div>
+                <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_tls} @change=${(e) => { this.draft = { ...this.draft, mqtt_tls: e.target.checked }; }}><span>${t("mqttTls")}</span></label>`
+                : html`<div class="hint">${s.mqtt.broker ? t("mqttFound", { b: s.mqtt.broker }) : t("mqttNoneFound")}</div>`}
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-s" ?disabled=${this.mqttTest?.busy} @click=${this._testBroker}>${t("mqttTest")}</button>
+                ${this.mqttTest ? this.mqttTest.busy ? html`<span class="hint">${t("mqttTesting")}</span>`
+                  : this.mqttTest.ok ? html`<span class="chip ok">${t("mqttTestOk", { target: this.mqttTest.target })}</span>`
+                  : html`<span class="chip bad" style="white-space:normal">${t("mqttTestFail", { e: this.mqttTest.error })}</span>` : ""}</div>
+              ${s.mqtt.error && d.mqtt_enabled ? html`<div class="hint">${s.mqtt.error}</div>` : ""}
+            </div>
+            <details class="expert" ?open=${advanced}>
+              <summary>${t("mqttAdvanced")}${advanced ? html` <span class="hint">· ${t("mqttAdvancedSet")}</span>` : ""}</summary>
+              <div class="expert-body">
+                <div class="grid2">
+                  <label class="fld"><span class="lbl">${t("mqttPrefix")}</span><input class="inp mono" .value=${d.mqtt_prefix} @input=${(e) => { this.draft = { ...this.draft, mqtt_prefix: e.target.value }; }}><span class="hint">${t("mqttPrefixHint")}</span></label>
+                  <label class="fld"><span class="lbl">${t("mqttBase")}</span><input class="inp mono" .value=${d.mqtt_base} @input=${(e) => { this.draft = { ...this.draft, mqtt_base: e.target.value }; }}></label>
+                  <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)} @input=${(e) => { this.draft = { ...d, mqtt_interval: Number(e.target.value || 0) }; }}></label>
+                </div>
+                <p class="hint">${t("mqttNames")}</p>
+              </div>
+            </details>
           </div>
-          <div><b style="font-weight:500">${t("mqttOwnBroker")}</b><p class="hint" style="margin-top:4px">${t("mqttOwnBrokerSub")}</p></div>
-          <div class="grid2">
-            <label class="fld"><span class="lbl">${t("mqttHost")}</span><input class="inp mono" placeholder=${t("mqttHostAuto")} .value=${d.mqtt_host} @input=${(e) => { this.draft = { ...this.draft, mqtt_host: e.target.value.trim() }; }}></label>
-            <label class="fld"><span class="lbl">${t("mqttPort")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_port)} @input=${(e) => { this.draft = { ...this.draft, mqtt_port: Number(e.target.value || 0) }; }}></label>
-            <label class="fld"><span class="lbl">${t("mqttUser")}</span><input class="inp" autocomplete="off" .value=${d.mqtt_user} @input=${(e) => { this.draft = { ...this.draft, mqtt_user: e.target.value }; }}></label>
-            <label class="fld"><span class="lbl">${t("mqttPassword")}</span><input class="inp" type="password" autocomplete="new-password" .value=${d.mqtt_password} @input=${(e) => { this.draft = { ...this.draft, mqtt_password: e.target.value }; }}></label>
-          </div>
-          <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_tls} @change=${(e) => { this.draft = { ...this.draft, mqtt_tls: e.target.checked }; }}><span>${t("mqttTls")}</span></label>
-          <p class="hint">${t("mqttNames")}</p>
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"].map((k) => [k, this.draft[k]])))}>${t("save")}</button></div>
         </section>
 

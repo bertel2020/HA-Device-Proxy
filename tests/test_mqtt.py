@@ -7,7 +7,7 @@ from device_proxy.controller import Controller
 from device_proxy.db import Database
 from device_proxy.events import EventLog
 from device_proxy.model import AppConfig, Connection
-from device_proxy.mqtt import Broker, _packet
+from device_proxy.mqtt import Broker, _packet, check_broker
 from device_proxy.store import Store
 from device_proxy.trace import TraceHub
 
@@ -136,3 +136,27 @@ async def test_stale_retained_configs_of_the_app_are_cleared(tmp_path: Path) -> 
     await bridge._message("homeassistant/switch/other_app/x/config", b"{}")
     await bridge._message("homeassistant/switch/device_proxy_0000beef/enabled/config", b"")
     assert sent == [("homeassistant/switch/device_proxy_0000dead/enabled/config", b"")]
+
+
+async def test_check_broker_says_why_it_fails() -> None:
+    async def accepting(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await reader.read(64)
+        writer.write(bytes([0x20, 2, 0, 0]))
+        await writer.drain()
+        writer.close()
+
+    async def refusing(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await reader.read(64)
+        writer.write(bytes([0x20, 2, 0, 4]))  # bad user name or password
+        await writer.drain()
+        writer.close()
+
+    good = await asyncio.start_server(accepting, "127.0.0.1", 0)
+    bad = await asyncio.start_server(refusing, "127.0.0.1", 0)
+    good_port = good.sockets[0].getsockname()[1]
+    bad_port = bad.sockets[0].getsockname()[1]
+    assert await check_broker(Broker("127.0.0.1", good_port)) == ""
+    assert "user or password" in await check_broker(Broker("127.0.0.1", bad_port, "a", "b"))
+    good.close()
+    bad.close()
+    assert await check_broker(Broker("127.0.0.1", good_port))  # nothing listens any more

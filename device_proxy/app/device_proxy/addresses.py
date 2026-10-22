@@ -46,7 +46,9 @@ def _lan_allowed(c: Connection, settings: Settings) -> bool:
         if settings.listen == "lan"
         else []
     )
-    return any(not any(n.version == o.version and n.subnet_of(o) for o in own) for n in networks)
+    return any(
+        not any(n.network_address in o and n.broadcast_address in o for o in own) for n in networks
+    )
 
 
 def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dict[str, Any]]:

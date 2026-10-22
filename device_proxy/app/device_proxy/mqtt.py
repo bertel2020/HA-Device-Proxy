@@ -89,6 +89,47 @@ def _packet(kind: int, flags: int, body: bytes) -> bytes:
     return bytes([(kind << 4) | flags]) + encoded + body
 
 
+def _connect_body(client_id: str, broker: Broker, will: tuple[str, bytes] | None) -> bytes:
+    flags = 0x02  # clean session
+    payload = _string(client_id)
+    if will:
+        flags |= 0x04 | 0x20  # will, retained
+        payload += _string(will[0]) + _string(will[1])
+    if broker.username:
+        flags |= 0x80
+        payload += _string(broker.username)
+        if broker.password:
+            flags |= 0x40
+            payload += _string(broker.password)
+    return _string("MQTT") + bytes([4, flags]) + struct.pack("!H", KEEPALIVE) + payload
+
+
+async def check_broker(broker: Broker) -> str:
+    """Connect once and say why it fails; "" when the broker accepts the login."""
+    context = ssl.create_default_context() if broker.ssl else None
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(broker.host, broker.port, ssl=context), 10
+        )
+    except (OSError, ssl.SSLError, TimeoutError) as err:
+        return str(err) or type(err).__name__
+    try:
+        writer.write(_packet(CONNECT, 0, _connect_body("device-proxy-check", broker, None)))
+        await writer.drain()
+        kind, _, data = await asyncio.wait_for(MqttClient._read(reader), 10)
+        if kind != CONNACK or len(data) < 2:
+            return "no CONNACK from the broker"
+        if data[1]:
+            return f"broker refused: {REFUSED.get(data[1], data[1])}"
+        writer.write(_packet(DISCONNECT, 0, b""))
+        await writer.drain()
+        return ""
+    except (OSError, asyncio.IncompleteReadError, ValueError, TimeoutError) as err:
+        return str(err) or type(err).__name__
+    finally:
+        writer.close()
+
+
 class MqttClient:
     def __init__(
         self,
@@ -131,18 +172,7 @@ class MqttClient:
             asyncio.open_connection(broker.host, broker.port, ssl=context), 15
         )
         self._writer = writer
-        flags = 0x02  # clean session
-        payload = _string(self.client_id)
-        if self.will:
-            flags |= 0x04 | 0x20  # will, retained
-            payload += _string(self.will[0]) + _string(self.will[1])
-        if broker.username:
-            flags |= 0x80
-            payload += _string(broker.username)
-            if broker.password:
-                flags |= 0x40
-                payload += _string(broker.password)
-        body = _string("MQTT") + bytes([4, flags]) + struct.pack("!H", KEEPALIVE) + payload
+        body = _connect_body(self.client_id, broker, self.will)
         writer.write(_packet(CONNECT, 0, body))
         await writer.drain()
         kind, _, data = await asyncio.wait_for(self._read(reader), 15)
