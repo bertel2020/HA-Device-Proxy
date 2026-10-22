@@ -36,7 +36,7 @@ export class ConnectionsPage extends Page {
     .conn:hover { border-color: var(--input-line); box-shadow: 0 2px 4px var(--shadow-c), 0 12px 28px -12px var(--shadow-c); }
     .kind { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-hover); flex: none; }
     .conn.off { background: var(--surface-2); }
-    .conn.missing { border-color: var(--bad-line); }
+    .why { font-size: 13px; color: var(--muted); }
     .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .title h2 { font-size: 18px; }
@@ -115,7 +115,7 @@ export class ConnectionsPage extends Page {
     const stuck = c.clients.filter((cl) => cl.stuck);
     const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) }) : "";
     const hasChips = recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
-    return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""} ${missing ? "missing" : ""}" aria-label=${c.name} data-go
+    return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""}" aria-label=${c.name} data-go
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
       <div class="top">
         <div style="min-width:0">
@@ -143,9 +143,9 @@ export class ConnectionsPage extends Page {
         </div>
         ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span></span>
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
-        ${c.clients.length ? "" : off ? html`<div class="hint" style="font-size:14px">${t("disabledText")}</div>`
-          : missing ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t("missingHint", { d: c.device })}</div>`
-          : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="hint" style="font-size:14px;color:var(--bad)">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
+        ${c.clients.length ? "" : off ? html`<div class="why">${t("disabledText")}</div>`
+          : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>`
+          : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       </div>
       <div class="foot">
         <div class="addr" title=${modbus ? `${primaryAddress(c)} ${t("hostPort")}` : primaryAddress(c)}><span class="mono">${primaryAddress(c)}</span>
