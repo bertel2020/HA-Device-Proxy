@@ -306,6 +306,20 @@ export class DetailPage extends Page {
     </section>`;
   }
 
+  _addresses(c) {
+    return html`<section class="card" aria-labelledby="t-addr">
+      <h2 id="t-addr">${t("addresses")}</h2>
+              ${c.addresses.map((a) => html`<div class="well">
+                <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
+                  <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
+                ${Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
+                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
+                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)}
+                ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
+              </div>`)}
+    </section>`;
+  }
+
   _modbusCard(m) {
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
     const counters = [["mbRequests", m.requests], ["mbAnswered", m.answered], ["mbExceptions", m.exceptions], ["mbTimeouts", m.timeouts], ["mbErrors", m.errors], ["mbQueue", `${m.queue ?? 0} / ${m.queue_max ?? 0}`]];
@@ -427,19 +441,10 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("network")}</span><span>${c.mode} · Port ${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>
             </div>`}
-            <div style="border-top:1px solid var(--line-2);margin-top:12px;padding-top:4px">
-              ${c.addresses.map((a) => html`<div class="well" style="margin-top:8px">
-                <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
-                  <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
-                ${Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
-                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
-                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)}
-                ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
-              </div>`)}
-            </div>
           </section>
         </div>
         <aside class="side-col">
+          ${this._addresses(c)}
           ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
