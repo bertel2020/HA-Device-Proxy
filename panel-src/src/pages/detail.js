@@ -268,6 +268,11 @@ export class DetailPage extends Page {
     const all = this.chunks.slice(-300).reverse(); // newest first, like the event log
     const rows = (enocean ? all.filter((ch) => this._matches(ch)) : all).slice(0, 120);
     const sender = (info) => (info.match(/[0-9A-F]{2}(-[0-9A-F]{2}){3}/) || [])[0];
+    // a Modbus line ends in the client's address; with one client only it is said once in the subtitle
+    const via = (info = "") => (info.match(/ · (\[?[0-9a-f.:]+\]?:\d+)$/i) || [])[1];
+    const clients = new Set(modbus ? rows.map((ch) => via(ch.info)).filter(Boolean) : []);
+    const only = clients.size === 1 ? [...clients][0] : "";
+    const infoOf = (ch) => (only && via(ch.info) === only ? ch.info.slice(0, -(only.length + 3)) : ch.info);
     if (!this._liveOpen()) {
       const last = this.chunks[this.chunks.length - 1];
       const recent = this.chunks.filter((ch) => ch.ts > Date.now() / 1000 - 10).length;
@@ -282,7 +287,7 @@ export class DetailPage extends Page {
       </section>`;
     }
     return html`<section class="card" aria-labelledby="t-live">
-      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}</p></div>
+      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}${only ? ` ${t("liveClientOnly", { a: only })}` : ""}</p></div>
         <div style="display:flex;gap:4px">
           ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
@@ -297,7 +302,7 @@ export class DetailPage extends Page {
           <td style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
           <td><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
           <td>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
-            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(ch.info)}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? lines16(ch.hex.split(" "), " ") : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
+            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? lines16(ch.hex.split(" "), " ") : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
             <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
           ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}
         </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
