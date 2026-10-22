@@ -347,14 +347,14 @@ export class DetailPage extends Page {
     const ha = c.addresses.find((a) => a.target === "ha");
     if (!ha || !ha.reachable) return "";
     const yaml = `modbus:\n  - name: ${JSON.stringify(c.name)}\n    type: tcp\n    host: ${ha.host}\n    port: ${c.port}\n    # ${t("haSnippetComment")}`;
-    return html`<section class="card" aria-labelledby="t-ha">
-      <div><h2 id="t-ha">${t("haSnippet")}</h2><p class="hint" style="margin-top:4px">${t("haUiSteps", { h: ha.host, p: c.port })}</p></div>
+    return foldCard("device_proxy.hasnippet", "t-ha", t("haSnippet"), t("haFoldSub"), html`
+      <p class="hint" style="margin:0">${t("haUiSteps", { h: ha.host, p: c.port })}</p>
       <p class="hint" style="margin:0">${t("haUnitHint")} <a href="https://www.home-assistant.io/integrations/modbus/" target="_blank" rel="noopener">${t("haDocs")}</a></p>
       <details class="fold" style="border-top:1px solid var(--line-2);padding-top:10px"><summary>${t("haYamlSummary")}</summary>
         <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("haYamlSub")}</p>
           ${this._copyBtn("ha-yaml", yaml)}</div>
         <div class="code">${yaml}</div></details>
-    </section>`;
+    `);
   }
 
   _addresses(c) {
