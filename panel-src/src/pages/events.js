@@ -144,7 +144,7 @@ export class EventsPage extends Page {
     const tabButton = (key, label) => html`<button role="tab" aria-selected=${this.tab === key ? "true" : "false"}
       @click=${() => { this.tab = key; if (key === "history") this._loadHistory(); }}>${t(label)}</button>`;
     return html`
-      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${t("eventsSub", { d: this.state.settings.history_days })}</p></div>
+      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${live ? t("eventsSub") : t("eventsSubHistory", { d: this.state.settings.history_days })}</p></div>
         <div class="tabs" role="tablist">${tabButton("live", "tabLive")}${tabButton("history", "tabHistory")}</div></div>
       <div class="filters">
         <label class="fld"><span class="lbl">${t("navConnections")}</span>
