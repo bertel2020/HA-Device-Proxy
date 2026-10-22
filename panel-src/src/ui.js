@@ -10,6 +10,7 @@ export const logo = (size = 36) => html`<svg width=${size} height=${size} viewBo
 
 const ICONS = {
   plus: "M12 5v14M5 12h14",
+  chevron: "M6 9l6 6 6-6",
   check: "M5 12l5 5L20 7",
   upload: "M12 15V3M7 8l5-5 5 5M5 21h14",
   x: "M6 6l12 12M18 6L6 18",
@@ -136,9 +137,19 @@ export function toolsCard(key, id, sub, body, force = false) {
   let pref = null;
   try { pref = localStorage.getItem(key); } catch { /* private window */ }
   return html`<section class="card" aria-labelledby=${id}>
-    <details ?open=${pref === "1" || force} @toggle=${(e) => { try { localStorage.setItem(key, e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
-      <summary style="cursor:pointer;display:flex;align-items:baseline;gap:8px"><h2 id=${id} style="display:inline">${t("tools")}</h2><span class="hint">· ${sub}</span></summary>
-      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">${body}</div>
+    <style>
+      .tc > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; list-style: none; border-radius: 10px; margin: -6px -8px; padding: 6px 8px; }
+      .tc > summary::-webkit-details-marker { display: none; }
+      .tc > summary:hover { background: var(--surface-2); }
+      .tc .chev { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-hover); font-size: 13px; font-weight: 500; }
+      .tc .chev svg { transition: transform .15s; }
+      .tc[open] .chev svg { transform: rotate(180deg); }
+      .tc .chev .on { display: none; } .tc[open] .chev .on { display: inline; } .tc[open] .chev .off { display: none; }
+    </style>
+    <details class="tc" ?open=${pref === "1" || force} @toggle=${(e) => { try { localStorage.setItem(key, e.target.open ? "1" : "0"); } catch { /* private window */ } }}>
+      <summary><h2 id=${id} style="display:inline">${t("tools")}</h2><span class="hint">· ${sub}</span>
+        <span class="chev"><span class="off">${t("toolsShow")}</span><span class="on">${t("toolsHide")}</span>${icon("chevron", 18)}</span></summary>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">${body}</div>
     </details>
   </section>`;
 }

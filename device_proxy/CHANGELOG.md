@@ -5,7 +5,8 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
-- **Tools card**: on all kinds (serial, Modbus, EnOcean) the card is folded at first, shows in its
+- **Tools card**: shows it can be folded: "Show" or "Collapse" with a chevron on the right, and the
+  header is highlighted when the pointer is over it. On all kinds (serial, Modbus, EnOcean) the card is folded at first, shows in its
   title what it holds, remembers per kind whether it was opened, and opens by itself when a result
   is there.
 - **Modbus tools**: read, write and scan share one grid, so the fields line up in four columns and the
