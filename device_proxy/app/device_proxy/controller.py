@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from . import custom
-from .addresses import addresses, host_lan_ip
+from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
@@ -205,6 +205,7 @@ class Controller:
         self.trace = trace or TraceHub()
         self.devices: list[Device] = []
         self.lan_ip: str | None = None
+        self.lan_net: str | None = None
         self.client_since: dict[tuple[str, str], float] = {}  # (alias, address) → time
         self.rates: dict[str, tuple[float, int, int, float, float]] = {}  # alias → t, rx, tx, r/s
         self.line_errors: dict[str, dict[str, int] | None] = {}  # connection id → since start
@@ -318,7 +319,7 @@ class Controller:
         await self.enocean_ha.update()
         self.devices = scan()
         self._apply_latency()
-        self.lan_ip = await asyncio.to_thread(host_lan_ip)
+        self.lan_ip, self.lan_net = await asyncio.to_thread(host_lan)
         self.ser2net_version = await self.ser2net.version()
         self._start_mqtt()
         try:
@@ -1077,6 +1078,7 @@ class Controller:
             "source": settings.source,
             "settings": settings.to_dict(),
             "lan_ip": self.lan_ip,
+            "lan_net": self.lan_net,
             "connections": connections,
             "custom_ports": [
                 {"alias": p.alias, "clients": [cl.address for cl in p.clients]}

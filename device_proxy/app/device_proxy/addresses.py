@@ -89,11 +89,12 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
     return result
 
 
-def host_lan_ip() -> str | None:
-    """The host's primary IPv4 address from the Supervisor (needs hassio_api)."""
+def host_lan() -> tuple[str | None, str | None]:
+    """The host's primary IPv4 address and its network (192.168.1.0/24) from the Supervisor
+    (needs hassio_api)."""
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
-        return None
+        return None, None
     request = urllib.request.Request(
         "http://supervisor/network/info", headers={"Authorization": f"Bearer {token}"}
     )
@@ -102,9 +103,13 @@ def host_lan_ip() -> str | None:
             data = json.load(response).get("data", {})
     except (OSError, ValueError) as err:
         _LOGGER.warning("Could not read the host's address from the Supervisor: %s", err)
-        return None
+        return None, None
     for interface in data.get("interfaces", []):
         if interface.get("primary"):
             for address in (interface.get("ipv4") or {}).get("address", []):
-                return str(address).split("/")[0]
-    return None
+                try:
+                    network = ipaddress.ip_interface(str(address)).network
+                except ValueError:
+                    return str(address).split("/")[0], None
+                return str(address).split("/")[0], str(network)
+    return None, None

@@ -71,6 +71,7 @@ def build(
         c["clients"] = len(c.get("clients", []))  # how many, not who
         c.pop("addresses", None)
     snapshot.pop("lan_ip", None)
+    snapshot.pop("lan_net", None)
     shm = shutil.disk_usage("/dev/shm") if os.path.isdir("/dev/shm") else None
     about = {
         "created": time.strftime("%Y-%m-%d %H:%M:%S"),

@@ -145,7 +145,7 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}</b><span class="hint">${t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}</b><span class="hint">${v === "lan" && s.lan_net ? t("netsub_lan_net", { net: s.lan_net }) : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
         </section>
 

@@ -79,7 +79,7 @@ const TEXT = {
     rotation: "Rotation: {mb} MB je Datei · {k} ältere behalten", change: "ändern", deleteFile: "„{n}“ löschen?",
     // settings
     settingsTitle: "Einstellungen", sNet: "Netzwerk", sNetSub: "Gilt für alle Verbindungen ohne eigene Bind-Adresse oder remaddr.",
-    net_local: "Nur dieser Rechner", netsub_local: "127.0.0.1 · nur Home Assistant", net_apps: "Home Assistant + Apps", netsub_apps: "127.0.0.0/8 und 172.30.32.0/23 · nicht aus dem LAN", net_lan: "LAN", netsub_lan: "nur aus privaten Netzen", net_all: "Alle Netze", netsub_all: "ohne Einschränkung",
+    net_local: "Nur dieser Rechner", netsub_local: "127.0.0.1 · nur Home Assistant", net_apps: "Home Assistant + Apps", netsub_apps: "127.0.0.0/8 und 172.30.32.0/23 · nicht aus dem LAN", net_lan: "LAN", netsub_lan: "nur aus privaten Netzen", netsub_lan_net: "nur aus privaten Netzen · dieses LAN: {net}", net_all: "Alle Netze", netsub_all: "ohne Einschränkung",
     netWarn: "ser2net hat keine Anmeldung. Wer den Port erreicht, kann das Gerät lesen und steuern.",
     sSource: "Konfigurationsquelle", sSourceSub: "Formulare oder eine eigene ser2net.yaml für Sonderfälle.", forms: "Formulare", own: "Eigene ser2net.yaml",
     ownWarn: "Solange die eigene Datei aktiv ist, werden die Formulare nicht verwendet. Ohne admin-Abschnitt: die App fügt ihren eigenen an.",
@@ -408,7 +408,7 @@ const TEXT = {
     recording: "recording · {m}", notRecording: "not recording", files: "Files", fileTh: "File", sizeTh: "Size", changedTh: "Changed",
     rotation: "Rotation: {mb} MB per file · {k} older kept", change: "change", deleteFile: "Delete “{n}”?",
     settingsTitle: "Settings", sNet: "Network", sNetSub: "Applies to all connections without their own bind address or remaddr.",
-    net_local: "This host only", netsub_local: "127.0.0.1 · Home Assistant only", net_apps: "Home Assistant + apps", netsub_apps: "127.0.0.0/8 and 172.30.32.0/23 · not from the LAN", net_lan: "LAN", netsub_lan: "private networks only", net_all: "All networks", netsub_all: "no limit",
+    net_local: "This host only", netsub_local: "127.0.0.1 · Home Assistant only", net_apps: "Home Assistant + apps", netsub_apps: "127.0.0.0/8 and 172.30.32.0/23 · not from the LAN", net_lan: "LAN", netsub_lan: "private networks only", netsub_lan_net: "private networks only · this LAN: {net}", net_all: "All networks", netsub_all: "no limit",
     netWarn: "ser2net has no login. Whoever reaches the port can read and control the device.",
     sSource: "Configuration source", sSourceSub: "Forms, or your own ser2net.yaml for special cases.", forms: "Forms", own: "Own ser2net.yaml",
     ownWarn: "While your own file is in use, the forms are not used. No admin section: the app adds its own.",
