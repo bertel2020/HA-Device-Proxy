@@ -107,6 +107,76 @@ def test_base_id_in_answers() -> None:
     assert esp.is_base_id_request("esp2", BASE_ID_READ)
 
 
+def test_base_id_changes() -> None:
+    request = esp.base_id_request("esp3")
+    answer = esp3(bytes.fromhex("00FFB74480"), b"\x0a", packet_type=2)
+    assert esp.base_id_writes_left("esp3", answer, request) == 10
+    assert (
+        esp.base_id_writes_left("esp3", esp3(bytes.fromhex("00FFB74480"), packet_type=2), request)
+        is None
+    )
+    assert esp.base_id_writes_left("esp2", BASE_ID_ANSWER, None) is None  # ESP2 does not tell
+    raw = esp.parse_base_id("ff-b7-44-80")
+    assert raw == bytes.fromhex("FFB74480")
+    for bad in ("FF-B7-44-81", "FF-7F-FF-80", "FF-B7-44", "zz-00-00-00", "00-00-00-00"):
+        with pytest.raises(ValueError):
+            esp.parse_base_id(bad)
+    write = esp.base_id_write_request("esp3", raw)
+    assert write == esp3(bytes.fromhex("07FFB74480"), packet_type=5)
+    write2 = esp.base_id_write_request("esp2", raw)
+    assert Splitter("esp2").feed(write2) == [write2] and write2[2:8].hex() == "ab18ffb74480"
+    assert esp.base_id_write_result("esp3", esp3(b"\x00", packet_type=2)) == "ok"
+    assert esp.base_id_write_result("esp3", esp3(b"\x91", packet_type=2)) == "no_writes_left"
+    assert esp.base_id_write_result("esp3", None) == "no_answer"
+    ok2 = bytes.fromhex("A55A8B58000000000000000000")
+    assert esp.base_id_write_result("esp2", ok2 + bytes([sum(ok2[2:]) & 0xFF])) == "ok"
+
+
+async def test_the_base_id_is_set_and_read_back() -> None:
+    class Esp3Gateway(FakeGateway):
+        base = bytes.fromhex("FFB74480")
+        left = 3
+
+        async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            self.writers.append(writer)
+            splitter = Splitter("esp3")
+            while data := await reader.read(1024):
+                for frame in splitter.feed(data):
+                    if frame[6] == 0x07 and self.left:
+                        self.base, self.left = frame[7:11], self.left - 1
+                        writer.write(esp3(b"\x00", packet_type=2))
+                    elif frame[6] == 0x07:
+                        writer.write(esp3(b"\x91", packet_type=2))
+                    elif frame[6] == 0x08:
+                        writer.write(esp3(b"\x00" + self.base, bytes([self.left]), 2))
+
+    gateway = await Esp3Gateway().start()
+    c = Connection(
+        "USB",
+        "",
+        0,
+        kind="enocean",
+        link="tcp",
+        host="127.0.0.1",
+        host_port=gateway.port,
+        esp_protocol="esp3",
+    )
+    proxy = EnOceanProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    task = asyncio.create_task(proxy.run())
+    try:
+        await _until(lambda: proxy.base_id_writes_left == 3)
+        assert await proxy.set_base_id(bytes.fromhex("FF801000")) == "ok"
+        assert (proxy.base_id, proxy.base_id_writes_left) == ("FF-80-10-00", 2)
+        assert proxy.state()["base_id_writes_left"] == 2
+        gateway.left = 0
+        assert await proxy.set_base_id(bytes.fromhex("FF802000")) == "no_writes_left"
+        assert (proxy.base_id, proxy.base_id_writes_left) == ("FF-80-10-00", 0)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await gateway.stop()
+
+
 def test_validation() -> None:
     def gateway(**values: Any) -> Connection:
         return Connection.from_dict(

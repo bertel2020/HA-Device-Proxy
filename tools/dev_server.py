@@ -100,11 +100,11 @@ ESP2_RADIO = [  # rocker presses, a window contact, a meter (4BS)
     _esp2("0B07", "FF6C0418", "01908C14", "00"),
     _esp2("0B05", "50000000", "00216343"),
 ]
-BASE_ID_ANSWER = _esp2("8B98", "FFB74480", "00000000", "00")
 
 
 async def esp2_gateway(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    """A FAM-USB: radio telegrams every few seconds, the base ID on request."""
+    """A FAM-USB: radio telegrams every few seconds, the base ID on request (and to change)."""
+    base = "FFB74480"
 
     async def talk() -> None:
         n = 0
@@ -126,7 +126,11 @@ async def esp2_gateway(reader: asyncio.StreamReader, writer: asyncio.StreamWrite
                 frame, buffer = buffer[start : start + 14], buffer[start + 14 :]
                 if len(frame) == 14 and frame[3] == 0x58:
                     await asyncio.sleep(0.01)
-                    writer.write(BASE_ID_ANSWER)
+                    writer.write(_esp2("8B98", base, "00000000", "00"))
+                elif len(frame) == 14 and frame[3] == 0x18:  # SET_IDBASE
+                    base = frame[4:8].hex().upper()
+                    await asyncio.sleep(0.3)  # the flash
+                    writer.write(_esp2("8B58", "00000000", "00000000", "00"))
     except ConnectionError:
         pass
     finally:

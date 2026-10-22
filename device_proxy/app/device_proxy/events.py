@@ -92,6 +92,8 @@ MESSAGES = {
     "enocean_back": "Gateway reachable again: {target}",
     "duty_cycle_high": "{of_limit} % of the 1 % duty cycle used in the last hour",
     "client_dropped": "Client {address} stopped reading and was disconnected ({queued} bytes)",
+    "base_id_set": "Base ID changed to {base_id}",
+    "base_id_failed": "Base ID {base_id} not set: {result}",
     "capture_started": "Recording into {file}",
     "capture_locked": "Recording into {file}, only {peer} may send",
     "capture_stopped": "Recording ended: {file}, {frames} frames",

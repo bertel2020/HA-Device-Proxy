@@ -67,6 +67,17 @@ export function checkFrame(bytes, protocol) {
   return { level: "ok", msg: t("eoOk", { p: "ESP3" }) };
 }
 
+/** A base ID to set: { ok, msg }, or null while nothing is typed. Range FF-80-00-00 to FF-FF-FF-80 in steps of 0x80. */
+export function checkBaseId(text, current) {
+  const bytes = parseHex(text.trim());
+  if (bytes !== null && !bytes.length) return null;
+  if (bytes === null || bytes.length !== 4) return { ok: false, msg: t("eoBaseBadFormat") };
+  const value = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  if (value < 0xff800000 || value > 0xffffff80 || value & 0x7f) return { ok: false, msg: t("eoBaseRange") };
+  if (current && toHex(bytes).replaceAll(" ", "-") === current) return { ok: false, msg: t("eoBaseSame") };
+  return { ok: true, msg: t("eoBaseRange") };
+}
+
 /** What is wrong with a gateway, worst first: [{level, title, text}]. */
 export function issues(c, capture) {
   const e = c.enocean;
@@ -102,6 +113,7 @@ export function statusCard(c) {
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
       <span class="hint">${t("eoProtocol")}</span><span>${(e.protocol || c.esp_protocol || "").toUpperCase()}</span>
       <span class="hint">${t("eoBaseId")}</span><span class="mono">${e.base_id || t("eoBaseUnknown")}</span>
+      ${e.base_id_writes_left != null ? html`<span class="hint">${t("eoBaseLeft")}</span><span style=${e.base_id_writes_left ? "" : "color:var(--warn)"}>${e.base_id_writes_left}</span>` : ""}
       ${e.connected_since ? html`<span class="hint">${t("eoSince")}</span><span>${fmtAgo(e.connected_since)}</span>` : ""}
     </div>
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
@@ -159,6 +171,7 @@ export class EnOceanTools extends LitElement {
   static properties = {
     connection: { attribute: false }, capture: { attribute: false },
     text: { state: true }, answers: { state: true }, test: { state: true }, busy: { state: true }, peer: { state: true },
+    baseId: { state: true }, baseResult: { state: true },
   };
 
   static styles = [tokens, base, css`
@@ -172,6 +185,7 @@ export class EnOceanTools extends LitElement {
     this.text = "";
     this.answers = [];
     this.peer = "";
+    this.baseId = "";
   }
 
   /** Take a frame from the live view into "send". */
@@ -203,6 +217,20 @@ export class EnOceanTools extends LitElement {
     } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = ""; }
   }
 
+  async _setBaseId() {
+    const c = this.connection, e = c.enocean || {};
+    const left = e.base_id_writes_left;
+    const wanted = this.baseId.trim().toUpperCase();
+    const text = t("eoBaseConfirm", { id: wanted, n: c.name }) + (left != null ? ` ${t("eoBaseConfirmLeft", { n: Math.max(0, left - 1) })}` : ` ${t("eoBaseConfirmUnknown")}`);
+    if (!(await confirmDialog(this, text, t("eoBaseSet")))) return;
+    this.busy = "base";
+    try {
+      this.baseResult = await api(`api/tools/${c.id}/enocean/base_id`, { method: "POST", body: { base_id: wanted } });
+      if (this.baseResult.result === "ok") this.baseId = "";
+      this._refresh();
+    } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = ""; }
+  }
+
   async _capture(start) {
     try {
       if (start) await api(`api/tools/${this.connection.id}/enocean/capture`, { method: "POST", body: { exclusive_peer: this.peer || null } });
@@ -217,12 +245,24 @@ export class EnOceanTools extends LitElement {
     const blocked = !c.enabled ? t("eoOff") : !e.connected ? t("eoNotConnected") : e.exclusive_peer ? t("eoReserved", { peer: e.exclusive_peer }) : "";
     const bytes = parseHex(this.text);
     const check = checkFrame(bytes, c.esp_protocol);
+    const baseCheck = checkBaseId(this.baseId, e.base_id);
     const hosts = [...new Set(c.clients.map((cl) => cl.address.replace(/^\[?(.*?)\]?:\d+$/, "$1")))];
     return toolsCard("device_proxy.tools.enocean", "t-eotools", t("eoToolsSub"), html`
       ${blocked ? html`<div class="note warn">${blocked}</div>` : ""}
       <div class="row"><div><b style="font-weight:500">${t("eoTest")}</b><p class="hint">${t("eoTestSub")}</p></div>
         <button class="btn btn-s" ?disabled=${!!blocked || this.busy === "test"} @click=${this._test}>${this.busy === "test" ? t("eoTesting") : t("eoTestBtn")}</button></div>
       ${this.test ? html`<div class="note ${this.test.lost ? "warn" : "ok"}">${t("eoTestResult", { a: this.test.answered, s: this.test.sent, avg: this.test.avg_ms ?? "–", max: this.test.max_ms ?? "–" })}</div>` : ""}
+
+      <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoBaseTitle")}</b><p class="hint">${t("eoBaseSub")}</p></div>
+      <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
+        <span class="hint">${t("eoBaseNow")}</span><span class="mono">${e.base_id || t("eoBaseUnknown")}</span>
+        <span class="hint">${t("eoBaseLeft")}</span><span style=${e.base_id_writes_left === 0 ? "color:var(--warn)" : ""}>${e.base_id_writes_left ?? t(c.esp_protocol === "esp2" ? "eoBaseLeftEsp2" : "eoBaseLeftUnknown")}</span>
+      </div>
+      <div class="grid"><label class="fld"><span class="lbl">${t("eoBaseNew")}</span>
+        <input class="inp mono" spellcheck="false" placeholder="FF-B7-44-80" .value=${this.baseId} @input=${(ev) => { this.baseId = ev.target.value; }}>
+        <span class="hint" style=${baseCheck && !baseCheck.ok ? "color:var(--bad)" : ""}>${baseCheck ? baseCheck.msg : t("eoBaseRange")}</span></label></div>
+      <div><button class="btn btn-s" ?disabled=${!!blocked || !baseCheck?.ok || e.base_id_writes_left === 0 || this.busy === "base"} @click=${this._setBaseId}>${this.busy === "base" ? t("eoBaseSetting") : t("eoBaseSet")}</button></div>
+      ${this.baseResult ? html`<div class="note ${this.baseResult.result === "ok" ? "ok" : "bad"}" role="status">${t(`eoBaseR_${this.baseResult.result}`)}${this.baseResult.writes_left != null ? ` · ${t("eoBaseLeftN", { n: this.baseResult.writes_left })}` : ""}</div>` : ""}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoSendTitle")}</b><p class="hint">${t("eoSendSub", { p: c.esp_protocol.toUpperCase() })}</p></div>
       <textarea class="inp mono" spellcheck="false" aria-label=${t("eoSendTitle")} .value=${this.text} placeholder=${c.esp_protocol === "esp2" ? "A5 5A AB 58 00 00 00 00 00 00 00 00 00 03" : "55 00 01 00 05 70 08 38"}

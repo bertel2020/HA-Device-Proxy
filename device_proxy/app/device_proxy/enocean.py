@@ -60,6 +60,7 @@ RECONNECT_DELAYS = (1, 2, 5, 10, 30)  # seconds between attempts to reach the ga
 LISTEN_RETRY = 10  # seconds between attempts to open the port
 OPEN_TIMEOUT = 10.0  # seconds for connecting to a network gateway
 RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
+BASE_ID_WRITE_TIMEOUT = 5.0  # the gateway writes its flash first
 CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before it is dropped
 CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
 CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
@@ -151,6 +152,7 @@ class EnOceanProxy:
         self.reachable_since = time.time()
         self.connected_since: float | None = None
         self.base_id: str | None = None  # learnt from the gateway's answers
+        self.base_id_writes_left: int | None = None  # ESP3 tells it with the base ID
         self.ask_base_id = True  # read it once per connection (tests switch it off)
         self.exclusive_peer: str | None = None  # only this host may send (PCT14 capture)
         # (direction, frame, client address) of every frame, e.g. for a capture
@@ -303,6 +305,7 @@ class EnOceanProxy:
     def _learn(self, frame: bytes, request: bytes | None) -> None:
         if found := esp.base_id(self.protocol, frame, request):
             self.base_id = found
+            self.base_id_writes_left = esp.base_id_writes_left(self.protocol, frame, request)
 
     def _next_waiting(self) -> tuple[_Client, bytes] | None:
         now = self._clock()
@@ -532,6 +535,15 @@ class EnOceanProxy:
             "max_ms": round(max(times), 1) if times else None,
         }
 
+    async def set_base_id(self, raw: bytes) -> str:
+        """Change the base ID, then read it back; what the gateway said ("ok", ...)."""
+        answer = await self.request(
+            esp.base_id_write_request(self.protocol, raw), BASE_ID_WRITE_TIMEOUT
+        )
+        result = esp.base_id_write_result(self.protocol, answer)
+        await self.request(esp.base_id_request(self.protocol))  # _learn takes the new one
+        return result
+
     # state
 
     def state(self) -> dict[str, Any]:
@@ -547,6 +559,7 @@ class EnOceanProxy:
             "connected": self.link.is_open,
             "connected_since": self.connected_since,
             "base_id": self.base_id,
+            "base_id_writes_left": self.base_id_writes_left,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
             "frames": {

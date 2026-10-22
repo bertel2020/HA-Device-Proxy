@@ -211,6 +211,69 @@ def base_id(protocol: str, frame: bytes, request: bytes | None = None) -> str | 
     return frame[4:8].hex("-").upper()
 
 
+def base_id_writes_left(protocol: str, frame: bytes, request: bytes | None) -> int | None:
+    """How often the base ID can still be changed, from an ESP3 answer to CO_RD_IDBASE
+    (its optional byte); None for ESP2, which does not tell."""
+    if protocol != "esp3" or base_id(protocol, frame, request) is None:
+        return None
+    length = int.from_bytes(frame[1:3], "big")
+    return frame[6 + length] if frame[3] >= 1 else None
+
+
+BASE_ID_FIRST, BASE_ID_LAST = 0xFF800000, 0xFFFFFF80  # the range a gateway takes, in steps of 0x80
+
+
+def parse_base_id(text: str) -> bytes:
+    """ "FF-B7-44-80" (also with ":", spaces or none) → 4 bytes; ValueError if not settable."""
+    cleaned = "".join(ch for ch in text if ch not in " :-\t")
+    try:
+        raw = bytes.fromhex(cleaned)
+    except ValueError:
+        raise ValueError("base ID: 4 hex bytes like FF-B7-44-80") from None
+    if len(raw) != 4:
+        raise ValueError("base ID: 4 hex bytes like FF-B7-44-80")
+    value = int.from_bytes(raw, "big")
+    if not BASE_ID_FIRST <= value <= BASE_ID_LAST or value & 0x7F:
+        raise ValueError("base ID: FF-80-00-00 to FF-FF-FF-80, the last byte 00 or 80")
+    return raw
+
+
+def base_id_write_request(protocol: str, raw: bytes) -> bytes:
+    """Change the base ID (CO_WR_IDBASE / SET_IDBASE). The gateway keeps it in flash and
+    allows it only a few times (10 for TCM 300 modules)."""
+    if protocol == "esp3":
+        header = bytes([0x00, 0x05, 0x00, 0x05])  # 5 data bytes, COMMON_COMMAND
+        data = b"\x07" + raw
+        return b"\x55" + header + bytes([crc8(header)]) + data + bytes([crc8(data)])
+    body = bytes([0xAB, 0x18]) + raw + bytes(5)  # TCT, SET_IDBASE, 4 data, 4 ID, status
+    return b"\xa5\x5a" + body + bytes([sum(body) & 0xFF])
+
+
+# ESP3 return codes of CO_WR_IDBASE; ESP2 answers OK (ORG 0x58) or an error ORG
+ESP3_WRITE_RESULTS = {
+    0x00: "ok",
+    0x01: "error",
+    0x02: "not_supported",
+    0x82: "flash_error",
+    0x90: "out_of_range",
+    0x91: "no_writes_left",
+}
+ESP2_WRITE_RESULTS = {0x58: "ok", 0x19: "error", 0x1A: "out_of_range"}
+
+
+def base_id_write_result(protocol: str, frame: bytes | None) -> str:
+    """What the gateway said to a base ID change: "ok", "no_writes_left" ... or "no_answer"."""
+    if frame is None:
+        return "no_answer"
+    if protocol == "esp3":
+        if frame[4] != ESP3_RESPONSE or len(frame) < 8:
+            return "error"
+        return ESP3_WRITE_RESULTS.get(frame[6], "error")
+    if not is_response(protocol, frame):
+        return "error"
+    return ESP2_WRITE_RESULTS.get(frame[3], "error")
+
+
 def describe(protocol: str, frame: bytes) -> str:
     """For the live view: "RPS FE-E9-12-34", "answer", "bus", "command" or ""."""
     if (info := radio_info(protocol, frame)) is not None:

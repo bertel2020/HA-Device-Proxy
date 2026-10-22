@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **EnOcean base ID**: the tools set a new base ID, and ESP3 gateways show how many changes are
+  left (the gateway allows only a few).
+
 - **Documentation**: the MQTT base topic is `device_proxy` (it still said `ser2net`); the four
   network levels with their current names, including "Home Assistant and apps"; the Modbus write
   lock as it works now; menu paths as the interface names them; EnOcean in the introduction; the

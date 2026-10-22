@@ -32,7 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, health, model
+from . import custom, esp, health, model
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
@@ -1006,6 +1006,24 @@ class Controller:
         if not 1 <= count <= 100:
             raise ValueError("count: 1 to 100")
         return await sendable(self._enocean(connection_id)).gateway_test(count)
+
+    async def enocean_base_id(self, connection_id: str, text: str) -> dict[str, object]:
+        """Change the gateway's base ID; the answer and the base ID read back."""
+        proxy = sendable(self._enocean(connection_id))
+        raw = esp.parse_base_id(text)
+        result = await proxy.set_base_id(raw)
+        self.events.emit(
+            "info" if result == "ok" else "warning",
+            "base_id_set" if result == "ok" else "base_id_failed",
+            connection=proxy.c.id,
+            base_id=raw.hex("-").upper(),
+            result=result,
+        )
+        return {
+            "result": result,
+            "base_id": proxy.base_id,
+            "writes_left": proxy.base_id_writes_left,
+        }
 
     def start_capture(self, connection_id: str, exclusive_peer: str | None) -> dict[str, object]:
         proxy = self._enocean(connection_id)

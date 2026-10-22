@@ -162,6 +162,7 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/capture", self.capture_start)
         self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
@@ -680,6 +681,16 @@ class WebServer:
         (count,) = self._ints(request.json(), "count")
         try:
             return ok(await self.c.enocean_test(request.params["id"], count))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+
+    async def enocean_base_id(self, request: Request) -> Response:
+        data = request.json()
+        base_id = data.get("base_id") if isinstance(data, dict) else None
+        if not isinstance(base_id, str):
+            raise HttpError(400, "base_id: like FF-B7-44-80")
+        try:
+            return ok(await self.c.enocean_base_id(request.params["id"], base_id))
         except ValueError as err:
             raise HttpError(409, str(err)) from None
 

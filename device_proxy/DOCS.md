@@ -241,6 +241,10 @@ sender, copy, take over into "send"), the air time of the last hour against the 
 told it. Tools:
 
 - **Gateway test**: reads the base ID ten times; nothing goes over the air.
+- **Change base ID**: sets the gateway's base ID (FF-80-00-00 to FF-FF-FF-80, last byte 00 or 80).
+  The gateway keeps it in flash and allows only a few changes (10 for TCM 300 modules such as the
+  USB300); ESP3 gateways report how many are left, shown next to the base ID. Taught-in actuators
+  know the old ID and must be taught in again.
 - **Send a frame**: one whole frame as hex, checked while you type (sync, length, ESP2
   checksum, ESP3 CRCs), with a button to add or fix the checksum; the answer is shown.
 - **Record frames (PCT14)**: a single recording of every frame in both directions as JSON lines (time, gateway, direction, kind,
