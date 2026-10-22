@@ -215,6 +215,7 @@ export class SettingsPage extends Page {
     const own = s.source === "custom";
     const conns = s.connections || [];
     const noClient = conns.some((c) => c.notify_no_client);
+    const gateways = conns.filter((c) => c.kind === "enocean" && c.enabled).length;
     const check = this.customCheck;
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
@@ -332,12 +333,18 @@ export class SettingsPage extends Page {
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">
           <div class="row"><div><h2 id="t-enocean">${t("sEnocean")}</h2><p class="hint" style="margin-top:4px">${t("sEnoceanSub")}</p></div>
-            ${s.enocean_status_port ? html`<span class="chip ok">${t("eoStatusOn", { p: s.enocean_status_port })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
+            ${gateways ? html`<span class="chip ok">${t("eoStatusOn", { n: gateways })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
+          ${gateways ? "" : html`<div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}<span>${t("eoNoGateway")} <a href="#/edit/new">${t("addConnection")}</a></span></div>`}
           <label class="chk"><input type="checkbox" .checked=${!!d.enocean_discovery} @change=${(e) => { this.draft = { ...this.draft, enocean_discovery: e.target.checked }; }}>
             <span>${t("eoDiscovery")}<br><span class="hint">${t("eoDiscoveryHint")}</span></span></label>
-          <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
-            @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: Number(e.target.value || 0) }; }}>
-            <span class="hint">${t("eoStatusPortHint")}</span></label>
+          <details class="expert" ?open=${d.enocean_status_port !== 9199}>
+            <summary>${t("eoAdvanced")}${d.enocean_status_port !== 9199 ? html` <span class="hint">· ${t("eoPortCustom")}</span>` : ""}</summary>
+            <div class="expert-body">
+              <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
+                @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: Number(e.target.value || 0) }; }}>
+                <span class="hint">${t("eoStatusPortHint")}</span></label>
+            </div>
+          </details>
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings({ enocean_discovery: d.enocean_discovery, enocean_status_port: d.enocean_status_port })}>${t("save")}</button></div>
         </section>
 
