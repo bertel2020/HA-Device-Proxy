@@ -20,6 +20,9 @@
   count, clear and millisecond times, recorded files name their connection, copyable path.
 - **Import**: collisions in plain words, select all, the connections "Replace all" removes are
   named, and the finished step counts added, replaced and skipped connections.
+- **Own ser2net.yaml**: a card of its own with the two choices "From the forms" and "Own file", the
+  editor only when you want it, an automatic check while typing, saving locked on errors and a
+  button to refill the file from the forms.
 - Confirmations before switching off a connection with clients, before an import replaces
   connections and before deleting.
 - Narrow screens: header chips wrap, the navigation fits one row, the trace page picks the
