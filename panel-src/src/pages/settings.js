@@ -317,7 +317,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNetNav"], ["backup", "sBackup"], ["src", "sSourceNav"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNetNav"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -367,40 +367,6 @@ export class SettingsPage extends Page {
             </div>
             <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
           </div>
-        </section>
-
-        <section id="src" class="card" aria-labelledby="t-src">
-          <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
-          <div class="choices" role="radiogroup" aria-labelledby="t-src">
-            <button type="button" class="choice" role="radio" aria-checked=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>
-              <b style="font-weight:500">${t("srcForms")}</b><span class="hint">${t("srcFormsSub")}</span></button>
-            <button type="button" class="choice" role="radio" aria-checked=${own ? "true" : "false"} @click=${() => this._chooseOwn()}>
-              <b style="font-weight:500">${t("srcOwn")}</b><span class="hint">${own ? t("srcOwnOn") : this.custom?.exists ? t("srcOwnSaved") : t("srcOwnNone")}</span></button>
-          </div>
-          <div><a href="#/settings" @click=${(e) => { e.preventDefault(); this._toggleRuntime(); }}>${this.runtime ? t("runtimeHide") : t("srcRuntime")}</a></div>
-          ${this.runtime ? html`
-            <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
-              <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>
-            <pre class="code runtime">${this.runtime.text || "–"}</pre>
-            <div class="hint">${this.runtime.ts ? `${fmtTime(this.runtime.ts)} · ` : ""}${t("runtimeConns", { n: this.runtime.connections })} · ${t("runtimeFoot")}</div>` : ""}
-          ${own || this.customOpen ? html`
-            <div class="expert-body">
-              ${own ? html`<div class="note warn" role="note">${t("ownWarn")}</div>` : ""}
-              <div class="hint">${t("ownHint")}</div>
-              <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => this._edited(e)}></textarea>
-              <div class="row">
-                ${check ? check.errors.length ? html`<div class="note bad" style="flex:1" role="alert">${check.errors.map((n) => html`<div>${noteText(n)}</div>`)}</div>`
-                  : html`<span class="chip ok">${t("checkOk", { n: check.connections.length })}</span>` : html`<span class="hint">${t("checking")}</span>`}
-                <button class="btn btn-g" @click=${() => this._fill()}>${t("fillForms")}</button>
-              </div>
-              ${check && check.notes.length ? html`<div class="hint">${check.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
-              <div class="row" style="justify-content:flex-end;gap:12px;align-items:flex-start">
-                <div style="text-align:right"><button class="btn btn-s" ?disabled=${!ready} @click=${() => this._saveCustom(false)}>${t("saveFile")}</button><div class="hint" style="margin-top:2px">${t("saveFileHint")}</div></div>
-                <div style="text-align:right"><button class="btn btn-p" ?disabled=${!ready} @click=${() => this._saveCustom(true)}>${t("saveUse")}</button><div class="hint" style="margin-top:2px">${t("saveUseHint")}</div></div>
-              </div>
-            </div>` : html`<div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
-              <span class="hint">${this.custom?.exists ? t("ownEditHint") : t("ownCreateHint")}</span>
-              <button class="btn btn-s" @click=${() => { this.customOpen = true; if (!this.custom?.exists) this._check(); }}>${this.custom?.exists ? t("ownEdit") : t("ownCreate")}</button></div>`}
         </section>
 
         <section id="hist" class="card" aria-labelledby="t-hist">
@@ -528,6 +494,40 @@ export class SettingsPage extends Page {
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
+        </section>
+
+        <section id="src" class="card" aria-labelledby="t-src">
+          <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
+          <div class="choices" role="radiogroup" aria-labelledby="t-src">
+            <button type="button" class="choice" role="radio" aria-checked=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>
+              <b style="font-weight:500">${t("srcForms")}</b><span class="hint">${t("srcFormsSub")}</span></button>
+            <button type="button" class="choice" role="radio" aria-checked=${own ? "true" : "false"} @click=${() => this._chooseOwn()}>
+              <b style="font-weight:500">${t("srcOwn")}</b><span class="hint">${own ? t("srcOwnOn") : this.custom?.exists ? t("srcOwnSaved") : t("srcOwnNone")}</span></button>
+          </div>
+          <div><a href="#/settings" @click=${(e) => { e.preventDefault(); this._toggleRuntime(); }}>${this.runtime ? t("runtimeHide") : t("srcRuntime")}</a></div>
+          ${this.runtime ? html`
+            <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
+              <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>
+            <pre class="code runtime">${this.runtime.text || "–"}</pre>
+            <div class="hint">${this.runtime.ts ? `${fmtTime(this.runtime.ts)} · ` : ""}${t("runtimeConns", { n: this.runtime.connections })} · ${t("runtimeFoot")}</div>` : ""}
+          ${own || this.customOpen ? html`
+            <div class="expert-body">
+              ${own ? html`<div class="note warn" role="note">${t("ownWarn")}</div>` : ""}
+              <div class="hint">${t("ownHint")}</div>
+              <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => this._edited(e)}></textarea>
+              <div class="row">
+                ${check ? check.errors.length ? html`<div class="note bad" style="flex:1" role="alert">${check.errors.map((n) => html`<div>${noteText(n)}</div>`)}</div>`
+                  : html`<span class="chip ok">${t("checkOk", { n: check.connections.length })}</span>` : html`<span class="hint">${t("checking")}</span>`}
+                <button class="btn btn-g" @click=${() => this._fill()}>${t("fillForms")}</button>
+              </div>
+              ${check && check.notes.length ? html`<div class="hint">${check.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
+              <div class="row" style="justify-content:flex-end;gap:12px;align-items:flex-start">
+                <div style="text-align:right"><button class="btn btn-s" ?disabled=${!ready} @click=${() => this._saveCustom(false)}>${t("saveFile")}</button><div class="hint" style="margin-top:2px">${t("saveFileHint")}</div></div>
+                <div style="text-align:right"><button class="btn btn-p" ?disabled=${!ready} @click=${() => this._saveCustom(true)}>${t("saveUse")}</button><div class="hint" style="margin-top:2px">${t("saveUseHint")}</div></div>
+              </div>
+            </div>` : html`<div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
+              <span class="hint">${this.custom?.exists ? t("ownEditHint") : t("ownCreateHint")}</span>
+              <button class="btn btn-s" @click=${() => { this.customOpen = true; if (!this.custom?.exists) this._check(); }}>${this.custom?.exists ? t("ownEdit") : t("ownCreate")}</button></div>`}
         </section>
 
         <section id="about" class="card" aria-labelledby="t-about">

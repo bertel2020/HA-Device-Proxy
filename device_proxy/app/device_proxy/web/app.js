@@ -942,7 +942,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
       </li>`}),o=e.length-5;return a`<ol class="hist">${i}</ol>${o>0?a`<div><button class="btn btn-g" @click=${()=>{this.histAll=!this.histAll}}>${this.histAll?t("histLess"):t("histMore",{n:o})}</button></div>`:""}`}async _restore(e){if(await S(this,t("restoreConfirm"),t("restore")))try{await b(`api/versions/${e.id}/restore`,{method:"POST"}),this.toast(t("saved")),this.refresh(),this._loadVersions()}catch(n){this.toast(`${t("error")}: ${n.message}`)}}_changeLine(e){return je(e.changes)||e.summary}render(){let e=this.state,n=this.draft;if(!n)return"";let s=e.source==="custom",i=e.connections||[],o=i.some(p=>p.notify_no_client),l=i.filter(p=>p.bind||p.remaddr).length,c=this._lan(),d=this._lanText()!==(e.settings.lan_networks||"").trim().split(/[\s,;]+/).filter(Boolean).join(" "),h=e.settings.lan_networks.split(/[\s,;]+/).filter(Boolean).length,g=h===0?t("netsub_lan_none"):h===1?t("netsub_lan_one"):t("netsub_lan_many",{n:h}),f=this.ownBroker??!!n.mqtt_host,u=n.mqtt_prefix!=="homeassistant"||n.mqtt_base!=="device_proxy"||n.mqtt_interval!==10,m=e.settings.mqtt_enabled?e.mqtt.broker?a`<span class="chip ${e.mqtt.connected?"ok":"warn"}">${e.mqtt.connected?t("mqttConnected"):t("mqttDisconnected")}</span>`:a`<span class="chip warn">${t("mqttStateNone")}</span>`:a`<span class="chip">${t("mqttStateOff")}</span>`,$=i.filter(p=>p.kind==="enocean"&&p.enabled).length,C=this.customCheck,N=!!C&&!C.errors.length&&!!(this.customText||"").trim();return a`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net","sNetNav"],["backup","sBackup"],["src","sSourceNav"],["hist","sHistory"],["notify","sNotify"],["mqtt","sMqtt"],["enocean","sEnocean"],["log","sLogging"],["about","sAbout"]].map(([p,_])=>a`<a href="#/settings" @click=${M=>{M.preventDefault(),this.renderRoot.getElementById(p).scrollIntoView({behavior:"smooth"})}}>${t(_)}</a>`)}
+        ${[["net","sNetNav"],["backup","sBackup"],["hist","sHistory"],["notify","sNotify"],["mqtt","sMqtt"],["enocean","sEnocean"],["log","sLogging"],["src","sSourceNav"],["about","sAbout"]].map(([p,_])=>a`<a href="#/settings" @click=${M=>{M.preventDefault(),this.renderRoot.getElementById(p).scrollIntoView({behavior:"smooth"})}}>${t(_)}</a>`)}
       </nav>
       <div class="content">
         <section id="net" class="card" aria-labelledby="t-net">
@@ -991,39 +991,6 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             </div>
             <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${p=>{this.exportDisabled=p.target.checked}}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
           </div>
-        </section>
-
-        <section id="src" class="card" aria-labelledby="t-src">
-          <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
-          <div class="choices" role="radiogroup" aria-labelledby="t-src">
-            <button type="button" class="choice" role="radio" aria-checked=${s?"false":"true"} @click=${()=>this._saveSettings({source:"forms"})}>
-              <b style="font-weight:500">${t("srcForms")}</b><span class="hint">${t("srcFormsSub")}</span></button>
-            <button type="button" class="choice" role="radio" aria-checked=${s?"true":"false"} @click=${()=>this._chooseOwn()}>
-              <b style="font-weight:500">${t("srcOwn")}</b><span class="hint">${s?t("srcOwnOn"):this.custom?.exists?t("srcOwnSaved"):t("srcOwnNone")}</span></button>
-          </div>
-          <div><a href="#/settings" @click=${p=>{p.preventDefault(),this._toggleRuntime()}}>${this.runtime?t("runtimeHide"):t("srcRuntime")}</a></div>
-          ${this.runtime?a`
-            <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
-              <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${v("copy")}${this.copied?t("copied"):t("copy")}</button></div></div>
-            <pre class="code runtime">${this.runtime.text||"\u2013"}</pre>
-            <div class="hint">${this.runtime.ts?`${T(this.runtime.ts)} \xB7 `:""}${t("runtimeConns",{n:this.runtime.connections})} · ${t("runtimeFoot")}</div>`:""}
-          ${s||this.customOpen?a`
-            <div class="expert-body">
-              ${s?a`<div class="note warn" role="note">${t("ownWarn")}</div>`:""}
-              <div class="hint">${t("ownHint")}</div>
-              <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText||""} @input=${p=>this._edited(p)}></textarea>
-              <div class="row">
-                ${C?C.errors.length?a`<div class="note bad" style="flex:1" role="alert">${C.errors.map(p=>a`<div>${L(p)}</div>`)}</div>`:a`<span class="chip ok">${t("checkOk",{n:C.connections.length})}</span>`:a`<span class="hint">${t("checking")}</span>`}
-                <button class="btn btn-g" @click=${()=>this._fill()}>${t("fillForms")}</button>
-              </div>
-              ${C&&C.notes.length?a`<div class="hint">${C.notes.map(p=>a`<div>${L(p)}</div>`)}</div>`:""}
-              <div class="row" style="justify-content:flex-end;gap:12px;align-items:flex-start">
-                <div style="text-align:right"><button class="btn btn-s" ?disabled=${!N} @click=${()=>this._saveCustom(!1)}>${t("saveFile")}</button><div class="hint" style="margin-top:2px">${t("saveFileHint")}</div></div>
-                <div style="text-align:right"><button class="btn btn-p" ?disabled=${!N} @click=${()=>this._saveCustom(!0)}>${t("saveUse")}</button><div class="hint" style="margin-top:2px">${t("saveUseHint")}</div></div>
-              </div>
-            </div>`:a`<div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
-              <span class="hint">${this.custom?.exists?t("ownEditHint"):t("ownCreateHint")}</span>
-              <button class="btn btn-s" @click=${()=>{this.customOpen=!0,this.custom?.exists||this._check()}}>${this.custom?.exists?t("ownEdit"):t("ownCreate")}</button></div>`}
         </section>
 
         <section id="hist" class="card" aria-labelledby="t-hist">
@@ -1144,6 +1111,39 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             <div class="note" style="display:flex;gap:8px;align-items:center">${v("info")}${t("traceCalc",{mb:n.trace_file_mb*(1+n.trace_keep),size:n.trace_file_mb,files:1+n.trace_keep})}</div>
           </div>
           <div class="actions"><button class="btn btn-p" @click=${()=>this._saveSettings(Object.fromEntries(["log_level",...Nn].map(p=>[p,n[p]])))}>${t("save")}</button></div>
+        </section>
+
+        <section id="src" class="card" aria-labelledby="t-src">
+          <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
+          <div class="choices" role="radiogroup" aria-labelledby="t-src">
+            <button type="button" class="choice" role="radio" aria-checked=${s?"false":"true"} @click=${()=>this._saveSettings({source:"forms"})}>
+              <b style="font-weight:500">${t("srcForms")}</b><span class="hint">${t("srcFormsSub")}</span></button>
+            <button type="button" class="choice" role="radio" aria-checked=${s?"true":"false"} @click=${()=>this._chooseOwn()}>
+              <b style="font-weight:500">${t("srcOwn")}</b><span class="hint">${s?t("srcOwnOn"):this.custom?.exists?t("srcOwnSaved"):t("srcOwnNone")}</span></button>
+          </div>
+          <div><a href="#/settings" @click=${p=>{p.preventDefault(),this._toggleRuntime()}}>${this.runtime?t("runtimeHide"):t("srcRuntime")}</a></div>
+          ${this.runtime?a`
+            <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
+              <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${v("copy")}${this.copied?t("copied"):t("copy")}</button></div></div>
+            <pre class="code runtime">${this.runtime.text||"\u2013"}</pre>
+            <div class="hint">${this.runtime.ts?`${T(this.runtime.ts)} \xB7 `:""}${t("runtimeConns",{n:this.runtime.connections})} · ${t("runtimeFoot")}</div>`:""}
+          ${s||this.customOpen?a`
+            <div class="expert-body">
+              ${s?a`<div class="note warn" role="note">${t("ownWarn")}</div>`:""}
+              <div class="hint">${t("ownHint")}</div>
+              <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText||""} @input=${p=>this._edited(p)}></textarea>
+              <div class="row">
+                ${C?C.errors.length?a`<div class="note bad" style="flex:1" role="alert">${C.errors.map(p=>a`<div>${L(p)}</div>`)}</div>`:a`<span class="chip ok">${t("checkOk",{n:C.connections.length})}</span>`:a`<span class="hint">${t("checking")}</span>`}
+                <button class="btn btn-g" @click=${()=>this._fill()}>${t("fillForms")}</button>
+              </div>
+              ${C&&C.notes.length?a`<div class="hint">${C.notes.map(p=>a`<div>${L(p)}</div>`)}</div>`:""}
+              <div class="row" style="justify-content:flex-end;gap:12px;align-items:flex-start">
+                <div style="text-align:right"><button class="btn btn-s" ?disabled=${!N} @click=${()=>this._saveCustom(!1)}>${t("saveFile")}</button><div class="hint" style="margin-top:2px">${t("saveFileHint")}</div></div>
+                <div style="text-align:right"><button class="btn btn-p" ?disabled=${!N} @click=${()=>this._saveCustom(!0)}>${t("saveUse")}</button><div class="hint" style="margin-top:2px">${t("saveUseHint")}</div></div>
+              </div>
+            </div>`:a`<div class="row" style="border-top:1px solid var(--line-2);padding-top:12px">
+              <span class="hint">${this.custom?.exists?t("ownEditHint"):t("ownCreateHint")}</span>
+              <button class="btn btn-s" @click=${()=>{this.customOpen=!0,this.custom?.exists||this._check()}}>${this.custom?.exists?t("ownEdit"):t("ownCreate")}</button></div>`}
         </section>
 
         <section id="about" class="card" aria-labelledby="t-about">
