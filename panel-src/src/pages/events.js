@@ -9,7 +9,7 @@ const LEVELS = ["info", "warning", "error", "debug"];
 export class EventsPage extends Page {
   static properties = {
     state: { attribute: false }, events: { attribute: false }, tab: { state: true }, conn: { state: true },
-    query: { state: true }, levels: { state: true }, paused: { state: true }, stats: { state: true }, history: { state: true }, expanded: { state: true },
+    query: { state: true }, levels: { state: true }, paused: { state: true }, stats: { state: true }, history: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -32,8 +32,6 @@ export class EventsPage extends Page {
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
     .bars { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
     .bars span { flex: 1; min-width: 2px; border-radius: 2px; background: var(--line); }
-    .day { display: flex; flex-direction: column; gap: 8px; }
-    .item { display: grid; grid-template-columns: 56px 12px minmax(0, 1fr); gap: 10px; align-items: baseline; }
   `];
 
   constructor() {
@@ -43,7 +41,6 @@ export class EventsPage extends Page {
     this.query = "";
     this.levels = new Set(["info", "warning", "error"]);
     this.paused = null;
-    this.expanded = new Set();
   }
 
   async _loadHistory() {
@@ -76,19 +73,25 @@ export class EventsPage extends Page {
       && (!q || `${e.name} ${eventText(e)}`.toLowerCase().includes(q)));
   }
 
-  _live() {
-    const source = this.paused || this.events;
-    const lines = this._filtered(source).sort((a, b) => b.ts - a.ts).slice(0, 500);
+  /** The rows both tabs share: day rows, time, level, text. */
+  _list(lines, total = lines.length) {
     const color = { info: "info", warning: "warn", error: "bad", debug: "" };
+    return html`<div class="log" role="log">${lines.map((e, i) => html`${i === 0 || this._dayLabel(lines[i - 1].ts) !== this._dayLabel(e.ts) ? html`<div class="dayrow">${this._dayLabel(e.ts)}</div>` : ""}<div class="line">
+        <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
+        <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
+        ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size:14px">${t("noEntries")}</p>`}
+        ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size:13px">${t("moreEntries", { n: total - lines.length })}</p>` : ""}</div>`;
+  }
+
+  _live() {
+    const all = this._filtered(this.paused || this.events).sort((a, b) => b.ts - a.ts);
+    const lines = all.slice(0, 500);
     return html`<section class="card" style="padding:0;gap:0;overflow:hidden" aria-label=${t("tabLive")}>
       <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
         <span class="hint" style="font-size:13px;display:flex;align-items:center;gap:8px"><span class="dot" style="color:${this.paused ? "var(--muted)" : "var(--ok)"}"></span>
-          ${this.paused ? t("paused") : t("liveState")} · ${t("entries", { n: lines.length })}</span>
+          ${this.paused ? t("paused") : t("liveState")} · ${t("entries", { n: all.length })}</span>
         <button class="btn btn-g" @click=${() => { this.paused = this.paused ? null : [...this.events]; }}>${this.paused ? t("resume") : t("pause")}</button></div>
-      <div class="log" role="log">${lines.map((e, i) => html`${i === 0 || this._dayLabel(lines[i - 1].ts) !== this._dayLabel(e.ts) ? html`<div class="dayrow">${this._dayLabel(e.ts)}</div>` : ""}<div class="line">
-        <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
-        <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
-        ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size:14px">${t("noEntries")}</p>`}</div>
+      ${this._list(lines, all.length)}
     </section>`;
   }
 
@@ -99,12 +102,7 @@ export class EventsPage extends Page {
     }
     const days = this.stats.days;
     const conns = this.state.connections.filter((c) => !this.conn || c.id === this.conn);
-    const byDay = new Map();
-    for (const e of this._filtered(this.history)) {
-      const key = new Date(e.ts * 1000).toDateString();
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key).push(e);
-    }
+    const all = this._filtered(this.history).sort((a, b) => b.ts - a.ts);
     return html`
       <div class="stats">${conns.map((c) => {
         const st = this.stats.connections[c.id] || { drops: 0, availability: 1, per_day: Array(days).fill(0) };
@@ -118,21 +116,15 @@ export class EventsPage extends Page {
           <div class="row hint" style="font-size:11px"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
-      <section class="card" aria-labelledby="t-tl">
-        <div class="row"><h2 id="t-tl">${t("timeline")}</h2><span class="hint">${t("retention", { d: this.state.settings.history_days })}</span></div>
-        <div class="filters" style="margin-bottom:0">${this._searchLevels(this.history)}</div>
-        ${[...byDay.entries()].slice(0, 30).map(([key, items]) => html`<div class="day">
-          <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${this._dayLabel(items[0].ts)}</div>
-          ${(this.expanded.has(key) ? items : items.slice(0, 50)).map((e) => html`<div class="item"><span class="mono hint">${fmtTime(e.ts, false)}</span>
-            <span class="dot" role="img" aria-label=${t(`lv_${e.level}`)} title=${t(`lv_${e.level}`)} style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--muted)"}"></span>
-            <span>${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
-          ${items.length > 50 ? html`<div class="hint" style="font-size:13px">${this.expanded.has(key) ? "" : `${t("moreEntries", { n: items.length - 50 })} · `}<a href="#/events" @click=${(e) => { e.preventDefault(); const x = new Set(this.expanded); x.has(key) ? x.delete(key) : x.add(key); this.expanded = x; }}>${this.expanded.has(key) ? t("showLess") : t("showAll")}</a></div>` : ""}
-        </div>`)}
-        ${byDay.size ? "" : html`<p class="hint" style="font-size:14px">${t("noEntries")}</p>`}
+      <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-tl">
+        <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
+          <h2 id="t-tl" style="font-size:14px;font-weight:500">${t("timeline")}</h2>
+          <span class="hint" style="font-size:13px">${t("retention", { d: this.state.settings.history_days })} · ${t("entries", { n: all.length })}</span></div>
+        ${this._list(all.slice(0, 500), all.length)}
       </section>`;
   }
 
-  /** Search and level switches for a list of events; the counts follow the other filters. */
+  /** Search and level switches for a list of events (both tabs); the counts follow the other filters. */
   _searchLevels(list) {
     const base = this._filtered(list, true);
     const counts = Object.fromEntries(LEVELS.map((lv) => [lv, base.filter((e) => e.level === lv).length]));
@@ -154,7 +146,7 @@ export class EventsPage extends Page {
           <select class="inp" @change=${(e) => { this.conn = e.target.value; if (this.tab === "history") this._loadHistory(); }}>
             <option value="">${t("allConnections")}</option>
             ${this.state.connections.map((c) => html`<option value=${c.id} ?selected=${this.conn === c.id}>${c.name}</option>`)}</select></label>
-        ${live ? this._searchLevels(this.paused || this.events) : ""}
+        ${this._searchLevels(live ? this.paused || this.events : this.history || [])}
       </div>
       ${live ? this._live() : this._historyView()}`;
   }

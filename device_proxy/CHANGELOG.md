@@ -14,7 +14,7 @@
 - **Connection pages**: device before name, serial interface and network access as separate
   cards, alerts block, "Active" as its own switch, delete set apart; the detail page shows one
   connection card with the real networks and reachability per target.
-- **Events**: log sorted by time with day rows, level buttons with counts, plain-language
+- **Events**: Live and History share one filter bar and one row format; log sorted by time with day rows, level buttons with counts, plain-language
   connection errors, names link to the connection, labelled history bars.
 - **Trace**: one recording switch for the chosen connection in plain words, live view with line
   count, clear and millisecond times, recorded files name their connection, copyable path.

@@ -80,7 +80,7 @@ const TEXT = {
     startNowSub: "Nach dem Speichern ist die Verbindung sofort erreichbar. Aus: nur gespeichert, der Port bleibt geschlossen.", enabledSub: "Aus: der Port ist geschlossen, verbundene Clients werden getrennt.",
     offConfirm: "„{n}“ ausschalten? Die {c} verbundenen Clients werden getrennt.", switchOff: "Ausschalten",
     importReplaceConfirm: "{n} bestehende Verbindungen werden durch den Import ersetzt. Die alte Konfiguration bleibt in der Konfig-Historie und lässt sich dort wiederherstellen.", importReplace: "Ersetzen",
-    moreEntries: "und {n} weitere Einträge an diesem Tag", showAll: "Alle anzeigen", showLess: "Weniger anzeigen", daysAgo: "vor {d} Tagen",
+    moreEntries: "… und {n} weitere Einträge – mit Filter oder Suche eingrenzen", daysAgo: "vor {d} Tagen",
     today: "Heute", yesterday: "Gestern", summed: "{n}× zusammengefasst",
     // trace
     traceTitle: "Mitschnitt", traceSub: "Bytes zwischen Gerät und Clients.", recNote: "Trennt keine Clients; Dateien rotieren automatisch.",
@@ -419,7 +419,7 @@ const TEXT = {
     startNowSub: "After saving, the connection is reachable at once. Off: only saved, the port stays closed.", enabledSub: "Off: the port is closed and connected clients are disconnected.",
     offConfirm: "Switch off “{n}”? The {c} connected clients are disconnected.", switchOff: "Switch off",
     importReplaceConfirm: "{n} existing connections are replaced by the import. The old configuration stays in the config history and can be restored there.", importReplace: "Replace",
-    moreEntries: "and {n} more entries that day", showAll: "Show all", showLess: "Show fewer", daysAgo: "{d} days ago",
+    moreEntries: "… and {n} more entries – narrow them with the filters or the search", daysAgo: "{d} days ago",
     today: "Today", yesterday: "Yesterday", summed: "{n}× summed up",
     traceTitle: "Trace", traceSub: "Bytes between device and clients.", recNote: "Disconnects no client; files rotate on their own.",
     liveView: "Live view", liveCap: "The last {n} lines in the browser, newest first – not the file.", clearView: "Clear", recMode: "Record to file", linesShown: "{n} lines shown", dir_rx: "from device", dir_tx: "to device", dirmb_rx: "answer", dirmb_tx: "request", recFile: "File", recFiles: "Recorded files", connTh: "Connection", copyPath: "Copy path", noConnection: "no longer exists", noFiles: "No files yet. They appear as soon as a connection records.", recStarted: "{n}: recording on ({m})", recStopped: "{n}: recording off",
