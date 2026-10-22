@@ -35,6 +35,7 @@ const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
+const BUS_GATEWAYS = ["fam14", "fgw14_usb"]; // on the RS485 bus of the series 14, not radio only
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open"];
 
 const extraText = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`).join("\n");
@@ -519,6 +520,8 @@ export class EditPage extends Page {
         </select>${this._err("fallback")}<span class="hint">${t("fbPickHint")}</span></label>`
         : html`<div class="note info">${t("fbNoCandidates", { p: d.esp_protocol.toUpperCase() })}</div>`}
       ${base ? html`<div class="note ${base[0]}">${base[1]}</div>` : ""}
+      ${BUS_GATEWAYS.includes(d.template) ? html`<div class="note warn">${t("fbBusMain", { t: t(`tpl_${d.template}`) })}</div>` : ""}
+      ${chosen && BUS_GATEWAYS.includes(chosen.template) ? html`<div class="note warn">${t("fbBusFallback", { b: chosen.name, t: t(`tpl_${chosen.template}`) })}</div>` : ""}
       ${d.fallback ? html`<div class="fold"><div><b style="font-weight:500">${t("fbSwitching")}</b><p class="hint" style="margin-top:4px">${t("fbSwitchingSub")}</p></div>
           <button type="button" class="btn btn-g" aria-expanded=${this.fbOpen ? "true" : "false"} @click=${() => { this.fbOpen = !this.fbOpen; }}>${this.fbOpen ? t("closeA") : t("changeBtn")}</button></div>
         ${this.fbOpen ? html`<div class="grid2">
