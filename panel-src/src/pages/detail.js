@@ -35,9 +35,6 @@ export class DetailPage extends Page {
   static styles = [...Page.styles, css`
     .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
     .kv > :nth-child(odd) { color: var(--muted); }
-    .side-col .kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-    .side-col .kv > :nth-child(odd) { font-size: 13px; }
-    .side-col .kv > :nth-child(even) { margin-bottom: 8px; }
     .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
     .counters b { display: block; font-size: 20px; font-weight: 500; }
     .live { max-height: 340px; overflow: auto; }
@@ -334,8 +331,9 @@ export class DetailPage extends Page {
   }
 
   _addresses(c) {
-    return html`<section class="card" aria-labelledby="t-addr">
+    return html`<section class="card" id="addresses" aria-labelledby="t-addr">
       <h2 id="t-addr">${t("addresses")}</h2>
+      <div class="addrs">
               ${c.addresses.map((a) => html`<div class="well">
                 <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
                   <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
@@ -344,6 +342,7 @@ export class DetailPage extends Page {
                   ${this._copyBtn(`${a.target}${k}`, u)}</div>`)}
                 ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
               </div>`)}
+    </div>
     </section>`;
   }
 
@@ -426,28 +425,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("who")}</span><span>${who(c, s)}</span>
             </div>`}
           </section>`;
-    return html`
-      <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
-      <div class="head" style="margin-top:12px">
-        <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
-          <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
-          ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
-          <span class="hint" style="font-size:13px">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
-          ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
-          ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
-        <div class="row">
-          <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
-          <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>
-          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
-        </div>
-      </div>
-      <div class="cols">
-        <div class="main-col">
-          ${enocean ? issuesCard(issues(c, s.capture)) : ""}
-          ${enocean ? meterCards(c) : ""}
-          ${this._live(c.kind)}
-          ${modbus ? "" : enocean ? html`<dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>` : this.state.source === "custom" ? "" : this._tools(c)}
-          ${c.clients.length || (modbus && (m.units || []).length) ? html`<section class="card" aria-labelledby="t-clients">
+    const clientsCard =           html`<section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table style="min-width:520px"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
@@ -471,14 +449,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
-          </section>` : ""}
-          ${modbus ? this._haSnippet(c) : ""}
-          ${modbus ? "" : conf}
-          ${modbus ? this._modbusTools(c) : ""}
-        </div>
-        <aside class="side-col">
-          ${this._addresses(c)}
-          ${modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
+          </section>`;
+    const stateCard = modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
@@ -486,20 +458,58 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
               : ""}
             <p class="hint" style="margin:0">${le || !c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</p>
-          </section>`}
-          ${modbus ? "" : html`<section class="card" aria-labelledby="t-rate">
+          </section>`;
+    const rateCard = html`<section class="card" aria-labelledby="t-rate">
             <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
             <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
-          </section>`}
-          ${modbus ? conf : ""}
-          <section class="card" aria-labelledby="t-recent">
+          </section>`;
+    const recentCard = html`<section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
             <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
               <div><div>${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</div><div class="hint">${fmtTime(e.ts)}</div></div></li>`)}</ol>
-          </section>
-        </aside>
-      </div>`;
+          </section>`;
+    const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;
+    // connect-state-measure-act-set up: what is wrong first, what is needed once only last
+    const body = enocean ? html`
+      ${issuesCard(issues(c, s.capture))}
+      ${pair(stateCard, clientsCard)}
+      ${meterCards(c)}
+      ${this._live(c.kind)}
+      <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
+      ${this._addresses(c)}
+      ${pair(conf, recentCard)}`
+    : modbus ? html`
+      ${pair(stateCard, conf)}
+      ${clientsCard}
+      ${this._live(c.kind)}
+      ${this._modbusTools(c)}
+      ${this._addresses(c)}
+      ${this._haSnippet(c)}
+      ${recentCard}`
+    : html`
+      ${pair(rateCard, stateCard)}
+      ${clientsCard}
+      ${this._live(c.kind)}
+      ${this.state.source === "custom" ? "" : this._tools(c)}
+      ${this._addresses(c)}
+      ${pair(conf, recentCard)}`;
+    return html`
+      <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
+      <div class="head" style="margin-top:12px">
+        <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
+          <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
+          ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
+          <span class="hint" style="font-size:13px">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+          ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
+          ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}` : ""}</div>
+        <div class="row">
+          <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>
+          <a class="btn btn-s" href="#/edit/${c.id}">${t("edit")}</a>
+          ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
+        </div>
+      </div>
+      <div class="stack">${body}</div>`;
   }
 }

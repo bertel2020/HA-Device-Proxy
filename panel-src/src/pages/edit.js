@@ -67,10 +67,11 @@ export class EditPage extends Page {
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .toggle-head .chip::after, .arrow::after { content: "›"; font-size: 18px; line-height: 1; margin-left: 2px; transition: transform .15s; }
     .toggle-head[aria-expanded="true"] .chip::after, .arrow[aria-expanded="true"]::after { transform: rotate(90deg); }
-    .side-col { position: sticky; top: 64px; }
-    .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 24px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
-    .flow li + li::before { content: "↓"; color: var(--muted); margin: -4px 0 2px; }
+    .flow li { position: relative; }
+    .flow li + li::before { content: "→"; color: var(--muted); position: absolute; left: -19px; top: 50%; transform: translateY(-50%); }
+    @media (max-width: 700px) { .flow { row-gap: 24px; } .flow li + li::before { content: "↓"; left: 50%; top: -17px; transform: translateX(-50%); } }
     .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; bottom: 0; z-index: 5;
       background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; box-shadow: 0 -6px 16px -8px var(--shadow-c); }
   `];
@@ -579,7 +580,7 @@ export class EditPage extends Page {
             ${toggle(d.enabled, isNew ? t("startNow") : t("enabled"), (v) => this._set({ enabled: v }))}</div>
         </section>
 
-        ${d.kind === "modbus" || d.kind === "enocean" ? "" : html`<section class="card" aria-labelledby="t-prev">
+        ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : html`<section class="card" aria-labelledby="t-prev">
           <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
             <button type="button" class="btn btn-g arrow" aria-expanded=${this.yamlOpen ? "true" : "false"} @click=${() => { this.yamlOpen = !this.yamlOpen; }}>${this.yamlOpen ? t("closeA") : t("open")}</button></div>
           ${this.yamlOpen ? html`<div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>` : ""}
@@ -595,8 +596,6 @@ export class EditPage extends Page {
             <button type="submit" class="btn btn-p" ?disabled=${this.saving}>${t("save")}</button>
           </div>
         </div>
-      </form>
-
-      ${d.kind === "modbus" || d.kind === "enocean" ? html`<aside class="side-col">${d.kind === "modbus" ? this._modbusPreview() : this._enoceanPreview()}</aside>` : ""}</div>`;
+      </form></div>`;
   }
 }

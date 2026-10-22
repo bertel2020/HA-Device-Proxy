@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Detail page**: no side column any more; cards sit in pairs of two equal columns, in the order
+  state, measurements, live data, tools, then addresses and settings last (the "no program
+  connected" hint links to the addresses). Same order for serial, Modbus and EnOcean.
+- **Edit page**: the preview of a Modbus or EnOcean connection moves below the form, above the
+  save bar; its flow reads left to right.
 - **Import**: the import of the EnOcean Proxy app's options is gone (that app was never in use):
   no "Fetch from the EnOcean Proxy app", no `import/enocean_proxy.yaml`.
 

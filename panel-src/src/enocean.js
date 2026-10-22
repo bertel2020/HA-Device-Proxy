@@ -84,7 +84,7 @@ export function issues(c, capture) {
   if (f.slow_clients) add("warn", "slow", { n: f.slow_clients });
   if (f.refused) add("warn", "refused", { n: f.refused });
   if (f.locked) add("info", "held", { n: f.locked });
-  if (!c.clients.length && e.listening) add("info", "noClients", { port: c.port });
+  if (!c.clients.length && e.listening) { add("info", "noClients", { port: c.port }); out[out.length - 1].jump = "addresses"; }
   if (capture && capture.connection === c.id) add("info", "capture", { f: capture.file });
   return out;
 }
@@ -151,7 +151,7 @@ export function meterCards(c) {
 
 export function issuesCard(list) {
   if (!list.length) return html`<div class="note ok" role="status">${t("eoAllWell")}</div>`;
-  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}</div></div>`)}</div>`;
+  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); ev.currentTarget.getRootNode().getElementById(i.jump)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
 }
 
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */

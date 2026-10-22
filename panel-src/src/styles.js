@@ -29,9 +29,7 @@ export const base = css`
     box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
   .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stack { display: flex; flex-direction: column; gap: 20px; }
-  .cols { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-  .main-col { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
-  .side-col { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .cols, .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 18px;
     border-radius: 20px; font-family: inherit; font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer;
@@ -82,7 +80,8 @@ export const base = css`
   th { font-weight: 500; font-size: 13px; color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
   .scroll { overflow-x: auto; }
-  .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
+  .addrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; }
   .meter { --level: var(--accent); }
   .meter.ok { --level: var(--ok); } .meter.warn { --level: var(--warn); border-color: var(--warn-line); } .meter.bad { --level: var(--bad); border-color: var(--bad-line); }
   .meter.info { --level: var(--accent); }
