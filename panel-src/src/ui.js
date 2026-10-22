@@ -13,6 +13,7 @@ const ICONS = {
   check: "M5 12l5 5L20 7",
   upload: "M12 15V3M7 8l5-5 5 5M5 21h14",
   x: "M6 6l12 12M18 6L6 18",
+  pencil: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
   download: "M12 3v12M7 10l5 5 5-5M5 21h14",
   copy: "M9 9h12v12H9zM5 15V5a2 2 0 0 1 2-2h10",
   warn: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
