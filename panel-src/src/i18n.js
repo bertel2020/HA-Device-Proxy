@@ -83,7 +83,7 @@ const TEXT = {
     moreEntries: "und {n} weitere Einträge an diesem Tag", daysAgo: "vor {d} Tagen",
     today: "Heute", yesterday: "Gestern", summed: "{n}× zusammengefasst",
     // trace
-    traceTitle: "Mitschnitt", traceSub: "Bytes zwischen Gerät und Clients. Aufzeichnen trennt keine Clients; Dateien rotieren automatisch.",
+    traceTitle: "Mitschnitt", traceSub: "Bytes zwischen Gerät und Clients.", recNote: "Trennt keine Clients; Dateien rotieren automatisch.",
     liveView: "Live-Ansicht", liveCap: "Die letzten {n} Zeilen im Browser – nicht die Datei.", clearView: "Leeren", recMode: "In Datei aufzeichnen", linesShown: "{n} Zeilen angezeigt", dir_rx: "vom Gerät", dir_tx: "zum Gerät", dirmb_rx: "Antwort", dirmb_tx: "Anfrage", recFile: "Datei", recFiles: "Aufgezeichnete Dateien", connTh: "Verbindung", copyPath: "Pfad kopieren", noConnection: "nicht mehr vorhanden", noFiles: "Noch keine Dateien. Sie entstehen, sobald eine Verbindung aufzeichnet.", recStarted: "{n}: Aufzeichnung ein ({m})", recStopped: "{n}: Aufzeichnung aus",
     recording: "zeichnet auf · {m}", notRecording: "keine Aufzeichnung", files: "Dateien", fileTh: "Datei", sizeTh: "Größe", changedTh: "Geändert",
     rotation: "Rotation: {mb} MB je Datei · {k} ältere behalten", change: "ändern", deleteFile: "„{n}“ löschen?",
@@ -421,7 +421,7 @@ const TEXT = {
     importReplaceConfirm: "{n} existing connections are replaced by the import. The old configuration stays in the config history and can be restored there.", importReplace: "Replace",
     moreEntries: "and {n} more entries that day", daysAgo: "{d} days ago",
     today: "Today", yesterday: "Yesterday", summed: "{n}× summed up",
-    traceTitle: "Trace", traceSub: "Bytes between device and clients. Recording disconnects no client; files rotate on their own.",
+    traceTitle: "Trace", traceSub: "Bytes between device and clients.", recNote: "Disconnects no client; files rotate on their own.",
     liveView: "Live view", liveCap: "The last {n} lines in the browser – not the file.", clearView: "Clear", recMode: "Record to file", linesShown: "{n} lines shown", dir_rx: "from device", dir_tx: "to device", dirmb_rx: "answer", dirmb_tx: "request", recFile: "File", recFiles: "Recorded files", connTh: "Connection", copyPath: "Copy path", noConnection: "no longer exists", noFiles: "No files yet. They appear as soon as a connection records.", recStarted: "{n}: recording on ({m})", recStopped: "{n}: recording off",
     recording: "recording · {m}", notRecording: "not recording", files: "Files", fileTh: "File", sizeTh: "Size", changedTh: "Changed",
     rotation: "Rotation: {mb} MB per file · {k} older kept", change: "change", deleteFile: "Delete “{n}”?",

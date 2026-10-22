@@ -110,7 +110,8 @@ export class TracePage extends Page {
             ${current ? html`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
               <div class="seg" role="group" aria-label="${t("traceMode")} ${current.name}">${MODES.map((m) => html`<button type="button" aria-pressed=${current.trace === m ? "true" : "false"}
                 ?disabled=${locked} @click=${() => this._mode(current, m)}>${m === "off" ? t("off") : this._label(current, m)}</button>`)}</div>
-              ${file ? html`<span class="hint" style="margin-left:auto">${t("recFile")}: <span class="mono">${file.name}</span> · ${fmtBytes(file.size)}
+              <span class="hint">${t("recNote")}</span>
+              ${file ? html`<span class="hint" style="flex-basis:100%">${t("recFile")}: <span class="mono">${file.name}</span> · ${fmtBytes(file.size)}
                 <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
             ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
               <td style="color:#8f9ba8">${this._time(ch.ts)}</td>
