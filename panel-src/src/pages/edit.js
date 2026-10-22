@@ -148,6 +148,7 @@ export class EditPage extends Page {
   /** Who may connect when the connection has no limit of its own: the network setting. */
   _follows(d) {
     if (d.bind && !d.bind.startsWith("127.")) return "";
+    if (d.bind) return t("netLocalBind", { a: d.bind });
     if (d.remaddr) return t("netOwn", { a: d.remaddr });
     const s = this.state.settings, n = (s.lan_networks || "").split(/[\s,;]+/).filter(Boolean).length;
     const what = s.listen === "lan" ? (n === 1 ? t("netLanOne") : t("netLanN", { n })) : t(`net_${s.listen}`);
