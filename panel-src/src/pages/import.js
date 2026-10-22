@@ -124,9 +124,9 @@ export class ImportDialog extends Page {
           return html`<tr>
             <td>${c && !conflict ? html`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${item.alias} ${t("take")}"
               .checked=${this.take.has(item.alias)} @change=${(e) => { const s = new Set(this.take); e.target.checked ? s.add(item.alias) : s.delete(item.alias); this.take = s; }}>` : ""}</td>
-            <td><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
+            <td style="min-width:130px"><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
             <td class="mono">${c ? c.port : ""}</td>
-            <td class="mono" style="font-size:12px;overflow-wrap:anywhere;max-width:260px">${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
+            <td class="mono" style="font-size:12px;overflow-wrap:break-word;min-width:120px;max-width:200px">${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
               ${item.notes.length ? html`<ul class="notes">${item.notes.map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
               ${conflict ? html`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>

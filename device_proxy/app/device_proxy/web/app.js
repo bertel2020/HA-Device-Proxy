@@ -914,9 +914,9 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
         <tbody>${e.items.map(i=>{let o=i.connection,l=Object.keys(i.conflicts).length&&!this.replaceAll;return a`<tr>
             <td>${o&&!l?a`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${i.alias} ${t("take")}"
               .checked=${this.take.has(i.alias)} @change=${d=>{let c=new Set(this.take);d.target.checked?c.add(i.alias):c.delete(i.alias),this.take=c}}>`:""}</td>
-            <td><b style="font-weight:500">${i.alias}</b>${o?a`<div class="hint">${this._kind(o)} · ${t("importMax",{n:o.max_clients})}${o.enabled?"":` \xB7 ${t("importOff")}`}</div>`:""}</td>
+            <td style="min-width:130px"><b style="font-weight:500">${i.alias}</b>${o?a`<div class="hint">${this._kind(o)} · ${t("importMax",{n:o.max_clients})}${o.enabled?"":` \xB7 ${t("importOff")}`}</div>`:""}</td>
             <td class="mono">${o?o.port:""}</td>
-            <td class="mono" style="font-size:12px;overflow-wrap:anywhere;max-width:260px">${o?o.kind!=="serial"?kt(o):o.device:""}</td>
+            <td class="mono" style="font-size:12px;overflow-wrap:break-word;min-width:120px;max-width:200px">${o?o.kind!=="serial"?kt(o):o.device:""}</td>
             <td>${this._result(i)}
               ${i.notes.length?a`<ul class="notes">${i.notes.map(d=>a`<li>${R(d)}</li>`)}</ul>`:""}
               ${l?a`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>
