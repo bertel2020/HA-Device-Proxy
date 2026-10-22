@@ -446,10 +446,9 @@ class Controller:
         return applied
 
     async def import_folder(self) -> None:
-        """Take over a ser2net.yaml, an old ser2net.conf, a modbus-proxy.yaml (options of
-        ha-modbusproxy) or an enocean_proxy.yaml (options of the EnOcean Proxy app) put into
-        the config folder's import/ (merge, no overwrite)."""
-        names = ("ser2net.yaml", "ser2net.conf", "modbus-proxy.yaml", "enocean_proxy.yaml")
+        """Take over a ser2net.yaml, an old ser2net.conf or a modbus-proxy.yaml (options of
+        ha-modbusproxy) put into the config folder's import/ (merge, no overwrite)."""
+        names = ("ser2net.yaml", "ser2net.conf", "modbus-proxy.yaml")
         found = [self.import_dir / n for n in names]
         source = next((f for f in found if f.is_file()), None)
         if source is None:

@@ -67,7 +67,7 @@ const TEXT = {
     importChoose: "Woher kommen die Verbindungen?", importDrop: "Datei hierher ziehen", formatsMore: "Welche Formate gehen?", importFormats: "ser2net 4 (YAML, Version 1 und 2), ser2net 3 (ser2net.conf) oder die Optionen von ha-modbusproxy bzw. modbus-proxy (YAML aus dessen Konfigurations-Tab)",
     importNone: "Darin habe ich keine Verbindungen gefunden.",
     chooseFile: "Datei auswählen", pasteHere: "… oder den Inhalt hier einfügen", readPreview: "Vorschau", otherFile: "Andere Datei",
-    format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML Version 1", format_2: "ser2net 4 · YAML Version 2", format_10: "ha-modbusproxy (Optionen)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (Optionen)",
+    format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML Version 1", format_2: "ser2net 4 · YAML Version 2", format_10: "ha-modbusproxy (Optionen)", format_11: "modbus-proxy",
     importMax: "höchstens {n} Clients", confl_port: "Port {p} ist belegt von „{n}“", confl_device: "Gerät ist belegt von „{n}“", confl_port_device: "Port {p} und Gerät sind belegt von „{n}“", confl_name: "Name gibt es schon: „{n}“", takeAll: "Alle auswählen", modeRaw: "roh", importOff: "wird ausgeschaltet importiert", willGo: "Diese Verbindungen werden entfernt:", doneHead: "Import abgeschlossen", sum_added: "hinzugefügt", sum_changed: "ersetzt", sum_removed: "entfernt", sum_skipped: "übersprungen", doneOff: "Ausgeschaltet importiert: {n}. Prüfe Geräte-Pfade und Ports und schalte sie dann ein.",
     found: "{n} Verbindungen gefunden", merge: "Ergänzen", mergeSub: "Vorhandene bleiben; bei Kollisionen wählst du pro Verbindung", replaceAll: "Alles ersetzen", replaceAllSub: "Vorhandene Verbindungen werden entfernt",
     result: "Ergebnis", resOk: "wird übernommen", resNotes: "mit Hinweisen", resNo: "nicht übertragbar", resConflict: "Kollision",
@@ -413,7 +413,7 @@ const TEXT = {
     importChoose: "Where do the connections come from?", importDrop: "Drop a file here", formatsMore: "Which formats work?", importFormats: "ser2net 4 (YAML, version 1 and 2), ser2net 3 (ser2net.conf) or the options of ha-modbusproxy or modbus-proxy (YAML from its configuration tab)",
     importNone: "I found no connections in it.",
     chooseFile: "Choose file", pasteHere: "… or paste the content here", readPreview: "Preview", otherFile: "Other file",
-    format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML version 1", format_2: "ser2net 4 · YAML version 2", format_10: "ha-modbusproxy (options)", format_11: "modbus-proxy", format_12: "EnOcean Proxy (options)",
+    format_0: "ser2net 3 (ser2net.conf)", format_1: "ser2net 4 · YAML version 1", format_2: "ser2net 4 · YAML version 2", format_10: "ha-modbusproxy (options)", format_11: "modbus-proxy",
     importMax: "höchstens {n} Clients", confl_port: "Port {p} is used by “{n}”", confl_device: "The device is used by “{n}”", confl_port_device: "Port {p} and the device are used by “{n}”", confl_name: "The name exists: “{n}”", takeAll: "Select all", modeRaw: "raw", importOff: "imported switched off", willGo: "These connections are removed:", doneHead: "Import finished", sum_added: "added", sum_changed: "replaced", sum_removed: "removed", sum_skipped: "skipped", doneOff: "Imported switched off: {n}. Check device paths and ports, then switch them on.",
     found: "{n} connections found", merge: "Add", mergeSub: "Existing ones stay; on a collision you choose per connection", replaceAll: "Replace all", replaceAllSub: "Existing connections are removed",
     result: "Result", resOk: "taken over", resNotes: "with notes", resNo: "cannot be taken over", resConflict: "collision",
@@ -744,9 +744,6 @@ const NOTES = {
     port_twice: "Port {port} doppelt: {names}.", port_reserved: "Port {port} ist für die App reserviert.", port_modbus: "Port {port} ({name}) belegt schon die Verbindung „{modbus}“ der App.", legacy_format: "Das alte Format (ser2net.conf) kann ser2net 4 nicht lesen – bitte importieren.",
     unreadable: "Datei nicht lesbar: {error}",
     modbus_stop_old: "Vor dem Übernehmen ha-modbusproxy stoppen – beide können nicht am selben Port lauschen.",
-    enocean_stop_old: "Vor dem Übernehmen die EnOcean Proxy App stoppen – beide können nicht dasselbe Gateway öffnen. Die Integration findet die Gateways danach neu.",
-    enocean_allowed_dropped: "allowed_clients nicht lesbar ({error}) – nur Home Assistant und Apps erlaubt.",
-    enocean_lan: "Die alte App war nur im Supervisor-Netz erreichbar; hier dürfen nur Home Assistant, die Apps und die bisher erlaubten Adressen verbinden.",
   },
   en: {
     device_missing_unstable: "Device {device} is not plugged in right now and may change after a restart – better choose a by-id or by-path name.",
@@ -763,9 +760,6 @@ const NOTES = {
     port_twice: "Port {port} twice: {names}.", port_reserved: "Port {port} is reserved for the app.", port_modbus: "Port {port} ({name}) is held by the app's connection \"{modbus}\" already.", legacy_format: "ser2net 4 cannot read the old format (ser2net.conf) – please import it.",
     unreadable: "File unreadable: {error}",
     modbus_stop_old: "Stop ha-modbusproxy before taking over – both cannot listen on the same port.",
-    enocean_stop_old: "Stop the EnOcean Proxy app before taking over – both cannot open the same gateway. The integration finds the gateways again afterwards.",
-    enocean_allowed_dropped: "allowed_clients unreadable ({error}) – only Home Assistant and apps allowed.",
-    enocean_lan: "The old app was only reachable in the Supervisor network; here only Home Assistant, the apps and the addresses allowed before may connect.",
   },
 };
 

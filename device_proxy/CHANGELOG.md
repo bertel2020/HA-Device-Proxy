@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Import**: the import of the EnOcean Proxy app's options is gone (that app was never in use):
+  no "Fetch from the EnOcean Proxy app", no `import/enocean_proxy.yaml`.
+
 ## 0.3.1
 
 A pass over every page of the interface.

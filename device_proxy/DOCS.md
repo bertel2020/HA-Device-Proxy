@@ -183,7 +183,7 @@ An EnOcean connection shares one EnOcean gateway (FAM-USB, FAM14, FGW14-USB, USB
 PioTek MGW-ETH, Symcon LAN …) with several programs: the
 [EnOcean Eltako integration](https://github.com/bertel2020/HA-Enocean-Eltako), the old
 `eltako` integration, eo_man or PCT14 over the network. It takes over everything the
-[EnOcean Proxy app](https://github.com/bertel2020/HA-Enocean-Proxy) did. The app opens the
+[EnOcean Proxy app](https://github.com/bertel2020/HA-Enocean-Proxy) did (an import of that app's options is not offered). The app opens the
 gateway itself (not through ser2net) and offers it on a TCP port as raw ESP2 or ESP3 frames,
 like ser2net would.
 
@@ -322,19 +322,6 @@ too. At the start a file
 **Stop ha-modbusproxy first**: both apps listen on the host's network, so only one can have
 port 502. The clients (e.g. the Modbus integration) need no change when the ports stay.
 
-## Coming from the EnOcean Proxy app
-
-**Settings → Back up and transfer → Import connections → Fetch from the EnOcean Proxy app** reads its options from
-Home Assistant. If that is not possible, copy its options (**Configuration** tab → ⋮ →
-**Edit in YAML**) and paste them there, or put them as `import/enocean_proxy.yaml` into the
-app's config folder. Each gateway becomes an EnOcean connection with the same port, protocol
-and baud rate; the old global options (pause, replay) go to every gateway, and only Home
-Assistant, the apps and the addresses allowed before may connect.
-
-**Stop the EnOcean Proxy app first**: both cannot open the same gateway. The EnOcean Eltako
-integration then gets the gateways announced again, finds each entry by its base ID and only
-changes the address: devices and entities stay.
-
 ## Taking over an existing configuration
 
 A ser2net 4 `ser2net.yaml` (version 1 or 2, with defines and defaults) or a ser2net 3
@@ -411,6 +398,6 @@ to an issue as it is.
 | Path | Content |
 |---|---|
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
-| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`, `enocean_proxy.yaml`) |
+| `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`) |
 | app data (in the backup) | connections, settings, history, configuration versions |

@@ -404,12 +404,9 @@ def convert(name: str, definition: dict[str, Any]) -> ImportItem:
 
 def read(text: str) -> ImportResult:
     """Connections of a ser2net.yaml (version 1 or 2), an old ser2net.conf (version 0) or
-    the configuration of ha-modbusproxy / modbus-proxy (modbus_import.py) or the options of
-    the EnOcean Proxy app (enocean_import.py)."""
-    from . import enocean_import, modbus_import  # they build on this module's types
+    the configuration of ha-modbusproxy / modbus-proxy (modbus_import.py)."""
+    from . import modbus_import  # it builds on this module's types
 
-    if enocean_import.looks_enocean_proxy(text):
-        return enocean_import.read(text)
     if modbus_import.looks_modbus_proxy(text):
         return modbus_import.read(text)
     if legacy.looks_legacy(text):

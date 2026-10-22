@@ -62,7 +62,7 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
 - **Status auf einen Blick**: Gerät vorhanden, Clients mit Adresse und Bytes, Datenrate, letzte Daten, Leitungsfehler vom Treiber, Modbus-Anfragen und Antwortzeiten; Clients, die nicht mehr lesen, werden erkannt.
 - **Live-Daten und Mitschnitt** ohne Client-Platz, bei Modbus dekodiert; Aufzeichnung in rotierende Dateien, ohne jemanden zu trennen.
 - **Werkzeuge für Zähler**: SML (mit CRC-Prüfung) und D0 auswerten, Baudrate erkennen.
-- **Sichern und Wiederherstellen** der ganzen Konfiguration als eine Datei (**Einstellungen → Sichern und Übertragen**) sowie **Import und Export**: ser2net-4-`ser2net.yaml`, ser2net-3-`ser2net.conf`, die Optionen der Apps ha-modbusproxy oder EnOcean Proxy oder eine modbus-proxy-Datei, jeweils mit Vorschau. Oder die eigene `ser2net.yaml` direkt verwenden.
+- **Sichern und Wiederherstellen** der ganzen Konfiguration als eine Datei (**Einstellungen → Sichern und Übertragen**) sowie **Import und Export**: ser2net-4-`ser2net.yaml`, ser2net-3-`ser2net.conf`, die Optionen der App ha-modbusproxy oder eine modbus-proxy-Datei, jeweils mit Vorschau. Oder die eigene `ser2net.yaml` direkt verwenden.
 - **Ereignisse und Historie** (30 Tage, Abbrüche und Verfügbarkeit), Konfig-Historie mit Unterschieden und Wiederherstellen.
 - **Benachrichtigungen** in Home Assistant, optional aufs Handy, und **Entitäten über MQTT-Discovery**: ein Gerät je Verbindung mit Zustand und Schalter.
 - Deutsch und Englisch, hell und dunkel (nach dem Theme von Home Assistant), Handy-tauglich.
@@ -75,7 +75,7 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
 
 2. **Device Proxy** installieren und starten. Solange es keine fertigen Images gibt, baut Home Assistant die App bei der Installation selbst (mit gensio und ser2net); das dauert beim ersten Mal einige Minuten.
 3. In der Seitenleiste **Device Proxy** öffnen und eine Verbindung hinzufügen: Gerät und Vorlage wählen, speichern. Die Karte zeigt die Adresse für die Integration, etwa `tcp://127.0.0.1:3333` oder Modbus-Host und Port.
-4. Bisher ser2net, ha-modbusproxy oder die App EnOcean Proxy im Einsatz? **Einstellungen → Sichern und Übertragen → Verbindungen importieren** übernimmt die vorhandene Konfiguration mit Vorschau.
+4. Bisher ser2net oder ha-modbusproxy im Einsatz? **Einstellungen → Sichern und Übertragen → Verbindungen importieren** übernimmt die vorhandene Konfiguration mit Vorschau.
 
 Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Dokumentation](device_proxy/DOCS.md)** (auch in Home Assistant im Reiter „Dokumentation“ der App).
 
