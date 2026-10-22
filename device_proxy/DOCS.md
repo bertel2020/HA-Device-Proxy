@@ -252,6 +252,49 @@ told it. Tools:
   **Trace** page. Optionally only one program may send meanwhile, e.g. PCT14 reading a FAM14:
   the frames of the others are held back and the app's own tools wait.
 
+### Fallback gateway
+
+A second gateway can stand in when one fails. Both must report the **same base ID**: the
+actuators are taught in to the sender IDs of the first gateway (base ID + 0 … 127), and only a
+gateway with that base ID sends from them. The app does not set a base ID for this; it reads
+both and compares them. Both gateways speak the same protocol.
+
+1. Set the second gateway up as a normal EnOcean connection and check it there (gateway test,
+   base ID, live frames).
+2. In the first gateway's form, under **Fallback gateway**, pick it at "When it fails, take over
+   with". The app shows whether the base IDs match and asks before it saves, because the second
+   gateway changes its role.
+
+While a connection is another gateway's fallback, its port is closed (connected clients are
+disconnected), it is not offered to the EnOcean Eltako integration, and its own replay rests.
+It stays connected and reads its base ID every minute; its page, live frames, gateway test and
+air time stay. Picking "No fallback" again makes it a normal gateway with its own port.
+
+**Switching**: the first gateway reads its base ID every 10 s. When its connection is gone, or
+three reads stay unanswered ("gone or silent"; "gone only" waits for the connection to drop),
+its programs go on through the fallback: they stay connected to the same port, their frames are
+sent by the fallback, its answers and radio telegrams come back to them. Commands unanswered at
+that moment are not repeated (the event says how many); the integration decides. The fallback
+is only used when it is connected, has answered lately and reports the same base ID; the app
+keeps the first gateway's base ID, so this is checked while it is away too. Back to the first
+gateway: automatically once it has run steadily for 60 s and nothing waits at the fallback, or
+by hand only. The card **Gateways** on the first gateway's page shows both, which one is in use,
+and switches by hand.
+
+**Hear both gateways** (optional): the programs get the radio telegrams of both gateways, for
+more range. A telegram that the other gateway brought within 200 ms is dropped (compared
+without signal strength and repeater count), and so is what the gateway at rest hears from the
+own sender IDs: that is the other gateway's own sending. The card shows what came first through
+which gateway.
+
+**Fallback becomes the main gateway** (the first gateway broke): on the card **Gateways**. The
+connection of the first gateway stays with its name, port, allowed clients, replay, discovery
+and history, so the integration notices nothing; only the hardware (template, kind of
+connection, device or host and port, baud rate) is swapped between the two connections. The
+old hardware is then switched off (default), kept as fallback, or its connection deleted. Both
+connections restart, and the replay bridges the short gap. The configuration history can
+undo it.
+
 ## Status, traces and line errors
 
 - **Status**: device present (and which adapter it is), clients with address, time and bytes,
@@ -295,7 +338,9 @@ Optionally a notify service (e.g. the companion app on a phone) gets them too.
 - Per connection (in the connection's form): device missing (for Modbus also: not
   reachable), no client connected (after a few minutes), no data from the device for a set
   time (serial devices, only while the device is open). A Modbus port that cannot be opened
-  is always reported. An EnOcean gateway: not reachable, and air time at 80 % of the limit.
+  is always reported. An EnOcean gateway: not reachable, and air time at 80 % of the limit;
+  with a fallback: running on the fallback (instead of "not reachable", with the reason), and
+  the fallback not ready (switched off, not connected, other base ID, not answering).
 - For all (**Settings → Notifications**): a client stops reading, line errors rise, ser2net
   keeps restarting, your own `ser2net.yaml` cannot be used.
 
@@ -321,7 +366,9 @@ MQTT entities**, where the entities can also be switched off.
 
 A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
 time and the switch. An EnOcean gateway has: gateway reachable, clients, telegrams from the
-gateway, air time (share of the 1 % limit) and the switch.
+gateway, air time (share of the 1 % limit) and the switch; with a fallback also "Fallback gateway
+active" (a problem while it stands in), "Active gateway" (the name of the one in use) and
+"Fallback gateway ready". "Gateway reachable" stays the gateway's own hardware.
 
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
 (`homeassistant`), base topic (`device_proxy`) and the update interval are in **Settings → MQTT

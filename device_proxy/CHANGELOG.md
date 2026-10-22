@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **EnOcean fallback gateway**: a second gateway with the same base ID stands in when one fails.
+  It is set up as a normal connection and then picked in the first gateway's form; while it is
+  the fallback it has no port of its own and is not offered to the integration. The first
+  gateway reads its base ID every 10 s; when it is gone or stays silent, its programs go on
+  through the fallback without reconnecting, and come back after 60 s of steady running or by
+  hand. Optionally both gateways are heard, duplicates and the own sending dropped. The card
+  "Gateways" shows both and switches by hand; "Fallback becomes the main gateway" swaps the
+  hardware when a gateway broke. Notifications, MQTT entities (fallback active, active gateway,
+  fallback ready) and the status for the integration tell which gateway is in use.
+- **Saving a connection**: the form no longer asks whether to discard the changes just saved.
+
 - **EnOcean base ID**: the tools set a new base ID, and ESP3 gateways show how many changes are
   left (the gateway allows only a few).
 
