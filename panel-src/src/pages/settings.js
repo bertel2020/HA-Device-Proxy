@@ -5,7 +5,6 @@ import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { confirmDialog, copyText, fmtTime, icon, logo } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
-const LABELS = { history_days: "historyDays", trace_file_mb: "traceMb", trace_keep: "traceKeep", debounce_count: "debounceCount", debounce_minutes: "debounceMinutes" };
 
 /** A short line diff of two JSON texts, enough to see what a version changed. */
 function lineDiff(before, after) {
@@ -51,6 +50,8 @@ export class SettingsPage extends Page {
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; }
     .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
     .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+    .sentence .num { width: 72px; text-align: center; padding: 0 8px; }
     .grp .grid2 { align-items: start; }
     .grp .fld { justify-content: flex-start; }
     .fld .hint { color: var(--muted); }
@@ -349,14 +350,28 @@ export class SettingsPage extends Page {
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">
-          <h2 id="t-log">${t("sLogging")}</h2>
-          <div class="grid2">
-            <label class="fld"><span class="lbl">${t("logLevel")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, log_level: e.target.value }; }}>
-              ${["info", "debug"].map((v) => html`<option ?selected=${d.log_level === v}>${v}</option>`)}</select></label>
-            ${NUMBERS.map((k) => html`<label class="fld"><span class="lbl">${t(LABELS[k])}</span>
-              <input class="inp" inputmode="numeric" .value=${String(d[k])} @input=${(e) => { this.draft = { ...d, [k]: Number(e.target.value || 0) }; }}></label>`)}
-            <label class="fld"><span class="lbl">${t("language")}</span><select class="inp" @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
-              <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select></label>
+          <div><h2 id="t-log">${t("sLogging")}</h2><p class="hint" style="margin-top:4px">${t("logSub")}</p></div>
+          <div class="grp" style="border-top:none;padding-top:0">
+            <h3>${t("logAddon")}</h3>
+            <label class="fld" style="max-width:280px"><span class="lbl">${t("logLevel")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, log_level: e.target.value }; }}>
+              ${[["info", "logNormal"], ["debug", "logDebug"]].map(([v, k]) => html`<option value=${v} ?selected=${d.log_level === v}>${t(k)}</option>`)}</select></label>
+            <p class="hint">${t("logHint")}</p>
+          </div>
+          <div class="grp">
+            <h3>${t("evTitle")}</h3>
+            <label class="fld" style="max-width:280px"><span class="lbl">${t("historyDays")}</span><input class="inp" inputmode="numeric" .value=${String(d.history_days)} @input=${(e) => { this.draft = { ...d, history_days: Number(e.target.value || 0) }; }}></label>
+            <p class="hint">${t("historyDaysHint")}</p>
+            <div class="sentence">${t("debA")}<input class="inp num" inputmode="numeric" aria-label=${t("debA")} .value=${String(d.debounce_count)} @input=${(e) => { this.draft = { ...d, debounce_count: Number(e.target.value || 0) }; }}>${t("debB")}<input class="inp num" inputmode="numeric" aria-label=${t("debB")} .value=${String(d.debounce_minutes)} @input=${(e) => { this.draft = { ...d, debounce_minutes: Number(e.target.value || 0) }; }}>${t("debC")}</div>
+            <p class="hint">${t("debHint")}</p>
+          </div>
+          <div class="grp">
+            <h3>${t("trTitle")}</h3>
+            <p class="hint">${t("trHint")}</p>
+            <div class="grid2">
+              <label class="fld"><span class="lbl">${t("traceMb")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_file_mb)} @input=${(e) => { this.draft = { ...d, trace_file_mb: Number(e.target.value || 0) }; }}></label>
+              <label class="fld"><span class="lbl">${t("traceKeep")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_keep)} @input=${(e) => { this.draft = { ...d, trace_keep: Number(e.target.value || 0) }; }}></label>
+            </div>
+            <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
         </section>
@@ -371,6 +386,10 @@ export class SettingsPage extends Page {
             <div style="min-width:0"><h2 id="t-about" style="margin:0;font-size:22px">${t("appTitle")}</h2>
               <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
           <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
+            <span class="hint" style="font-size:14px">${t("language")}</span>
+            <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
+              <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select>
+              <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
             <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
             <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
           </div>
