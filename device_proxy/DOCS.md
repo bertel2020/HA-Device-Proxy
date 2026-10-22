@@ -160,10 +160,14 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 - **Read registers**: unit, function (holding or input registers, coils, discrete inputs),
   address (from 0, as in the frame) and count; the values as unsigned, signed and hex. The
   request waits its turn with the clients' and does not use the cache.
+- **Write registers**: function 5 or 15 (coils) or 6 or 16 (registers), address and value(s),
+  several separated by commas. A dialog asks first; afterwards the value is read back and
+  compared. Each write is an event in the log. The tool stays locked when the connection's
+  write access is "Nobody".
 - **Scan the bus**: which unit ids answer (it reads register 0, an exception counts as an
   answer too). The units found can be taken over into "read registers".
 
-Tool requests are not counted as the clients' and do not change the device's state.
+Tool requests are not counted as the clients'. Only "write registers" changes the device.
 
 **Use in Home Assistant**: most devices have an integration of their own (e.g. SolarEdge
 Modbus). Add it under **Settings → Devices & services → Add integration**, choose the network
