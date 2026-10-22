@@ -116,6 +116,7 @@ export class EventsPage extends Page {
       })}</div>
       <section class="card" aria-labelledby="t-tl">
         <div class="row"><h2 id="t-tl">${t("timeline")}</h2><span class="hint">${t("retention", { d: this.state.settings.history_days })}</span></div>
+        <div class="filters" style="margin-bottom:0">${this._searchLevels(this.history)}</div>
         ${[...byDay.entries()].slice(0, 30).map(([key, items]) => html`<div class="day">
           <div class="hint" style="font-weight:500;text-transform:uppercase;letter-spacing:.04em">${this._dayLabel(items[0].ts)}</div>
           ${items.length > 50 ? html`<div class="hint" style="font-size:13px">${t("moreEntries", { n: items.length - 50 })}</div>` : ""}
@@ -127,9 +128,18 @@ export class EventsPage extends Page {
       </section>`;
   }
 
-  render() {
-    const base = this._filtered(this.tab === "live" ? this.paused || this.events : this.history || [], true);
+  /** Search and level switches for a list of events; the counts follow the other filters. */
+  _searchLevels(list) {
+    const base = this._filtered(list, true);
     const counts = Object.fromEntries(LEVELS.map((lv) => [lv, base.filter((e) => e.level === lv).length]));
+    return html`<label class="fld" style="flex:1 1 220px"><span class="lbl">${t("search")}</span>
+        <input class="inp" type="search" .value=${this.query} placeholder=${t("searchPh")} @input=${(e) => { this.query = e.target.value; }}></label>
+      <div role="group" aria-label="Level" style="display:flex;flex-wrap:wrap;gap:6px">${LEVELS.map((lv) => html`<button class="lv ${lv}" aria-pressed=${this.levels.has(lv) ? "true" : "false"}
+        @click=${() => { const s = new Set(this.levels); s.has(lv) ? s.delete(lv) : s.add(lv); this.levels = s; }}>${this.levels.has(lv) ? icon("check", 14) : ""}${t(`lv_${lv}`)}${counts[lv] ? html` <span style="opacity:.8">${counts[lv]}</span>` : ""}</button>`)}</div>`;
+  }
+
+  render() {
+    const live = this.tab === "live";
     const tabButton = (key, label) => html`<button role="tab" aria-selected=${this.tab === key ? "true" : "false"}
       @click=${() => { this.tab = key; if (key === "history") this._loadHistory(); }}>${t(label)}</button>`;
     return html`
@@ -140,11 +150,8 @@ export class EventsPage extends Page {
           <select class="inp" @change=${(e) => { this.conn = e.target.value; if (this.tab === "history") this._loadHistory(); }}>
             <option value="">${t("allConnections")}</option>
             ${this.state.connections.map((c) => html`<option value=${c.id} ?selected=${this.conn === c.id}>${c.name}</option>`)}</select></label>
-        <label class="fld" style="flex:1 1 220px"><span class="lbl">${t("search")}</span>
-          <input class="inp" type="search" .value=${this.query} placeholder=${t("searchPh")} @input=${(e) => { this.query = e.target.value; }}></label>
-        <div role="group" aria-label="Level" style="display:flex;flex-wrap:wrap;gap:6px">${LEVELS.map((lv) => html`<button class="lv ${lv}" aria-pressed=${this.levels.has(lv) ? "true" : "false"}
-          @click=${() => { const s = new Set(this.levels); s.has(lv) ? s.delete(lv) : s.add(lv); this.levels = s; }}>${this.levels.has(lv) ? icon("check", 14) : ""}${t(`lv_${lv}`)}${counts[lv] ? html` <span style="opacity:.8">${counts[lv]}</span>` : ""}</button>`)}</div>
+        ${live ? this._searchLevels(this.paused || this.events) : ""}
       </div>
-      ${this.tab === "live" ? this._live() : this._historyView()}`;
+      ${live ? this._live() : this._historyView()}`;
   }
 }
