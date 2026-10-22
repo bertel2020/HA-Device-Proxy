@@ -88,3 +88,37 @@ async def test_api_creates_checks_and_lists(tmp_path: Path) -> None:
     }
     other.close()
     await web.stop()
+
+
+async def test_backup_and_restore(tmp_path: Path) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    await request(
+        port,
+        "POST",
+        "api/connections",
+        {"connection": {"name": "eHZ", "device": "/dev/null", "port": 3335}},
+    )
+    status, backup = await request(port, "GET", "api/backup")
+    assert status == 200 and isinstance(backup, dict)
+    text = json.dumps(backup)
+    await request(port, "DELETE", f"api/connections/{backup['config']['connections'][0]['id']}")
+    status, preview = await request(port, "POST", "api/restore/preview", {"text": text})
+    assert status == 200 and isinstance(preview, dict)
+    assert preview["total"] == 1 and preview["kinds"]["serial"] == 1 and preview["current"] == 0
+    assert (await request(port, "POST", "api/restore/preview", {"text": "{}"}))[0] == 400
+    assert (await request(port, "POST", "api/restore/preview", {"text": "nonsense"}))[0] == 400
+    assert (await request(port, "POST", "api/restore", {"text": text}))[0] == 200
+    status, state = await request(port, "GET", "api/state")
+    assert isinstance(state, dict) and [c["name"] for c in state["connections"]] == ["eHZ"]
+    await web.stop()

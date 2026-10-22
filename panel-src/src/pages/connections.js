@@ -161,8 +161,6 @@ export class ConnectionsPage extends Page {
       <div class="head">
         <div><h1>${t("connectionsTitle")}</h1><p class="sub">${t("connectionsSub")}</p></div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("srcImport")}</button>
-          <a class="btn btn-s" href=${url("api/export")} download>${icon("download")}${t("srcExport")}</a>
           <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a>
         </div>
       </div>

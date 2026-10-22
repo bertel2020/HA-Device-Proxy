@@ -24,11 +24,21 @@ from . import diagnostics, enocean_import
 from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
-from .model import INGRESS_PORT, AppConfig, Connection, Settings, ValidationError, new_id
+from .model import (
+    INGRESS_PORT,
+    KINDS,
+    AppConfig,
+    Connection,
+    Settings,
+    ValidationError,
+    new_id,
+)
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services
 
 _LOGGER = logging.getLogger(__name__)
+
+BACKUP_MARK = "device_proxy_backup"
 
 INGRESS_HOSTS = ("172.30.32.1", "0.0.0.0")  # the Supervisor network first, else everywhere
 INGRESS_PEERS = ("172.30.32.2",)  # the Supervisor's ingress proxy
@@ -127,6 +137,9 @@ class WebServer:
         self._route("POST", r"api/import/preview", self.import_preview)
         self._route("POST", r"api/import", self.run_import)
         self._route("GET", r"api/export", self.export)
+        self._route("GET", r"api/backup", self.backup)
+        self._route("POST", r"api/restore/preview", self.restore_preview)
+        self._route("POST", r"api/restore", self.restore_backup)
         self._route("GET", r"api/runtime", self.runtime_yaml)
         self._route("POST", r"api/mqtt/test", self.mqtt_test)
         self._route("GET", r"api/import/enocean_proxy", self.enocean_proxy_options)
@@ -416,6 +429,43 @@ class WebServer:
             "application/x-yaml; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="ser2net-{stamp}.yaml"'},
         )
+
+    async def backup(self, request: Request) -> Response:
+        """Everything the app was set up with, as one file (with the MQTT login)."""
+        stamp = time.strftime("%Y%m%d-%H%M")
+        body = {
+            "app": BACKUP_MARK,
+            "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "config": self.c.config.to_dict(),
+        }
+        return Response(
+            200,
+            json.dumps(body, ensure_ascii=False, indent=1).encode(),
+            "application/json; charset=utf-8",
+            {"Content-Disposition": f'attachment; filename="device-proxy-backup-{stamp}.json"'},
+        )
+
+    @staticmethod
+    def _backup_config(request: Request) -> tuple[str, AppConfig]:
+        try:
+            data = json.loads(str(request.json().get("text", "")))
+        except ValueError:
+            data = None
+        if not isinstance(data, dict) or data.get("app") != BACKUP_MARK:
+            raise HttpError(400, "not a backup of this app")
+        return str(data.get("created", "")), AppConfig.from_dict(data.get("config") or {})
+
+    async def restore_preview(self, request: Request) -> Response:
+        created, config = self._backup_config(request)
+        kinds = {k: sum(1 for c in config.connections if c.kind == k) for k in KINDS}
+        return ok(
+            {"created": created, "kinds": kinds, "total": len(config.connections)}
+            | {"current": len(self.c.config.connections)}
+        )
+
+    async def restore_backup(self, request: Request) -> Response:
+        _, config = self._backup_config(request)
+        return await self._save(lambda _: config, "restore")
 
     async def mqtt_test(self, request: Request) -> Response:
         """Try the broker of the form (or the Supervisor's when the host is empty)."""

@@ -203,6 +203,25 @@ export class SettingsPage extends Page {
   }
 
   /** The versions newest first, equal neighbours as one row, under day headings. */
+  async _restoreFile(e) {
+    const input = e.target;
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const p = await api("api/restore/preview", { method: "POST", body: { text } });
+      const kinds = ["serial", "modbus", "enocean"].filter((k) => p.kinds[k]).map((k) => `${p.kinds[k]} ${t(`kindName_${k}`)}`).join(", ");
+      if (!(await confirmDialog(this, t("backupConfirm", { when: p.created || "–", n: p.total, kinds: kinds || "–", cur: p.current }), t("restoreDo")))) return;
+      await api("api/restore", { method: "POST", body: { text } });
+      this.toast(t("restoreDone"));
+      this.refresh();
+      this.versions = null;
+    } catch (err) {
+      this.toast(`${t("error")}: ${err.data?.errors ? Object.values(err.data.errors).map(fieldError).join("; ") : err.message}`);
+    }
+  }
+
   _history() {
     const groups = [];
     for (const v of this.versions || []) {
@@ -278,7 +297,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNetNav"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNetNav"], ["backup", "sBackup"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -313,14 +332,28 @@ export class SettingsPage extends Page {
           <div class="hint">${t("netChangeHint")}</div>
         </section>
 
+        <section id="backup" class="card" aria-labelledby="t-backup">
+          <div><h2 id="t-backup">${t("sBackup")}</h2><p class="hint" style="margin-top:4px">${t("sBackupSub")}</p></div>
+          <div class="acts">
+            <a class="act" href=${url("api/backup")} download><b>${icon("download")}${t("backupMake")}</b><span>${t("backupMakeSub")}</span></a>
+            <label class="act" style="cursor:pointer"><b>${icon("upload")}${t("backupRestore")}</b><span>${t("backupRestoreSub")}</span>
+              <input type="file" class="sr" accept=".json,application/json" @change=${this._restoreFile}></label>
+          </div>
+          <div style="border-top:1px solid var(--line-2);padding-top:14px;display:flex;flex-direction:column;gap:10px">
+            <b style="font-weight:500">${t("backupOthers")}</b>
+            <div class="acts">
+              <button class="act" @click=${() => this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true }))}><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></button>
+              <a class="act" href=${url(`api/export?disabled=${this.exportDisabled ? 1 : 0}`)} download><b>${icon("download")}${t("srcExportYaml")}</b><span>${t("srcExportSub")}</span></a>
+            </div>
+            <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
+          </div>
+        </section>
+
         <section id="src" class="card" aria-labelledby="t-src">
           <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
           <div class="acts">
-            <button class="act" @click=${() => this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true }))}><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></button>
-            <a class="act" href=${url(`api/export?disabled=${this.exportDisabled ? 1 : 0}`)} download><b>${icon("download")}${t("srcExport")}</b><span>${t("srcExportSub")}</span></a>
             <button class="act ${this.runtime ? "on" : ""}" aria-expanded=${this.runtime ? "true" : "false"} @click=${this._toggleRuntime}><b>${icon("file")}${t("srcRuntime")}</b><span>${t("srcRuntimeSub")}</span></button>
           </div>
-          <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
           ${this.runtime ? html`
             <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
               <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>
