@@ -126,6 +126,7 @@ class WebServer:
         self._route("POST", r"api/import/preview", self.import_preview)
         self._route("POST", r"api/import", self.run_import)
         self._route("GET", r"api/export", self.export)
+        self._route("GET", r"api/runtime", self.runtime_yaml)
         self._route("GET", r"api/import/enocean_proxy", self.enocean_proxy_options)
         self._route("GET", r"api/custom", self.get_custom)
         self._route("POST", r"api/custom/check", self.check_custom)
@@ -413,6 +414,15 @@ class WebServer:
             "application/x-yaml; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="ser2net-{stamp}.yaml"'},
         )
+
+    async def runtime_yaml(self, request: Request) -> Response:
+        """The ser2net.yaml the app hands to ser2net right now."""
+        try:
+            text = self.c.config_file.read_text(encoding="utf-8")
+        except OSError:
+            return ok({"text": "", "connections": 0, "ts": None})
+        ts = self.c.config_file.stat().st_mtime
+        return ok({"text": text, "connections": len(self.c._written), "ts": ts})
 
     async def get_custom(self, request: Request) -> Response:
         try:

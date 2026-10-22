@@ -64,6 +64,9 @@ async def test_api_creates_checks_and_lists(tmp_path: Path) -> None:
     status, page = await request(port, "GET", "")
     assert status == 200 and b"<device-proxy>" in page  # type: ignore[operator]
     assert (await request(port, "GET", "api/nothing"))[0] == 404
+    status, running = await request(port, "GET", "api/runtime")
+    assert status == 200 and isinstance(running, dict) and running["connections"] == 1
+    assert "tcp," in running["text"] and "admin:" in running["text"]
     other = await asyncio.start_server(lambda r, w: None, "0.0.0.0", 0)  # another program
     taken = other.sockets[0].getsockname()[1]
     status, preview = await request(

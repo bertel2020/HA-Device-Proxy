@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
-import { confirmDialog, fmtTime, logo } from "../ui.js";
+import { confirmDialog, copyText, fmtTime, icon, logo } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 const LABELS = { history_days: "historyDays", trace_file_mb: "traceMb", trace_keep: "traceKeep", debounce_count: "debounceCount", debounce_minutes: "debounceMinutes" };
@@ -20,7 +20,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, histAll: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -37,6 +37,17 @@ export class SettingsPage extends Page {
     ol { list-style: none; margin: 0; padding: 0; }
     li { border-top: 1px solid var(--line-2); padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     ol.hist li { padding: 0; gap: 0; }
+    .acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .act { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--input-line); border-radius: 12px; cursor: pointer; }
+    .act:hover { background: var(--surface-1); }
+    .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .act b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; }
+    .act span { font-size: 12px; color: var(--muted); }
+    .act.on { background: var(--accent-soft); border-color: var(--accent); }
+    .act.on b { color: var(--accent-hover); }
+    pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre; }
+    details.expert > summary { cursor: pointer; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 32px; }
+    .expert-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
     .day { font-size: 12px; font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
     .day:first-child { margin-top: 0; }
     .hrow { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; border-radius: 8px; }
@@ -65,6 +76,15 @@ export class SettingsPage extends Page {
 
   async _loadVersions() {
     try { this.versions = await api("api/versions"); } catch { this.versions = []; }
+  }
+
+  async _toggleRuntime() {
+    if (this.runtime) { this.runtime = null; return; }
+    try { this.runtime = await api("api/runtime"); } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _copyRuntime() {
+    if (await copyText(this.runtime?.text || "")) { this.copied = true; setTimeout(() => { this.copied = false; }, 2000); }
   }
 
   async _loadCustom() {
@@ -203,10 +223,24 @@ export class SettingsPage extends Page {
         </section>
 
         <section id="src" class="card" aria-labelledby="t-src">
-          <div class="row"><div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
-            <div class="seg" role="group" aria-labelledby="t-src">
-              <button aria-pressed=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>${t("forms")}</button>
-              <button aria-pressed=${own ? "true" : "false"} ?disabled=${!this.custom?.exists} @click=${() => this._useOwn()}>${t("own")}</button></div></div>
+          <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
+          <div class="acts">
+            <a class="act" href="#/import"><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></a>
+            <a class="act" href=${url("api/export")} download><b>${icon("download")}${t("srcExport")}</b><span>${t("srcExportSub")}</span></a>
+            <button class="act ${this.runtime ? "on" : ""}" aria-expanded=${this.runtime ? "true" : "false"} @click=${this._toggleRuntime}><b>${icon("file")}${t("srcRuntime")}</b><span>${t("srcRuntimeSub")}</span></button>
+          </div>
+          ${this.runtime ? html`
+            <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
+              <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>
+            <pre class="code runtime">${this.runtime.text || "–"}</pre>
+            <div class="hint">${this.runtime.ts ? `${fmtTime(this.runtime.ts)} · ` : ""}${t("runtimeConns", { n: this.runtime.connections })} · ${t("runtimeFoot")}</div>` : ""}
+          <details class="expert" ?open=${own}>
+            <summary>${t("expert")} ${own ? "" : html`<span class="chip warn">${t("expertTag")}</span>`}</summary>
+            <div class="expert-body">
+              <div class="row"><div class="hint" style="flex:1">${t("expertSub")}</div>
+                <div class="seg" role="group" aria-label=${t("sSource")}>
+                  <button aria-pressed=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>${t("forms")}</button>
+                  <button aria-pressed=${own ? "true" : "false"} ?disabled=${!this.custom?.exists} @click=${() => this._useOwn()}>${t("own")}</button></div></div>
           ${own ? html`<div class="note warn" role="note">${t("ownWarn")}</div>` : ""}
           <div class="hint">${t("ownHint")}</div>
           <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => { this.customText = e.target.value; this.customCheck = null; }}></textarea>
@@ -218,6 +252,8 @@ export class SettingsPage extends Page {
               <button class="btn btn-p" @click=${() => this._saveCustom(true)}>${t("saveUse")}</button></div>
           </div>
           ${check && check.notes.length ? html`<div class="hint">${check.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
+            </div>
+          </details>
         </section>
 
         <section id="hist" class="card" aria-labelledby="t-hist">
