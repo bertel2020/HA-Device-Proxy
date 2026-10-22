@@ -24,6 +24,10 @@ export class ImportDialog extends Page {
     .on .num, .past .num { background: var(--accent); color: var(--on-accent); }
     .drop { border: 2px dashed var(--input-line); border-radius: 16px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; background: var(--surface-2); }
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+    .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .sum { display: flex; gap: 10px; flex-wrap: wrap; }
+    .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+    .sum b { font-size: 24px; font-weight: 500; color: var(--text, inherit); }
     td .notes { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: var(--muted); }
   `];
 
@@ -91,7 +95,7 @@ export class ImportDialog extends Page {
 
   _result(item) {
     if (!item.connection) return html`<span class="chip bad">${t("resNo")}</span>`;
-    if (Object.keys(item.conflicts).length && !this.replaceAll) return html`<span class="chip bad">${t("resConflict")}: ${Object.entries(item.conflicts).map(([k, v]) => `${k} ↔ ${v}`).join(", ")}</span>`;
+    if (Object.keys(item.conflicts).length && !this.replaceAll) return html`${Object.entries(item.conflicts).map(([k, v]) => html`<div><span class="chip bad">${t(`confl_${k}`, { p: item.connection.port, n: v })}</span></div>`)}`;
     return item.notes.length ? html`<span class="chip warn">${t("resNotes")}</span>` : html`<span class="chip ok">${t("resOk")}</span>`;
   }
 
@@ -106,15 +110,16 @@ export class ImportDialog extends Page {
       <div class="choices" role="radiogroup">${[[false, "merge", "mergeSub"], [true, "replaceAll", "replaceAllSub"]].map(([v, k, sub]) => html`
         <button type="button" class="choice" role="radio" aria-checked=${this.replaceAll === v ? "true" : "false"} @click=${() => { this.replaceAll = v; }}>
           <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
+      ${this.replaceAll && this.state.connections.length ? html`<div class="gone" role="alert"><b style="font-weight:500">${t("willGo")}</b> ${this.state.connections.map((c) => c.name).join(", ")}</div>` : ""}
       ${p.notes.length ? html`<div class="note warn"><b>${t("fileNotes")}</b>${p.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
-      <div class="scroll"><table style="min-width:680px"><thead><tr><th><span class="sr">${t("take")}</span></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
+      <div class="scroll"><table style="min-width:680px"><thead><tr><th><input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${t("takeAll")}" .checked=${count > 0 && count === takeable.filter((i) => !Object.keys(i.conflicts).length || this.replaceAll).length} @change=${(e) => this._all(e.target.checked, takeable)}></th><th>${t("name")}</th><th>${t("port")}</th><th>${t("device")}</th><th>${t("result")}</th></tr></thead>
         <tbody>${p.items.map((item) => {
           const c = item.connection;
           const conflict = Object.keys(item.conflicts).length && !this.replaceAll;
           return html`<tr>
             <td>${c && !conflict ? html`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${item.alias} ${t("take")}"
               .checked=${this.take.has(item.alias)} @change=${(e) => { const s = new Set(this.take); e.target.checked ? s.add(item.alias) : s.delete(item.alias); this.take = s; }}>` : ""}</td>
-            <td><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${c.kind === "modbus" ? t(`link_${c.link}`) : c.kind === "enocean" ? `${c.esp_protocol.toUpperCase()} · ${t(`eolink_${c.link}`)}` : `${fmtSerial(c)} · ${c.mode}`} · max. ${c.max_clients}${c.enabled ? "" : " · off"}</div>` : ""}</td>
+            <td><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
             <td class="mono">${c ? c.port : ""}</td>
             <td class="mono" style="font-size:12px;overflow-wrap:anywhere;max-width:260px">${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
@@ -132,6 +137,29 @@ export class ImportDialog extends Page {
       </div></section>`;
   }
 
+  _all(on, takeable) {
+    this.take = new Set(on ? takeable.filter((i) => !Object.keys(i.conflicts).length || this.replaceAll).map((i) => i.alias) : []);
+  }
+
+  _kind(c) {
+    if (c.kind === "modbus") return t(`link_${c.link}`);
+    if (c.kind === "enocean") return `${c.esp_protocol.toUpperCase()} · ${t(`eolink_${c.link}`)}`;
+    return `${fmtSerial(c)} · ${c.mode === "raw" ? t("modeRaw") : c.mode === "rfc2217" ? "RFC 2217" : c.mode}`;
+  }
+
+  _done() {
+    const n = (kind) => this.done.changes.filter((c) => c.connection && c.change === kind).length;
+    const added = n("added"), changed = n("changed"), removed = n("removed");
+    const skipped = Math.max(0, this.preview.items.length - added - changed);
+    const taken = new Set(this.done.changes.filter((c) => c.connection && c.change !== "removed").map((c) => c.connection));
+    const off = this.preview.items.filter((i) => i.connection && !i.connection.enabled && taken.has(i.connection.name)).map((i) => i.connection.name);
+    return html`<section class="card"><h2>${t("doneHead")}</h2>
+      <div class="sum">${[["added", added], ["changed", changed], ...(removed ? [["removed", removed]] : []), ["skipped", skipped]].map(([k, v]) => html`<div><b>${v}</b>${t(`sum_${k}`)}</div>`)}</div>
+      ${off.length ? html`<p class="hint" style="font-size:14px">${t("doneOff", { n: off.join(", ") })}</p>` : ""}
+      <p class="hint" style="font-size:14px">${t("doneText")}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-p" href="#/connections" @click=${this._close}>${t("toConnections")}</a><a class="btn btn-s" href="#/settings" @click=${this._close}>${t("sHistory")}</a></div></section>`;
+  }
+
   _close() {
     this.dispatchEvent(new CustomEvent("dp-import-close", { bubbles: true, composed: true }));
   }
@@ -145,9 +173,7 @@ export class ImportDialog extends Page {
         <div class="row"><h2 id="t-imp" style="margin:0">${t("importTitle")}</h2>
           <button class="btn btn-g" aria-label=${t("close")} @click=${this._close}>${icon("x")}</button></div>
         ${this._steps(step)}
-        ${this.done ? html`<section class="card" style="align-items:flex-start"><span class="chip ok">${t("stepDone")}</span>
-          <h2>${t("doneTitle", { n: this.done.changes.filter((c) => c.change === "added").length })}</h2><p class="hint" style="font-size:14px">${t("doneText")}</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-p" href="#/connections" @click=${this._close}>${t("toConnections")}</a><a class="btn btn-s" href="#/settings" @click=${this._close}>${t("sHistory")}</a></div></section>`
+        ${this.done ? this._done()
           : this.preview ? this._previewView() : this._choose()}
       </div></div>`;
   }
