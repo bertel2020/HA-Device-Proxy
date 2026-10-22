@@ -49,6 +49,8 @@ PRIVATE_NETWORKS = (
 )
 # Home Assistant itself and the other apps (the Supervisor's network)
 APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23")
+OWN_NETWORK = "own"  # in Settings.lan_networks: the network of this host
+HOST_NETWORK: str | None = None  # set from the Supervisor (controller.py), e.g. 192.168.1.0/24
 # options the forms set; "weitere Optionen" may not set them a second time
 MANAGED_OPTIONS = {
     "max-connections",
@@ -346,6 +348,7 @@ _BLANK = Connection(name="", device="", port=0, id="00000000")  # for derived pr
 @dataclass(frozen=True)
 class Settings:
     listen: str = "lan"
+    lan_networks: str = OWN_NETWORK  # with listen "lan": "own" and networks, space separated
     log_level: str = "info"
     source: str = "forms"  # "custom": the user's own ser2net.yaml is used as it is
     history_days: int = 30
@@ -380,6 +383,14 @@ class Settings:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @property
+    def access(self) -> str:
+        """What the proxies and ser2net get as "listen": with "lan" the networks are in it
+        ("lan:10.0.0.0/8 192.168.1.0/24"), so a change of them restarts what depends on it."""
+        if self.listen != "lan":
+            return self.listen
+        return "lan:" + " ".join(str(n) for n in lan_networks(self))
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Settings:
         errors: dict[str, str] = {}
@@ -396,6 +407,10 @@ class Settings:
         e: dict[str, str] = {}
         if settings.listen not in LISTEN:
             e["listen"] = f"one of {', '.join(LISTEN)}"
+        try:
+            lan_networks_of(settings.lan_networks)
+        except ValueError as err:
+            e["lan_networks"] = str(err)
         if settings.log_level not in LOG_LEVELS:
             e["log_level"] = f"one of {', '.join(LOG_LEVELS)}"
         if settings.source not in SOURCES:
@@ -536,18 +551,66 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(schema, int) or schema > SCHEMA:
         raise ValidationError({"schema": f"version {schema} is newer than this app knows"})
     # no older versions yet; lift them here one step at a time when SCHEMA grows
+    settings = data.get("settings")
+    if isinstance(settings, dict) and "lan_networks" not in settings:
+        # before the list existed "lan" meant every private network: keep that
+        data = {
+            **data,
+            "settings": {**settings, "lan_networks": " ".join(PRIVATE_NETWORKS[1:4])},
+        }
     return data
+
+
+def lan_networks_of(text: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network | str]:
+    """The entries of Settings.lan_networks: "own" stays a string, the rest are networks."""
+    items: list[ipaddress.IPv4Network | ipaddress.IPv6Network | str] = []
+    for item in re.split(r"[,;\s]+", text.strip()):
+        if item == OWN_NETWORK:
+            items.append(OWN_NETWORK)
+        elif item:
+            for network in parse_networks(item):
+                if network.prefixlen == 0:
+                    raise ValueError(f"{item} would let everyone in; use the network setting “all”")
+                items.append(network)
+    return items
+
+
+def lan_networks(settings: Settings) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """The networks besides this host and the apps that may connect with listen "lan"; the
+    host's own network is the private networks when the Supervisor did not tell it."""
+    result: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for item in lan_networks_of(settings.lan_networks):
+        if item == OWN_NETWORK:
+            own = [HOST_NETWORK] if HOST_NETWORK else list(PRIVATE_NETWORKS[1:4])
+            found = [ipaddress.ip_network(n, strict=False) for n in own]
+        else:
+            found = [item] if not isinstance(item, str) else []
+        result += [n for n in found if n not in result]
+    return result
+
+
+def listen_networks(listen: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """The networks a listen value ("apps", "lan", "lan:<networks>") lets in; "lan" alone is
+    every private network. Home Assistant and the apps are always in."""
+    apps = [ipaddress.ip_network(n) for n in APPS_NETWORKS]
+    if listen == "apps":
+        return apps
+    listed = (
+        parse_networks(listen[4:])
+        if listen.startswith("lan:") and listen[4:].strip()
+        else [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+        if listen == "lan"
+        else []
+    )
+    return apps + [n for n in listed if n not in apps]
 
 
 def client_allowed(remaddr: str, listen: str, address: str) -> bool:
     """May a client from this address connect (remaddr, else the global listen setting)?"""
     if remaddr:
         networks = parse_networks(remaddr)
-    elif listen in ("apps", "lan"):
-        networks = [
-            ipaddress.ip_network(n)
-            for n in (APPS_NETWORKS if listen == "apps" else PRIVATE_NETWORKS)
-        ]
+    elif listen == "apps" or listen.startswith("lan"):
+        networks = listen_networks(listen)
     else:
         return True
     try:

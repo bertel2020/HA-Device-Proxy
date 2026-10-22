@@ -29,7 +29,7 @@ def test_render() -> None:
     )
     assert "connection: &c_0000000a\n  accepter: tcp,3335\n  enable: on" in text
     assert f"connector: serialdev,{PATH},9600n81,local\n" in text
-    assert 'remaddr: "127.0.0.0/8,0;10.0.0.0/8,0;' in text
+    assert 'remaddr: "127.0.0.0/8,0;::1/128,0;172.30.32.0/23,0;10.0.0.0/8,0;' in text
     assert 'banner: "Hallo: Welt"' in text
     assert "accepter: telnet(rfc2217),tcp(nodelay),3333\n  enable: off" in text
     assert "serialdev,/dev/ttyACM0,115200n81,local,dtr=on\n" in text

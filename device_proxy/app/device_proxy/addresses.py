@@ -16,10 +16,10 @@ from typing import Any
 
 from .model import (
     APPS_NETWORKS,
-    PRIVATE_NETWORKS,
     Connection,
     Settings,
     client_allowed,
+    lan_networks,
     parse_networks,
 )
 
@@ -30,7 +30,7 @@ APP_SOURCE = "172.30.33.2"  # a typical source address of another app
 
 
 def _allowed(c: Connection, settings: Settings, source: str) -> bool:
-    return client_allowed(c.remaddr, settings.listen, source)
+    return client_allowed(c.remaddr, settings.access, source)
 
 
 def _lan_allowed(c: Connection, settings: Settings) -> bool:
@@ -42,7 +42,7 @@ def _lan_allowed(c: Connection, settings: Settings) -> bool:
     networks = (
         parse_networks(c.remaddr)
         if c.remaddr
-        else [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+        else lan_networks(settings)
         if settings.listen == "lan"
         else []
     )

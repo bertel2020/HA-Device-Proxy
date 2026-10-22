@@ -21,3 +21,43 @@ def test_lan_address_follows_the_allowed_clients() -> None:
     assert lan("192.168.1.50")["reachable"]  # one LAN machine, not the host itself
     assert not lan("172.30.32.0/23")["reachable"]
     assert lan("172.30.32.0/23")["why"] == "clients"
+
+
+def test_home_network_list(monkeypatch) -> None:
+    from device_proxy import model
+    from device_proxy.config import remaddr
+    from device_proxy.model import Settings, client_allowed, lan_networks
+
+    monkeypatch.setattr(model, "HOST_NETWORK", "192.168.79.0/24")
+    own = Settings(listen="lan")  # the default: "own"
+    assert [str(n) for n in lan_networks(own)] == ["192.168.79.0/24"]
+    assert own.access == "lan:192.168.79.0/24"
+    guest = Settings(listen="lan", lan_networks="own 192.168.80.0/24")
+    c = Connection("x", "/dev/ttyX", 3333)
+    assert remaddr(c, guest.access) == (
+        "127.0.0.0/8,0;::1/128,0;172.30.32.0/23,0;192.168.79.0/24,0;192.168.80.0/24,0"
+    )
+    assert client_allowed("", guest.access, "192.168.80.7")
+    assert client_allowed("", guest.access, "172.30.33.2")  # apps are always in
+    assert not client_allowed("", guest.access, "192.168.81.7")
+    assert not client_allowed("", guest.access, "8.8.8.8")
+    # the own network unchecked and unknown host network: every private network
+    monkeypatch.setattr(model, "HOST_NETWORK", None)
+    assert client_allowed("", own.access, "10.1.2.3")
+
+
+def test_home_network_validation_and_migration() -> None:
+    from device_proxy.model import AppConfig, Settings, ValidationError
+
+    for bad in ("0.0.0.0/0", "::/0", "nonsense"):
+        try:
+            Settings.from_dict({"lan_networks": bad})
+        except ValidationError as err:
+            assert "lan_networks" in err.errors
+        else:
+            raise AssertionError(bad)
+    # a configuration from before the list: "lan" stays every private network
+    old = AppConfig.from_dict({"schema": 1, "settings": {"listen": "lan"}, "connections": []})
+    assert old.settings.lan_networks == "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+    new = AppConfig.from_dict({"schema": 1, "settings": {"lan_networks": "own"}})
+    assert new.settings.lan_networks == "own"

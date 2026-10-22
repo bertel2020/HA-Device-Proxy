@@ -11,7 +11,7 @@ known-first-party = ["device_proxy"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["device_proxy/app"]
+pythonpath = [".", "device_proxy/app"]
 timeout = 30
 
 [tool.mypy]

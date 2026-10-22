@@ -19,7 +19,7 @@ function lineDiff(before, after) {
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true },
-    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, diffs: { state: true }, services: { state: true },
+    versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -127,9 +127,38 @@ export class SettingsPage extends Page {
       this.toast(t("saved"));
       this.refresh();
       this._loadVersions();
+      return true;
     } catch (err) {
       this.toast(err.data.errors ? Object.values(err.data.errors).map(fieldError).join("; ") : `${t("error")}: ${err.message}`);
+      return false;
     }
+  }
+
+  /** The home network list: "own" (this host's network) and the networks added. */
+  _lan() {
+    if (this.lanDraft) return this.lanDraft;
+    const items = (this.state.settings.lan_networks || "").split(/[\s,;]+/).filter(Boolean);
+    return { own: items.includes("own"), nets: items.filter((x) => x !== "own") };
+  }
+
+  _lanText(l = this._lan()) {
+    return [l.own ? "own" : "", ...l.nets].filter(Boolean).join(" ");
+  }
+
+  _lanAdd() {
+    const v = this.lanInput.trim(), l = this._lan();
+    const valid = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(v) && v.split("/")[0].split(".").every((n) => +n <= 255) && (v.split("/")[1] ?? 0) <= 32 || /^[0-9a-f:]+:[0-9a-f:]*(\/\d{1,3})?$/i.test(v);
+    if (!valid) { this.lanErr = t("lanErrFormat"); return; }
+    if (/\/0$/.test(v)) { this.lanErr = t("lanErrAll"); return; }
+    if (l.nets.includes(v)) { this.lanErr = t("lanErrDup"); return; }
+    this.lanDraft = { ...l, nets: [...l.nets, v] };
+    this.lanInput = "";
+    this.lanErr = "";
+  }
+
+  async _lanSave() {
+    if (!(await confirmDialog(this, t("lanConfirm"), t("confirm")))) return;
+    if (await this._saveSettings({ lan_networks: this._lanText() })) this.lanDraft = null;
   }
 
   async _changeListen(v) {
@@ -235,6 +264,10 @@ export class SettingsPage extends Page {
     const conns = s.connections || [];
     const noClient = conns.some((c) => c.notify_no_client);
     const deviating = conns.filter((c) => c.bind || c.remaddr).length;
+    const lan = this._lan();
+    const lanDirty = this._lanText() !== (s.settings.lan_networks || "").trim().split(/[\s,;]+/).filter(Boolean).join(" ");
+    const lanSaved = s.settings.lan_networks.split(/[\s,;]+/).filter(Boolean).length;
+    const lanSub = lanSaved === 0 ? t("netsub_lan_none") : lanSaved === 1 ? t("netsub_lan_one") : t("netsub_lan_many", { n: lanSaved });
     const ownBroker = this.ownBroker ?? !!d.mqtt_host;
     const advanced = d.mqtt_prefix !== "homeassistant" || d.mqtt_base !== "device_proxy" || d.mqtt_interval !== 10;
     const mqttChip = !s.settings.mqtt_enabled ? html`<span class="chip">${t("mqttStateOff")}</span>`
@@ -253,7 +286,28 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:11px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" && s.lan_net ? t("netsub_lan_net", { net: s.lan_net }) : t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:11px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
+          ${s.settings.listen === "lan" ? html`<div class="grp" style="gap:12px">
+            <div><h3>${t("lanTitle")}</h3><div class="hint" style="margin-top:2px">${t("lanSub")}</div></div>
+            <div class="pills">
+              <label class="chip ${lan.own ? "info" : ""}" style="cursor:pointer;min-height:34px;gap:8px"><input type="checkbox" .checked=${lan.own} @change=${(e) => { this.lanDraft = { ...lan, own: e.target.checked }; }}>
+                <span style="font-weight:500">${t("lanOwn")}</span><span class="mono">${s.lan_net || ""}</span></label>
+              ${lan.nets.map((n) => html`<span class="chip info" style="min-height:34px"><span class="mono">${n}</span>
+                <button type="button" style="all:unset;cursor:pointer;display:inline-flex;color:inherit" aria-label=${t("lanRemove")} @click=${() => { this.lanDraft = { ...lan, nets: lan.nets.filter((x) => x !== n) }; }}>${icon("x")}</button></span>`)}
+            </div>
+            ${lan.own && !s.lan_net ? html`<div class="hint">${t("lanOwnUnknown")}</div>` : ""}
+            ${!lan.own && !lan.nets.length ? html`<div class="note warn" role="note">${t("lanNone")}</div>` : ""}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input class="inp mono" style="max-width:220px" placeholder="192.168.80.0/24" aria-label=${t("lanAdd")} .value=${this.lanInput || ""}
+                @input=${(e) => { this.lanInput = e.target.value; this.lanErr = ""; }} @keydown=${(e) => { if (e.key === "Enter") this._lanAdd(); }}>
+              <button class="btn btn-s" @click=${() => this._lanAdd()}>${t("lanAdd")}</button>
+            </div>
+            ${this.lanErr ? html`<div class="note bad" role="alert">${this.lanErr}</div>` : ""}
+            <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+              <a href="#/settings" @click=${(e) => { e.preventDefault(); this.lanDraft = { own: false, nets: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] }; }}>${t("lanPrivate")}</a>
+              <button class="btn btn-p" style="margin-left:auto" ?disabled=${!lanDirty} @click=${() => this._lanSave()}>${t("save")}</button>
+            </div>
+          </div>` : ""}
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
           ${deviating ? html`<div class="hint" style="font-size:13px">${deviating === 1 ? t("netDeviateOne") : t("netDeviateMany", { n: deviating })} <a href="#/connections">${t("netDeviateLink")}</a></div>` : ""}
           <div class="hint">${t("netChangeHint")}</div>

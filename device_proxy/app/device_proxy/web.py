@@ -360,7 +360,7 @@ class WebServer:
             warnings["port"] = problem
         if connection.kind != "serial":  # the app's Modbus proxy, not ser2net
             return ok({"yaml": "", "errors": errors, "warnings": warnings})
-        text = block(connection, self.c.config.settings.listen, trace=False)
+        text = block(connection, self.c.config.settings.access, trace=False)
         return ok({"yaml": text, "errors": errors, "warnings": warnings})
 
     async def settings(self, request: Request) -> Response:

@@ -14,10 +14,9 @@ import unicodedata
 
 from .model import (
     ADMIN_SOCKET,
-    APPS_NETWORKS,
-    PRIVATE_NETWORKS,
     AppConfig,
     Connection,
+    listen_networks,
     parse_networks,
 )
 from .trace import trace_path
@@ -71,8 +70,8 @@ def remaddr(c: Connection, listen: str) -> str:
         networks = [str(n) for n in parse_networks(c.remaddr)]
         if c.keep_open and not any(n.startswith("127.") for n in networks):
             networks.append("127.0.0.1/32")  # the app's own client
-    elif listen in ("apps", "lan"):
-        networks = list(APPS_NETWORKS if listen == "apps" else PRIVATE_NETWORKS)
+    elif listen == "apps" or listen.startswith("lan"):
+        networks = [str(n) for n in listen_networks(listen)]
     else:
         return ""  # "local" is limited by the bind address, "all" has no limit
     return ";".join(f"{n},0" for n in networks)
@@ -113,7 +112,7 @@ def block(c: Connection, listen: str, *, trace: bool = True) -> str:
 
 def blocks(config: AppConfig) -> dict[str, str]:
     """Alias → block, to tell which connections a change touches."""
-    return {c.alias: block(c, config.settings.listen) for c in config.serial}
+    return {c.alias: block(c, config.settings.access) for c in config.serial}
 
 
 def render(config: AppConfig, admin_socket: str = ADMIN_SOCKET) -> str:
@@ -152,11 +151,11 @@ def export(config: AppConfig, *, include_disabled: bool = True) -> str:
     taken: set[str] = set()
     for c in config.serial:  # the Modbus proxy is the app's own, not ser2net's
         if c.enabled or include_disabled:
-            text = block(c, config.settings.listen, trace=False)
+            text = block(c, config.settings.access, trace=False)
             parts.append(text.replace(f"&{c.alias}", f"&{readable_alias(c.name, taken)}", 1))
     if not taken:
         sample = Connection("example", "/dev/ttyUSB0", 3333)
-        text = block(sample, config.settings.listen, trace=False).replace(
+        text = block(sample, config.settings.access, trace=False).replace(
             f"&{sample.alias}", "&example", 1
         )
         commented = "\n".join(f"# {line}".rstrip() for line in text.splitlines())

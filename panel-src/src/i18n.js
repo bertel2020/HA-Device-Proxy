@@ -77,7 +77,9 @@ const TEXT = {
     rotation: "Rotation: {mb} MB je Datei · {k} ältere behalten", change: "ändern", deleteFile: "„{n}“ löschen?",
     // settings
     settingsTitle: "Einstellungen", sNetNav: "Netzwerk", netDefault: "Standard", netDeviateOne: "Eine Verbindung hat eine eigene Bind-Adresse oder eigene erlaubte Clients und folgt dieser Einstellung nicht.", netDeviateMany: "{n} Verbindungen haben eigene Bind-Adressen oder erlaubte Clients und folgen dieser Einstellung nicht.", netDeviateLink: "Zu den Verbindungen", netChangeHint: "Beim Wechsel werden alle Clients kurz getrennt.", download: "Herunterladen", sNet: "Wer darf sich verbinden?", sNetSub: "Gilt für alle Verbindungen, die keine eigene Bind-Adresse oder keine eigenen erlaubten Clients haben.",
-    net_local: "Nur Home Assistant", netsub_local: "Nur dieser Rechner, 127.0.0.1", net_apps: "Home Assistant und Apps", netsub_apps: "z. B. Z-Wave JS UI, nicht aus dem LAN", net_lan: "Alle Rechner im Heimnetz", netsub_lan: "Alle privaten Netze", netsub_lan_net: "Alle privaten Netze, auch dein LAN {net}", net_all: "Jeder", netsub_all: "Ohne Einschränkung",
+    net_local: "Nur Home Assistant", netsub_local: "Nur dieser Rechner, 127.0.0.1", net_apps: "Home Assistant und Apps", netsub_apps: "z. B. Z-Wave JS UI, nicht aus dem LAN", net_lan: "Heimnetz", netsub_lan_none: "Nur Home Assistant und Apps", netsub_lan_one: "1 Netz erlaubt", netsub_lan_many: "{n} Netze erlaubt", net_all: "Jeder", netsub_all: "Ohne Einschränkung",
+    lanTitle: "Erlaubte Netze", lanSub: "Rechner aus diesen Netzen dürfen sich verbinden. Home Assistant und Apps sind immer erlaubt.", lanOwn: "Mein Netz", lanOwnUnknown: "Das Netz dieses Rechners ist nicht bekannt, es gelten alle privaten Bereiche.", lanAdd: "Netz hinzufügen", lanRemove: "Entfernen", lanPrivate: "Alle privaten Bereiche erlauben",
+    lanErrFormat: "Das ist kein gültiges Netz. Schreibe es so: 192.168.80.0/24", lanErrAll: "Das öffnet alles, auch das Internet. Wähle stattdessen „Jeder“.", lanErrDup: "Dieses Netz steht schon in der Liste.", lanNone: "Kein Netz ausgewählt: nur Home Assistant und Apps dürfen sich verbinden.", lanConfirm: "Erlaubte Netze ändern? Die Clients aller Verbindungen werden dabei getrennt.",
     netWarn: "ser2net hat keine Anmeldung. Wer den Port erreicht, kann das Gerät lesen und steuern.",
     srcImport: "Importieren", srcImportSub: "Datei einlesen, mit Vorschau", srcExport: "Exportieren", srcExportSub: "Für jedes ser2net 4", srcRuntime: "Laufende Datei", srcRuntimeSub: "Ansehen, was ser2net nutzt", runtimeTitle: "Laufende ser2net.yaml", runtimeHint: "So gibt die App sie an ser2net. Enthält die Admin-Schnittstelle der App. Zum Mitnehmen nimm den Export.", runtimeConns: "{n} Verbindungen", runtimeFoot: "wird bei jeder Änderung neu geschrieben", expert: "Experten: ser2net.yaml selbst pflegen", expertTag: "ersetzt die Formulare", expertSub: "Mit einer eigenen Datei werden die Formulare nicht mehr verwendet.", sSource: "ser2net.yaml", sSourceSub: "Die Verbindungen als ser2net-Datei: einlesen, mitnehmen oder nachsehen, was gerade läuft.", forms: "Formulare", own: "Eigene ser2net.yaml",
     ownHint: "Nur serielle Verbindungen stehen in dieser Datei. Modbus und EnOcean verwaltet die App selbst.", ownWarn: "Solange die eigene Datei aktiv ist, werden die Formulare nicht verwendet. Ohne admin-Abschnitt: die App fügt ihren eigenen an.",
@@ -398,7 +400,9 @@ const TEXT = {
     recording: "recording · {m}", notRecording: "not recording", files: "Files", fileTh: "File", sizeTh: "Size", changedTh: "Changed",
     rotation: "Rotation: {mb} MB per file · {k} older kept", change: "change", deleteFile: "Delete “{n}”?",
     settingsTitle: "Settings", sNetNav: "Network", netDefault: "Default", netDeviateOne: "One connection has its own bind address or allowed clients and does not follow this setting.", netDeviateMany: "{n} connections have their own bind addresses or allowed clients and do not follow this setting.", netDeviateLink: "Go to the connections", netChangeHint: "Switching briefly disconnects all clients.", download: "Download", sNet: "Who may connect?", sNetSub: "Applies to all connections without their own bind address or their own allowed clients.",
-    net_local: "Home Assistant only", netsub_local: "This host only, 127.0.0.1", net_apps: "Home Assistant and apps", netsub_apps: "e.g. Z-Wave JS UI, not from the LAN", net_lan: "All computers on the home network", netsub_lan: "All private networks", netsub_lan_net: "All private networks, including your LAN {net}", net_all: "Anyone", netsub_all: "No restriction",
+    net_local: "Home Assistant only", netsub_local: "This host only, 127.0.0.1", net_apps: "Home Assistant and apps", netsub_apps: "e.g. Z-Wave JS UI, not from the LAN", net_lan: "Home network", netsub_lan_none: "Home Assistant and apps only", netsub_lan_one: "1 network allowed", netsub_lan_many: "{n} networks allowed", net_all: "Anyone", netsub_all: "No restriction",
+    lanTitle: "Allowed networks", lanSub: "Computers from these networks may connect. Home Assistant and apps are always allowed.", lanOwn: "My network", lanOwnUnknown: "This host’s network is not known, so all private ranges apply.", lanAdd: "Add network", lanRemove: "Remove", lanPrivate: "Allow all private ranges",
+    lanErrFormat: "That is not a valid network. Write it like 192.168.80.0/24", lanErrAll: "That opens everything, the internet included. Choose “Anyone” instead.", lanErrDup: "This network is already in the list.", lanNone: "No network selected: only Home Assistant and apps may connect.", lanConfirm: "Change the allowed networks? The clients of all connections are disconnected.",
     netWarn: "ser2net has no login. Whoever reaches the port can read and control the device.",
     srcImport: "Import", srcImportSub: "Read a file, with a preview", srcExport: "Export", srcExportSub: "For any ser2net 4", srcRuntime: "Running file", srcRuntimeSub: "See what ser2net uses", runtimeTitle: "Running ser2net.yaml", runtimeHint: "This is how the app hands it to ser2net. It contains the app's admin interface. To take it along, use the export.", runtimeConns: "{n} connections", runtimeFoot: "rewritten with every change", expert: "Experts: maintain ser2net.yaml yourself", expertTag: "replaces the forms", expertSub: "With your own file the forms are no longer used.", sSource: "ser2net.yaml", sSourceSub: "The connections as a ser2net file: import them, take them along, or see what is running.", forms: "Forms", own: "Own ser2net.yaml",
     ownHint: "Only serial connections are in this file. The app manages Modbus and EnOcean itself.", ownWarn: "While your own file is in use, the forms are not used. No admin section: the app adds its own.",
@@ -787,14 +791,14 @@ const CHANGE_WORDS = {
 
 const SETTING_NAMES = {
   de: {
-    listen: "Netzwerk", log_level: "Log-Level", source: "Konfigurationsquelle", history_days: "Historie (Tage)", trace_file_mb: "Mitschnitt-Größe", trace_keep: "Mitschnitt-Dateien",
+    listen: "Netzwerk", lan_networks: "Heimnetz", log_level: "Log-Level", source: "Konfigurationsquelle", history_days: "Historie (Tage)", trace_file_mb: "Mitschnitt-Größe", trace_keep: "Mitschnitt-Dateien",
     debounce_count: "Zusammenfassen ab", debounce_minutes: "Zusammenfassen innerhalb", notify_grace: "Meldung nach (s)", notify_dismiss: "Meldung entfernen", notify_service: "notify-Dienst",
     notify_resolved: "Behoben melden", notify_stuck: "Client liest nicht mehr", notify_line_errors: "Leitungsfehler", notify_ser2net: "ser2net-Neustarts", notify_language: "Sprache der Meldungen",
     no_client_minutes: "„Kein Client“ nach (min)", mqtt_enabled: "MQTT-Entitäten", mqtt_prefix: "Discovery-Präfix", mqtt_base: "Basis-Topic", mqtt_interval: "MQTT-Intervall (s)",
     mqtt_host: "MQTT-Broker", mqtt_port: "MQTT-Port", mqtt_user: "MQTT-Benutzer", mqtt_password: "MQTT-Passwort", mqtt_tls: "MQTT-TLS", enocean_discovery: "EnOcean-Gateways melden", enocean_status_port: "EnOcean-Status-Port",
   },
   en: {
-    listen: "Network", log_level: "Log level", source: "Configuration source", history_days: "History (days)", trace_file_mb: "Trace size", trace_keep: "Trace files",
+    listen: "Network", lan_networks: "Home network", log_level: "Log level", source: "Configuration source", history_days: "History (days)", trace_file_mb: "Trace size", trace_keep: "Trace files",
     debounce_count: "Sum up from", debounce_minutes: "Sum up within", notify_grace: "Report after (s)", notify_dismiss: "Remove notification", notify_service: "notify service",
     notify_resolved: "Report when over", notify_stuck: "Client stops reading", notify_line_errors: "Line errors", notify_ser2net: "ser2net restarts", notify_language: "Language of messages",
     no_client_minutes: "“No client” after (min)", mqtt_enabled: "MQTT entities", mqtt_prefix: "Discovery prefix", mqtt_base: "Base topic", mqtt_interval: "MQTT interval (s)",
@@ -805,6 +809,7 @@ const SETTING_NAMES = {
 const settingValue = (key, value) => {
   if (typeof value === "boolean") return t(value ? "histOn" : "histOff");
   if (key === "listen") return t(`net_${value}`);
+  if (key === "lan_networks") return value.trim().replace(/\bown\b/, t("lanOwn")) || "–";
   if (key === "source") return value === "custom" ? t("own") : t("forms");
   return value === "" ? "–" : String(value);
 };

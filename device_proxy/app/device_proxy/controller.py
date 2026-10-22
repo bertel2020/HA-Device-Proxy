@@ -30,7 +30,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from . import custom
+from . import custom, model
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
@@ -295,6 +295,8 @@ class Controller:
         self._stop = stop
         self.apply_log_level()
         self.trace.prepare()
+        self.lan_ip, self.lan_net = await asyncio.to_thread(host_lan)
+        model.HOST_NETWORK = self.lan_net  # before the first ser2net.yaml and proxy
         self.write_config()
         await self.import_folder()
         active = [c for c in self.config.connections if c.enabled]
@@ -328,7 +330,6 @@ class Controller:
         await self.enocean_ha.update()
         self.devices = scan()
         self._apply_latency()
-        self.lan_ip, self.lan_net = await asyncio.to_thread(host_lan)
         self.ser2net_version = await self.ser2net.version()
         self._start_mqtt()
         try:
@@ -548,7 +549,7 @@ class Controller:
     async def _reconcile_proxies(self) -> list[str]:
         """Start, restart and stop the proxies to match the configuration; the names of
         the connections that were (re)started or stopped."""
-        listen = self.config.settings.listen
+        listen = self.config.settings.access
         wanted = {c.id: c for c in self.config.proxied if c.enabled}
         touched: list[str] = []
         for connection_id, proxy in list(self.proxies.items()):
