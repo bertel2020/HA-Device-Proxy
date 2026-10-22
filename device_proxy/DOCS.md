@@ -11,6 +11,9 @@ The app shares devices with several programs at once:
   connection (many inverters, heat pumps, batteries, energy meters) or an RS485 bus with
   Modbus RTU gets a Modbus TCP port that several clients use at the same time – like the
   ha-modbusproxy app, plus Modbus RTU (see [Modbus devices](#modbus-devices)).
+- **EnOcean gateways** (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH …) through the app's own
+  EnOcean proxy: several programs (Home Assistant, eo_man, PCT14) share one gateway (see
+  [EnOcean gateways](#enocean-gateways)).
 
 Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
 of its own, so its **Configuration** tab in the Supervisor is empty on purpose: open **Device Proxy**
@@ -19,7 +22,7 @@ in the sidebar instead.
 ## Getting started
 
 1. Install the app and start it; open **Device Proxy** in the sidebar.
-2. Either **import** your existing configuration (**Settings → Back up and transfer → Import connections**:
+2. Either **import** your existing configuration (**Settings → Back up and transfer → Import**:
    ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf` or the options of ha-modbusproxy), or
    **add a connection**: choose serial device or Modbus device; for a serial device pick a
    template (smart meter SML or D0, Z-Wave stick, generic), the device from the list and a
@@ -56,14 +59,16 @@ type.
 **Settings → Network** applies to all connections without their own bind address or
 `remaddr`:
 
-- **This host only** – 127.0.0.1, reachable by Home Assistant only.
-- **LAN** (default) – Home Assistant, its apps and the networks listed under **Allowed networks**.
-  "Own network" (the host's network, read from the Supervisor) is predefined; add further
-  networks such as `192.168.80.0/24` or use the private ranges. An empty list lets only Home
-  Assistant and the apps in. Existing installations keep the private ranges
-  (10/8, 172.16/12, 192.168/16).
-- **All networks** – no limit. ser2net has no login: whoever reaches the port can read and
-  control the device.
+- **Home Assistant only** – 127.0.0.1, this host only.
+- **Home Assistant and apps** – also the other apps (e.g. Z-Wave JS UI), 127.0.0.0/8 and
+  172.30.32.0/23, but nothing from the LAN.
+- **Home network** (default) – Home Assistant, its apps and the networks listed under
+  **Allowed networks**. "My network" (the host's network, read from the Supervisor) is
+  predefined; add further networks such as `192.168.80.0/24` or use the private ranges. An
+  empty list lets only Home Assistant and the apps in. Installations from before this list
+  existed keep the private ranges (10/8, 172.16/12, 192.168/16).
+- **Anyone** – no limit. ser2net has no login: whoever reaches the port can read and control
+  the device.
 
 ### Several clients on one device
 
@@ -111,9 +116,9 @@ wrong client.
 **Settings**: port for the clients (502 by default; each connection needs its own), number
 of clients, answer timeout, further attempts, a pause after connecting (ha-modbusproxy's
 `connection_time`, for devices that need a moment) and a pause between requests for slow
-devices. Under **Advanced**: disconnect idle clients, replace the oldest client when all
-places are taken, allowed clients and a bind address – the network setting applies as for
-serial devices.
+devices. Under **Advanced**: disconnect idle clients and replace the oldest client when all
+places are taken. Allowed clients and a bind address are in the **Network access** card – the
+network setting applies as for serial devices.
 
 **Probe**: optionally the app reads one register (unit, function 3 or 4, address) after a
 set time without requests. The state "reachable" is then right without clients, and devices
@@ -134,9 +139,11 @@ Modbus RTU always has one line.
 connection: all clients may write (as with ha-modbusproxy), only listed addresses or
 networks, or nobody. A new connection starts with "only these": `127.0.0.1` (Home
 Assistant) and `172.30.32.0/23` (other apps); connections imported from ha-modbusproxy
-keep "all clients", so nothing changes for their clients. Refused writes (functions 5, 6,
-15, 16, 21, 22, 23 and diagnostics other than the echo) get exception 0x01 and are counted
-and logged; reading stays open to all allowed clients.
+keep "all clients", so nothing changes for their clients. Only known reads pass (functions
+1–4, 7, 11, 12, 17, 20, 24, the diagnostics echo and reading the device identification), and
+only with the exact length of that request; everything else – writes, vendor functions such
+as Huawei's 0x41 – gets exception 0x01 and is counted and logged. Reading stays open to all
+allowed clients.
 
 **Unit ids**: under **Advanced** the unit a client asks for can be rewritten
 (`client=device`, e.g. `1=3, 2=5`), for clients that always ask unit 1 while the device
@@ -249,7 +256,7 @@ told it. Tools:
   along. The live view works at any time and takes no client place. **Recording** to files
   (from the device, to the device or both) is switched per connection on the **Trace** page without touching
   ser2net – no client is disconnected. Files: `/addon_configs/<…>_device_proxy/trace/<name>.log`,
-  rotated by size (**Settings → Logging and storage**).
+  rotated by size (**Settings → Logs and retention**).
 - **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
   device is open. Rising numbers usually mean a wrong baud rate or format. Not every driver
   counts them.
@@ -294,8 +301,9 @@ first minute after the app started.
 ## Entities in Home Assistant (MQTT)
 
 With an MQTT broker in Home Assistant (e.g. the Mosquitto add-on) the app creates one device
-per connection through MQTT discovery. Nothing to set up: the broker comes from the
-Supervisor.
+per connection through MQTT discovery. Usually nothing to set up: the broker comes from the
+Supervisor. Another broker (host, port, user, password, TLS) can be set under **Settings →
+MQTT entities**, where the entities can also be switched off.
 
 | Entity | Content |
 |---|---|
@@ -312,13 +320,13 @@ time and the switch. An EnOcean gateway has: gateway reachable, clients, telegra
 gateway, air time (share of the 1 % limit) and the switch.
 
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
-(`homeassistant`), base topic (`ser2net`) and the update interval are in **Settings → MQTT
+(`homeassistant`), base topic (`device_proxy`) and the update interval are in **Settings → MQTT
 entities**; the entity names follow the language of the notifications.
 
 ## Coming from ha-modbusproxy
 
 Copy the options of ha-modbusproxy (its **Configuration** tab → ⋮ → **Edit in YAML**) and
-paste them under **Settings → Back up and transfer → Import connections**; each device becomes a Modbus connection
+paste them under **Settings → Back up and transfer → Import**; each device becomes a Modbus connection
 with the same ports, timeout and `connection_time`. A modbus-proxy configuration file
 (YAML or TOML, `devices` with `modbus: url`, `listen: bind` and `unit_id_remapping`) works
 too. At the start a file
@@ -363,12 +371,16 @@ pass it on. The app's data is also part of Home Assistant's own backups.
 
 ## Using your own ser2net.yaml
 
-For setups the forms cannot express, **Settings → Configuration source → Own ser2net.yaml**
+For setups the forms cannot express, **Settings → ser2net.yaml → Own file**
 uses your file as it is (`/addon_configs/<…>_device_proxy/ser2net.yaml`, editable in the app with
 a check). It must not contain an admin section: the app adds its own. Status, events,
 history, notifications and MQTT keep working, with ser2net's connection names; the forms,
-"keep open" and the meter tools are not used meanwhile. Modbus connections are not
-ser2net's and keep working; their ports must not appear in your file.
+"keep open" and the meter tools are not used meanwhile. Modbus and EnOcean connections are
+not ser2net's and keep working; their ports must not appear in your file.
+
+Your file is used without limits, so it can do anything ser2net can – including options such
+as `connback`, which can start programs. Whoever can write the app's config folder (e.g.
+over Samba) can do that as well; the forms and the import only take harmless further options.
 
 ## Proxmox
 
@@ -379,9 +391,11 @@ USB3 option of the passed-through device.
 
 ## Diagnostics
 
-**Settings → Diagnostics** downloads a ZIP with versions, configuration, status, devices and
-the recent events. IP addresses are replaced and clients only counted, so it can be attached
-to an issue as it is.
+**Settings → Help and info → Download diagnostics** gets a ZIP with versions, configuration,
+status, devices and the recent events. IP addresses, host names and the MQTT login are
+replaced and clients only counted. Connection names and device paths stay in (a
+`/dev/serial/by-id/…` path contains the adapter's serial number): take a quick look before you
+attach it to a public issue.
 
 ## When something does not work
 

@@ -74,17 +74,17 @@ Device Proxy sits in between. It holds the device and lets several clients use i
    [![Add the repository to My Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Device-Proxy)
 
 2. Install **Device Proxy** and start it. Until prebuilt images are published, Home Assistant builds the app on install (gensio and ser2net included), which takes a few minutes the first time.
-3. Open **Device Proxy** in the sidebar and add a connection: pick the device and a template, save. The card shows the address to enter in the integration, for example `tcp://127.0.0.1:3333` or a Modbus host and port.
-4. Coming from ser2net or ha-modbusproxy? **Settings → Back up and transfer → Import connections** takes over the existing configuration with a preview.
+3. Open **Device Proxy** in the sidebar and add a connection: pick the device and a template, save. **Details → Addresses** shows the address to enter in the integration, for example `tcp://127.0.0.1:3333` or a Modbus host and port.
+4. Coming from ser2net or ha-modbusproxy? **Settings → Back up and transfer → Import** takes over the existing configuration with a preview.
 
 Every page, every setting and help when something does not work: **[documentation](device_proxy/DOCS.md)** (also shown in Home Assistant on the app's Documentation tab).
 
 ## Safety in short
 
-- The ports are plain TCP without a login. New connections accept clients from private networks only; the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed further, and the home networks that count as "LAN" can be listed.
+- The ports are plain TCP without a login. By default clients are accepted from Home Assistant, its apps and the host's own network ("My network"); the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed to Home Assistant (and apps) only, and further home networks can be listed.
 - Modbus connections let only Home Assistant and the apps write by default; other clients can only read. The allowed clients of every kind follow the network setting unless a connection names its own.
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
-- Diagnostics leave out host names and personal names.
+- Diagnostics leave out IP addresses, host names, the MQTT login and personal names.
 
 ## Changelog
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Documentation**: the MQTT base topic is `device_proxy` (it still said `ser2net`); the four
+  network levels with their current names, including "Home Assistant and apps"; the Modbus write
+  lock as it works now; menu paths as the interface names them; EnOcean in the introduction; the
+  own MQTT broker; what an own ser2net.yaml may do. The README describes today's default for
+  allowed clients and where the address of a connection is shown.
+
 - **Unsaved changes**: leaving the connection form by the header, the breadcrumb, a chip or the
   browser's back button now asks first, like Cancel did (before, the changes were gone).
 - **After an app restart**: an open page shows new events and live data again (they stood still until

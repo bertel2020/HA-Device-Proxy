@@ -74,17 +74,17 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
    [![Repository zu My Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Device-Proxy)
 
 2. **Device Proxy** installieren und starten. Solange es keine fertigen Images gibt, baut Home Assistant die App bei der Installation selbst (mit gensio und ser2net); das dauert beim ersten Mal einige Minuten.
-3. In der Seitenleiste **Device Proxy** öffnen und eine Verbindung hinzufügen: Gerät und Vorlage wählen, speichern. Die Karte zeigt die Adresse für die Integration, etwa `tcp://127.0.0.1:3333` oder Modbus-Host und Port.
-4. Bisher ser2net oder ha-modbusproxy im Einsatz? **Einstellungen → Sichern und Übertragen → Verbindungen importieren** übernimmt die vorhandene Konfiguration mit Vorschau.
+3. In der Seitenleiste **Device Proxy** öffnen und eine Verbindung hinzufügen: Gerät und Vorlage wählen, speichern. **Details → Adressen** zeigt die Adresse für die Integration, etwa `tcp://127.0.0.1:3333` oder Modbus-Host und Port.
+4. Bisher ser2net oder ha-modbusproxy im Einsatz? **Einstellungen → Sichern und Übertragen → Importieren** übernimmt die vorhandene Konfiguration mit Vorschau.
 
 Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Dokumentation](device_proxy/DOCS.md)** (auch in Home Assistant im Reiter „Dokumentation“ der App).
 
 ## Sicherheit in Kürze
 
-- Die Ports sind roher TCP ohne Anmeldung. Neue Verbindungen nehmen Clients nur aus privaten Netzen an; die Z-Wave-Vorlage beschränkt sie auf Home Assistant und seine Apps. Unter **Einstellungen → Netzwerk** lässt sich das weiter einschränken, und die Heimnetze, die als „LAN“ gelten, lassen sich als Liste festlegen.
+- Die Ports sind roher TCP ohne Anmeldung. Standardmäßig nehmen sie Clients von Home Assistant, seinen Apps und aus dem eigenen Netz des Hosts („Mein Netz“) an; die Z-Wave-Vorlage beschränkt sie auf Home Assistant und seine Apps. Unter **Einstellungen → Netzwerk** lässt sich das auf Home Assistant (und Apps) einschränken, und weitere Heimnetze lassen sich festlegen.
 - Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. Wer sich verbinden darf, folgt bei allen Arten der Netzwerk-Einstellung, solange eine Verbindung keine eigene Vorgabe hat.
 - Die Admin-Schnittstelle von ser2net ist nur innerhalb der App erreichbar; die Weboberfläche nur über Home Assistant (Ingress).
-- Die Diagnose lässt Hostnamen und Personennamen weg.
+- Die Diagnose lässt IP-Adressen, Hostnamen, die MQTT-Anmeldung und Personennamen weg.
 
 ## Änderungen
 
