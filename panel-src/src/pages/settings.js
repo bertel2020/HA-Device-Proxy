@@ -221,7 +221,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["diag", "sDiag"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNet"], ["src", "sSource"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -376,22 +376,30 @@ export class SettingsPage extends Page {
           <div class="actions"><button class="btn btn-p" @click=${() => this._saveSettings(Object.fromEntries(["log_level", ...NUMBERS].map((k) => [k, d[k]])))}>${t("save")}</button></div>
         </section>
 
-        <section id="diag" class="card" aria-labelledby="t-diag">
-          <div class="row"><div><h2 id="t-diag">${t("sDiag")}</h2><p class="hint" style="margin-top:4px">${t("sDiagSub")}</p></div>
-            <a class="btn btn-s" href=${url("api/diagnostics")} download>${t("diagDownload")}</a></div>
-        </section>
-
         <section id="about" class="card" aria-labelledby="t-about">
+          <h2 id="t-about">${t("sAbout")}</h2>
+          <div class="grp" style="border-top:none;padding-top:0">
+            <h3>${t("helpTitle")}</h3>
+            <p class="hint" style="font-size:14px">${t("helpText")}</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a class="btn btn-s" href=${url("api/diagnostics")} download>${icon("download")}${t("diagDownload")}</a>
+              <a class="btn btn-g" href="https://github.com/bertel2020/HA-Device-Proxy/issues/new" target="_blank" rel="noopener">${t("reportIssue")}</a>
+            </div>
+            <ul class="hint" style="margin:0;padding-left:18px">${["diagVersions", "diagConfig", "diagStatus", "diagEvents", "diagYaml"].map((k) => html`<li style="border:0;padding:0;display:list-item">${t(k)}</li>`)}</ul>
+            <p class="hint">${t("diagPrivacy")}</p>
+          </div>
+          <div class="grp">
           <div style="display:flex;align-items:center;gap:16px">${logo(64)}
-            <div style="min-width:0"><h2 id="t-about" style="margin:0;font-size:22px">${t("appTitle")}</h2>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
-          <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
-            <span class="hint" style="font-size:14px">${t("language")}</span>
-            <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
-              <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select>
-              <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
-            <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
-            <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
+              <div style="min-width:0"><h2 id="t-about" style="margin:0;font-size:22px">${t("appTitle")}</h2>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
+            <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
+              <span class="hint" style="font-size:14px">${t("language")}</span>
+              <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
+                <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select>
+                <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
+              <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
+              <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
+            </div>
           </div>
         </section>
       </div></div>`;
