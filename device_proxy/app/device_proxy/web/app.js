@@ -478,9 +478,10 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
               ${n.addresses.map(h=>a`<div class="well" style="margin-top:8px">
                 <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${h.reachable?"var(--ok)":"var(--muted)"}"></span>
                   <b style="font-weight:500;${h.reachable?"":"color:var(--muted)"}">${t(`target_${h.target}`)}</b></div>
-                ${h.reachable?Object.entries(h.urls).map(([m,$])=>a`<div class="row" style="gap:4px;margin-top:4px">
+                ${Object.entries(h.urls).map(([m,$])=>a`<div class="row" style="gap:4px;margin-top:4px">
                   <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${$}</span>
-                  <button class="btn btn-g" style="min-height:32px" @click=${()=>this._copy(`${h.target}${m}`,$)}>${this.copied===`${h.target}${m}`?t("copied"):t("copy")}</button></div>`):a`<div class="hint" style="margin-top:2px">${h.host?a`<span class="mono">${h.host}:${h.port}</span><br>${t(`why_${h.why}`)}`:t("lanUnknown")}</div>`}
+                  <button class="btn btn-g" style="min-height:32px" @click=${()=>this._copy(`${h.target}${m}`,$)}>${this.copied===`${h.target}${m}`?t("copied"):t("copy")}</button></div>`)}
+                ${h.reachable?"":a`<div class="hint" style="margin-top:2px">${h.host?t(`why_${h.why}`):t("lanUnknown")}</div>`}
               </div>`)}
             </div>
           </section>

@@ -393,10 +393,10 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               ${c.addresses.map((a) => html`<div class="well" style="margin-top:8px">
                 <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
                   <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
-                ${a.reachable ? Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
+                ${Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
                   <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
-                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)
-                  : html`<div class="hint" style="margin-top:2px">${a.host ? html`<span class="mono">${a.host}:${a.port}</span><br>${t(`why_${a.why}`)}` : t("lanUnknown")}</div>`}
+                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)}
+                ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? t(`why_${a.why}`) : t("lanUnknown")}</div>`}
               </div>`)}
             </div>
           </section>
