@@ -32,7 +32,7 @@ RUN wget -q "https://github.com/cminyard/ser2net/releases/download/v${SER2NET_VE
 # Python packages as wheels here, where a compiler is: no prebuilt ones may exist for this
 # Python on Alpine
 COPY requirements.txt /src/requirements.txt
-RUN pip3 wheel --no-cache-dir --wheel-dir /wheels -r /src/requirements.txt
+RUN pip3 wheel --no-cache-dir --require-hashes --wheel-dir /wheels -r /src/requirements.txt
 
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION
