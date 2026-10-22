@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Further ser2net options**: only harmless ones are taken (buffer sizes, chardelay, sendon/closeon,
+  signature, mDNS, …). `connback` can start a program through its gensio string and is refused, as
+  are logins, LEDs and values that read a file (`*{…}`, `*(…)`), also in banner, openstr and closestr.
+  An import or backup leaves them out with a note; a saved configuration drops them when loading.
+- **Import and own ser2net.yaml**: reading runs beside the proxies instead of stopping them, and a
+  text without colons no longer takes minutes to check. Uploads are limited to 1 MB.
+- **Web interface API**: bodies of the wrong shape (a list instead of an object, a backup with a
+  broken `config`) give 400 instead of 500; a Modbus import with `timeout: nan` uses the default.
+- **Recordings**: a download or delete no longer follows a symlink out of the trace folder.
+
 - **Diagnostics**: the user name and password of an own MQTT broker were still in `status.json` of
   the ZIP (only `config.json` hid them). Both are replaced now.
 - **MQTT password**: no longer sent to the browser (status every 2 s, configuration history). The form

@@ -393,13 +393,15 @@ class Controller:
                 self.events.emit("info", "config_changed", summary=summary(items), changes=items)
             return ApplyResult(items, names, disconnected)
 
-    def check_custom(self, text: str) -> custom.CustomCheck:
-        """The file as it is, and the ports the app's proxies hold already."""
-        return custom.check(text, {c.port: c.name for c in self.config.proxied if c.enabled})
+    async def check_custom(self, text: str) -> custom.CustomCheck:
+        """The file as it is, and the ports the app's proxies hold already (in a thread: a
+        large file must not stop the proxies)."""
+        ports = {c.port: c.name for c in self.config.proxied if c.enabled}
+        return await asyncio.to_thread(custom.check, text, ports)
 
     async def save_custom(self, text: str, *, use: bool) -> ApplyResult:
         """Save the user's own ser2net.yaml; with use=True switch to it."""
-        check = self.check_custom(text)
+        check = await self.check_custom(text)
         if not check.ok:
             raise CustomError(check)
 
@@ -422,9 +424,9 @@ class Controller:
 
     # import
 
-    def preview(self, text: str) -> tuple[ImportResult, dict[str, dict[str, str]]]:
+    async def preview(self, text: str) -> tuple[ImportResult, dict[str, dict[str, str]]]:
         """What an import would bring, and the existing connections each item collides with."""
-        result = read(text)
+        result = await asyncio.to_thread(read, text)  # a large file must not stop the proxies
         return result, {item.alias: conflicts(self.config, item) for item in result.items}
 
     async def run_import(
@@ -435,7 +437,7 @@ class Controller:
         take: set[str] | None = None,
         on_conflict: dict[str, str] | None = None,
     ) -> ApplyResult:
-        result = read(text)
+        result = await asyncio.to_thread(read, text)
         wanted = take if take is not None else {i.alias for i in result.items if i.connection}
         built: list[AppConfig] = []
 
@@ -468,7 +470,7 @@ class Controller:
             return
         try:
             text = source.read_text(encoding="utf-8")
-            result, collisions = self.preview(text)
+            result, collisions = await self.preview(text)
             for item in result.items:
                 for note in item.notes:
                     _LOGGER.info("Import %s: %s", item.alias, note)

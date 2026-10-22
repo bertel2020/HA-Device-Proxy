@@ -44,7 +44,7 @@ BACKUP_MARK = "device_proxy_backup"
 INGRESS_HOSTS = ("172.30.32.1", "0.0.0.0")  # the Supervisor network first, else everywhere
 INGRESS_PEERS = ("172.30.32.2",)  # the Supervisor's ingress proxy
 MAX_HEADER = 16384
-MAX_BODY = 4 << 20  # an imported ser2net.yaml
+MAX_BODY = 1 << 20  # an imported ser2net.yaml or a backup
 STATIC = {
     "": ("index.html", "text/html; charset=utf-8"),
     "app.js": ("app.js", "text/javascript; charset=utf-8"),
@@ -66,11 +66,14 @@ class Request:
     body: bytes
     params: dict[str, str] = field(default_factory=dict)
 
-    def json(self) -> Any:
+    def json(self) -> dict[str, Any]:
         try:
-            return json.loads(self.body or b"{}")
+            data = json.loads(self.body or b"{}")
         except ValueError:
             raise HttpError(400, "the body is not JSON") from None
+        if not isinstance(data, dict):
+            raise HttpError(400, "the body is not a JSON object")
+        return data
 
 
 @dataclass
@@ -395,7 +398,7 @@ class WebServer:
     async def import_preview(self, request: Request) -> Response:
         text = str(request.json().get("text", ""))
         try:
-            result, collisions = self.c.preview(text)
+            result, collisions = await self.c.preview(text)
         except ReadError as err:
             return ok({"error": "unreadable", "note": err.note}, 400)
         return ok(
@@ -416,12 +419,17 @@ class WebServer:
 
     async def run_import(self, request: Request) -> Response:
         data = request.json()
+        take, on_conflict = data.get("take"), data.get("on_conflict") or {}
+        if take is not None and not isinstance(take, list):
+            raise HttpError(400, "take is a list of names")
+        if not isinstance(on_conflict, dict):
+            raise HttpError(400, "on_conflict is an object")
         try:
             result = await self.c.run_import(
                 str(data.get("text", "")),
                 replace_all=bool(data.get("replace_all")),
-                take=set(data["take"]) if "take" in data else None,
-                on_conflict={str(k): str(v) for k, v in (data.get("on_conflict") or {}).items()},
+                take={str(alias) for alias in take} if take is not None else None,
+                on_conflict={str(k): str(v) for k, v in on_conflict.items()},
             )
         except ReadError as err:
             return ok({"error": "unreadable", "note": err.note}, 400)
@@ -460,7 +468,9 @@ class WebServer:
             data = None
         if not isinstance(data, dict) or data.get("app") != BACKUP_MARK:
             raise HttpError(400, "not a backup of this app")
-        return str(data.get("created", "")), AppConfig.from_dict(data.get("config") or {})
+        if not isinstance(config := data.get("config") or {}, dict):
+            raise HttpError(400, "not a backup of this app")
+        return str(data.get("created", "")), AppConfig.from_dict(config)
 
     async def restore_preview(self, request: Request) -> Response:
         created, config = self._backup_config(request)
@@ -515,13 +525,13 @@ class WebServer:
         return ok(
             {
                 "text": text,
-                "check": asdict(self.c.check_custom(text)),
+                "check": asdict(await self.c.check_custom(text)),
                 "exists": self.c.custom_file.exists(),
             }
         )
 
     async def check_custom(self, request: Request) -> Response:
-        return ok(asdict(self.c.check_custom(str(request.json().get("text", "")))))
+        return ok(asdict(await self.c.check_custom(str(request.json().get("text", "")))))
 
     async def put_custom(self, request: Request) -> Response:
         data = request.json()
@@ -555,10 +565,13 @@ class WebServer:
         return await self._save(lambda _: config, "restore")
 
     def _trace_path(self, name: str) -> Any:
-        if "/" in name or name.startswith(".") or not (".log" in name or name.endswith(".jsonl")):
+        if (
+            not re.fullmatch(r"[\w@+-][\w.@+-]*", name)  # no path, quote or line break
+            or not (".log" in name or name.endswith(".jsonl"))
+        ):
             raise HttpError(400, "not a trace file")
         path = self.c.trace.record_dir / name
-        if not path.is_file():
+        if path.is_symlink() or not path.is_file():  # /config is the user's: no way out
             raise HttpError(404, "no such file")
         return path
 

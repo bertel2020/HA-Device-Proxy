@@ -14,7 +14,7 @@ from typing import Any
 Note = dict[str, Any]
 
 STATES = ("raw", "rawlp", "telnet", "off")
-PORT_LINE = re.compile(r"^[^:#\s][^:]*:(raw|rawlp|telnet|off):\d+:", re.MULTILINE)
+PORT_LINE = re.compile(r"^[^:#\s][^:\n]*:(raw|rawlp|telnet|off):\d+:", re.MULTILINE)
 NAMED = ("BANNER", "SIGNATURE", "OPENSTR", "CLOSESTR", "CLOSEON", "TRACEFILE", "DEVICE")
 PARITY = {"NONE": "n", "EVEN": "e", "ODD": "o", "MARK": "m", "SPACE": "s"}
 FLAGS = {

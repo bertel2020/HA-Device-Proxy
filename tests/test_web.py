@@ -156,3 +156,31 @@ async def test_the_mqtt_password_stays_on_the_server(tmp_path: Path) -> None:
         _, config = await request(port, "GET", f"api/versions/{v['id']}")
         assert "geheim" not in json.dumps(config)
     await web.stop()
+
+
+async def test_bodies_of_the_wrong_shape_and_trace_links(tmp_path: Path) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    assert (await request(port, "PUT", "api/settings", [1, 2]))[0] == 400
+    assert (await request(port, "POST", "api/import", {"text": "", "take": 5}))[0] == 400
+    assert (await request(port, "POST", "api/import", {"text": "", "on_conflict": [1]}))[0] == 400
+    backup = json.dumps({"app": "device_proxy_backup", "config": "x"})
+    assert (await request(port, "POST", "api/restore/preview", {"text": backup}))[0] == 400
+    backup = json.dumps({"app": "device_proxy_backup", "config": {"connections": [5]}})
+    assert (await request(port, "POST", "api/restore/preview", {"text": backup}))[0] == 400
+    (tmp_path / "trace").mkdir()
+    (tmp_path / "secret").write_text("token")
+    (tmp_path / "trace" / "x.log").symlink_to(tmp_path / "secret")
+    assert (await request(port, "GET", "api/trace/x.log"))[0] == 404
+    assert (await request(port, "GET", "api/trace/a%22b.log"))[0] == 400
+    await web.stop()

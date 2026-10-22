@@ -66,7 +66,10 @@ def _split(url: str) -> tuple[str, int]:
 def _ms(value: Any, default: int) -> int:
     if value is None or value == "":
         return default
-    return round(float(value) * 1000)
+    try:
+        return round(float(value) * 1000)
+    except (TypeError, ValueError, OverflowError):  # nan, inf, a list: the default
+        return default
 
 
 def _item(

@@ -7,10 +7,13 @@ format; migrate() lifts older versions before they are read.
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 import secrets
 from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
 
 SCHEMA = 1
 # ser2net's admin interface: a socket inside the container only, so no other program on the
@@ -69,6 +72,30 @@ MANAGED_OPTIONS = {
     "trace-timestamp",
 }
 OPTION_KEY = re.compile(r"[a-z][a-z0-9-]*")
+# the further ser2net options "weitere Optionen" may set: harmless ones only. Not connback (its
+# gensio string can start a program), no logins, LEDs or files.
+EXTRA_OPTIONS = {
+    "telnet-brk-on-sync",
+    "chardelay-scale",
+    "chardelay-min",
+    "chardelay-max",
+    "dev-to-net-bufsize",
+    "net-to-dev-bufsize",
+    "accepter-retry-time",
+    "sendon",
+    "closeon",
+    "signature",
+    "mdns",
+    "mdns-port",
+    "mdns-type",
+    "mdns-domain",
+    "mdns-host",
+    "mdns-interface",
+    "mdns-nettype",
+    "mdns-name",
+    "mdns-txt",
+}
+FILE_REFERENCE = re.compile(r"[*=]\{|\*\(")  # ser2net puts a file's content or a define here
 RS485 = re.compile(r"off|\d+:\d+(:(rts_on_send|rts_after_send|rx_during_tx|terminate_bus))*")
 
 
@@ -187,6 +214,8 @@ class Connection:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Connection:
+        if not isinstance(data, dict):
+            raise ValidationError({"connection": "is not an object"})
         errors: dict[str, str] = {}
         values: dict[str, Any] = {}
         for f in fields(cls):
@@ -267,9 +296,15 @@ class Connection:
                 e["extra"] = f"{key!r} is not an option name"
             elif key in MANAGED_OPTIONS:
                 e["extra"] = f"{key} has its own field"
+            elif key not in EXTRA_OPTIONS:
+                e["extra"] = f"{key} is not an option allowed here"
+        if any(FILE_REFERENCE.search(value) for _, value in self.extra):
+            e["extra"] = "no file references"
         for name in ("banner", "openstr", "closestr"):
             if len(getattr(self, name)) > 1000:
                 e[name] = "at most 1000 characters"
+            elif FILE_REFERENCE.search(getattr(self, name)):
+                e[name] = "no file references"
         if self.trace not in TRACE_MODES:
             e["trace"] = f"one of {', '.join(TRACE_MODES)}"
         if not 0 <= self.silence_minutes <= 1440:
@@ -394,6 +429,8 @@ class Settings:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Settings:
+        if not isinstance(data, dict):
+            raise ValidationError({"settings": "is not an object"})
         errors: dict[str, str] = {}
         values: dict[str, Any] = {}
         for f in fields(cls):
@@ -466,6 +503,8 @@ class AppConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AppConfig:
+        if not isinstance(data, dict):
+            raise ValidationError({"config": "is not an object"})
         data = migrate(data)
         errors: dict[str, str] = {}
         try:
@@ -474,7 +513,11 @@ class AppConfig:
             settings = Settings()
             errors.update({f"settings.{k}": v for k, v in err.errors.items()})
         connections = []
-        for index, item in enumerate(data.get("connections", [])):
+        items = data.get("connections", [])
+        if not isinstance(items, list):
+            errors["connections"] = "is not a list"
+            items = []
+        for index, item in enumerate(items):
             try:
                 connections.append(Connection.from_dict(item))
             except ValidationError as err:
@@ -559,7 +602,39 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
             **data,
             "settings": {**settings, "lan_networks": " ".join(PRIVATE_NETWORKS[1:4])},
         }
+    connections = data.get("connections")
+    if isinstance(connections, list):
+        data = {**data, "connections": [_without_unsafe(c) for c in connections]}
     return data
+
+
+def _without_unsafe(item: Any) -> Any:
+    """A saved connection without the ser2net options that are no longer allowed (before
+    this check every option name passed), so the configuration still loads."""
+    if not isinstance(item, dict):
+        return item
+    extra = item.get("extra")
+    if isinstance(extra, list):
+        kept = [
+            pair
+            for pair in extra
+            if not (
+                isinstance(pair, list | tuple)
+                and len(pair) == 2
+                and (
+                    str(pair[0]) not in EXTRA_OPTIONS | MANAGED_OPTIONS
+                    or FILE_REFERENCE.search(str(pair[1]))
+                )
+            )
+        ]
+        if len(kept) != len(extra):
+            _LOGGER.warning("%s: ser2net options left out: %s", item.get("name"), extra)
+            item = {**item, "extra": kept}
+    for name in ("banner", "openstr", "closestr"):
+        if FILE_REFERENCE.search(str(item.get(name) or "")):
+            _LOGGER.warning("%s: %s left out, it read a file", item.get("name"), name)
+            item = {**item, name: ""}
+    return item
 
 
 def lan_networks_of(text: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network | str]:

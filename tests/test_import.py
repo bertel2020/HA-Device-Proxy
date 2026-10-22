@@ -218,3 +218,57 @@ def test_export_without_serial_connections_has_a_commented_example() -> None:
     assert "example" not in export(
         AppConfig(connections=(Connection("eHZ", "/dev/ttyUSB0", 3335),))
     )
+
+
+UNSAFE = """connection: &x
+  accepter: tcp,4000
+  connector: serialdev,/dev/ttyUSB0,9600n81
+  options:
+    connback: "stdio,sh -c 'id'"
+    signature: "*{/proc/1/environ}"
+    dev-to-net-bufsize: 512
+"""
+
+
+def test_options_that_start_programs_or_read_files_are_not_taken_over() -> None:
+    import pytest
+
+    from device_proxy.model import ValidationError
+
+    item = read(UNSAFE).items[0]
+    assert item.connection is not None
+    assert item.connection.extra == (("dev-to-net-bufsize", "512"),)
+    assert {n["option"] for n in item.notes if n["code"] == "option_unsafe"} == {
+        "connback",
+        "signature",
+    }
+    with pytest.raises(ValidationError):  # nor over the form
+        Connection("x", "/dev/ttyUSB0", 4000, extra=(("connback", "stdio,sh"),)).validate()
+    with pytest.raises(ValidationError):
+        Connection("x", "/dev/ttyUSB0", 4000, banner="*{/proc/1/environ}").validate()
+
+
+def test_a_saved_configuration_with_such_options_still_loads() -> None:
+    saved = {
+        "connections": [
+            {
+                "name": "x",
+                "device": "/dev/ttyUSB0",
+                "port": 4000,
+                "extra": [["connback", "stdio,sh"], ["sendon", "x"]],
+                "banner": "*(file)",
+            }
+        ]
+    }
+    c = AppConfig.from_dict(saved).connections[0]
+    assert c.extra == (("sendon", "x"),) and c.banner == ""
+
+
+def test_a_long_text_without_colons_is_read_quickly() -> None:
+    import time
+
+    from device_proxy import legacy
+
+    started = time.monotonic()
+    assert not legacy.looks_legacy("x\n" * 100_000)  # took minutes before
+    assert time.monotonic() - started < 1

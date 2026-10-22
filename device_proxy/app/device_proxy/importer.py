@@ -21,6 +21,8 @@ from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
 from . import legacy
 from .model import (
+    EXTRA_OPTIONS,
+    FILE_REFERENCE,
     MANAGED_OPTIONS,
     OPTION_KEY,
     RESERVED_PORTS,
@@ -388,8 +390,9 @@ def convert(name: str, definition: dict[str, Any]) -> ImportItem:
         if not OPTION_KEY.fullmatch(key) or key in MANAGED_OPTIONS:
             notes.append({"code": "option_dropped", "option": key})
             continue
-        if re.search(r"[*=]\{", value):
-            notes.append({"code": "external_file", "option": key})
+        if key not in EXTRA_OPTIONS or FILE_REFERENCE.search(value):
+            notes.append({"code": "option_unsafe", "option": key})
+            continue
         extra.append((key, value))
         notes.append({"code": "option_extra", "option": key})
     values["extra"] = tuple(extra)
