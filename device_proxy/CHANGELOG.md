@@ -5,6 +5,9 @@
 - **Connections**: the card no longer shows the address with a copy button (it is only needed for
   setup, and the detail page has it); instead it says when data last arrived, e.g. "Last data 3 s ago".
   Connections that are not running show nothing there, since their state already says why.
+- **Choice tiles** (gateway template, connection kind, settings): all tiles of a group are the same
+  size in an even grid (seven templates sit four and three instead of six and one), and the chosen
+  one is marked without its content moving.
 - **Recent events**: always the full width, one line per event (time, level dot, text) in aligned
   columns instead of the time under the text. On serial and EnOcean the connection card is full
   width as well, as on Modbus.
