@@ -35,6 +35,9 @@ export class DetailPage extends Page {
   static styles = [...Page.styles, css`
     .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
     .kv > :nth-child(odd) { color: var(--muted); }
+    .side-col .kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .side-col .kv > :nth-child(odd) { font-size: 13px; }
+    .side-col .kv > :nth-child(even) { margin-bottom: 8px; }
     .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
     .counters b { display: block; font-size: 20px; font-weight: 500; }
     .live { max-height: 340px; overflow: auto; }
@@ -381,6 +384,43 @@ export class DetailPage extends Page {
     const usb = c.usb;
     const modbus = c.kind === "modbus", m = c.modbus || {};
     const enocean = c.kind === "enocean", eo = c.enocean || {};
+    const conf = html`
+          <section class="card" aria-labelledby="t-conf">
+            <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
+            ${enocean ? html`<div class="kv">
+              <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
+              <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
+              ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("network")}</span><span>Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
+              <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
+              <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
+            </div>` : modbus ? html`<div class="kv">
+              <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
+              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
+              ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
+              <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, n: c.retries })}
+${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
+              <span>${t("mbClientPort")}</span><span>${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
+              ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
+              ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
+
+              ${c.probe_seconds ? html`<span>${t("mbProbe")}</span><span>${t("mbProbeVal", { s: c.probe_seconds, u: c.probe_unit, f: c.probe_function, a: c.probe_address })}</span>` : ""}
+
+              <span>${t("mbWrite")}</span>
+<span>${t(`wa_${c.write_access}`)}${c.write_access === "listed" ? html` · <span class="mono">${c.write_clients}</span>` : ""}</span>
+
+            </div>` : html`<div class="kv">
+              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
+              <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
+              ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
+              <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? ` · ${t("ifLocal")}` : ""}</span>
+              <span>${t("network")}</span><span>${c.mode} · Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
+            </div>`}
+          </section>`;
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${c.name}</p>
       <div class="head" style="margin-top:12px">
@@ -428,42 +468,7 @@ export class DetailPage extends Page {
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>` : ""}
           ${modbus ? this._haSnippet(c) : ""}
-          <section class="card" aria-labelledby="t-conf">
-            <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
-            ${enocean ? html`<div class="kv">
-              <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
-              <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
-              ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
-              <span>${t("network")}</span><span>Port ${c.port}</span>
-              <span>${t("who")}</span><span>${who(c, s)}</span>
-              <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
-              <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
-            </div>` : modbus ? html`<div class="kv">
-              <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
-              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
-              ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
-              ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
-              <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, n: c.retries })}
-${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
-              <span>${t("mbClientPort")}</span><span>${c.port}</span>
-              <span>${t("who")}</span><span>${who(c, s)}</span>
-              ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
-              ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
-
-              ${c.probe_seconds ? html`<span>${t("mbProbe")}</span><span>${t("mbProbeVal", { s: c.probe_seconds, u: c.probe_unit, f: c.probe_function, a: c.probe_address })}</span>` : ""}
-
-              <span>${t("mbWrite")}</span>
-<span>${t(`wa_${c.write_access}`)}${c.write_access === "listed" ? html` · <span class="mono">${c.write_clients}</span>` : ""}</span>
-
-            </div>` : html`<div class="kv">
-              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
-              <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
-              ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
-              <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? ` · ${t("ifLocal")}` : ""}</span>
-              <span>${t("network")}</span><span>${c.mode} · Port ${c.port}</span>
-              <span>${t("who")}</span><span>${who(c, s)}</span>
-            </div>`}
-          </section>
+          ${modbus ? "" : conf}
           ${modbus ? this._modbusTools(c) : ""}
         </div>
         <aside class="side-col">
@@ -483,6 +488,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
           </section>`}
+          ${modbus ? conf : ""}
           <section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
             <ol>${recent.map((e) => html`<li><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
