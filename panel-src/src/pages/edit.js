@@ -415,7 +415,9 @@ export class EditPage extends Page {
           ${this._input("max_clients", t("maxClients"), { number: true, hint: t("eoClientsHint") })}
         </div>
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("eoAllowedHint") })}
-        ${d.remaddr !== HA_ONLY ? html`<div><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button></div>` : ""}
+        ${d.remaddr !== HA_ONLY || d.remaddr ? html`<div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${d.remaddr !== HA_ONLY ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button>` : ""}
+          ${d.remaddr ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button>` : ""}</div>` : ""}
         ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
         <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
       </section>

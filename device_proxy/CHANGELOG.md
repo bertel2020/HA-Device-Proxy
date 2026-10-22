@@ -9,7 +9,8 @@
   like the other kinds (before, they were limited to Home Assistant and apps and eo_man or PCT14 in
   the home network could not connect without a change). The button "Only Home Assistant and apps"
   stays for an own limit. The Z-Wave stick keeps its preset and says why: it takes commands and has
-  no login. Existing connections keep what they have.
+  no login. Existing connections keep what they have; a gateway with a limit shows a button
+  "Follow the global setting" that empties the field, and the note says so.
 - **Choice tiles** (gateway template, connection kind, settings): all tiles of a group are the same
   size in an even grid (seven templates sit four and three instead of six and one), and the chosen
   one is marked without its content moving.
