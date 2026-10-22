@@ -10,9 +10,13 @@ const LIVE_MS = 1000;
 const eoInfo = (info) => info.replace(/^(answer|bus|command)\b/, (w) => t(`eoKind_${w}`));
 const SAMPLES = 90; // 3 minutes of state polls
 
-/** Who may connect to a connection without a bind address of its own: the network setting. */
+/** Who may connect: the connection's own rule, else the network setting. */
+function who(c, s) {
+  const bind = c.bind ? `${t("bind")} ${c.bind} · ` : "";
+  return bind + (c.remaddr ? t("whoOwn", { a: c.remaddr }) : reach(c, s));
+}
+
 function reach(c, s) {
-  if (c.remaddr) return c.remaddr;
   const { listen, lan_networks: list = "" } = s.settings, net = s.lan_net;
   if (listen !== "lan") return t(`listen_${listen}`);
   const nets = list.split(/[\s,;]+/).filter(Boolean).map((x) => (x === "own" ? net || t("lanOwn") : x));
@@ -349,25 +353,14 @@ export class DetailPage extends Page {
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div>
           </section>` : ""}
           ${modbus ? this._haSnippet(c) : ""}
-          <section class="card" aria-labelledby="t-addr">
-
-            <h2 id="t-addr">${t("addresses")}</h2>
-            ${c.addresses.map((a) => html`<div class="well row">
-              <div style="min-width:0"><div class="hint">${t(`target_${a.target}`)}</div>
-                ${a.reachable ? Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="justify-content:flex-start;gap:4px">
-                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
-                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)
-                  : html`<div class="hint">${a.host ? html`<span class="mono">${a.host}:${a.port}</span><br>${t(`why_${a.why}`)}` : t("lanUnknown")}</div>`}
-              </div></div>`)}
-          </section>
           <section class="card" aria-labelledby="t-conf">
-            <div class="row"><h2 id="t-conf">${t("configuration")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
+            <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
             ${enocean ? html`<div class="kv">
               <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
               <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
               ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
-              <span>${t("network")}</span><span>Port ${c.port} · ${c.bind || reach(c, s)}</span>
-              <span>${t("allowed")}</span><span class="mono" style="font-size:13px">${c.remaddr || t("eoAllNets")}</span>
+              <span>${t("network")}</span><span>Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
             </div>` : modbus ? html`<div class="kv">
@@ -377,7 +370,8 @@ export class DetailPage extends Page {
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
               <span>${t("mbProxy")}</span><span>${t("mbConf", { ms: c.request_timeout_ms, n: c.retries })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
-              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port} · ${c.bind || reach(c, s)}</span>
+              <span>${t("network")}</span><span>Modbus TCP · Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
 
@@ -391,8 +385,19 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
               ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
               <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? " · local" : ""}</span>
-              <span>${t("network")}</span><span>${c.mode} · Port ${c.port} · ${c.bind || reach(c, s)}</span>
+              <span>${t("network")}</span><span>${c.mode} · Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
             </div>`}
+            <div style="border-top:1px solid var(--line-2);margin-top:12px;padding-top:4px">
+              ${c.addresses.map((a) => html`<div class="well" style="margin-top:8px">
+                <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
+                  <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
+                ${a.reachable ? Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
+                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
+                  <button class="btn btn-g" style="min-height:32px" @click=${() => this._copy(`${a.target}${k}`, u)}>${this.copied === `${a.target}${k}` ? t("copied") : t("copy")}</button></div>`)
+                  : html`<div class="hint" style="margin-top:2px">${a.host ? html`<span class="mono">${a.host}:${a.port}</span><br>${t(`why_${a.why}`)}` : t("lanUnknown")}</div>`}
+              </div>`)}
+            </div>
           </section>
         </div>
         <aside class="side-col">
