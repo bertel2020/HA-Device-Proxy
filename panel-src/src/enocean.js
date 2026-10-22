@@ -132,13 +132,14 @@ export function statusCard(c) {
 }
 
 /** One gateway in the card "Gateways": role, state, base ID, answer time. */
-function gatewayBox(role, name, href, connected, stateText, stateClass, baseId, same, probeMs, current) {
+function gatewayBox(role, name, href, connected, stateText, stateClass, baseId, same, probeMs, current, frames = {}) {
   return html`<div class="well" style="display:flex;flex-direction:column;gap:6px;${current ? "outline:2px solid var(--accent);outline-offset:-2px" : ""}">
     <div class="row"><b style="font-weight:500">${role} · ${href ? html`<a href=${href}>${name}</a>` : name}</b>
       <span class="chip ${stateClass}"><span class="dot"></span>${stateText}</span></div>
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
       <span class="hint">${t("eoBaseId")}</span><span><span class="mono">${baseId || t("eoBaseUnknown")}</span>${same === true ? html` <span style="color:var(--ok)">✓ ${t("fbSame")}</span>` : same === false ? html` <span style="color:var(--bad)">${t("fbDiffers")}</span>` : ""}</span>
       <span class="hint">${t("fbAnswer")}</span><span>${connected ? (probeMs != null ? `${probeMs.toLocaleString(lang)} ms` : "–") : t("fbDown")}</span>
+      <span class="hint">${t("fbFrames")}</span><span>${t("fbFramesN", { r: num(frames.from_gateway), s: num(frames.to_gateway) })}</span>
     </div></div>`;
 }
 
@@ -189,8 +190,8 @@ export class EnOceanGateways extends LitElement {
     const h = fb.heard || {};
     return html`<section class="card" aria-labelledby="t-gws"><div class="stack">
       <div class="row"><h2 id="t-gws">${t("fbCardTitle")}</h2><span class="hint">${c.fallback_return === "manual" ? t("fbReturnManual") : t("fbReturnAuto")}</span></div>
-      ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback)}
-      ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback)}
+      ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback, e.frames)}
+      ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback, fb.frames)}
       ${!fb.ready && fb.not_ready ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
       ${onFallback ? html`<p class="hint" style="margin:0">${t("fbSince", { t: fmtAgo(fb.active_since) })} · ${t(`fbReason_${fb.reason}`)}${fb.manual ? ` · ${t("fbManualNote")}` : ""}</p>` : ""}
       <div class="row" style="justify-content:flex-start;gap:8px">

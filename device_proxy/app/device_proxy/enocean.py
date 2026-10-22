@@ -763,6 +763,10 @@ class EnOceanProxy:
             "connected": bool(fallback and fallback.link.is_open),
             "base_id": fallback.base_id if fallback is not None else None,
             "probe_ms": fallback.probe_ms if fallback is not None else None,
+            "frames": {  # B's own counters, for the card on A's page
+                "from_gateway": fallback.stats.from_gateway if fallback is not None else 0,
+                "to_gateway": fallback.stats.to_gateway if fallback is not None else 0,
+            },
             "relayed": self.stats.relayed,
             "from_fallback": self.stats.from_fallback,
             "listen": self.c.fallback_listen,

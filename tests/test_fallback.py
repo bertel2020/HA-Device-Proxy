@@ -386,6 +386,7 @@ async def test_the_controller_wires_the_fallback_and_swaps_the_hardware(
         rows = {row["name"]: row for row in controller.snapshot()["connections"]}  # type: ignore[attr-defined]
         assert rows["B"]["running"] and rows["B"]["enocean"]["serves"] == "A"
         assert rows["A"]["enocean"]["fallback"]["name"] == "B"
+        assert rows["A"]["enocean"]["fallback"]["frames"]["to_gateway"] >= 1  # B's base ID reads
         status = gateway_status(a, proxy_a)
         assert status["active"] == "main" and status["fallback"]["ready"]
         await controller._proxy_tick()
