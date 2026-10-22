@@ -59,6 +59,8 @@ READ_ONLY_FUNCTIONS = {1, 2, 3, 4, 7, 11, 12, 17, 20, 24}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
 CACHE_SIZE = 2000  # answers kept at most
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
+CLOSE_TIMEOUT = 2.0  # s to wait for a closed connection to the device
+KEEPALIVE = (("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 10), ("TCP_KEEPCNT", 3))
 
 FUNCTIONS = {
     1: "read coils",
@@ -319,6 +321,11 @@ class TcpLink(Link):
         sock = writer.get_extra_info("socket")
         if sock is not None:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            # a gateway that loses power sends no RST: notice it after about 90 s of silence
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            for name, value in KEEPALIVE:
+                if hasattr(socket, name):  # Linux; macOS names the first one differently
+                    sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, name), value)
         self.buffer.clear()
         self._writer = writer
         self._pump = asyncio.create_task(self._read(reader))
@@ -344,8 +351,8 @@ class TcpLink(Link):
             self._pump.cancel()
         if self._writer is not None:
             self._writer.close()
-            with contextlib.suppress(OSError, asyncio.CancelledError):
-                await self._writer.wait_closed()
+            with contextlib.suppress(OSError, TimeoutError):  # a cancel goes through
+                await asyncio.wait_for(self._writer.wait_closed(), CLOSE_TIMEOUT)
         self._writer = self._pump = None
 
 

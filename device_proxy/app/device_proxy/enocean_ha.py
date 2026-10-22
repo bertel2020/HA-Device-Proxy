@@ -38,6 +38,7 @@ SERVICE = "enocean_eltako"
 SUPERVISOR = "http://supervisor"
 STATUS_PEERS = ", ".join(APPS_NETWORKS)
 MAX_REQUEST = 8192
+STATUS_RETRY = 30  # seconds between attempts to open a taken status port
 
 
 def gateways(config: AppConfig) -> list[Connection]:
@@ -118,6 +119,7 @@ class EnOceanHa:
         self._announced: dict[str, Any] | None = None
         self._uuid: str | None = None  # of the discovery message
         self._hostname: str | None = None
+        self._failed_at = 0.0  # when the status port could not be opened
 
     async def update(self) -> None:
         """After the start and every change of the configuration."""
@@ -144,17 +146,29 @@ class EnOceanHa:
                 await self._server.wait_closed()
             self._server = None
         self.port = port
-        if port is None:
-            return
+        if port is not None:
+            await self._listen(port, report=True)
+
+    async def retry(self) -> None:
+        """Open the status port again that was taken (e.g. by the old EnOcean Proxy app)."""
+        if self._server is None and self.port is not None:
+            if time.monotonic() - self._failed_at >= STATUS_RETRY:
+                await self._listen(self.port, report=False)
+
+    async def _listen(self, port: int, *, report: bool) -> None:
         try:
             self._server = await asyncio.start_server(self._handle, None, port, reuse_address=True)
-            self.listen_error = ""
         except OSError as err:
+            self._failed_at = time.monotonic()
             self.listen_error = str(err)
-            self.c.events.emit(
-                "error", "listen_failed", name="EnOcean status", port=port, error=str(err)
-            )
+            if report:
+                self.c.events.emit(
+                    "error", "listen_failed", name="EnOcean status", port=port, error=str(err)
+                )
             return
+        if self.listen_error:
+            _LOGGER.info("EnOcean status on port %s now", port)
+        self.listen_error = ""
         self.port = _port(self._server)  # tests: 0 → a free port
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:

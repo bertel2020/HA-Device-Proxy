@@ -12,8 +12,13 @@ data, optional data, CRC8 of data + optional data.
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
+
 ESP2_FRAME = 14
 ESP3_HEADER = 6  # sync + 4 header bytes + header CRC
+ESP3_MAX_DATA = 1024  # data + optional data; a longer header is a false sync in garbage
+ESP3_STALE = 0.5  # seconds: an unfinished frame older than this was a false sync (ESP3: 100 ms)
 
 
 def crc8(data: bytes) -> int:
@@ -29,13 +34,19 @@ def crc8(data: bytes) -> int:
 class Splitter:
     """Feed bytes, get complete frames; garbage before a sync byte is dropped."""
 
-    def __init__(self, protocol: str) -> None:
+    def __init__(self, protocol: str, clock: Callable[[], float] = time.monotonic) -> None:
         if protocol not in ("esp2", "esp3"):
             raise ValueError(f"unknown protocol {protocol!r}")
         self.protocol = protocol
         self._buffer = bytearray()
+        self._clock = clock
+        self._last = 0.0
 
     def feed(self, chunk: bytes) -> list[bytes]:
+        now = self._clock()
+        if self.protocol == "esp3" and self._buffer and now - self._last > ESP3_STALE:
+            del self._buffer[:1]  # the frame never finished: look for the next sync
+        self._last = now
         self._buffer += chunk
         frames: list[bytes] = []
         while True:
@@ -69,10 +80,16 @@ class Splitter:
             if crc8(header) != self._buffer[5]:
                 del self._buffer[:1]  # a 0x55 inside data: look for the next one
                 continue
-            data_len = int.from_bytes(header[0:2], "big")
-            total = ESP3_HEADER + data_len + header[2] + 1
+            data_len = int.from_bytes(header[0:2], "big") + header[2]
+            if data_len > ESP3_MAX_DATA:
+                del self._buffer[:1]
+                continue
+            total = ESP3_HEADER + data_len + 1
             if len(self._buffer) < total:
                 return None
+            if crc8(bytes(self._buffer[ESP3_HEADER : total - 1])) != self._buffer[total - 1]:
+                del self._buffer[:1]  # the header CRC matched by chance
+                continue
             frame = bytes(self._buffer[:total])
             del self._buffer[:total]
             return frame

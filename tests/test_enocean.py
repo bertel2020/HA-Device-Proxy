@@ -48,6 +48,20 @@ def test_esp3_frames_and_a_sync_byte_inside_data() -> None:
     assert splitter.feed(first[4:] + second) == [first, second]
 
 
+def test_esp3_does_not_wait_on_a_false_header() -> None:
+    radio = esp3(bytes.fromhex("F6500021634330"))
+    for length in (0x0100, 0xF000):  # within and above the limit
+        header = length.to_bytes(2, "big") + b"\x00\x01"
+        junk = b"\x55" + header + bytes([crc8(header)])  # passes the header CRC
+        assert Splitter("esp3").feed(junk + radio * 50) == [radio] * 50
+    now = [0.0]
+    splitter = Splitter("esp3", clock=lambda: now[0])
+    header = (0x20).to_bytes(2, "big") + b"\x00\x01"
+    assert splitter.feed(b"\x55" + header + bytes([crc8(header)])) == []  # waits for 32 bytes
+    now[0] = 1.0  # the rest never came
+    assert splitter.feed(radio) == [radio]
+
+
 def test_crc8_and_unknown_protocol() -> None:
     assert crc8(bytes.fromhex("00070701")) == 0x7A  # ESP3 header of a radio telegram
     with pytest.raises(ValueError):
@@ -514,7 +528,7 @@ async def test_status_and_discovery_for_the_integration(
 
 
 def test_status_port_and_the_health_check(tmp_path: Path) -> None:
-    from device_proxy.health import enocean_ports
+    from device_proxy import health
     from device_proxy.model import AppConfig
 
     gateway = Connection("FAM", "/dev/ttyUSB0", 9199, kind="enocean", link="serial")
@@ -523,17 +537,14 @@ def test_status_port_and_the_health_check(tmp_path: Path) -> None:
     assert "status for the EnOcean integration" in err.value.errors["connections.0.port"]
     AppConfig(connections=(replace(gateway, kind="serial"),)).validate()  # only with EnOcean
 
-    config = AppConfig(
-        connections=(
-            replace(gateway, port=9100),
-            replace(gateway, name="B", port=9101, id="0000000f", bind="192.0.2.1"),
-            replace(gateway, name="C", port=9102, id="00000010", enabled=False),
-        )
-    )
-    path = tmp_path / "config.json"
-    path.write_text(json.dumps(config.to_dict()))
-    assert enocean_ports(path) == [("127.0.0.1", 9100), ("192.0.2.1", 9101)]
-    assert enocean_ports(tmp_path / "missing.json") == []
+    state = tmp_path / "health.json"
+    assert health.proxies_ok(state)  # not written yet: just started
+    health.write([], state)
+    assert health.proxies_ok(state)
+    health.write(["FAM"], state)  # a gateway does not listen
+    assert not health.proxies_ok(state)
+    state.write_text(json.dumps({"time": time.time() - 600, "not_listening": []}))
+    assert not health.proxies_ok(state)  # the app no longer writes it: it hangs
 
 
 # tools: send, test, capture (enocean_tools.py, web routes)
@@ -717,3 +728,26 @@ async def test_a_failing_observer_does_not_stop_the_gateway(setup: Setup) -> Non
     assert await reader.readexactly(28) == FRAME_A + FRAME_B
     assert proxy.observers == [] and proxy.link.is_open
     writer.close()
+
+
+async def test_a_taken_status_port_is_tried_again() -> None:
+    from types import SimpleNamespace
+
+    from device_proxy.enocean_ha import EnOceanHa
+
+    blocker = await asyncio.start_server(lambda r, w: None, None, 0)
+    port = blocker.sockets[0].getsockname()[1]
+    events: list[str] = []
+    log = SimpleNamespace(emit=lambda level, kind, **p: events.append(kind))
+    fake = SimpleNamespace(events=log)
+    ha = EnOceanHa(fake)  # type: ignore[arg-type]
+    await ha._serve(port)
+    assert ha._server is None and events == ["listen_failed"]
+    blocker.close()
+    await blocker.wait_closed()
+    await ha.retry()  # too early
+    assert ha._server is None
+    ha._failed_at = 0.0
+    await ha.retry()
+    assert ha._server is not None and ha.port == port and events == ["listen_failed"]
+    await ha.stop()

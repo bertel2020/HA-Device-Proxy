@@ -32,7 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, model
+from . import custom, health, model
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .config import blocks, changed, readable_alias, render
@@ -235,6 +235,7 @@ class Controller:
         self.proxies: dict[str, AppProxy] = {}  # connection id → running proxy
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self._proxy_failed: dict[str, float] = {}  # connection id → when its proxy ended
+        self.health_file = health.HEALTH_FILE
         self.mqtt = HaBridge(self)
         self.enocean_ha = EnOceanHa(self)
         self.captures = Captures(self.trace.record_dir)
@@ -641,6 +642,14 @@ class Controller:
             s = proxy.stats
             self._rate(proxy.c.alias, s.bytes_from_device, s.bytes_to_device, now)
         await self._restart_failed()
+        await self.enocean_ha.retry()
+        down = [
+            p.c.name
+            for p in self.proxies.values()
+            if isinstance(p, EnOceanProxy) and not p.listening
+        ]
+        with contextlib.suppress(OSError):  # only the Docker health check reads it
+            health.write(down, self.health_file)
 
     # devices
 

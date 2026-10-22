@@ -194,6 +194,7 @@ class TraceHub:
         self.live: dict[str, deque[Chunk]] = {}
         self.flow: dict[str, Flow] = {}
         self.fed: dict[str, list[Chunk]] = {}  # from the Modbus proxy, until the next poll
+        self._not_recorded: set[str] = set()  # recordings that failed (the thread's own)
 
     def prepare(self) -> None:
         self.shm_dir.mkdir(parents=True, exist_ok=True)
@@ -258,7 +259,13 @@ class TraceHub:
                 continue
             if mode != "off":
                 path = self.record_dir / f"{file_name}.log"
-                Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
+                try:
+                    Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
+                    self._not_recorded.discard(alias)
+                except OSError as err:  # e.g. a full disk: the live view goes on
+                    if alias not in self._not_recorded:
+                        self._not_recorded.add(alias)
+                        _LOGGER.warning("Recording of %s not written: %s", file_name, err)
             result.append((alias, chunks))
         return result
 

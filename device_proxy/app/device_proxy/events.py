@@ -9,8 +9,10 @@ raise the count of the last entry and are logged once more when the burst is ove
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import sqlite3
 import time
 from collections import deque
 from collections.abc import Callable, Collection
@@ -220,6 +222,14 @@ class EventLog:
     def _store(self, event: Event) -> int | None:
         if self.db is None:
             return None
+        try:
+            return self._insert(event)
+        except sqlite3.Error as err:  # a full disk must not stop who reports the event
+            _LOGGER.warning("Event not kept in the history: %s", err)
+            return None
+
+    def _insert(self, event: Event) -> int | None:
+        assert self.db is not None
         cursor = self.db.execute(
             "INSERT INTO events (ts, level, connection, name, kind, params, count, last_ts)"
             " VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
@@ -237,9 +247,10 @@ class EventLog:
 
     def _store_count(self, row: int, now: float, count: int) -> None:
         if self.db is not None:
-            self.db.execute(
-                "UPDATE events SET count = ?, last_ts = ? WHERE id = ?", (count, now, row)
-            )
+            with contextlib.suppress(sqlite3.Error):
+                self.db.execute(
+                    "UPDATE events SET count = ?, last_ts = ? WHERE id = ?", (count, now, row)
+                )
 
     def history(
         self,

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **EnOcean ESP3**: garbage whose first bytes look like a long frame no longer holds back every
+  telegram until that many bytes have arrived (hours); the data CRC is checked, lengths are capped,
+  and an unfinished frame is given up after 0.5 s.
+- **Health check**: it no longer connects to the EnOcean ports as a client (with one client allowed
+  and "kick old user" it pushed out the integration every minute, and it put two events a minute in
+  the history). The app writes the gateways' state for it instead; when the app stops writing it,
+  the check fails and the Supervisor restarts the app.
+- **Recordings**: one that cannot be written (full disk, folder not writable) no longer freezes the
+  live view and "last data" of every connection, nor reports "no data" for them.
+- **Network gateways** (EnOcean, Modbus TCP, RTU over TCP): TCP keepalive notices a gateway that
+  loses power without closing the connection, after about 90 s, and connects again.
+- **EnOcean status port**: when it was taken (e.g. by the old EnOcean Proxy app), it is tried again
+  every 30 s instead of only at the next change.
+- **History**: a full disk or an I/O error no longer moves the history aside as damaged; the event is
+  logged but not kept.
+
 - **Further ser2net options**: only harmless ones are taken (buffer sizes, chardelay, sendon/closeon,
   signature, mDNS, …). `connback` can start a program through its gensio string and is refused, as
   are logins, LEDs and values that read a file (`*{…}`, `*(…)`), also in banner, openstr and closestr.

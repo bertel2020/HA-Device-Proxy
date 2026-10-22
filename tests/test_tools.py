@@ -182,3 +182,29 @@ def test_own_mqtt_broker_settings_are_checked() -> None:
         Settings.from_dict({"mqtt_host": "not a host"})
     with pytest.raises(ValidationError):
         Settings.from_dict({"mqtt_port": 0})
+
+
+def test_a_full_disk_does_not_move_the_history_aside(tmp_path: Path) -> None:
+    import sqlite3
+
+    import pytest
+
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+
+    db = Database(tmp_path / "h.db")
+
+    class Full:
+        def execute(self, sql: str, params: tuple[object, ...] = ()) -> None:
+            raise sqlite3.OperationalError("database or disk is full")
+
+        def close(self) -> None:
+            pass
+
+    real, db.conn = db.conn, Full()  # type: ignore[assignment]
+    with pytest.raises(sqlite3.OperationalError):
+        db.execute("SELECT 1")
+    assert not list(tmp_path.glob("h.db.damaged-*"))
+    log = EventLog(db)
+    log.emit("info", "app_started", connections=0, active=0)  # not kept, but no error
+    db.conn = real

@@ -102,3 +102,17 @@ async def test_poll_reads_in_a_thread_and_updates_state_in_the_loop(tmp_path: Pa
     assert (tmp_path / "rec" / "a.log").exists()
     await hub.poll({}, 1 << 20, 1)
     assert "a" not in hub.live
+
+
+async def test_a_recording_that_cannot_be_written_does_not_stop_the_live_view(
+    tmp_path: Path,
+) -> None:
+    from device_proxy.trace import Chunk, TraceHub
+
+    (tmp_path / "rec").write_text("a file where the folder should be")
+    hub = TraceHub(tmp_path / "rec", tmp_path / "shm")
+    hub.feed("a", Chunk(1.0, "rx", b"abc"))
+    hub.feed("b", Chunk(1.0, "rx", b"xyz"))
+    new = await hub.poll({"a": ("a", "both"), "b": ("b", "off")}, 1 << 20, 1)
+    assert [c.data for c in new["a"]] == [b"abc"] and [c.data for c in new["b"]] == [b"xyz"]
+    assert hub.flow["b"].rx_bytes == 3

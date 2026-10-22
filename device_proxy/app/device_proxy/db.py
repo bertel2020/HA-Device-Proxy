@@ -7,6 +7,7 @@ damaged file is moved aside and a new one started; ser2net keeps running either 
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -15,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PATH = Path("/data/history.db")
 VERSION = 1  # PRAGMA user_version; lift older files in _open() when this grows
+DAMAGED = re.compile(r"malformed|not a database|file is encrypted|database corrupt")
 TABLES = """
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY,
@@ -73,7 +75,7 @@ class Database:
         try:
             return self.conn.execute(sql, params)
         except sqlite3.DatabaseError as err:
-            if isinstance(err, sqlite3.IntegrityError | sqlite3.ProgrammingError):
+            if not DAMAGED.search(str(err)):  # e.g. a full disk: the history itself is fine
                 raise
             self.conn.close()
             self.conn = self._recreate(err)
