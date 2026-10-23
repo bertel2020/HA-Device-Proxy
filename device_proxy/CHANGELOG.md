@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+EnOcean gateways tell the EnOcean Eltako integration their model.
 
 - **EnOcean gateway model**: each gateway has a field **Model** (FAM-USB, FGW14-USB, FAM14,
   MGW-ETH, Symcon LAN, other ESP2 or ESP3 gateway) that goes to the EnOcean Eltako integration
