@@ -35,7 +35,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .detect import configure
-from .model import Connection, client_allowed, parse_unit_map
+from .model import Connection, client_allowed, from_this_host, parse_unit_map, peer_allowed
 from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
@@ -1010,7 +1010,8 @@ class ModbusProxy:
         peer = writer.get_extra_info("peername") or ("?", 0)
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
-        if not client_allowed(self.c.remaddr, self.listen, host):
+        sock = writer.get_extra_info("sockname")
+        if not peer_allowed(self.c.remaddr, self.listen, peer, sock):
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
             writer.close()
             return
@@ -1026,7 +1027,7 @@ class ModbusProxy:
         self.clients[address] = client
         self.on_event("info", "client_connected", address=address)
         try:
-            await self._serve(reader, writer, client.info, host)
+            await self._serve(reader, writer, client.info, host, from_this_host(peer, sock))
         except (asyncio.IncompleteReadError, ConnectionError, OSError, TimeoutError):
             pass
         except ValueError as err:
@@ -1037,10 +1038,15 @@ class ModbusProxy:
             writer.close()
             self.on_event("info", "client_disconnected", address=address)
 
-    def may_write(self, host: str) -> bool:
+    def may_write(self, host: str, local: bool = False) -> bool:
+        """local: the client is on this host (from_this_host), so it counts as 127.0.0.1 too."""
         access = self.c.write_access
         if access == "listed":
-            return bool(self.c.write_clients) and client_allowed(self.c.write_clients, "all", host)
+            listed = self.c.write_clients
+            return bool(listed) and (
+                client_allowed(listed, "all", host)
+                or (local and client_allowed(listed, "all", "127.0.0.1"))
+            )
         return access == "all"
 
     async def _serve(
@@ -1049,6 +1055,7 @@ class ModbusProxy:
         writer: asyncio.StreamWriter,
         info: ClientInfo,
         host: str,
+        local: bool = False,
     ) -> None:
         idle = self.c.timeout or None
         mapped: tuple[str, dict[int, int]] = ("", {})
@@ -1062,7 +1069,7 @@ class ModbusProxy:
             if mapped[0] != self.c.unit_map:  # changes without a restart
                 mapped = (self.c.unit_map, parse_unit_map(self.c.unit_map))
             device_unit = mapped[1].get(unit, unit)
-            if is_write(pdu) and not self.may_write(host):
+            if is_write(pdu) and not self.may_write(host, local):
                 self.stats.blocked += 1
                 info.blocked += 1
                 self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])

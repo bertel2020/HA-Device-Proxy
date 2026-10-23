@@ -46,6 +46,24 @@ def test_home_network_list(monkeypatch) -> None:
     assert client_allowed("", own.access, "10.1.2.3")
 
 
+def test_home_assistant_under_the_host_name_counts_as_local() -> None:
+    """Home Assistant connects to the discovery's host name, the host's LAN address, and so
+    comes from there: "Home Assistant and apps" must let it in all the same."""
+    from device_proxy.model import from_this_host, peer_allowed
+
+    ha_only = "127.0.0.1, 172.30.32.0/23"
+    host = ("192.168.79.22", 36476)
+    assert from_this_host(host, ("192.168.79.22", 9100))
+    assert peer_allowed(ha_only, "all", host, ("192.168.79.22", 9100))
+    # another machine in the LAN, to the same address: still refused
+    assert not from_this_host(("192.168.79.30", 5000), ("192.168.79.22", 9100))
+    assert not peer_allowed(ha_only, "all", ("192.168.79.30", 5000), ("192.168.79.22", 9100))
+    assert not peer_allowed(ha_only, "all", host, None)  # no own address known
+    # the host's LAN address listed by hand keeps working
+    assert peer_allowed("192.168.79.22", "all", host, ("192.168.79.22", 9100))
+    assert peer_allowed("", "apps", ("::ffff:192.168.79.22", 1), ("::ffff:192.168.79.22", 9100))
+
+
 def test_home_network_validation_and_migration() -> None:
     from device_proxy.model import AppConfig, Settings, ValidationError
 

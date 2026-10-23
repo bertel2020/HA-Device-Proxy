@@ -56,7 +56,7 @@ from typing import Any
 
 from . import esp
 from .modbus import Link, SerialLink, TcpLink
-from .model import Connection, client_allowed
+from .model import Connection, peer_allowed
 from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
@@ -419,7 +419,7 @@ class EnOceanProxy:
         peer = writer.get_extra_info("peername") or ("?", 0)
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
-        if not client_allowed(self.c.remaddr, self.listen, host):
+        if not peer_allowed(self.c.remaddr, self.listen, peer, writer.get_extra_info("sockname")):
             self.stats.refused += 1
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
             writer.close()

@@ -27,7 +27,7 @@ import urllib.request
 from typing import TYPE_CHECKING, Any
 
 from .enocean import EnOceanProxy, _port
-from .model import APPS_NETWORKS, AppConfig, Connection, client_allowed
+from .model import APPS_NETWORKS, AppConfig, Connection, peer_allowed
 
 if TYPE_CHECKING:
     from .controller import Controller
@@ -199,7 +199,7 @@ class EnOceanHa:
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername") or ("?", 0)
         try:
-            if not client_allowed(STATUS_PEERS, "all", str(peer[0])):
+            if not peer_allowed(STATUS_PEERS, "all", peer, writer.get_extra_info("sockname")):
                 return
             async with asyncio.timeout(5):
                 head = await reader.readuntil(b"\r\n\r\n")
