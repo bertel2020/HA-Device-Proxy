@@ -48,17 +48,19 @@ jobs:
 
   build:
     name: Test build (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    # each architecture on a runner of its own: aarch64 under QEMU took over 10 minutes
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
           - arch: amd64
             platform: linux/amd64
+            runner: ubuntu-latest
           - arch: aarch64
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build the app image (not pushed; the Supervisor builds it on install)
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -66,6 +68,10 @@ jobs:
           context: device_proxy
           platforms: ${{ matrix.platform }}
           push: false
+          # gensio, ser2net and the wheels are built again only when the Dockerfile or
+          # requirements.txt change; shared with the integration test and the publish job
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.14-alpine3.24
 
@@ -81,6 +87,7 @@ jobs:
           context: device_proxy
           load: true
           tags: device-proxy:test
+          cache-from: type=gha,scope=amd64
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.14-alpine3.24
       - name: Run the checks inside the image
@@ -95,7 +102,7 @@ jobs:
     name: Publish image (${{ matrix.arch }})
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [tests, panel, lint, build, integration]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -104,8 +111,10 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
+            runner: ubuntu-latest
           - arch: aarch64
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Version from config.yaml
@@ -125,8 +134,6 @@ jobs:
           if docker manifest inspect "$image:${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        if: steps.exists.outputs.skip != 'true'
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
         if: steps.exists.outputs.skip != 'true'
       - name: Build and push
@@ -136,6 +143,8 @@ jobs:
           context: device_proxy
           platforms: ${{ matrix.platform }}
           push: true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:latest
