@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
+
+Home Assistant is let in at an EnOcean gateway limited to Home Assistant and the apps again.
 
 - **EnOcean, "Only Home Assistant and apps"**: Home Assistant was refused at a discovered
   gateway and at the status port, so the EnOcean Eltako integration could not read the base ID
