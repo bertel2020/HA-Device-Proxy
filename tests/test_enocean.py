@@ -197,6 +197,40 @@ def test_validation() -> None:
     assert "device" in err.value.errors
 
 
+def test_gateway_model() -> None:
+    def gateway(**values: Any) -> Connection:
+        return Connection.from_dict(
+            {"name": "FAM", "port": 9100, "kind": "enocean", "link": "tcp", "host": "gw", **values}
+        )
+
+    assert gateway(model="").model == ""
+    assert gateway(model="fam14").model == "fam14"
+    assert gateway(model="mgw_eth", esp_protocol="esp3").model == "mgw_eth"
+    with pytest.raises(ValidationError) as err:
+        gateway(model="usb300", esp_protocol="esp3")
+    assert set(err.value.errors) == {"model"}
+    with pytest.raises(ValidationError) as err:
+        gateway(model="mgw_eth")  # ESP3, the gateway ESP2
+    assert err.value.errors["model"] == "mgw_eth speaks ESP3, not this protocol"
+    # saved before there was the field: the model of the template, when the protocol fits
+    assert gateway(template="fgw14_usb").model == "fgw14_usb"
+    assert gateway(template="usb300", esp_protocol="esp3").model == "esp3"
+    assert gateway(template="mgw_eth", esp_protocol="esp2").model == ""
+    assert gateway(template="enocean").model == ""
+    assert gateway(template="fam_usb", model="").model == ""  # saved without one on purpose
+
+
+def test_discovery_gateways_carry_the_model() -> None:
+    from device_proxy.enocean_ha import discovery_config
+
+    fam = Connection("FAM", "/dev/ttyUSB0", 9100, kind="enocean", model="fam_usb")
+    mgw = Connection("PioTek MGW-ETH", "", 9101, kind="enocean", esp_protocol="esp3")
+    assert discovery_config("h", 9199, [fam, mgw])["gateways"] == [
+        {"name": "FAM", "port": 9100, "protocol": "esp2", "model": "fam_usb"},
+        {"name": "PioTek MGW-ETH", "port": 9101, "protocol": "esp3"},
+    ]
+
+
 # the proxy
 
 

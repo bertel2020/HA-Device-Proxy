@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
-import { DEFAULTS as ENOCEAN, HA_ONLY, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
+import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
 import { confirmDialog, icon, navigate, proxyTarget, toggle } from "../ui.js";
 
@@ -13,7 +13,7 @@ const DEFAULTS = {
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
-  esp_protocol: "esp2", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
+  esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write
@@ -437,9 +437,13 @@ export class EditPage extends Page {
             ${this._err("link")}</div>
           <div class="fld"><span class="lbl" id="l-eoproto">${t("eoProtocol")}</span>
             <div class="seg" role="group" aria-labelledby="l-eoproto">${["esp2", "esp3"].map((p) => html`<button type="button" aria-pressed=${d.esp_protocol === p ? "true" : "false"}
-              @click=${() => this._set({ esp_protocol: p })}>${p.toUpperCase()}</button>`)}</div>
+              @click=${() => this._set({ esp_protocol: p, ...(d.model && MODELS[d.model] !== p ? { model: "" } : {}) })}>${p.toUpperCase()}</button>`)}</div>
             <span class="hint">${t(`eoproto_${d.esp_protocol}`)}</span></div>
         </div>
+        <label class="fld"><span class="lbl">${t("eoModel")}</span><select class="inp" aria-invalid=${this._shown().model ? "true" : "false"} aria-describedby="e-model" @change=${(e) => this._set({ model: e.target.value })}>
+          <option value="" ?selected=${!d.model}>${t("eoModelNone")}</option>
+          ${Object.keys(MODELS).filter((m) => MODELS[m] === d.esp_protocol || m === d.model).map((m) => html`<option value=${m} ?selected=${m === d.model}>${t(`eomodel_${m}`)}</option>`)}</select>
+          ${this._err("model")}<span class="hint">${t("eoModelHint")}</span></label>
         ${serial ? html`${this._devicePicker(chosen)}
           <label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
             ${[...new Set([...ENOCEAN_BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>

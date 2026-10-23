@@ -3,9 +3,10 @@
 The same contract as the EnOcean Proxy app had, so the integration works with either:
 
 - Supervisor discovery (service "enocean_eltako"): one message lists every active gateway
-  with port and protocol, plus the app's host name and status port. The Supervisor keeps one
-  message per app and service, so a message per gateway would replace the previous one. It is
-  sent again whenever that list changes, and withdrawn when no gateway is left.
+  with port, protocol and model (when one is set), plus the app's host name and status port.
+  The Supervisor keeps one message per app and service, so a message per gateway would replace
+  the previous one. It is sent again whenever that list changes, and withdrawn when no gateway
+  is left.
 - A read-only status on its own port (settings.enocean_status_port, 9199): the integration
   polls GET /api/status for its gateway cards (connected, programs, air time, replay, lock).
   No frames, no actions. The app runs in the host network, so only Home Assistant and the
@@ -57,8 +58,15 @@ def discovery_config(hostname: str, status_port: int, items: list[Connection]) -
         "host": hostname,
         "status_port": status_port,
         "replay": True,
-        "gateways": [{"name": c.name, "port": c.port, "protocol": c.esp_protocol} for c in items],
+        "gateways": [discovery_gateway(c) for c in items],
     }
+
+
+def discovery_gateway(c: Connection) -> dict[str, Any]:
+    item: dict[str, Any] = {"name": c.name, "port": c.port, "protocol": c.esp_protocol}
+    if c.model:  # the integration uses it only when it fits the protocol
+        item["model"] = c.model
+    return item
 
 
 def gateway_status(c: Connection, proxy: EnOceanProxy | None) -> dict[str, Any]:

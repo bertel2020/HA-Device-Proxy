@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **EnOcean gateway model**: each gateway has a field **Model** (FAM-USB, FGW14-USB, FAM14,
+  MGW-ETH, Symcon LAN, other ESP2 or ESP3 gateway) that goes to the EnOcean Eltako integration
+  with the discovery (`model` next to name, port and protocol). The template sets it, and
+  gateways saved before take it from their template; it must fit the protocol and may stay
+  empty, then the discovery goes without it.
+
 ## 0.4.0
 
 EnOcean gateways get a fallback: a second gateway with the same base ID stands in when one

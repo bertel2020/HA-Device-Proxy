@@ -38,6 +38,26 @@ LINKS = {  # how a proxy reaches its device
 }
 SERIAL_LINKS = {"rtu", "serial"}  # the links that open a serial device of this host
 ESP_PROTOCOLS = ("esp2", "esp3")
+# the gateway's model for the EnOcean Eltako integration (discovery), with the protocol it
+# speaks: the app only passes bytes on and cannot tell, so it is entered in the form
+GATEWAY_MODELS = {
+    "fam_usb": "esp2",
+    "fgw14_usb": "esp2",
+    "fam14": "esp2",
+    "esp2": "esp2",
+    "mgw_eth": "esp3",
+    "symcon_lan": "esp3",
+    "esp3": "esp3",
+}
+# the model a gateway made from a template had before there was the field
+TEMPLATE_MODELS = {
+    "fam_usb": "fam_usb",
+    "fam14": "fam14",
+    "fgw14_usb": "fgw14_usb",
+    "usb300": "esp3",
+    "mgw_eth": "mgw_eth",
+    "symcon_lan": "symcon_lan",
+}
 # switch over when the gateway stops answering too, or only when its connection is gone
 FALLBACK_TRIGGERS = ("probe", "disconnect")
 FALLBACK_RETURNS = ("auto", "manual")
@@ -45,6 +65,7 @@ WRITE_ACCESS = ("all", "none", "listed")
 # what "the fallback becomes the gateway" swaps between two EnOcean connections: the hardware
 GATEWAY_HARDWARE = (
     "template",
+    "model",
     "link",
     "device",
     "host",
@@ -197,6 +218,7 @@ class Connection:
     probe_address: int = 0
     # EnOcean gateway (kind "enocean", enocean.py)
     esp_protocol: str = "esp2"
+    model: str = ""  # GATEWAY_MODELS; "" leaves it out of the discovery
     send_gap_ms: int = 10  # pause after each frame sent to the gateway
     replay_size: int = 1000  # radio telegrams kept while no replaying client is connected
     replay_max_age_s: int = 900
@@ -264,6 +286,11 @@ class Connection:
         if errors:
             raise ValidationError(errors)
         values.setdefault("device", "")  # a proxy that reaches its device over the network
+        if "model" not in data and values.get("kind") == "enocean":
+            # saved before there was the field: the model of its template, if it fits
+            model = TEMPLATE_MODELS.get(values.get("template", ""), "")
+            if GATEWAY_MODELS.get(model) == values.get("esp_protocol", "esp2"):
+                values["model"] = model
         connection = cls(**values)
         connection.validate()
         return connection
@@ -361,6 +388,10 @@ class Connection:
     def _validate_enocean(self, e: dict[str, str]) -> None:
         if self.esp_protocol not in ESP_PROTOCOLS:
             e["esp_protocol"] = "esp2 or esp3"
+        elif self.model and self.model not in GATEWAY_MODELS:
+            e["model"] = f"one of {', '.join(GATEWAY_MODELS)}"
+        elif self.model and (speaks := GATEWAY_MODELS[self.model]) != self.esp_protocol:
+            e["model"] = f"{self.model} speaks {speaks.upper()}, not this protocol"
         if not 0 <= self.send_gap_ms <= 1000:
             e["send_gap_ms"] = "0 to 1000 ms"
         if not 0 <= self.replay_size <= 100000:

@@ -217,6 +217,12 @@ like ser2net would.
 | PioTek MGW-ETH | ESP3 | TCP, port 5100 (one session only: share it through this app) |
 | Symcon LAN | ESP3 | TCP, port 5000 |
 
+**Model**: the gateway's model goes to the EnOcean Eltako integration with the discovery
+(Eltako FAM-USB, FGW14-USB or FAM14, PioTek MGW-ETH, Symcon LAN, or another ESP2 or ESP3
+gateway). The app cannot tell it by itself, as it only passes bytes on: the template sets it,
+and the field **Model** under "Gateway" changes it. It must fit the protocol; left empty, the
+discovery goes without it.
+
 **Who may connect**: new gateways follow the network setting, like the other kinds, so a PC
 with eo_man or PCT14 in the home network can connect at once. To limit one gateway, enter
 addresses or networks under **Allowed clients**, or press "Only Home Assistant and apps"

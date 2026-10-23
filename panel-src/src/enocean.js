@@ -7,14 +7,16 @@ import { base, tokens } from "./styles.js";
 import { confirmDialog, fmtAgo, fmtTime, icon, proxyTarget, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
-  fam_usb: { esp_protocol: "esp2", link: "serial", baud: 9600 },
-  fam14: { esp_protocol: "esp2", link: "serial", baud: 57600 },
-  fgw14_usb: { esp_protocol: "esp2", link: "serial", baud: 57600 },
-  usb300: { esp_protocol: "esp3", link: "serial", baud: 57600 },
-  mgw_eth: { esp_protocol: "esp3", link: "tcp", host_port: 5100 },
-  symcon_lan: { esp_protocol: "esp3", link: "tcp", host_port: 5000 },
-  enocean: {},
+  fam_usb: { esp_protocol: "esp2", model: "fam_usb", link: "serial", baud: 9600 },
+  fam14: { esp_protocol: "esp2", model: "fam14", link: "serial", baud: 57600 },
+  fgw14_usb: { esp_protocol: "esp2", model: "fgw14_usb", link: "serial", baud: 57600 },
+  usb300: { esp_protocol: "esp3", model: "esp3", link: "serial", baud: 57600 },
+  mgw_eth: { esp_protocol: "esp3", model: "mgw_eth", link: "tcp", host_port: 5100 },
+  symcon_lan: { esp_protocol: "esp3", model: "symcon_lan", link: "tcp", host_port: 5000 },
+  enocean: { model: "" },
 };
+// the gateway's model for the EnOcean Eltako integration, with the protocol it speaks (model.py GATEWAY_MODELS)
+export const MODELS = { fam_usb: "esp2", fgw14_usb: "esp2", fam14: "esp2", esp2: "esp2", mgw_eth: "esp3", symcon_lan: "esp3", esp3: "esp3" };
 // the restriction the button "Only Home Assistant and apps" sets; new gateways follow the network setting
 export const HA_ONLY = "127.0.0.1, 172.30.32.0/23";
 export const DEFAULTS = {
