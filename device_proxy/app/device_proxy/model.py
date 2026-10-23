@@ -820,6 +820,22 @@ def client_allowed(remaddr: str, listen: str, address: str) -> bool:
     return any(ip in n for n in networks if n.version == ip.version)
 
 
+def from_this_host(peer: Any, sock: Any) -> bool:
+    """A connection whose client has the address it connected to comes from this host. Home
+    Assistant and the apps in the host network reach the app by its host name (the discovery's
+    "host"), which is the host's LAN address, so they come from there and not from 127.0.0.1."""
+    return bool(peer and sock) and str(peer[0]) == str(sock[0])
+
+
+def peer_allowed(remaddr: str, listen: str, peer: Any, sock: Any) -> bool:
+    """client_allowed for a connection (peername, sockname): one from this host also counts as
+    127.0.0.1, so "Home Assistant only" lets in Home Assistant under the host name too."""
+    host = str(peer[0]) if peer else "?"
+    if client_allowed(remaddr, listen, host):
+        return True
+    return from_this_host(peer, sock) and client_allowed(remaddr, listen, "127.0.0.1")
+
+
 def parse_unit_map(text: str) -> dict[int, int]:
     """ "1=3, 2=5" → {1: 3, 2: 5}: the unit a client asks for → the device's unit."""
     result: dict[int, int] = {}

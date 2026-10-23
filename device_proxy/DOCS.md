@@ -229,7 +229,10 @@ Gateways saved before version 1.0.0 take the model of their template when it fit
 **Who may connect**: new gateways follow the network setting, like the other kinds, so a PC
 with eo_man or PCT14 in the home network can connect at once. To limit one gateway, enter
 addresses or networks under **Allowed clients**, or press "Only Home Assistant and apps"
-(`127.0.0.1, 172.30.32.0/23`).
+(`127.0.0.1, 172.30.32.0/23`). Home Assistant reaches a discovered gateway by the app's host
+name, which is the host's LAN address, so it comes from that address and not from 127.0.0.1;
+a connection from the host to its own address counts as 127.0.0.1 all the same (also for the
+status port and the Modbus proxy).
 
 **Replay**: the EnOcean Eltako integration asks for it (`EOPX REPLAY TS`) after every
 connect. Radio telegrams that arrive while no such program is connected, e.g. during a Home

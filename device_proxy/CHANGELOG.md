@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **EnOcean, "Only Home Assistant and apps"**: Home Assistant was refused at a discovered
+  gateway and at the status port, so the EnOcean Eltako integration could not read the base ID
+  and asked for it. It connects to the app's host name, which is the host's LAN address, and so
+  comes from there, not from 127.0.0.1. A connection from the host to its own address now counts
+  as 127.0.0.1 (EnOcean and Modbus proxy, status port, Modbus write lock).
+
 ## 1.0.0
 
 EnOcean gateways tell the EnOcean Eltako integration their model.
