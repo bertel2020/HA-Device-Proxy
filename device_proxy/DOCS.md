@@ -207,21 +207,24 @@ like ser2net would.
   reconnects by itself (1, 2, 5, 10, 30 s).
 - A program that stops reading is disconnected before its data piles up (256 KiB).
 
-**Templates** set protocol, baud rate and kind of connection; everything stays changeable:
+**Templates** set protocol, model, baud rate and kind of connection; everything stays
+changeable:
 
-| Template | Protocol | Connection |
-|---|---|---|
-| FAM-USB | ESP2 | USB, 9600 baud |
-| FAM14, FGW14-USB | ESP2 | USB, 57600 baud |
-| USB300 / TCM310 | ESP3 | USB, 57600 baud |
-| PioTek MGW-ETH | ESP3 | TCP, port 5100 (one session only: share it through this app) |
-| Symcon LAN | ESP3 | TCP, port 5000 |
+| Template | Protocol | Model | Connection |
+|---|---|---|---|
+| FAM-USB | ESP2 | `fam_usb` | USB, 9600 baud |
+| FAM14, FGW14-USB | ESP2 | `fam14`, `fgw14_usb` | USB, 57600 baud |
+| USB300 / TCM310 | ESP3 | `esp3` | USB, 57600 baud |
+| PioTek MGW-ETH | ESP3 | `mgw_eth` | TCP, port 5100 (one session only: share it through this app) |
+| Symcon LAN | ESP3 | `symcon_lan` | TCP, port 5000 |
 
 **Model**: the gateway's model goes to the EnOcean Eltako integration with the discovery
 (Eltako FAM-USB, FGW14-USB or FAM14, PioTek MGW-ETH, Symcon LAN, or another ESP2 or ESP3
 gateway). The app cannot tell it by itself, as it only passes bytes on: the template sets it,
-and the field **Model** under "Gateway" changes it. It must fit the protocol; left empty, the
-discovery goes without it.
+and the field **Model** under "Gateway" changes it. It must fit the protocol: ESP2 for
+`fam_usb`, `fgw14_usb`, `fam14` and `esp2`, ESP3 for `mgw_eth`, `symcon_lan` and `esp3`; the
+field offers only those of the chosen protocol. Left empty, the discovery goes without it.
+Gateways saved before version 1.0.0 take the model of their template when it fits.
 
 **Who may connect**: new gateways follow the network setting, like the other kinds, so a PC
 with eo_man or PCT14 in the home network can connect at once. To limit one gateway, enter
@@ -235,7 +238,9 @@ reception time. **Keep the buffer on disk** keeps them over a restart of this ap
 (`/data/replay`).
 
 **Discovery and status**: the app announces its active gateways to the EnOcean Eltako
-integration, which offers each one for setup with replay switched on. A read-only status
+integration with name, port, protocol and model, e.g. `{"name": "PioTek MGW-ETH", "port": 9100,
+"protocol": "esp3", "model": "mgw_eth"}`; the integration offers each one for setup with replay
+switched on. A read-only status
 (port 9199, Home Assistant and the apps only) feeds the integration's gateway cards. Both are
 under **Settings → EnOcean**.
 
@@ -295,8 +300,8 @@ which gateway.
 
 **Fallback becomes the main gateway** (the first gateway broke): on the card **Gateways**. The
 connection of the first gateway stays with its name, port, allowed clients, replay, discovery
-and history, so the integration notices nothing; only the hardware (template, kind of
-connection, device or host and port, baud rate) is swapped between the two connections. The
+and history, so the integration notices nothing; only the hardware (template, model, kind
+of connection, device or host and port, baud rate) is swapped between the two connections. The
 old hardware is then switched off (default), kept as fallback, or its connection deleted. Both
 connections restart, and the replay bridges the short gap. The configuration history can
 undo it.
