@@ -111,6 +111,7 @@ MESSAGES = {
     "listen_failed": "Port {port} cannot be opened: {error}",
     "client_refused": "Client refused, all places taken: {address}",
     "client_new": "New client, never seen before: {address}",
+    "clients_disconnected": "{count} client(s) disconnected ({by})",
     "write_blocked": "Write refused (function {function}) from {address}",
 }
 

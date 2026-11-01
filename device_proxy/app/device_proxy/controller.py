@@ -1162,6 +1162,35 @@ class Controller:
             "writes_left": proxy.base_id_writes_left,
         }
 
+    async def disconnect_clients(self, connection_id: str, source: str) -> int:
+        """Close the connections of all clients of a connection; they may connect again."""
+        c = self.config.connection(connection_id)
+        if c is None or not c.enabled:
+            raise ValueError("the connection is not active")
+        proxy = self.proxies.get(connection_id)
+        if proxy is not None:
+            count = proxy.disconnect_clients()
+        elif c.kind == "serial" and not self.uses_custom:
+            ports = await self.admin.showport(c.alias)
+            count = sum(len(p.clients) for p in ports)
+            if count:
+                await self.admin.disconnect(c.alias)
+        else:
+            raise ValueError("the connection is not active")
+        self.events.emit(
+            "info", "clients_disconnected", connection=c.id, name=c.name, count=count, by=source
+        )
+        return count
+
+    async def press(self, connection_id: str, action: str) -> None:
+        """A button of the connection's device in Home Assistant (MQTT)."""
+        if action == "disconnect":
+            await self.disconnect_clients(connection_id, "mqtt")
+        elif action in ("to_fallback", "to_main"):
+            self.enocean_switch(connection_id, action.removeprefix("to_"))
+        else:
+            raise ValueError(f"no such button: {action}")
+
     def enocean_switch(self, connection_id: str, to: str) -> dict[str, object]:
         """Switch a gateway to its fallback or back by hand."""
         proxy = self._enocean(connection_id)

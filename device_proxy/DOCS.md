@@ -394,12 +394,18 @@ MQTT entities**, where the entities can also be switched off.
 | Last data | when the device last sent something |
 | Line errors | errors counted by the driver since the start |
 | Active (switch) | turns the connection on and off |
+| Disconnect clients (button) | closes the connections of all clients; they may connect again |
 
 A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
-time and the switch. An EnOcean gateway has: gateway reachable, clients, telegrams from the
-gateway, air time (share of the 1 % limit) and the switch; with a fallback also "Fallback gateway
-active" (a problem while it stands in), "Active gateway" (the name of the one in use) and
-"Fallback gateway ready". "Gateway reachable" stays the gateway's own hardware.
+time, the switch and the button. An EnOcean gateway has: gateway reachable, clients, telegrams
+from the gateway, air time (share of the 1 % limit), the switch and the button; with a fallback
+also "Fallback gateway active" (a problem while it stands in), "Active gateway" (the name of the
+one in use), "Fallback gateway ready" and the buttons "Switch to the fallback gateway" and "Back
+to its own gateway" (as on the card **Gateways**). "Gateway reachable" stays the gateway's own
+hardware.
+
+The buttons are meant for automations, e.g. disconnecting the clients of a stick that hangs.
+**Disconnect clients** is also on a connection's page, next to its clients.
 
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix
 (`homeassistant`), base topic (`device_proxy`) and the update interval are in **Settings → MQTT

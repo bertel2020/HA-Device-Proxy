@@ -1132,6 +1132,13 @@ class ModbusProxy:
 
     # state
 
+    def disconnect_clients(self) -> int:
+        """Close every client's connection (they may connect again)."""
+        clients = list(self.clients.values())
+        for client in clients:
+            client.writer.close()
+        return len(clients)
+
     def state(self) -> dict[str, Any]:
         s = self.stats
         return {

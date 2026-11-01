@@ -192,6 +192,15 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  async _disconnect(c) {
+    if (!(await confirmDialog(this, t("disconnectAsk", { n: c.name }), t("disconnectClients")))) return;
+    try {
+      const { count } = await api(`api/connections/${c.id}/disconnect`, { method: "POST" });
+      this.toast(t("disconnected", { n: count }));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   async _mbRead() {
     try {
       this.mbResult = { ...(await api(`api/tools/${this.connectionId}/modbus/read`, { method: "POST", body: this.mbForm })), form: { ...this.mbForm } };
@@ -522,7 +531,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             </div>`}
           </section>`;
     const clientsCard =           html`<section class="card" aria-labelledby="t-clients">
-            <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span></div>
+            <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span style="display:flex;gap:10px;align-items:center"><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
+              ${c.clients.length ? html`<button class="btn btn-g" style="min-height:32px" @click=${() => this._disconnect(c)}>${t("disconnectClients")}</button>` : ""}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>

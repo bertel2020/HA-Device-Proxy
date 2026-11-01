@@ -137,6 +137,7 @@ class WebServer:
         self._route("PUT", r"api/connections/(?P<id>[0-9a-f]{8})", self.update)
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})", self.delete)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/enabled", self.enable)
+        self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/disconnect", self.disconnect)
         self._route("POST", r"api/preview", self.preview)
         self._route("PUT", r"api/settings", self.settings)
         self._route("POST", r"api/import/preview", self.import_preview)
@@ -364,6 +365,12 @@ class WebServer:
             return config.with_connection(replace(current, enabled=enabled))
 
         return await self._save(build)
+
+    async def disconnect(self, request: Request) -> Response:
+        try:
+            return ok({"count": await self.c.disconnect_clients(request.params["id"], "ui")})
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
 
     async def preview(self, request: Request) -> Response:
         data = request.json().get("connection") or {}

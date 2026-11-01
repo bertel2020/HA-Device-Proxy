@@ -47,6 +47,8 @@ class AppProxy(Protocol):
 
     def state(self) -> dict[str, Any]: ...
 
+    def disconnect_clients(self) -> int: ...
+
 
 @dataclass(frozen=True)
 class Kind:

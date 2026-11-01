@@ -6,6 +6,8 @@ const TEXT = {
     appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht", appRunning: "Läuft", problems: "{n} mit Problem",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche",
+    disconnectClients: "Clients trennen", disconnectAsk: "Alle Clients von „{n}“ trennen? Sie können sich gleich wieder verbinden; die meisten tun das von selbst.", disconnected: "{n} Client(s) getrennt",
+    by_ui: "von Hand", by_mqtt: "über Home Assistant",
     sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
     newClients: "Neue Clients", newClientAt: "zuerst an {c}, {t}", newClientKnown: "Bekannt", newClientName: "Benennen",
     clientNames: "Namen", clientNamesHint: "Eine Zeile je Rechner: IP-Adresse, Leerzeichen, Name. Ein Name macht den Rechner bekannt. Home Assistant, die Apps und dieser Rechner gelten immer als bekannt.",
@@ -488,6 +490,8 @@ const TEXT = {
 
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
     navMain: "Sections",
+    disconnectClients: "Disconnect clients", disconnectAsk: "Disconnect all clients of “{n}”? They can connect again right away; most do so by themselves.", disconnected: "{n} client(s) disconnected",
+    by_ui: "by hand", by_mqtt: "from Home Assistant",
     sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",
     newClients: "New clients", newClientAt: "first at {c}, {t}", newClientKnown: "Known", newClientName: "Name it",
     clientNames: "Names", clientNamesHint: "One line per computer: IP address, a space, the name. A name makes the computer known. Home Assistant, the apps and this host always count as known.",
@@ -975,6 +979,7 @@ const EVENTS = {
     modbus_down: "Gerät nicht erreichbar: {target} ({error})", modbus_back: "Gerät wieder erreichbar: {target}",
     listen_failed: "Port {port} kann nicht geöffnet werden: {error}", client_refused: "Client abgewiesen, alle Plätze belegt: {address}",
     client_new: "Neuer Client, noch nie gesehen: {address}",
+    clients_disconnected: "{count} Client(s) getrennt ({by})",
     write_blocked: "Schreiben abgewiesen (Funktion {function}) von {address}",
 
     keep_open_failed: "Gerät konnte nicht offen gehalten werden: {error}",
@@ -1002,6 +1007,7 @@ const EVENTS = {
     enocean_fallback_promoted: "Hardware des Ersatzes übernommen: jetzt {new}; alte Hardware ({old}): {action}",
   },
   en: { // the rest comes as the app's message; these carry notes worded here
+    clients_disconnected: "{count} client(s) disconnected ({by})",
     enocean_failover: "Running on the fallback {fallback} ({reason}), {unanswered} commands unanswered",
     enocean_failback: "Back on its own gateway, the fallback {fallback} rests ({reason})",
     enocean_fallback_unready: "Fallback {fallback} not ready: {reason}",
@@ -1224,6 +1230,7 @@ function templatedText(event) {
   if (lang === "de" && params.error === "no answer") params.error = "keine Antwort";
   if (event.kind.startsWith("enocean_fall") && params.reason) params.reason = t(`fbReason_${params.reason}`);
   if (event.kind === "enocean_fallback_promoted") params.action = t(`fbAction_${params.action}`);
+  if (event.kind === "clients_disconnected") params.by = t(`by_${params.by}`);
   if (Array.isArray(params.errors)) params.errors = params.errors.map((n) => (n?.code ? noteText(n) : String(n))).join("; ");
   if (params.error?.code) params.error = noteText(params.error);
   return fill(template, params);
