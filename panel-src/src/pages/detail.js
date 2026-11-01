@@ -2,6 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
+import { TYPES, fmtValue, rows as decodeRows, sensorYaml, swapsFor, width } from "../modbus.js";
 import { eventText, retriesText, t } from "../i18n.js";
 import { confirmDialog, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -29,7 +30,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -72,6 +73,7 @@ export class DetailPage extends Page {
     this._samples = [];
     this._after = 0;
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
+    this.mbDecode = { type: "float32", swap: "none", scale: 1 };
     this.wrForm = { unit: 1, function: 6, address: 0, values: "0" };
     this.scanForm = { first: 1, last: 247, timeout_ms: 200 };
   }
@@ -220,6 +222,32 @@ export class DetailPage extends Page {
       @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
   }
 
+  /** The registers read as one data type, with a sensor for Home Assistant to copy. */
+  _mbDecoded(r) {
+    const d = this.mbDecode, swaps = swapsFor(d.type);
+    const swap = swaps.includes(d.swap) ? d.swap : "none";
+    const n = width(d.type, r.values.length), list = decodeRows(r.values, r.form.address, d.type, swap, d.scale);
+    const yaml = sensorYaml({ unit: r.form.unit, fc: r.form.function, address: r.form.address, type: d.type, swap, scale: d.scale, count: r.values.length });
+    const hex4 = (v) => v.toString(16).toUpperCase().padStart(4, "0");
+    return html`<details class="fold" style="border-top:1px solid var(--line-2);padding-top:10px" ?open=${this._decodeOpen} @toggle=${(e) => { this._decodeOpen = e.target.open; }}>
+      <summary>${t("mbDecode")}</summary>
+      <p class="hint">${t("mbDecodeSub")}</p>
+      <div class="grid4" style="margin-top:8px">
+        <label class="fld"><span class="lbl">${t("mbType")}</span><select class="inp" @change=${(e) => { this.mbDecode = { ...d, type: e.target.value }; }}>
+          ${TYPES.map((v) => html`<option value=${v} ?selected=${d.type === v}>${v}</option>`)}</select></label>
+        <label class="fld"><span class="lbl">${t("mbSwap")}</span><select class="inp" @change=${(e) => { this.mbDecode = { ...d, swap: e.target.value }; }}>
+          ${swaps.map((v) => html`<option value=${v} ?selected=${swap === v}>${t(`swap_${v}`)}</option>`)}</select></label>
+        <label class="fld"><span class="lbl">${t("mbScale")}</span><input class="inp" inputmode="decimal" .value=${String(d.scale)}
+          @change=${(e) => { const v = Number(String(e.target.value).replace(",", ".")); this.mbDecode = { ...d, scale: Number.isFinite(v) && v !== 0 ? v : 1 }; }}></label>
+      </div>
+      ${list.length ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th><th>${t("mbRegisters")}</th><th style="text-align:right">${t("mbValue")}</th></tr></thead>
+        <tbody>${list.map((row) => html`<tr><td class="mono">${row.address}</td><td class="mono" style="font-size:12px">${row.regs.map(hex4).join(" ")}</td><td style="text-align:right">${fmtValue(row.value)}</td></tr>`)}</tbody></table></div>`
+        : html`<p class="hint">${t("mbDecodeShort", { n })}</p>`}
+      <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("mbSensorYaml", { a: r.form.address })}</p>${this._copyBtn("mb-sensor", yaml)}</div>
+      <div class="code">${yaml}</div>
+    </details>`;
+  }
+
   _modbusTools(c) {
     const f = this.mbForm, r = this.mbResult, sc = this.scan, w = this.wrForm, wr = this.wrResult;
     const locked = c.write_access === "none";
@@ -241,7 +269,8 @@ export class DetailPage extends Page {
           ${r.form.function >= 3 ? html`<th style="text-align:right">${t("mbUnsigned")}</th><th style="text-align:right">${t("mbSigned")}</th><th style="text-align:right">Hex</th>` : html`<th style="text-align:right">${t("mbBit")}</th>`}</tr></thead>
           <tbody>${r.values.map((v, i) => html`<tr><td class="mono">${r.form.address + i}</td>
             ${r.form.function >= 3 ? html`<td style="text-align:right">${v}</td><td style="text-align:right">${signed(v)}</td><td class="mono" style="text-align:right">${hex4(v)}</td>` : html`<td style="text-align:right">${v}</td>`}</tr>`)}</tbody></table></div>
-          <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>`
+          <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>
+          ${r.form.function >= 3 ? this._mbDecoded(r) : ""}`
         : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("mbWriteTitle")}</b><p class="hint">${t("mbWriteToolSub")}</p></div>
       <div class="grid5">
