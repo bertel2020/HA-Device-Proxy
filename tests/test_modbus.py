@@ -489,3 +489,57 @@ async def test_maintenance_lets_one_host_in_only() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+def test_write_ranges() -> None:
+    import pytest
+
+    from device_proxy.modbus import in_ranges, write_span, written_values
+    from device_proxy.model import parse_ranges
+
+    ranges = parse_ranges("40100-40120, 47000")
+    assert ranges == [(40100, 40120), (47000, 47000)]
+    for bad in ("40120-40100", "abc", "70000"):
+        with pytest.raises(ValueError):
+            parse_ranges(bad)
+    six = struct.pack(">BHH", 6, 40110, 300)
+    sixteen = struct.pack(">BHHB", 16, 40120, 2, 4) + struct.pack(">HH", 1, 2)
+    assert write_span(six) == (40110, 1) and written_values(six) == [300]
+    assert write_span(sixteen) == (40120, 2) and written_values(sixteen) == [1, 2]
+    assert in_ranges(write_span(six), ranges)
+    assert not in_ranges(write_span(sixteen), ranges)  # 40120 is in, 40121 is not
+    assert not in_ranges(write_span(bytes([0x41, 1])), ranges)  # a vendor's own: unknown
+
+
+async def test_a_write_outside_the_allowed_registers_is_refused() -> None:
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Heat pump",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        bind="127.0.0.1",
+        write_registers="100-110",
+    )
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    for _ in range(50):
+        if proxy._server is not None:
+            break
+        await asyncio.sleep(0.02)
+    assert proxy._server is not None
+    port = proxy._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(struct.pack(">HHHBBHH", 1, 0, 6, 1, 6, 200, 5))
+    head = await reader.readexactly(7)
+    body = await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1)
+    assert body == bytes([0x86, 0x02])
+    assert events.count("write_blocked_register") == 1
+    assert proxy.writes[-1]["result"] == "outside" and proxy.writes[-1]["address"] == 200
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()

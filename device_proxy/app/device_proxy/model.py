@@ -216,6 +216,7 @@ class Connection:
     device_connections: int = 1  # connections to a network device, requests in parallel
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
+    write_registers: str = ""  # writes only to these addresses ("40100-40120 47000"); "" any
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
     unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
@@ -461,6 +462,27 @@ class Connection:
                 parse_networks(self.write_clients)
             except ValueError as err:
                 e["write_clients"] = str(err)
+        try:
+            parse_ranges(self.write_registers)
+        except ValueError as err:
+            e["write_registers"] = str(err)
+
+
+def parse_ranges(text: str) -> list[tuple[int, int]]:
+    """ "40100-40120 47000" → [(40100, 40120), (47000, 47000)]; raises ValueError."""
+    ranges = []
+    for item in re.split(r"[\s,;]+", text.strip()):
+        if not item:
+            continue
+        first, _, last = item.partition("-")
+        try:
+            a, b = int(first), int(last or first)
+        except ValueError:
+            raise ValueError(f"'{item}' is not an address or a range like 40100-40120") from None
+        if not 0 <= a <= b <= 65535:
+            raise ValueError(f"'{item}': addresses 0 to 65535, the first not above the last")
+        ranges.append((a, b))
+    return ranges
 
 
 _BLANK = Connection(name="", device="", port=0, id="00000000")  # for derived properties

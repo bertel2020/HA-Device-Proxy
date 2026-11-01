@@ -158,6 +158,14 @@ only with the exact length of that request; everything else – writes, vendor f
 as Huawei's 0x41 – gets exception 0x01 and is counted and logged. Reading stays open to all
 allowed clients.
 
+**Registers that may be written** (with write access "All" or "Listed"): addresses and ranges,
+e.g. `40100-40120 47000`. A write that changes anything outside, or whose addresses cannot be
+told (a vendor's own function), is refused with exception 02, so e.g. evcc may set the
+charging registers of an inverter but nothing else. Coils and registers count by their
+address alike. The card **Writes** on the connection's page lists the clients' last 200
+writes: when, who, unit, function, address, values and whether they were written, refused
+by the device, not allowed or outside the allowed registers.
+
 **Unit ids**: under **Advanced** the unit a client asks for can be rewritten
 (`client=device`, e.g. `1=3, 2=5`), for clients that always ask unit 1 while the device
 answers on another one. Imported from modbus-proxy's `unit_id_remapping`.

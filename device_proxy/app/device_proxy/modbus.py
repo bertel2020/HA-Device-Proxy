@@ -36,12 +36,20 @@ from typing import Any
 
 from .clients import host_of
 from .detect import configure
-from .model import Connection, client_allowed, from_this_host, parse_unit_map, peer_allowed
+from .model import (
+    Connection,
+    client_allowed,
+    from_this_host,
+    parse_ranges,
+    parse_unit_map,
+    peer_allowed,
+)
 from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
 
 EXC_FUNCTION = 0x01  # illegal function: the answer to a write that is not allowed
+EXC_ADDRESS = 0x02  # illegal data address: a write outside the allowed registers
 EXC_PATH = 0x0A  # gateway path unavailable
 EXC_TARGET = 0x0B  # gateway target device failed to respond
 LISTEN_RETRY = 10  # seconds between attempts to open the port
@@ -60,6 +68,8 @@ BROADCAST_WAIT = 0.1  # s the bus gets after a broadcast
 # more bytes would go to the device as they are, e.g. a write frame behind a read
 READ_LENGTHS = {1: 5, 2: 5, 3: 5, 4: 5, 7: 1, 11: 1, 12: 1, 17: 1, 24: 3}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
+WRITES_KEPT = 200  # the clients' last writes, for the log
+WRITES_SHOWN = 30
 CACHE_SIZE = 2000  # answers kept at most
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
 CLOSE_TIMEOUT = 2.0  # s to wait for a closed connection to the device
@@ -163,6 +173,45 @@ def answers(pdu: bytes, answer: bytes) -> bool:
     if function in (5, 6, 15, 16):
         return answer[1:5] == pdu[1:5]  # the echo of address and value or count
     return True
+
+
+def write_span(pdu: bytes) -> tuple[int, int] | None:
+    """The first address and the count a write changes; None when it cannot be told (e.g. a
+    vendor's own function)."""
+    function = pdu[0] if pdu else 0
+    if function in (5, 6, 22) and len(pdu) >= 3:
+        return int.from_bytes(pdu[1:3], "big"), 1
+    if function in (15, 16) and len(pdu) >= 5:
+        return int.from_bytes(pdu[1:3], "big"), int.from_bytes(pdu[3:5], "big")
+    if function == 23 and len(pdu) >= 9:
+        return int.from_bytes(pdu[5:7], "big"), int.from_bytes(pdu[7:9], "big")
+    return None
+
+
+def written_values(pdu: bytes) -> list[int]:
+    """What a write sets (the first 8 values), for the log."""
+    function = pdu[0]
+    if function == 6 and len(pdu) >= 5:
+        return [int.from_bytes(pdu[3:5], "big")]
+    if function == 5 and len(pdu) >= 5:
+        return [1 if pdu[3] == 0xFF else 0]
+    if function == 16 and len(pdu) >= 6:
+        data = pdu[6 : 6 + 16]
+        return [int.from_bytes(data[i : i + 2], "big") for i in range(0, len(data) - 1, 2)]
+    if function == 15 and len(pdu) >= 7:
+        count = int.from_bytes(pdu[3:5], "big")
+        return [
+            (pdu[6 + i // 8] >> (i % 8)) & 1 for i in range(min(count, 8)) if 6 + i // 8 < len(pdu)
+        ]
+    return []
+
+
+def in_ranges(span: tuple[int, int] | None, ranges: list[tuple[int, int]]) -> bool:
+    if span is None:
+        return False
+    first, count = span
+    last = first + max(count, 1) - 1
+    return any(a <= first and last <= b for a, b in ranges)
 
 
 def is_write(pdu: bytes) -> bool:
@@ -652,6 +701,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         connect_delay_ms=0,
         write_access="all",
         write_clients="",
+        write_registers="",
         cache_ms=0,
         unit_map="",
         probe_seconds=0,
@@ -738,6 +788,7 @@ class ModbusProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
+        self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)  # the clients' writes
         self.listening = False
         self.listen_error = ""
         self.reachable: bool | None = None
@@ -1121,13 +1172,35 @@ class ModbusProxy:
             if mapped[0] != self.c.unit_map:  # changes without a restart
                 mapped = (self.c.unit_map, parse_unit_map(self.c.unit_map))
             device_unit = mapped[1].get(unit, unit)
-            if is_write(pdu) and not self.may_write(host, local):
+            write = is_write(pdu)
+            if write and not self.may_write(host, local):
                 self.stats.blocked += 1
                 info.blocked += 1
                 self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
                 answer: bytes | None = exception(pdu, EXC_FUNCTION)
+                self._log_write(info, unit, pdu, "blocked")
+            elif (
+                write
+                and self.c.write_registers
+                and not in_ranges(write_span(pdu), parse_ranges(self.c.write_registers))
+            ):
+                self.stats.blocked += 1
+                info.blocked += 1
+                span = write_span(pdu)
+                self.on_event(
+                    "warning",
+                    "write_blocked_register",
+                    address=info.address,
+                    function=pdu[0],
+                    register=span[0] if span else "?",
+                )
+                answer = exception(pdu, EXC_ADDRESS)
+                self._log_write(info, unit, pdu, "outside")
             else:
                 answer = await self.request(device_unit, pdu, info)
+                if write:
+                    failed = answer is None or bool(answer[0] & 0x80)
+                    self._log_write(info, unit, pdu, "failed" if failed else "written")
 
             if answer is None:
                 continue
@@ -1135,6 +1208,21 @@ class ModbusProxy:
             writer.write(frame)
             await writer.drain()
             info.bytes_out += len(frame)
+
+    def _log_write(self, info: ClientInfo, unit: int, pdu: bytes, result: str) -> None:
+        span = write_span(pdu)
+        self.writes.append(
+            {
+                "ts": time.time(),
+                "client": info.address,
+                "unit": unit,
+                "function": pdu[0],
+                "address": span[0] if span else None,
+                "count": span[1] if span else None,
+                "values": written_values(pdu),
+                "result": result,
+            }
+        )
 
     # state
 
@@ -1169,6 +1257,7 @@ class ModbusProxy:
             "time_max_ms": round(s.time_max * 1000, 1),
             "queue": self.scheduler.size,
             "queue_max": s.queue_max,
+            "writes": list(self.writes)[-WRITES_SHOWN:],
             "last_answer": s.last_answer or None,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
