@@ -432,7 +432,8 @@ ser2net; Modbus and EnOcean connections are not part of it, because the app serv
 connections (serial, Modbus, EnOcean) and the settings – as one JSON file. **Restore from
 backup** shows what the file holds and replaces the current configuration after you confirm;
 the old state stays in the configuration history. The file contains the MQTT login, so do not
-pass it on. The app's data is also part of Home Assistant's own backups.
+pass it on. The app's data is also part of Home Assistant's own backups, except the recorded
+traces and EnOcean captures (the folder `trace/`), which can be large.
 
 ## Using your own ser2net.yaml
 
@@ -483,5 +484,5 @@ attach it to a public issue.
 |---|---|
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
 | `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
-| `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`) |
+| `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`), not in Home Assistant's backups |
 | app data (in the backup) | connections, settings, history, configuration versions |

@@ -28,7 +28,7 @@ Device Proxy is a Home Assistant app (formerly add-on) that makes a device usabl
 
 Everything is set up in a web interface in the sidebar: no YAML, no command line. The app's **Configuration** tab in the Supervisor stays empty on purpose; everything is in the sidebar entry **Device Proxy**. Status, live data, traces and events show what is happening on the line.
 
-> Work in progress, not tested on Home Assistant yet. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
+> Tested on Home Assistant OS with EnOcean gateways (FAM-USB, MGW-ETH, replay after a restart, PCT14). Serial and USB devices, Modbus and the EnOcean fallback gateway are not yet tested there with real devices: feedback is welcome. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
 
 ## Screenshots
 
@@ -73,7 +73,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 
    [![Add the repository to My Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Device-Proxy)
 
-2. Install **Device Proxy** and start it. Until prebuilt images are published, Home Assistant builds the app on install (gensio and ser2net included), which takes a few minutes the first time.
+2. Install **Device Proxy** and start it. Home Assistant downloads a prebuilt image for amd64 or aarch64.
 3. Open **Device Proxy** in the sidebar and add a connection: pick the device and a template, save. **Details → Addresses** shows the address to enter in the integration, for example `tcp://127.0.0.1:3333` or a Modbus host and port.
 4. Coming from ser2net or ha-modbusproxy? **Settings → Back up and transfer → Import** takes over the existing configuration with a preview.
 
