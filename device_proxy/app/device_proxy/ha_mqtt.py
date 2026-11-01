@@ -1,8 +1,9 @@
 """Home Assistant MQTT discovery: one device per connection with its entities.
 
 Per connection: device present, clients, data rate, bytes from the device, last data, line
-errors and a switch to turn the connection on and off; for a Modbus connection the device
-reachable, clients, requests, unanswered requests, answer time and the switch.
+errors, a switch to turn the connection on and off and a button that disconnects its clients;
+for a Modbus connection the device reachable, clients, requests, unanswered requests, answer
+time, the switch and the button; an EnOcean gateway with a fallback has buttons to switch.
 States go as one JSON per connection to <base>/<id>/state, the switch listens on
 <base>/<id>/enabled/set. <base>/status is the availability (the broker sets it to offline
 when the app goes away). Removed connections get an empty retained config, so Home
@@ -46,6 +47,9 @@ NAMES = {
         "fallback_active": "Ersatz-Gateway aktiv",
         "active_gateway": "Aktives Gateway",
         "fallback_ready": "Ersatz-Gateway bereit",
+        "disconnect": "Clients trennen",
+        "to_fallback": "Auf Ersatz-Gateway umschalten",
+        "to_main": "Zurück zum eigenen Gateway",
     },
     "en": {
         "present": "Device connected",
@@ -65,6 +69,9 @@ NAMES = {
         "fallback_active": "Fallback gateway active",
         "active_gateway": "Active gateway",
         "fallback_ready": "Fallback gateway ready",
+        "disconnect": "Disconnect clients",
+        "to_fallback": "Switch to the fallback gateway",
+        "to_main": "Back to its own gateway",
     },
 }
 
@@ -121,6 +128,7 @@ class HaBridge:
         self._last.clear()
         await self.client.publish(f"{self.base}/status", "online", retain=True)
         await self.client.subscribe(f"{self.base}/+/enabled/set")
+        await self.client.subscribe(f"{self.base}/+/+/press")
         # what an earlier run left behind (retained) comes back here and is cleared if stale
         await self.client.subscribe(f"{self.c.config.settings.mqtt_prefix}/+/+/+/config")
         await self.announce()
@@ -196,6 +204,16 @@ class HaBridge:
                 command_topic=f"{base}/{c.id}/enabled/set",
                 icon=kind.icon if kind else "mdi:serial-port",
             )
+            buttons = [("disconnect", "mdi:lan-disconnect")]
+            if c.kind == "enocean" and c.fallback:
+                buttons += [
+                    ("to_fallback", "mdi:swap-horizontal"),
+                    ("to_main", "mdi:backup-restore"),
+                ]
+            for action, icon in buttons:
+                button = entity(action, command_topic=f"{base}/{c.id}/{action}/press", icon=icon)
+                button.pop("state_topic")  # a button has no state
+                result[f"{prefix}/button/device_proxy_{c.id}/{action}/config"] = button
             result[f"{prefix}/sensor/device_proxy_{c.id}/clients/config"] = entity(
                 "clients",
                 value_template="{{ value_json.clients }}",
@@ -296,6 +314,13 @@ class HaBridge:
         # <base>/<id>/enabled/set, and the base may have slashes of its own
         head = f"{self.base}/"
         parts = topic.removeprefix(head).split("/") if topic.startswith(head) else []
+        if len(parts) == 3 and parts[2] == "press":
+            _LOGGER.info("MQTT: button %s of %s", parts[1], parts[0])
+            try:
+                await self.c.press(parts[0], parts[1])
+            except (ValueError, OSError, ConnectionError) as err:
+                _LOGGER.warning("MQTT: button %s of %s: %s", parts[1], parts[0], err)
+            return
         if len(parts) != 3 or parts[1:] != ["enabled", "set"]:
             return
         connection_id = parts[0]

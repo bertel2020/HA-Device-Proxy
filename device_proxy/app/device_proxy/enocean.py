@@ -851,6 +851,14 @@ class EnOceanProxy:
 
     # state
 
+    def disconnect_clients(self) -> int:
+        """Close every program's connection (they may connect again); the app's own stay."""
+        clients = [c for c in self.clients.values() if c.writer is not None]
+        for client in clients:
+            assert client.writer is not None
+            client.writer.close()
+        return len(clients)
+
     def state(self) -> dict[str, Any]:
         s = self.stats
         now = self._clock()

@@ -160,3 +160,25 @@ async def test_check_broker_says_why_it_fails() -> None:
     good.close()
     bad.close()
     assert await check_broker(Broker("127.0.0.1", good_port))  # nothing listens any more
+
+
+async def test_buttons_are_announced_and_pressed(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+    configs = ha_mqtt.HaBridge(controller).configs()
+    button = configs["homeassistant/button/device_proxy_0000000a/disconnect/config"]
+    assert button["command_topic"] == "device_proxy/0000000a/disconnect/press"
+    assert "state_topic" not in button
+    assert not any("/to_fallback/" in topic for topic in configs)  # no fallback here
+
+    pressed: list[tuple[str, str]] = []
+
+    async def press(connection_id: str, action: str) -> None:
+        pressed.append((connection_id, action))
+        if action == "nonsense":
+            raise ValueError("no such button")
+
+    controller.press = press  # type: ignore[method-assign]
+    bridge = ha_mqtt.HaBridge(controller)
+    await bridge._message("device_proxy/0000000a/disconnect/press", b"PRESS")
+    await bridge._message("device_proxy/0000000a/nonsense/press", b"PRESS")  # logged, not raised
+    assert pressed == [("0000000a", "disconnect"), ("0000000a", "nonsense")]
