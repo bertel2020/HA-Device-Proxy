@@ -30,7 +30,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -74,6 +74,7 @@ export class DetailPage extends Page {
     this._after = 0;
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
     this.mbDecode = { type: "float32", swap: "none", scale: 1 };
+    this.maint = { host: "", minutes: 30 };
     this.wrForm = { unit: 1, function: 6, address: 0, values: "0" };
     this.scanForm = { first: 1, last: 247, timeout_ms: 200 };
   }
@@ -197,6 +198,47 @@ export class DetailPage extends Page {
     try {
       await useMovedDevice(c, d);
       this.toast(t("saved"));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  _exclusiveNote(c) {
+    const x = c.exclusive;
+    if (!x) return "";
+    const left = Math.max(1, Math.round((x.until * 1000 - Date.now()) / 60000));
+    return html`<div class="note warn" role="status" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <span style="flex:1;min-width:0">${t("maintActive", { h: x.host, m: left })}</span>
+      <button class="btn btn-s" @click=${() => this._endExclusive(c)}>${t("maintEnd")}</button></div>`;
+  }
+
+  /** One computer alone for a while (service tool, firmware update), the others kept out. */
+  _maintenance(c) {
+    if (c.exclusive || !c.enabled || (c.kind === "serial" && this.state.source === "custom")) return "";
+    const f = this.maint;
+    const hosts = [...new Set(c.clients.map((cl) => cl.address.replace(/^\[?(.*?)\]?:\d+$/, "$1")))];
+    return foldCard("device_proxy.maint", "t-maint", t("maint"), t("maintSub"), html`
+      <p class="hint" style="margin:0">${t("maintText")}</p>
+      ${hosts.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${hosts.map((h) => html`<button class="chip ${f.host === h ? "info" : ""}" style="cursor:pointer;border:none" @click=${() => { this.maint = { ...f, host: h }; }}>${h}${clientName(`${h}:0`) ? ` · ${clientName(`${h}:0`)}` : ""}</button>`)}</div>` : ""}
+      <div class="grid4" style="grid-template-columns:2fr 1fr auto;align-items:end">
+        <label class="fld"><span class="lbl">${t("maintHost")}</span><input class="inp mono" placeholder="192.168.1.35" .value=${f.host} @input=${(e) => { this.maint = { ...f, host: e.target.value.trim() }; }}></label>
+        <label class="fld"><span class="lbl">${t("maintMinutes")}</span><select class="inp" @change=${(e) => { this.maint = { ...f, minutes: Number(e.target.value) }; }}>
+          ${[15, 30, 60, 120, 240].map((m) => html`<option value=${m} ?selected=${f.minutes === m}>${m} min</option>`)}</select></label>
+        <button class="btn btn-s" ?disabled=${!f.host} @click=${() => this._startExclusive(c)}>${t("maintStart")}</button>
+      </div>`);
+  }
+
+  async _startExclusive(c) {
+    const f = this.maint;
+    if (!(await confirmDialog(this, t("maintAsk", { n: c.name, h: f.host, m: f.minutes }), t("maintStart")))) return;
+    try {
+      await api(`api/connections/${c.id}/exclusive`, { method: "POST", body: f });
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _endExclusive(c) {
+    try {
+      await api(`api/connections/${c.id}/exclusive`, { method: "DELETE" });
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -603,6 +645,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
       ${this._addresses(c)}
+      ${this._maintenance(c)}
       ${conf}
       ${recentCard}`
     : modbus ? html`
@@ -612,6 +655,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._modbusTools(c)}
       ${this._addresses(c)}
       ${this._haSnippet(c)}
+      ${this._maintenance(c)}
       ${recentCard}`
     : html`
       ${pair(rateCard, stateCard)}
@@ -619,6 +663,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       ${this.state.source === "custom" ? "" : this._tools(c)}
       ${this._addresses(c)}
+      ${this._maintenance(c)}
       ${conf}
       ${recentCard}`;
     return html`
@@ -636,6 +681,6 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
         </div>
       </div>
-      <div class="stack">${movedNote(c, (d) => this._useMoved(c, d))}${body}</div>`;
+      <div class="stack">${movedNote(c, (d) => this._useMoved(c, d))}${this._exclusiveNote(c)}${body}</div>`;
   }
 }

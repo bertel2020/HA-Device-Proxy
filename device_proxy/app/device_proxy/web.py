@@ -138,6 +138,8 @@ class WebServer:
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})", self.delete)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/enabled", self.enable)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/disconnect", self.disconnect)
+        self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.exclusive)
+        self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.end_exclusive)
         self._route("POST", r"api/preview", self.preview)
         self._route("PUT", r"api/settings", self.settings)
         self._route("POST", r"api/import/preview", self.import_preview)
@@ -371,6 +373,21 @@ class WebServer:
             return ok({"count": await self.c.disconnect_clients(request.params["id"], "ui")})
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def exclusive(self, request: Request) -> Response:
+        data = request.json()
+        if not isinstance(data, dict) or not isinstance(data.get("host"), str):
+            raise HttpError(400, "host and minutes needed")
+        (minutes,) = self._ints(data, "minutes")
+        try:
+            await self.c.set_exclusive(request.params["id"], data["host"], minutes)
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+        return ok()
+
+    async def end_exclusive(self, request: Request) -> Response:
+        await self.c.end_exclusive(request.params["id"])
+        return ok()
 
     async def preview(self, request: Request) -> Response:
         data = request.json().get("connection") or {}

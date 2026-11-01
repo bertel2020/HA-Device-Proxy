@@ -16,6 +16,10 @@ const TEXT = {
     tipExceptions: "{p} % der Anfragen beantwortete das Gerät mit einem Fehler, meist eine Adresse, die es nicht kennt. Die Register in den Clients prüfen (unter „Pro Unit-ID“ steht, welche Unit betroffen ist).",
     movedOne: "{d} fehlt, aber der Adapter steckt offenbar an einer anderen Stelle (gleicher Typ, frei):", movedMany: "{d} fehlt. Mehrere freie Adapter dieses Typs stecken: welcher ist es?",
     movedUse: "Übernehmen", movedAsk: "„{n}“ auf {d} umstellen? Die Verbindung startet danach mit diesem Adapter.",
+    maint: "Wartung", maintSub: "ein Rechner allein", maintText: "Nur ein Rechner darf sich für eine Weile verbinden, etwa für ein Service-Programm des Herstellers oder ein Firmware-Update über RFC2217. Alle anderen Clients, auch Home Assistant, werden getrennt und abgewiesen. Danach, spätestens bei einem Neustart der App, geht alles wieder wie vorher.",
+    maintHost: "IP-Adresse des Rechners", maintMinutes: "Für", maintStart: "Wartung starten", maintEnd: "Beenden",
+    maintAsk: "Alle Clients von „{n}“ trennen und {m} Minuten nur {h} zulassen?", maintActive: "Wartung: nur {h} darf sich verbinden, noch etwa {m} Minuten.",
+    exReason_by_hand: "von Hand", exReason_expired: "Zeit abgelaufen",
     disconnectClients: "Clients trennen", disconnectAsk: "Alle Clients von „{n}“ trennen? Sie können sich gleich wieder verbinden; die meisten tun das von selbst.", disconnected: "{n} Client(s) getrennt",
     by_ui: "von Hand", by_mqtt: "über Home Assistant",
     sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
@@ -514,6 +518,10 @@ const TEXT = {
     tipExceptions: "The device answered {p} % of the requests with an error, usually an address it does not know. Check the registers in the clients (“Per unit id” shows which unit).",
     movedOne: "{d} is missing, but the adapter seems to be plugged in elsewhere (same kind, free):", movedMany: "{d} is missing. Several free adapters of this kind are plugged in: which one is it?",
     movedUse: "Use this one", movedAsk: "Switch “{n}” to {d}? The connection then starts with this adapter.",
+    maint: "Maintenance", maintSub: "one computer alone", maintText: "Only one computer may connect for a while, e.g. for the vendor's service program or a firmware update over RFC2217. All other clients, Home Assistant too, are disconnected and refused. Afterwards, at the latest when the app restarts, everything is as before.",
+    maintHost: "The computer's IP address", maintMinutes: "For", maintStart: "Start maintenance", maintEnd: "End",
+    maintAsk: "Disconnect all clients of “{n}” and allow only {h} for {m} minutes?", maintActive: "Maintenance: only {h} may connect, about {m} minutes left.",
+    exReason_by_hand: "by hand", exReason_expired: "time is up",
     disconnectClients: "Disconnect clients", disconnectAsk: "Disconnect all clients of “{n}”? They can connect again right away; most do so by themselves.", disconnected: "{n} client(s) disconnected",
     by_ui: "by hand", by_mqtt: "from Home Assistant",
     sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",
@@ -1008,6 +1016,7 @@ const EVENTS = {
     listen_failed: "Port {port} kann nicht geöffnet werden: {error}", client_refused: "Client abgewiesen, alle Plätze belegt: {address}",
     client_new: "Neuer Client, noch nie gesehen: {address}",
     clients_disconnected: "{count} Client(s) getrennt ({by})",
+    exclusive_on: "Wartung: {minutes} Minuten nur {host}", exclusive_off: "Wartung beendet ({reason}), alle erlaubten Clients dürfen wieder",
     write_blocked: "Schreiben abgewiesen (Funktion {function}) von {address}",
 
     keep_open_failed: "Gerät konnte nicht offen gehalten werden: {error}",
@@ -1036,6 +1045,7 @@ const EVENTS = {
   },
   en: { // the rest comes as the app's message; these carry notes worded here
     clients_disconnected: "{count} client(s) disconnected ({by})",
+    exclusive_off: "Maintenance over ({reason}): all allowed clients may connect again",
     enocean_failover: "Running on the fallback {fallback} ({reason}), {unanswered} commands unanswered",
     enocean_failback: "Back on its own gateway, the fallback {fallback} rests ({reason})",
     enocean_fallback_unready: "Fallback {fallback} not ready: {reason}",
@@ -1259,6 +1269,7 @@ function templatedText(event) {
   if (event.kind.startsWith("enocean_fall") && params.reason) params.reason = t(`fbReason_${params.reason}`);
   if (event.kind === "enocean_fallback_promoted") params.action = t(`fbAction_${params.action}`);
   if (event.kind === "clients_disconnected") params.by = t(`by_${params.by}`);
+  if (event.kind === "exclusive_off") params.reason = t(`exReason_${params.reason}`);
   if (Array.isArray(params.errors)) params.errors = params.errors.map((n) => (n?.code ? noteText(n) : String(n))).join("; ");
   if (params.error?.code) params.error = noteText(params.error);
   return fill(template, params);

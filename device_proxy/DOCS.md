@@ -332,6 +332,16 @@ old hardware is then switched off (default), kept as fallback, or its connection
 connections restart, and the replay bridges the short gap. The configuration history can
 undo it.
 
+## Maintenance: one computer alone
+
+On a connection's page, **Maintenance** lets one computer (its IP address; the hosts of the
+clients connected are offered) use the connection alone for 15 minutes to 4 hours, e.g. for
+the vendor's service program, PCT14 or a firmware update over RFC2217. All other clients,
+Home Assistant too, are disconnected and refused meanwhile; a bar on the page says how long it
+lasts and ends it early. When the time is up, and at the latest when the app restarts, every
+allowed client may connect again. For ser2net's connections the clients reconnect once at the
+start and once at the end.
+
 ## Status, traces and line errors
 
 - **Status**: device present (and which adapter it is), clients with address, time and bytes,

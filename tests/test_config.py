@@ -180,3 +180,28 @@ def test_a_serial_bridge_in_the_network_is_a_tcp_connector() -> None:
     with pytest.raises(ValidationError) as err:
         replace(bridge, host="").validate()
     assert "host" in err.value.errors
+
+
+async def test_maintenance_limits_a_serial_connection_to_one_host(tmp_path: Path) -> None:
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    config = AppConfig(connections=(Connection("a", "/dev/null", 3335, id="0000000a"),))
+    store.save(AppConfig(), config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    await controller.set_exclusive("0000000a", "192.168.1.35", 30)
+    assert "remaddr: 192.168.1.35/32,0" in (tmp_path / "s.yaml").read_text()
+    assert controller.snapshot()["connections"][0]["exclusive"]["host"] == "192.168.1.35"  # type: ignore[index]
+    with pytest.raises(ValueError):
+        await controller.set_exclusive("0000000a", "laptop", 30)
+    controller.exclusive["0000000a"] = ("192.168.1.35", 0)  # its time is up
+    await controller._proxy_tick()
+    assert "192.168.1.35" not in (tmp_path / "s.yaml").read_text()

@@ -47,7 +47,9 @@ class AppProxy(Protocol):
 
     def state(self) -> dict[str, Any]: ...
 
-    def disconnect_clients(self) -> int: ...
+    only: str | None  # the one host that may connect for now (maintenance)
+
+    def disconnect_clients(self, keep: str | None = None) -> int: ...
 
 
 @dataclass(frozen=True)

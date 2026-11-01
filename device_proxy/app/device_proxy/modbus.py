@@ -34,6 +34,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from .clients import host_of
 from .detect import configure
 from .model import Connection, client_allowed, from_this_host, parse_unit_map, peer_allowed
 from .trace import Chunk
@@ -736,6 +737,7 @@ class ModbusProxy:
         self.scheduler = Scheduler()
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
+        self.only: str | None = None  # maintenance: only this host may connect
         self.listening = False
         self.listen_error = ""
         self.reachable: bool | None = None
@@ -1061,6 +1063,10 @@ class ModbusProxy:
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
             writer.close()
             return
+        if self.only and host != self.only:
+            _LOGGER.info("%s: client %s refused (only %s for now)", self.c.name, address, self.only)
+            writer.close()
+            return
         if len(self.clients) >= self.c.max_clients:
             if not self.c.kickolduser:
                 self.on_event("warning", "client_refused", address=address)
@@ -1132,9 +1138,10 @@ class ModbusProxy:
 
     # state
 
-    def disconnect_clients(self) -> int:
-        """Close every client's connection (they may connect again)."""
-        clients = list(self.clients.values())
+    def disconnect_clients(self, keep: str | None = None) -> int:
+        """Close every client's connection (they may connect again); keep: a host whose
+        clients stay."""
+        clients = [c for c in self.clients.values() if not keep or host_of(c.info.address) != keep]
         for client in clients:
             client.writer.close()
         return len(clients)

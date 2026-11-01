@@ -452,3 +452,40 @@ def test_device_identification_and_sunspec_are_read() -> None:
         "revision": "1.2.3",
     }
     assert sunspec_common(bytes([3, len(regs)]) + b"\x00\x02" + regs[2:]) == {}  # not model 1
+
+
+async def test_maintenance_lets_one_host_in_only() -> None:
+    import pytest
+
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        max_clients=10,
+        bind="127.0.0.1",
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    for _ in range(50):
+        if proxy._server is not None:
+            break
+        await asyncio.sleep(0.02)
+    assert proxy._server is not None
+    port = proxy._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    await asyncio.sleep(0.05)
+    proxy.only = "192.0.2.7"  # a service laptop: this host is out now
+    assert proxy.disconnect_clients(keep="192.0.2.7") == 1
+    assert await reader.read() == b""
+    with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
+        await _read(port, 1, 1, 0)
+    proxy.only = None
+    assert (await _read(port, 2, 1, 1))[:2] == bytes([3, 4])
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
