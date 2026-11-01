@@ -165,6 +165,10 @@ connection is connected again with the next request.
 **Status**: reachable, clients with their requests, requests, answered, exceptions,
 timeouts, errors, queue and answer time (average and maximum), the last error; per unit id
 (each device on an RS485 bus) requests, exceptions, unanswered requests and answer time.
+After 50 requests the card gives **tips** from these numbers: a longer timeout when answers
+come close to it, a shorter one when the device always answers fast (so an outage shows
+sooner), a cache when several clients ask, and what a long queue or many exceptions mean.
+They are suggestions, not settings: check them against the device's documentation.
 The live view and the recordings show each request and answer as hex with unit, function,
 register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 

@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
-import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, width } from "../modbus.js";
+import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
 import { confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -448,7 +448,8 @@ export class DetailPage extends Page {
     `, false, "addresses");
   }
 
-  _modbusCard(m) {
+  _modbusCard(m, c) {
+    const tips = timingTips(c, m);
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
     const rq = this._rqSamples || [];
     const problems = [["mbTimeouts", m.timeouts], ["mbExceptions", m.exceptions], ["mbErrors", m.errors], ["mbBlocked", m.blocked]].filter(([, v]) => v);
@@ -467,6 +468,10 @@ export class DetailPage extends Page {
         ${(m.queue ?? 0) > 1 ? html`<span class="chip">${t("mbQueue")} ${m.queue} / ${m.queue_max ?? 0}</span>` : ""}</div>` : ""}
       ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
       ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
+      ${tips.length ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
+        <b style="font-weight:500">${t("tipsTitle")}</b>
+        ${tips.map(([key, values]) => html`<div class="note ${key === "tipCacheSaves" ? "ok" : "info"}">${t(key, values)}</div>`)}
+        <p class="hint" style="margin:0">${t("tipsHint")} <a href="#/edit/${c.id}">${t("edit")}</a></p></div>` : ""}
     </section>`;
   }
 
@@ -565,7 +570,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>`;
-    const stateCard = modbus ? this._modbusCard(m) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
+    const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
