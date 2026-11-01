@@ -525,6 +525,12 @@ export class DetailPage extends Page {
         ${m.cached ? html`<span class="chip">${m.cached} ${t("mbCached")}</span>` : ""}${m.probes ? html`<span class="chip">${m.probes} ${t("mbProbes")}</span>` : ""}
         ${(m.queue ?? 0) > 1 ? html`<span class="chip">${t("mbQueue")} ${m.queue} / ${m.queue_max ?? 0}</span>` : ""}</div>` : ""}
       ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
+      ${m.listen ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
+        <b style="font-weight:500">${t("mbListenTitle")}</b>
+        ${m.listen.frames ? html`<span class="hint">${t("mbListenVal", { f: m.listen.frames.toLocaleString(), r: m.listen.registers.toLocaleString(), t: m.listen.last_frame ? fmtAgo(m.listen.last_frame) : "–" })}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${m.listen.ranges.map((r) => html`<span class="chip mono" title=${fmtAgo(r.heard)}>Unit ${r.unit} · FC0${r.function} · ${r.first}${r.last > r.first ? `–${r.last}` : ""}</span>`)}</div>`
+          : html`<div class="note warn">${t("mbListenNone")}</div>`}
+        ${m.listen.dropped ? html`<span class="hint">${t("mbListenDropped", { n: m.listen.dropped.toLocaleString() })}</span>` : ""}</div>` : ""}
       ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
       ${tips.length ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
         <b style="font-weight:500">${t("tipsTitle")}</b>
@@ -578,8 +584,8 @@ export class DetailPage extends Page {
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
             </div>` : modbus ? html`<div class="kv">
               <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
-              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" ? ` · ${fmtSerial(c)}` : ""}</span>
-              ${c.link === "rtu" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" || c.link === "rtu_listen" ? ` · ${fmtSerial(c)}` : ""}</span>
+              ${c.link === "rtu" || c.link === "rtu_listen" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
               <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, r: retriesText(c.retries) })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
