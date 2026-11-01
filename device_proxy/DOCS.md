@@ -166,7 +166,10 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 - **Read registers**: unit, function (holding or input registers, coils, discrete inputs),
   address (from 0, as in the frame) and count; the values as unsigned, signed and hex. The
-  request waits its turn with the clients' and does not use the cache.
+  request waits its turn with the clients' and does not use the cache. **Decode values** reads
+  the registers as 16, 32 or 64 bit integers, floats or text, with the register and byte order
+  ("swap") and a factor as in Home Assistant's Modbus integration, and gives the matching
+  sensor to copy into `configuration.yaml`.
 - **Write registers**: function 5 or 15 (coils) or 6 or 16 (registers), address and value(s),
   several separated by commas. A dialog asks first; afterwards the value is read back and
   compared. Each write is an event in the log. The tool stays locked when the connection's
