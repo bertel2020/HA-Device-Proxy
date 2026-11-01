@@ -643,6 +643,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${c.fallback ? html`${pair(html`<dp-eo-gateways .connection=${c} .connections=${s.connections}></dp-eo-gateways>`, stateCard)}${clientsCard}` : pair(stateCard, clientsCard)}
       ${meterCards(c)}
       ${this._live(c.kind)}
+      <dp-eo-senders .connection=${c}></dp-eo-senders>
       <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
       ${this._addresses(c)}
       ${this._maintenance(c)}

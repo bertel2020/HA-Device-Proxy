@@ -164,6 +164,7 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/write", self.modbus_write)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
+        self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/senders", self.enocean_senders)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/capture", self.capture_start)
@@ -703,6 +704,12 @@ class WebServer:
             "application/zip",
             {"Content-Disposition": f'attachment; filename="device-proxy-diagnostics-{stamp}.zip"'},
         )
+
+    async def enocean_senders(self, request: Request) -> Response:
+        try:
+            return ok(self.c.enocean_senders(request.params["id"]))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
 
     async def enocean_send(self, request: Request) -> Response:
         data = request.json()

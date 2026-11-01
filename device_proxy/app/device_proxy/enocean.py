@@ -107,6 +107,36 @@ class Stats:
     last_error_at: float = 0.0
 
 
+SENDERS_MAX = 500  # sender IDs kept for the list
+NEW_AFTER = 300  # s after the start: a sender first heard later counts as new
+
+
+@dataclass
+class Sender:
+    """What one sender ID sent: for placing repeaters and finding a new switch's ID."""
+
+    rorg: str
+    first: float
+    last: float = 0.0
+    count: int = 0
+    dbm: int | None = None  # the last telegram's (ESP3 only)
+    dbm_best: int | None = None
+    hops: int = 0  # repeaters the last telegram went through
+    heard: set[str] = field(default_factory=set)  # "main", "fallback"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rorg": self.rorg,
+            "first": self.first,
+            "last": self.last,
+            "count": self.count,
+            "dbm": self.dbm,
+            "dbm_best": self.dbm_best,
+            "hops": self.hops,
+            "heard": sorted(self.heard),
+        }
+
+
 @dataclass(eq=False)
 class _Client:
     address: str  # "192.168.1.20:50114"
@@ -176,6 +206,8 @@ class EnOceanProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
+        self.senders: dict[str, Sender] = {}  # sender ID → what it sent
+        self.started = time.time()
         self.listening = False
         self.listen_error = ""
         self.reachable: bool | None = None
@@ -587,6 +619,7 @@ class EnOceanProxy:
     def _heard_frame(self, frame: bytes, source: str) -> None:
         """A frame from one of the two gateways: to the clients if it comes from the active
         one, or with fallback_listen a radio telegram the other did not bring already."""
+        self._note_sender(frame, source)
         active = source == self.active
         radio = esp.is_radio(self.protocol, frame)
         if self.fallback is not None and radio:
@@ -607,6 +640,44 @@ class EnOceanProxy:
             if self.fallback is not None:
                 self._trace("rx", frame, f"via {self.fallback.c.name}")
         self._deliver(frame)
+
+    def _note_sender(self, frame: bytes, source: str) -> None:
+        """Keep what each sender ID sent last, for the list of senders."""
+        info = esp.radio_info(self.protocol, frame)
+        if info is None:
+            return
+        rorg, sender_id = info
+        dbm, hops = esp.signal(self.protocol, frame)
+        now = time.time()
+        sender = self.senders.get(sender_id)
+        if sender is None:
+            if len(self.senders) >= SENDERS_MAX:  # forget the one heard longest ago
+                del self.senders[min(self.senders, key=lambda k: self.senders[k].last)]
+            sender = self.senders[sender_id] = Sender(rorg, now)
+        sender.rorg, sender.last, sender.hops = rorg, now, hops
+        sender.count += 1
+        sender.heard.add(source)
+        if dbm is not None:
+            sender.dbm = dbm
+            sender.dbm_best = dbm if sender.dbm_best is None else max(sender.dbm_best, dbm)
+
+    def senders_list(self) -> list[dict[str, Any]]:
+        """The senders heard since the start, the latest first; own: the gateway's base ID
+        range (Home Assistant's own telegrams, as the gateway repeats them)."""
+        base = self.base_id or self.known_base_id
+        first = int(base.replace("-", ""), 16) if base else None
+        rows = []
+        for sender_id, s in sorted(self.senders.items(), key=lambda kv: -kv[1].last):
+            number = int(sender_id.replace("-", ""), 16)
+            rows.append(
+                {
+                    "id": sender_id,
+                    **s.to_dict(),
+                    "own": first is not None and first <= number <= first + 0x7F,
+                    "new": s.first - self.started > NEW_AFTER,
+                }
+            )
+        return rows
 
     def _own_sender(self, frame: bytes) -> bool:
         base = self.base_id or self.known_base_id

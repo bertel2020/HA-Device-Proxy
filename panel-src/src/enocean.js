@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, icon, proxyTarget, toolsCard } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", model: "fam_usb", link: "serial", baud: 9600 },
@@ -257,6 +257,55 @@ export function issuesCard(list) {
 }
 
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */
+/** The sender IDs the gateway heard: for placing repeaters and finding a new switch's ID. */
+export class EnOceanSenders extends LitElement {
+  static properties = { connection: { attribute: false }, rows: { state: true }, copied: { state: true }, onlyNew: { state: true } };
+
+  static styles = [tokens, base, css`
+    :host { display: block; }
+    td, th { font-size: 13px; }
+    .id { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; white-space: nowrap; }
+  `];
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._timer = setInterval(() => this._load(), 5000);
+    this._load();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._timer);
+  }
+
+  async _load() {
+    if (!this.connection) return;
+    try { this.rows = await api(`api/tools/${this.connection.id}/enocean/senders`); } catch { /* the gateway restarts */ }
+  }
+
+  async _copy(id) {
+    try { await navigator.clipboard.writeText(id); this.copied = id; setTimeout(() => { if (this.copied === id) this.copied = ""; }, 2000); } catch { /* no clipboard */ }
+  }
+
+  render() {
+    const c = this.connection, rows = (this.rows || []).filter((r) => !this.onlyNew || r.new);
+    const both = !!c.fallback, esp3 = c.esp_protocol === "esp3";
+    const bars = (dbm) => (dbm == null ? "–" : html`<span title="${dbm} dBm" style="color:${dbm >= -75 ? "var(--ok)" : dbm >= -88 ? "var(--warn)" : "var(--bad)"}">${dbm} dBm</span>`);
+    return foldCard("device_proxy.eo.senders", "t-senders", t("eoSenders"), t("eoSendersSub"), html`
+      <p class="hint" style="margin:0">${t(esp3 ? "eoSendersText3" : "eoSendersText2")}</p>
+      <label class="chk"><input type="checkbox" .checked=${!!this.onlyNew} @change=${(e) => { this.onlyNew = e.target.checked; }}><span>${t("eoSendersNew")}</span></label>
+      ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
+          <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
+        <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
+            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
+            ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
+          <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString()}</td><td>${fmtAgo(r.last)}</td>
+          ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>
+          ${both ? html`<td>${[...r.heard].sort().reverse().map((h) => t(h === "main" ? "eoHeardMain" : "eoHeardFallback")).join(" + ")}</td>` : ""}</tr>`)}</tbody></table></div>`
+        : html`<p class="hint">${t(this.rows ? "eoSendersNone" : "eoSendersOpen")}</p>`}`);
+  }
+}
+
 export class EnOceanTools extends LitElement {
   static properties = {
     connection: { attribute: false }, capture: { attribute: false },
