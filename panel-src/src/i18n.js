@@ -16,6 +16,9 @@ const TEXT = {
     tipExceptions: "{p} % der Anfragen beantwortete das Gerät mit einem Fehler, meist eine Adresse, die es nicht kennt. Die Register in den Clients prüfen (unter „Pro Unit-ID“ steht, welche Unit betroffen ist).",
     movedOne: "{d} fehlt, aber der Adapter steckt offenbar an einer anderen Stelle (gleicher Typ, frei):", movedMany: "{d} fehlt. Mehrere freie Adapter dieses Typs stecken: welcher ist es?",
     movedUse: "Übernehmen", movedAsk: "„{n}“ auf {d} umstellen? Die Verbindung startet danach mit diesem Adapter.",
+    mbWriteRegisters: "Erlaubte Register beim Schreiben", mbWriteRegistersHint: "Leer: alle. Sonst Adressen und Bereiche wie 40100-40120 47000; ein Schreibzugriff außerhalb wird mit Fehler 02 abgewiesen, auch für die Clients, die schreiben dürfen.",
+    mbWrites: "Schreibzugriffe", mbWritesSub: "die letzten {n} der Clients", mbWriteRegistersNow: "Schreiben nur in: {r}", timeTh: "Zeit",
+    wr_written: "geschrieben", wr_failed: "Gerät lehnte ab", wr_blocked: "nicht erlaubt", wr_outside: "Register gesperrt",
     eoSenders: "Sender", eoSendersSub: "wer gefunkt hat, mit Empfang",
     eoSendersText3: "Alle Sender-IDs seit dem Start: wie oft, zuletzt, Empfangsstärke (über −75 dBm gut, unter −88 dBm knapp) und über wie viele Repeater. Hilft beim Platzieren von Repeatern und beim Finden der ID eines neuen Tasters: drücken und hier kopieren.",
     eoSendersText2: "Alle Sender-IDs seit dem Start: wie oft, zuletzt und über wie viele Repeater. Hilft beim Finden der ID eines neuen Tasters: drücken und hier kopieren. ESP2-Gateways melden keine Empfangsstärke.",
@@ -524,6 +527,9 @@ const TEXT = {
     tipExceptions: "The device answered {p} % of the requests with an error, usually an address it does not know. Check the registers in the clients (“Per unit id” shows which unit).",
     movedOne: "{d} is missing, but the adapter seems to be plugged in elsewhere (same kind, free):", movedMany: "{d} is missing. Several free adapters of this kind are plugged in: which one is it?",
     movedUse: "Use this one", movedAsk: "Switch “{n}” to {d}? The connection then starts with this adapter.",
+    mbWriteRegisters: "Registers that may be written", mbWriteRegistersHint: "Empty: all. Otherwise addresses and ranges like 40100-40120 47000; a write outside is refused with exception 02, also for the clients that may write.",
+    mbWrites: "Writes", mbWritesSub: "the clients' last {n}", mbWriteRegistersNow: "Writes only to: {r}", timeTh: "Time",
+    wr_written: "written", wr_failed: "device refused", wr_blocked: "not allowed", wr_outside: "register locked",
     eoSenders: "Senders", eoSendersSub: "who sent, with reception",
     eoSendersText3: "Every sender ID since the start: how often, last, reception (above −75 dBm good, below −88 dBm weak) and through how many repeaters. Helps to place repeaters and to find a new switch's ID: press it and copy it here.",
     eoSendersText2: "Every sender ID since the start: how often, last and through how many repeaters. Helps to find a new switch's ID: press it and copy it here. ESP2 gateways do not report reception.",
@@ -1030,6 +1036,7 @@ const EVENTS = {
     clients_disconnected: "{count} Client(s) getrennt ({by})",
     exclusive_on: "Wartung: {minutes} Minuten nur {host}", exclusive_off: "Wartung beendet ({reason}), alle erlaubten Clients dürfen wieder",
     write_blocked: "Schreiben abgewiesen (Funktion {function}) von {address}",
+    write_blocked_register: "Schreiben abgewiesen (Funktion {function}, Register {register}) von {address}: außerhalb der erlaubten Register",
 
     keep_open_failed: "Gerät konnte nicht offen gehalten werden: {error}",
     ser2net_restart: "ser2net beendet (Code {code}), Neustart in {delay} s",
@@ -1104,6 +1111,7 @@ const NOTES = {
 
 // The app checks fields in English; these are its messages in German.
 const FIELD_ERRORS_DE = [
+  [/^'(.+)' is not an address or a range like 40100-40120$/, "„$1“ ist keine Adresse und kein Bereich wie 40100-40120"], [/^'(.+)': addresses 0 to 65535, the first not above the last$/, "„$1“: Adressen 0 bis 65535, die erste nicht über der letzten"],
   [/^line (\d+): an IP address first, then the name$/, "Zeile $1: zuerst eine IP-Adresse, dann der Name"], [/^line (\d+): a name after the address$/, "Zeile $1: ein Name nach der Adresse"],
   [/^between (\d+) and (\d+)$/, "zwischen $1 und $2"], [/^(\d+) to (\d+) seconds$/, "$1 bis $2 Sekunden"],
   [/^(\d+) to (\d+) minutes$/, "$1 bis $2 Minuten"], [/^(\d+) to (\d+) days$/, "$1 bis $2 Tage"],

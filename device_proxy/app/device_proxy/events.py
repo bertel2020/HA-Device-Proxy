@@ -43,6 +43,7 @@ SUMMED = {
     "enocean_failback",
     "client_refused",
     "write_blocked",
+    "write_blocked_register",
 }
 GONE = {"device_missing", "modbus_down", "enocean_down"}  # the device is away (for the history) ...
 BACK = {"device_back", "device", "modbus_back", "enocean_back"}  # ... and there again
@@ -112,6 +113,10 @@ MESSAGES = {
     "client_refused": "Client refused, all places taken: {address}",
     "client_new": "New client, never seen before: {address}",
     "clients_disconnected": "{count} client(s) disconnected ({by})",
+    "write_blocked_register": (
+        "Write refused (function {function}, register {register}) from {address}: outside the "
+        "allowed registers"
+    ),
     "exclusive_on": "Maintenance: only {host} may connect for {minutes} minutes",
     "exclusive_off": "Maintenance over ({reason}): all allowed clients may connect again",
     "write_blocked": "Write refused (function {function}) from {address}",

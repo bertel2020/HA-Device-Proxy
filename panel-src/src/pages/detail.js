@@ -202,6 +202,20 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  /** The clients' last writes: who changed what, and what was refused. */
+  _writeLog(c) {
+    const writes = [...((c.modbus || {}).writes || [])].reverse();
+    if (!writes.length) return "";
+    const cls = { written: "ok", failed: "warn", blocked: "bad", outside: "bad" };
+    return foldCard("device_proxy.mbwrites", "t-writes", t("mbWrites"), t("mbWritesSub", { n: writes.length }), html`
+      <div class="scroll"><table><thead><tr><th>${t("timeTh")}</th><th>${t("clientTh")}</th><th>Unit</th><th>FC</th><th>${t("mbAddress")}</th><th>${t("mbValues")}</th><th></th></tr></thead>
+        <tbody>${writes.map((w) => html`<tr><td style="white-space:nowrap">${fmtTime(w.ts, false, true)}</td>
+          <td class="mono" style="font-size:12px">${w.client}${clientName(w.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(w.client)}</b>` : ""}</td>
+          <td>${w.unit}</td><td>${String(w.function).padStart(2, "0")}</td><td class="mono">${w.address ?? "–"}${w.count > 1 ? ` ×${w.count}` : ""}</td>
+          <td class="mono" style="font-size:12px">${w.values.join(", ") || "–"}</td><td><span class="chip ${cls[w.result]}">${t(`wr_${w.result}`)}</span></td></tr>`)}</tbody></table></div>
+      ${c.write_registers ? html`<p class="hint" style="margin:0">${t("mbWriteRegistersNow", { r: c.write_registers })}</p>` : ""}`);
+  }
+
   _exclusiveNote(c) {
     const x = c.exclusive;
     if (!x) return "";
@@ -654,6 +668,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${clientsCard}
       ${this._live(c.kind)}
       ${this._modbusTools(c)}
+      ${this._writeLog(c)}
       ${this._addresses(c)}
       ${this._haSnippet(c)}
       ${this._maintenance(c)}
