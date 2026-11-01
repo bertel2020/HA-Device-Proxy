@@ -702,6 +702,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_access="all",
         write_clients="",
         write_registers="",
+        listen_max_age_s=0,
         cache_ms=0,
         unit_map="",
         probe_seconds=0,
@@ -760,7 +761,7 @@ class _Path:
     """One connection to the device, with its framing."""
 
     def __init__(self, c: Connection) -> None:
-        if c.link == "rtu":
+        if c.link in ("rtu", "rtu_listen"):
             self.link: Link = SerialLink(c.device, c.baud, c.data_bits, c.parity, c.stop_bits)
         else:
             self.link = TcpLink(c.host, c.host_port)
@@ -781,7 +782,7 @@ class ModbusProxy:
         self.key = restart_key(c, listen)
         self.on_event = on_event
         self.on_trace = on_trace
-        count = 1 if c.link == "rtu" else c.device_connections  # a serial bus has one line
+        count = 1 if c.link in ("rtu", "rtu_listen") else c.device_connections  # one line
         self.paths = [_Path(c) for _ in range(count)]
         self.gap = c.request_gap_ms / 1000 if c.link == "tcp" else 0.0  # RTU: in the framer
         self.scheduler = Scheduler()

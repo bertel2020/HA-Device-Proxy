@@ -35,10 +35,10 @@ ENOCEAN_TEMPLATES = ("fam_usb", "fam14", "fgw14_usb", "usb300", "mgw_eth", "symc
 TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus", *ENOCEAN_TEMPLATES)
 KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
 LINKS = {  # how a proxy reaches its device
-    "modbus": ("tcp", "rtu", "rtu_tcp"),
+    "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),
     "enocean": ("serial", "tcp"),
 }
-SERIAL_LINKS = {"rtu", "serial"}  # the links that open a serial device of this host
+SERIAL_LINKS = {"rtu", "rtu_listen", "serial"}  # the links that open a serial device of this host
 ESP_PROTOCOLS = ("esp2", "esp3")
 # the gateway's model for the EnOcean Eltako integration (discovery), with the protocol it
 # speaks: the app only passes bytes on and cannot tell, so it is entered in the form
@@ -217,6 +217,7 @@ class Connection:
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     write_registers: str = ""  # writes only to these addresses ("40100-40120 47000"); "" any
+    listen_max_age_s: int = 60  # rtu_listen: registers heard longer ago count as unknown
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
     unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
@@ -437,7 +438,9 @@ class Connection:
             e["request_gap_ms"] = "0 to 10000 ms"
         if not 1 <= self.device_connections <= 4:
             e["device_connections"] = "1 to 4"
-        elif self.link == "rtu" and self.device_connections > 1:
+        if self.link == "rtu_listen" and not 1 <= self.listen_max_age_s <= 3600:
+            e["listen_max_age_s"] = "1 to 3600 seconds"
+        if self.link in ("rtu", "rtu_listen") and self.device_connections > 1:
             e["device_connections"] = "1 for a serial device"
         if not 0 <= self.cache_ms <= 60000:
             e["cache_ms"] = "0 to 60000 ms"

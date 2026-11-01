@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from . import enocean, modbus
+from . import enocean, listen, modbus
 from .model import Connection
 from .trace import Chunk
 
@@ -69,7 +69,9 @@ PROXIED: dict[str, Kind] = {
     "modbus": Kind(
         model="Modbus proxy",
         icon="mdi:lan",
-        build=modbus.ModbusProxy,
+        build=lambda c, *args: (
+            listen.ListenProxy if c.link == "rtu_listen" else modbus.ModbusProxy
+        )(c, *args),
         restart_key=modbus.restart_key,
         loaded=modbus.loaded,
         client_row=modbus.client_row,

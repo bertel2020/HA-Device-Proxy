@@ -88,7 +88,7 @@ export const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.leng
 /** The badge word of a live line: the direction as seen from the device, or the Modbus request/answer. */
 export const dirLabel = (direction, kind) => (direction === "rx" || direction === "tx" ? t(`${kind === "modbus" ? "dirmb" : "dir"}_${direction}`) : direction.toUpperCase());
 
-export const usesDevice = (c) => c.kind === "serial" || c.link === "rtu" || c.link === "serial";
+export const usesDevice = (c) => (c.kind === "serial" && c.source !== "tcp") || c.link === "rtu" || c.link === "rtu_listen" || c.link === "serial";
 export const proxyTarget = (c) => usesDevice(c) ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
 export const modbusTarget = proxyTarget;
 

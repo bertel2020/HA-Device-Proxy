@@ -12,7 +12,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", write_registers: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
@@ -20,7 +20,8 @@ const DEFAULTS = {
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
   write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
 
-const LINKS = ["tcp", "rtu", "rtu_tcp"];
+const LINKS = ["tcp", "rtu", "rtu_tcp", "rtu_listen"];
+const onBus = (d) => d.link === "rtu" || d.link === "rtu_listen"; // a serial adapter of this host
 // the Z-Wave stick has no login and takes commands: by default only Home Assistant and the other apps
 const ZWAVE_CLIENTS = "127.0.0.1, 172.30.32.0/23";
 const TEMPLATES = {
@@ -325,16 +326,16 @@ export class EditPage extends Page {
         <h2 id="t-mdev">${t("mbDevice")}</h2>
         <div class="fld"><span class="lbl" id="l-link">${t("mbLink")}</span>
           <div class="seg" role="group" aria-labelledby="l-link">${LINKS.map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
-            @click=${() => this._set(l === "rtu" ? { link: l, device_connections: 1, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
+            @click=${() => this._set(l === "rtu" || l === "rtu_listen" ? { link: l, device_connections: 1, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
 
           <span class="hint">${t(`linksub_${d.link}`)}</span></div>
-        ${d.link === "rtu" ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
+        ${onBus(d) ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
           ${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>
           <span class="hint">${t("mbHostHint")}</span>`}
-        <div class="grid2">
+        ${d.link === "rtu_listen" ? html`<div class="grid2">${this._input("listen_max_age_s", t("mbListenAge"), { number: true, hint: t("mbListenAgeHint") })}</div>` : html`<div class="grid2">
           ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
           ${this._input("retries", t("mbRetries"), { number: true, hint: t("mbRetriesHint") })}
-        </div>
+        </div>`}
       </section>
 
       <section class="card" aria-labelledby="t-proxy">
@@ -348,7 +349,7 @@ export class EditPage extends Page {
         <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
       </section>
 
-      <section class="card" aria-labelledby="t-write">
+      ${d.link === "rtu_listen" ? "" : html`<section class="card" aria-labelledby="t-write">
 
         <div><h2 id="t-write">${t("mbWrite")}</h2><p class="hint" style="margin-top:4px">${t("mbWriteSub")}</p></div>
         <div class="seg" role="group" aria-labelledby="t-write">${["all", "listed", "none"].map((v) => html`<button type="button" aria-pressed=${d.write_access === v ? "true" : "false"}
@@ -356,7 +357,7 @@ export class EditPage extends Page {
         <span class="hint">${t(`wasub_${d.write_access}`)}</span>
         ${d.write_access === "listed" ? this._input("write_clients", t("mbWriteClients"), { mono: true, hint: t("mbWriteClientsHint") }) : ""}
         ${d.write_access === "none" ? "" : this._input("write_registers", t("mbWriteRegisters"), { mono: true, hint: t("mbWriteRegistersHint") })}
-      </section>
+      </section>`}
 
       <section class="card" aria-labelledby="t-adv">
         <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
@@ -365,12 +366,12 @@ export class EditPage extends Page {
         ${this.advanced ? html`
           <div class="grp"><h3>${t("grpPace")}</h3>
             <div class="grid2">
-              ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: d.link === "rtu" ? "" : t("mbConnectDelayHint") })}
+              ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: onBus(d) ? "" : t("mbConnectDelayHint") })}
               ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
               ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
-              ${d.link === "rtu" ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
+              ${onBus(d) ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
             </div>
-            ${d.link === "rtu" && (chosen && chosen.ftdi || d.low_latency) ? html`<div class="opts">${this._check("low_latency", true)}</div>` : ""}</div>
+            ${onBus(d) && (chosen && chosen.ftdi || d.low_latency) ? html`<div class="opts">${this._check("low_latency", true)}</div>` : ""}</div>
           <div class="grp"><h3>${t("grpClients")}</h3>
             <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}</div>
             <div class="opts">${this._check("kickolduser", true)}</div>
@@ -556,7 +557,7 @@ export class EditPage extends Page {
 
   _modbusPreview() {
     const d = this.draft;
-    const target = d.link === "rtu" ? `${d.device || "–"} · ${d.baud} ${d.data_bits}${d.parity.toUpperCase()}${d.stop_bits}` : `${d.host || "–"}:${d.host_port}`;
+    const target = onBus(d) ? `${d.device || "–"} · ${d.baud} ${d.data_bits}${d.parity.toUpperCase()}${d.stop_bits}` : `${d.host || "–"}:${d.host_port}`;
     return html`<section class="card" aria-labelledby="t-prev">
       <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("mbPreviewSub")}</p></div>
       <ol class="flow">

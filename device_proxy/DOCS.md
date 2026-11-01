@@ -118,6 +118,7 @@ client that asks without a pause cannot hold up the others.
 | Modbus TCP | a device in the network | address and port (502) |
 | Modbus RTU (serial) | an RS485 adapter on this host | device, baud rate and format |
 | RTU over TCP | an RS485-to-Ethernet converter in transparent mode | address and port |
+| Listen on RS485 | a bus that has a master already | device, baud rate and format, how long values stay valid |
 
 With Modbus RTU the app opens the adapter itself (not through ser2net) and keeps the pause
 of 3.5 characters between frames that RTU needs. Unit 0 is a broadcast: it is sent, nobody
@@ -125,6 +126,16 @@ answers. RTU has no transaction ids, so an answer must fit its request (unit, fu
 byte count, the echo of a write), and after a timeout or a broken answer the line gets
 half a second for late bytes before the next request – a late answer never reaches the
 wrong client.
+
+**Listen on RS485** is for a bus where a master asks already, e.g. an inverter polling its
+energy meter or a heat pump's controller its modules: a second master would disturb them.
+The app only listens, it never sends on the bus. It tells the frames apart by their CRC (the
+pauses between frames get lost behind USB adapters), pairs each read (functions 3 and 4) with
+its answer and keeps the registers, also those the master writes (6, 16). Modbus TCP clients
+read them: a read is answered when every register asked for was heard within "Values valid
+for" (60 s by default), else with exception 0B, as from a gateway whose device is away. Only
+what the master reads can be read; writing is refused with exception 01. The status card
+shows the frames heard and which registers of which units are known.
 
 **Settings**: port for the clients (502 by default; each connection needs its own), number
 of clients, answer timeout, further attempts, a pause after connecting (ha-modbusproxy's
