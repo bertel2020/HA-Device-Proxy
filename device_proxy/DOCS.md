@@ -277,6 +277,11 @@ sender, copy, take over into "send"), the air time of the last hour against the 
 (a notification at 80 %), counters and the replay buffer, and the base ID once the gateway
 told it. Tools:
 
+- **Senders** (a card of its own): every sender ID heard since the start with its kind (RPS,
+  1BS, 4BS, VLD), how many telegrams, when last, through how many repeaters and, with an ESP3
+  gateway, the reception in dBm (above −75 good, below −88 weak); with a fallback also which
+  gateway heard it. "New" marks senders first heard more than 5 minutes after the start, so a
+  new switch's ID is found by pressing it once; "own" marks the gateway's base ID range.
 - **Gateway test**: reads the base ID ten times; nothing goes over the air.
 - **Change base ID**: sets the gateway's base ID (FF-80-00-00 to FF-FF-FF-80, last byte 00 or 80).
   The gateway keeps it in flash and allows only a few changes (10 for TCM 300 modules such as the

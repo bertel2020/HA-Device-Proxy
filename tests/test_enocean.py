@@ -855,3 +855,28 @@ async def test_a_taken_status_port_is_tried_again() -> None:
     await ha.retry()
     assert ha._server is not None and ha.port == port and events == ["listen_failed"]
     await ha.stop()
+
+
+def test_senders_with_signal_and_repeaters() -> None:
+    from device_proxy import esp
+
+    # ESP3 RADIO_ERP1: RPS from FE-E9-12-34, status 0x31 (1 repeater), optional data at -74 dBm
+    frame = esp3(bytes.fromhex("F630FEE9123431"), bytes.fromhex("03FFFFFFFF4A00"))
+    assert esp.radio_info("esp3", frame) == ("RPS", "FE-E9-12-34")
+    assert esp.signal("esp3", frame) == (-74, 1)
+    assert esp.signal("esp2", FRAME_A) == (None, 0)
+
+    c = Connection("USB", "", 0, kind="enocean", link="tcp", host="127.0.0.1", esp_protocol="esp3")
+    proxy = EnOceanProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    proxy.started -= 3600  # a sender first heard an hour after the start is new
+    proxy._heard_frame(frame, "main")
+    proxy._heard_frame(frame, "fallback")
+    (row,) = proxy.senders_list()
+    assert (row["id"], row["rorg"], row["count"], row["dbm"], row["hops"]) == (
+        "FE-E9-12-34",
+        "RPS",
+        2,
+        -74,
+        1,
+    )
+    assert row["heard"] == ["fallback", "main"] and row["new"] and not row["own"]

@@ -153,6 +153,17 @@ def radio_info(protocol: str, frame: bytes) -> tuple[str, str] | None:
     return ESP2_ORG_RORG.get(frame[3], f"{frame[3]:02X}"), frame[8:12].hex("-").upper()
 
 
+def signal(protocol: str, frame: bytes) -> tuple[int | None, int]:
+    """Signal strength in dBm (ESP3 only, from the optional data; None for ESP2) and the
+    repeater count from the status byte of a radio frame radio_info accepts."""
+    if protocol == "esp3":
+        length, optional = int.from_bytes(frame[1:3], "big"), frame[3]
+        status = frame[6 + length - 1]
+        dbm = -frame[6 + length + 5] if optional >= 6 and len(frame) > 6 + length + 5 else None
+        return dbm, status & 0x0F
+    return None, frame[12] & 0x0F
+
+
 def radio_key(protocol: str, frame: bytes) -> bytes | None:
     """What two gateways that heard the same radio telegram have in common: ESP3 its data
     without the optional data (signal strength, subtelegrams), ESP2 ORG, data and sender

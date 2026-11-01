@@ -1176,6 +1176,9 @@ class Controller:
             raise ValueError("the connection is not active")
         return proxy
 
+    def enocean_senders(self, connection_id: str) -> list[dict[str, Any]]:
+        return self._enocean(connection_id).senders_list()
+
     async def enocean_send(self, connection_id: str, text: str) -> dict[str, object]:
         """Send one frame as the app; the gateway's answer, if the frame expects one."""
         proxy = sendable(self._enocean(connection_id))
