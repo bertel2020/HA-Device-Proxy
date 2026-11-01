@@ -17,12 +17,14 @@ import struct
 import sys
 import tempfile
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "app"))
 
 from device_proxy import controller as controller_module  # noqa: E402
-from device_proxy import enocean, process  # noqa: E402
+from device_proxy import enocean, esp, process, testcase  # noqa: E402
 from device_proxy.clients import KnownClients  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
@@ -179,7 +181,93 @@ async def enocean_client(port: int, stop: asyncio.Event) -> None:
         await reader.read(4096)
 
 
-async def main(port: int, offset: int = 0) -> None:
+# playing back a test case (the button "As a test case" on a connection's live data)
+
+
+def _replay_answers(frames: list[tuple[float, str, bytes]], key: Callable[[bytes], Any]) -> dict:
+    """Each recorded request (by key) → the answer that came after it."""
+    answers = {}
+    for i, (_, direction, raw) in enumerate(frames):
+        if direction == "tx":
+            following = next((r for _, d, r in frames[i + 1 :] if d == "rx"), None)
+            if following is not None:
+                answers.setdefault(key(raw), following)
+    return answers
+
+
+def replay_server(case: dict[str, Any]) -> Callable[..., Awaitable[None]]:
+    """A fake device that plays a test case back: EnOcean sends the radio telegrams in a
+    loop and answers known commands, Modbus answers the recorded requests."""
+    frames = testcase.frames_of(case)
+    kind, link = case["connection"]["kind"], case["connection"].get("link", "tcp")
+    protocol = case["connection"].get("esp_protocol", "esp2")
+
+    async def enocean(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        answers = _replay_answers(frames, bytes)
+        radio = [(t, raw) for t, d, raw in frames if d == "rx" and esp.is_radio(protocol, raw)]
+
+        async def play() -> None:
+            while radio:
+                last = 0.0
+                for t, raw in radio:
+                    await asyncio.sleep(max(0.05, t - last))
+                    last = t
+                    writer.write(raw)
+                await asyncio.sleep(2)
+
+        task = asyncio.create_task(play())
+        buffer = b""
+        try:
+            while data := await reader.read(4096):
+                buffer = (buffer + data)[-512:]
+                for request, answer in answers.items():
+                    if request in buffer:
+                        writer.write(answer)
+                        buffer = buffer.replace(request, b"")
+        finally:
+            task.cancel()
+            writer.close()
+
+    def pdu(raw: bytes) -> tuple[int, bytes]:
+        return (raw[6], raw[7:]) if link == "tcp" else (raw[0], raw[1:-2])
+
+    async def modbus(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        answers = _replay_answers(frames, pdu)
+        try:
+            while True:
+                tid, _, length, unit = struct.unpack(">HHHB", await reader.readexactly(7))
+                request = await reader.readexactly(length - 1)
+                recorded = answers.get((unit, request))
+                body = pdu(recorded)[1] if recorded else bytes([request[0] | 0x80, 2])
+                writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+        except (asyncio.IncompleteReadError, ConnectionError):
+            writer.close()
+
+    return enocean if kind == "enocean" else modbus
+
+
+async def replay_serial(
+    case: dict[str, Any], trace: TraceHub, alias: str, stop: asyncio.Event
+) -> None:
+    """A serial test case: what the device sent, again and again, into the live trace."""
+    rx = [(t, raw) for t, d, raw in testcase.frames_of(case) if d == "rx"]
+    path = trace.shm_dir / f"{alias}.trace"
+    while rx and not stop.is_set():
+        last = 0.0
+        for t, raw in rx:
+            await asyncio.sleep(max(0.05, t - last))
+            last = t
+            stamp = time.strftime("%Y/%m/%d %H:%M:%S").encode()
+            lines = [
+                stamp + b" term " + raw[i : i + 8].hex(" ").encode() + b" |........|"
+                for i in range(0, len(raw), 8)
+            ]
+            with path.open("ab") as f:
+                f.write(b"\n".join(lines) + b"\n")
+        await asyncio.sleep(2)
+
+
+async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
     """offset moves the example connections' ports, so two dev servers can run at once."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     process.RESTART_DELAYS = (3600,)  # no ser2net here: do not retry
@@ -307,6 +395,27 @@ async def main(port: int, offset: int = 0) -> None:
                 ),
             ),
         )
+        case = json.loads(replay.read_text()) if replay else None
+        replayed = None
+        if case is not None:
+            kind = case["connection"]["kind"]
+            if kind == "serial":
+                replayed = Connection("Testfall", "/dev/null", 3399 + offset, max_clients=3)
+            else:
+                fake = await asyncio.start_server(replay_server(case), "127.0.0.1", 0)
+                replayed = Connection(
+                    "Testfall",
+                    "",
+                    19199 + offset if kind == "enocean" else 15099 + offset,
+                    kind=kind,
+                    template="modbus" if kind == "modbus" else "fam_usb",
+                    esp_protocol=case["connection"].get("esp_protocol", "esp2"),
+                    host="127.0.0.1",
+                    host_port=fake.sockets[0].getsockname()[1],
+                    max_clients=4,
+                    bind="127.0.0.1",
+                )
+            config = config.with_connection(replayed)
         store.save(AppConfig(), config, "test")
         trace = TraceHub(record_dir=data / "trace", shm_dir=data / "shm")
         (data / "device_prints.json").write_text(json.dumps({"0000b001": fingerprint(adapter)}))
@@ -344,6 +453,8 @@ async def main(port: int, offset: int = 0) -> None:
         feeder = asyncio.create_task(meter(trace, alias, stop))
         poller = asyncio.create_task(modbus_client(15020 + offset, stop))
         home_assistant = asyncio.create_task(enocean_client(19100 + offset, stop))
+        if case is not None and replayed is not None and replayed.kind == "serial":
+            asyncio.create_task(replay_serial(case, trace, replayed.alias, stop))
         print(f"Open http://127.0.0.1:{port}/  (Ctrl+C ends)")
         try:
             await asyncio.Event().wait()
@@ -361,7 +472,13 @@ async def main(port: int, offset: int = 0) -> None:
 
 if __name__ == "__main__":
     try:
-        port = int(sys.argv[1]) if len(sys.argv) > 1 else 8399
-        asyncio.run(main(port, int(sys.argv[2]) if len(sys.argv) > 2 else 0))
+        args = sys.argv[1:]
+        replay = None
+        if "--replay" in args:  # tools/dev_server.py 8399 --replay testcase-enocean-….json
+            index = args.index("--replay")
+            replay = Path(args[index + 1])
+            del args[index : index + 2]
+        port = int(args[0]) if args else 8399
+        asyncio.run(main(port, int(args[1]) if len(args) > 1 else 0, replay))
     except KeyboardInterrupt:
         pass

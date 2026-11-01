@@ -100,7 +100,7 @@ mypy
 python -m pytest
 ```
 
-The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections. `tools/render_images.py` draws `icon.png` and `logo.png`.
+The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/render_images.py` draws `icon.png` and `logo.png`.
 
 ## Thanks
 

@@ -880,3 +880,26 @@ def test_senders_with_signal_and_repeaters() -> None:
         1,
     )
     assert row["heard"] == ["fallback", "main"] and row["new"] and not row["own"]
+
+
+def test_a_test_case_hides_sender_and_base_ids() -> None:
+    from device_proxy import esp, testcase
+    from device_proxy.trace import Chunk
+
+    frame = esp3(bytes.fromhex("F630FEE9123431"), bytes.fromhex("03FFFFFFFF4A00"))
+    own = esp3(bytes.fromhex("F630FFB7448130"))  # from the gateway's own range
+    (anon, anon_own) = testcase.anonymise("esp3", [frame, own], "FF-B7-44-80")
+    assert esp.radio_info("esp3", anon) == ("RPS", "A0-00-00-01")
+    assert esp.radio_info("esp3", anon_own) == ("RPS", "FF-AA-00-01")  # offset kept
+    assert anon == esp3(bytes.fromhex("F630A000000131"), bytes.fromhex("03FFFFFFFF4A00"))
+
+    c = Connection("USB", "", 0, kind="enocean", link="tcp", host="127.0.0.1")
+    case = testcase.build(
+        c,
+        [Chunk(10.0, "rx", FRAME_A), Chunk(10.5, "open", text="x")],
+        base_id=None,
+        anonymised=True,
+    )
+    ((t, direction, raw),) = testcase.frames_of(case)
+    assert (t, direction) == (0.0, "rx") and b"\x00\x21\x63\x43" not in raw
+    assert raw[13] == sum(raw[2:13]) & 0xFF  # ESP2 checksum computed again
