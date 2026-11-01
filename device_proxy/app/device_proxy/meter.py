@@ -25,6 +25,32 @@ NAMES = {
 D0_LINE = re.compile(rb"(\d+-\d+:\d+\.\d+\.\d+)(?:\*\d+)?\(([^)*]*)(?:\*([^)]*))?\)")
 
 
+# the readings offered as entities in Home Assistant: OBIS code → (key, unit, device class,
+# state class); energy in kWh as the Energy dashboard wants it
+ENTITIES = {
+    "1-0:1.8.0": ("meter_import", "kWh", "energy", "total_increasing"),
+    "1-0:2.8.0": ("meter_export", "kWh", "energy", "total_increasing"),
+    "1-0:16.7.0": ("meter_power", "W", "power", "measurement"),
+}
+
+
+def entity_values(analysis: Analysis) -> dict[str, float | None]:
+    """The entities' values from the last valid telegram; None for what it lacks."""
+    values: dict[str, float | None] = {key: None for key, *_ in ENTITIES.values()}
+    for r in analysis.readings:
+        entity = ENTITIES.get(r.obis)
+        if entity is None or not isinstance(r.value, (int, float)):
+            continue
+        key, unit = entity[0], entity[1]
+        value = float(r.value)
+        if unit == "kWh" and r.unit == "Wh":
+            value /= 1000
+        elif unit == "W" and r.unit == "kW":
+            value *= 1000
+        values[key] = round(value, 4)
+    return values
+
+
 def crc_x25(data: bytes) -> int:
     crc = 0xFFFF
     for byte in data:

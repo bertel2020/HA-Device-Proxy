@@ -182,3 +182,20 @@ async def test_buttons_are_announced_and_pressed(tmp_path: Path) -> None:
     await bridge._message("device_proxy/0000000a/disconnect/press", b"PRESS")
     await bridge._message("device_proxy/0000000a/nonsense/press", b"PRESS")  # logged, not raised
     assert pressed == [("0000000a", "disconnect"), ("0000000a", "nonsense")]
+
+
+async def test_meter_entities_for_the_energy_dashboard(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    controller = _controller(tmp_path)
+    assert not any("meter_import" in t for t in ha_mqtt.HaBridge(controller).configs())
+    meter = replace(controller.config.connections[0], meter_entities=True)
+    controller.config = controller.config.with_connection(meter)
+    configs = ha_mqtt.HaBridge(controller).configs()
+    energy = configs["homeassistant/sensor/device_proxy_0000000a/meter_import/config"]
+    assert (energy["device_class"], energy["state_class"], energy["unit_of_measurement"]) == (
+        "energy",
+        "total_increasing",
+        "kWh",
+    )
+    assert energy["value_template"] == "{{ value_json.meter_import }}"

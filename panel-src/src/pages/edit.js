@@ -9,7 +9,7 @@ const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
-  connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, trace: "off",
+  connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
@@ -24,10 +24,10 @@ const LINKS = ["tcp", "rtu", "rtu_tcp"];
 // the Z-Wave stick has no login and takes commands: by default only Home Assistant and the other apps
 const ZWAVE_CLIENTS = "127.0.0.1, 172.30.32.0/23";
 const TEMPLATES = {
-  ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
-  ehz_d0: { baud: 9600, data_bits: 7, parity: "e", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false },
-  zwave: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 2, chardelay: false, nodelay: true, remaddr: ZWAVE_CLIENTS },
-  generic: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: true, nodelay: false },
+  ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false, meter_entities: true },
+  ehz_d0: { baud: 9600, data_bits: 7, parity: "e", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false, meter_entities: true },
+  zwave: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 2, chardelay: false, nodelay: true, remaddr: ZWAVE_CLIENTS, meter_entities: false },
+  generic: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: true, nodelay: false, meter_entities: false },
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
@@ -283,7 +283,7 @@ export class EditPage extends Page {
   }
 
   _check(key, plain = false) {
-    const option = !plain && key !== "keep_open" && key !== "stuck_disconnect" && !key.startsWith("notify");
+    const option = !plain && !["keep_open", "stuck_disconnect", "meter_entities"].includes(key) && !key.startsWith("notify");
     return html`<label class="chk"><input type="checkbox" .checked=${!!this.draft[key]} @change=${(e) => this._set({ [key]: e.target.checked })}>
       <span>${t(`o_${key}`)}${option ? html`<br><span class="hint mono">${key.replace(/_/g, "-")}</span>` : ""}</span></label>`;
   }
@@ -632,7 +632,8 @@ export class EditPage extends Page {
             <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
           ${this.advanced ? html`
             <fieldset><legend>${t("appSide")}</legend>
-              <div class="opts">${this._check("keep_open")}</div>
+              <div class="opts">${this._check("keep_open")}${this._check("meter_entities")}</div>
+              ${d.meter_entities ? html`<span class="hint">${t("meterEntitiesHint")}</span>` : ""}
               ${this._trace()}</fieldset>
             <fieldset><legend>${t("serialSide")}</legend>
               <div class="opts">${["local", "rtscts", "xonxoff", "hangup_when_done", "nobreak"].map((k) => this._check(k))}

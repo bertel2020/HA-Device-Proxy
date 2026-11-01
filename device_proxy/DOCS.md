@@ -351,6 +351,13 @@ On a connection's details:
   connection's clients are disconnected and connect again afterwards. Nothing is sent to the
   device, so it works with meters that push their data.
 
+**Meter readings as entities** (in the form under **Advanced**, on by default with the eHZ
+templates): with MQTT the connection's device in Home Assistant gets "Meter reading import"
+and "Meter reading export" in kWh and "Power" in W, ready for the Energy dashboard. The app
+reads them from the data the meter sends anyway (SML only from telegrams with a correct CRC),
+so no extra integration and no client place is needed; but ser2net opens the device only
+while a client is connected, so with no other client switch on **Keep the device open**.
+
 ## Events and history
 
 **Events** shows the live log (filter by connection, level and text) and the history:

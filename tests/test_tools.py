@@ -208,3 +208,20 @@ def test_a_full_disk_does_not_move_the_history_aside(tmp_path: Path) -> None:
     log = EventLog(db)
     log.emit("info", "app_started", connections=0, active=0)  # not kept, but no error
     db.conn = real
+
+
+def test_meter_readings_become_entity_values() -> None:
+    from device_proxy.meter import Analysis, Reading, entity_values
+
+    analysis = Analysis(
+        readings=[
+            Reading("1-0:1.8.0", 12345678.9, "Wh"),
+            Reading("1-0:16.7.0", 1.5, "kW"),
+            Reading("1-0:96.1.0", "abc"),
+        ]
+    )
+    assert entity_values(analysis) == {
+        "meter_import": 12345.6789,
+        "meter_export": None,
+        "meter_power": 1500.0,
+    }
