@@ -179,6 +179,18 @@ export function trapTab(e, box) {
 }
 
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */
+/** A missing device's adapter plugged in elsewhere: one button per adapter it may be. */
+export function movedNote(c, use) {
+  const found = c.moved_to || [];
+  if (c.present !== false || !found.length) return nothing;
+  return html`<div class="note warn" role="note" style="display:flex;flex-direction:column;gap:8px" @click=${(e) => e.stopPropagation()}>
+    <span>${t(found.length === 1 ? "movedOne" : "movedMany", { d: c.device })}</span>
+    ${found.map((d) => html`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="mono" style="font-size:12px;overflow-wrap:anywhere;flex:1;min-width:0">${d.stable}${d.product ? html` <span class="hint">· ${d.product}${d.serial ? ` · ${d.serial}` : ""}</span>` : ""}</span>
+      <button class="btn btn-s" @click=${(e) => { e.preventDefault(); use(d); }}>${t("movedUse")}</button></div>`)}
+  </div>`;
+}
+
 export function confirmDialog(host, message, confirmLabel) {
   return new Promise((resolve) => {
     const dialog = document.createElement("dp-confirm");

@@ -26,6 +26,7 @@ from device_proxy import enocean, process  # noqa: E402
 from device_proxy.clients import KnownClients  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
+from device_proxy.devices import Device, fingerprint  # noqa: E402
 from device_proxy.events import EventLog  # noqa: E402
 from device_proxy.meter import crc_x25  # noqa: E402
 from device_proxy.model import AppConfig, Connection, Settings  # noqa: E402
@@ -183,6 +184,15 @@ async def main(port: int, offset: int = 0) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     process.RESTART_DELAYS = (3600,)  # no ser2net here: do not retry
     controller_module.STATUS_POLL = 3600
+    # the BWT's adapter, now on another port: "Device Proxy" offers to take it over
+    adapter = Device(
+        "/dev/ttyUSB7",
+        by_path=["/dev/serial/by-path/platform-xhci-hcd.0-usb-0:1.4:1.0-port0"],
+        vendor_id="1a86",
+        product_id="7523",
+        product="USB Serial",
+    )
+    controller_module.scan = lambda: [adapter]
     with tempfile.TemporaryDirectory() as tmp:
         data = Path(tmp)
         device = await asyncio.start_server(modbus_device, "127.0.0.1", 0)
@@ -218,7 +228,12 @@ async def main(port: int, offset: int = 0) -> None:
                     template="zwave",
                 ),
                 Connection(
-                    "BWT AQA perla", "/dev/ttyMISSING0", 3334 + offset, baud=19200, max_clients=2
+                    "BWT AQA perla",
+                    "/dev/ttyMISSING0",
+                    3334 + offset,
+                    baud=19200,
+                    max_clients=2,
+                    id="0000b001",
                 ),
                 Connection(
                     "SolarEdge Wechselrichter",
@@ -294,6 +309,7 @@ async def main(port: int, offset: int = 0) -> None:
         )
         store.save(AppConfig(), config, "test")
         trace = TraceHub(record_dir=data / "trace", shm_dir=data / "shm")
+        (data / "device_prints.json").write_text(json.dumps({"0000b001": fingerprint(adapter)}))
         # a computer seen for the first time, for the card Clients in the settings
         (data / "known_clients.json").write_text(
             json.dumps(
@@ -317,6 +333,7 @@ async def main(port: int, offset: int = 0) -> None:
             import_dir=data / "import",
             trace=trace,
             known_clients=KnownClients(data / "known_clients.json"),
+            prints_file=data / "device_prints.json",
         )
         web = WebServer(controller, port=port, hosts=("127.0.0.1",), peers=None, version="dev")
         await web.start()
