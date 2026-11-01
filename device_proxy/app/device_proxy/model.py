@@ -197,6 +197,7 @@ class Connection:
     # app features
     keep_open: bool = False  # the app stays connected, so the device is open without clients
     stuck_disconnect: bool = False  # disconnect the clients when one stops reading
+    meter_entities: bool = False  # a smart meter's readings (SML, D0) as MQTT entities
     trace: str = "off"
     notify_missing: bool = True
     notify_no_client: bool = False

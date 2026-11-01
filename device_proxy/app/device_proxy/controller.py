@@ -47,7 +47,7 @@ from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .kinds import PROXIED, AppProxy
-from .meter import analyze
+from .meter import Analysis, analyze
 from .modbus import (
     DEVICE_ID_REQUEST,
     EXC_PATH,
@@ -1083,16 +1083,19 @@ class Controller:
 
     def analyze(self, connection_id: str) -> dict[str, object]:
         """What the device sent in the last seconds, read as a smart meter (SML or D0)."""
+        return self.meter(connection_id).to_dict()
+
+    def meter(self, connection_id: str) -> Analysis:
         c = self.config.connection(connection_id)
         if c is None:
-            return {}
+            return Analysis()
         cutoff = time.time() - ANALYZE_SECONDS
         data = b"".join(
             ch.data
             for ch in self.trace.live.get(c.alias, ())
             if ch.direction == "rx" and ch.ts >= cutoff
         )
-        return analyze(data).to_dict()
+        return analyze(data)
 
     async def modbus_read(
         self, connection_id: str, unit: int, function: int, address: int, count: int

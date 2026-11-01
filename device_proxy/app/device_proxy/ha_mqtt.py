@@ -20,6 +20,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from .kinds import PROXIED
+from .meter import ENTITIES, entity_values
 from .model import AppConfig
 from .mqtt import Broker, MqttClient, supervisor_broker
 
@@ -48,6 +49,9 @@ NAMES = {
         "active_gateway": "Aktives Gateway",
         "fallback_ready": "Ersatz-Gateway bereit",
         "disconnect": "Clients trennen",
+        "meter_import": "Zählerstand Bezug",
+        "meter_export": "Zählerstand Einspeisung",
+        "meter_power": "Leistung",
         "to_fallback": "Auf Ersatz-Gateway umschalten",
         "to_main": "Zurück zum eigenen Gateway",
     },
@@ -70,6 +74,9 @@ NAMES = {
         "active_gateway": "Active gateway",
         "fallback_ready": "Fallback gateway ready",
         "disconnect": "Disconnect clients",
+        "meter_import": "Meter reading import",
+        "meter_export": "Meter reading export",
+        "meter_power": "Power",
         "to_fallback": "Switch to the fallback gateway",
         "to_main": "Back to its own gateway",
     },
@@ -247,6 +254,15 @@ class HaBridge:
                 value_template="{{ value_json.last_data }}",
                 device_class="timestamp",
             )
+            if c.meter_entities:
+                for key, unit, device_class, state_class in ENTITIES.values():
+                    result[f"{prefix}/sensor/device_proxy_{c.id}/{key}/config"] = entity(
+                        key,
+                        value_template=f"{{{{ value_json.{key} }}}}",
+                        unit_of_measurement=unit,
+                        device_class=device_class,
+                        state_class=state_class,
+                    )
             result[f"{prefix}/sensor/device_proxy_{c.id}/line_errors/config"] = entity(
                 "line_errors",
                 value_template="{{ value_json.line_errors }}",
@@ -287,6 +303,8 @@ class HaBridge:
                 else None,
                 "line_errors": sum((c["line_errors"] or {}).values()),
             }
+            if c.get("meter_entities"):
+                state.update(entity_values(self.c.meter(c["id"])))
             kind = PROXIED.get(c["kind"])
             if kind and c.get(c["kind"]) is not None:
                 state.update(kind.mqtt_state(c[c["kind"]]))
