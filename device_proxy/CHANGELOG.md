@@ -1,5 +1,57 @@
 # Changelog
 
+## 1.1.0
+
+Many new tools: Modbus values decoded and devices identified, names for clients and a word on
+new ones, maintenance with one computer alone, meter readings for the Energy dashboard, an RS485
+bus listened to without sending, several Modbus devices behind one port. The app now comes as a
+prebuilt image.
+
+- **Prebuilt image**: Home Assistant downloads the app instead of building gensio and ser2net on
+  the device. Recorded traces and EnOcean captures are left out of Home Assistant's backups.
+
+**Modbus**
+
+- **Decode values** under "Read registers": 16, 32 and 64 bit integers, floats or text, with
+  the register and byte order ("swap") and a factor as Home Assistant's Modbus integration reads
+  them, and the matching sensor to copy into `configuration.yaml`.
+- **Bus scan** asks each unit found who it is (device identification, SunSpec) and shows
+  vendor, model, version and a fitting integration.
+- **Timing tips** on the status card: a longer or shorter timeout, a cache, what a long queue or
+  many exceptions mean.
+- **Registers that may be written**: addresses and ranges; a write outside is refused with
+  exception 02. The card **Writes** lists the clients' last writes and their result.
+- **Listen on RS485**: a new kind of connection for a bus that has a master already (e.g. an
+  inverter and its meter). The app only listens, never sends, and answers reads from what it
+  heard.
+- **Units of other connections**: one port for several devices; a unit asked here is answered
+  by another Modbus connection's device.
+
+**EnOcean**
+
+- **Senders**: every sender ID heard with kind, count, last seen, repeaters, reception (ESP3)
+  and which gateway heard it; new senders marked, IDs to copy.
+
+**Serial devices**
+
+- **Meter readings as entities**: import and export in kWh and power in W over MQTT, for the
+  Energy dashboard, read from what the meter sends anyway (on with the eHZ templates).
+- **A serial bridge in the network** (ESPHome stream server, Tasmota reading head, USR-TCP232)
+  as the source of a connection, shared like a device of this host.
+- **Device moved**: when a device is missing and its adapter is plugged in elsewhere, the page
+  offers to take it over.
+
+**All connections**
+
+- **Clients**: names for client addresses (**Settings → Clients**), shown in the lists and
+  events. A computer that connects for the first time is reported until it is marked as known
+  or named.
+- **Disconnect clients**: a button on the connection's page and an MQTT button in Home
+  Assistant; an EnOcean gateway with a fallback also gets buttons to switch.
+- **Maintenance**: one computer may use a connection alone for a while, e.g. for a service tool
+  or a firmware update; the others are kept out until the time is up.
+- **As a test case**: a connection's last frames as a file for an issue, EnOcean IDs replaced.
+
 ## 1.0.1
 
 Home Assistant is let in at an EnOcean gateway limited to Home Assistant and the apps again.
