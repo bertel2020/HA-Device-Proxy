@@ -97,3 +97,27 @@ export function identity(u) {
   const hit = INTEGRATIONS.find(([re]) => re.test(id.vendor || ""));
   return { ...id, sunspec: u.sunspec ? u.sunspec.base : null, integration: hit ? hit[1] : u.sunspec ? "SunSpec (HACS)" : null };
 }
+
+const MIN_REQUESTS = 50; // what the tips need before they say anything
+const roundUp = (ms, step) => Math.ceil(ms / step) * step;
+
+/** Suggestions from what the proxy measured: timeout, cache, load. Each: [key, values]. */
+export function timingTips(c, m) {
+  const tips = [];
+  if (!m || (m.requests || 0) < MIN_REQUESTS) return tips;
+  const timeout = c.request_timeout_ms, slow = m.time_max_ms || 0;
+  const timeoutShare = m.timeouts / m.requests;
+  if (timeoutShare >= 0.02 && slow >= timeout * 0.7) {
+    tips.push(["tipTimeoutUp", { p: Math.round(timeoutShare * 100), t: timeout, s: roundUp(Math.max(slow * 2, timeout + 1000), 500) }]);
+  } else if (timeoutShare >= 0.02) {
+    tips.push(["tipTimeoutsFast", { p: Math.round(timeoutShare * 100), m: Math.round(slow) }]);
+  } else if (!m.timeouts && m.answered >= 200 && timeout >= 3000 && timeout >= slow * 5) {
+    tips.push(["tipTimeoutDown", { t: timeout, m: Math.round(slow), s: roundUp(Math.max(slow * 3, 1500), 500) }]);
+  }
+  const clients = (c.clients || []).length;
+  if (!c.cache_ms && clients >= 2) tips.push(["tipCache", { n: clients }]);
+  if (c.cache_ms && m.cached) tips.push(["tipCacheSaves", { p: Math.round((m.cached / m.requests) * 100) }]);
+  if ((m.queue_max || 0) >= 5) tips.push(["tipQueue", { q: m.queue_max, a: Math.round(m.time_avg_ms) }]);
+  if (m.exceptions / m.requests >= 0.05) tips.push(["tipExceptions", { p: Math.round((m.exceptions / m.requests) * 100) }]);
+  return tips;
+}
