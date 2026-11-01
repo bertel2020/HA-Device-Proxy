@@ -543,3 +543,57 @@ async def test_a_write_outside_the_allowed_registers_is_refused() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+async def test_units_routed_to_another_connection() -> None:
+    import pytest
+
+    from device_proxy.model import AppConfig, ValidationError, parse_routes
+
+    assert parse_routes("2=0000beef:1 3=0000cafe") == {2: ("0000beef", 1), 3: ("0000cafe", 3)}
+    with pytest.raises(ValueError):
+        parse_routes("2=meter")
+    inverter, meter = await _device(False, ignore=set()), await _device(False, ignore=set())
+
+    def connection(name: str, device: asyncio.Server, cid: str, **extra: object) -> Connection:
+        return Connection(
+            name,
+            "",
+            0,
+            id=cid,
+            kind="modbus",
+            host="127.0.0.1",
+            host_port=device.sockets[0].getsockname()[1],
+            bind="127.0.0.1",
+            **extra,  # type: ignore[arg-type]
+        )
+
+    b = connection("Meter", meter, "0000beef", write_access="none")
+    a = connection("Gateway", inverter, "0000aaaa", unit_routes="2=0000beef:1")
+    with pytest.raises(ValidationError):  # a route to a connection that is not there
+        AppConfig(connections=(a,)).validate()
+    proxy_b = ModbusProxy(b, "lan", lambda *a, **k: None, lambda ch: None)
+    proxy_a = ModbusProxy(a, "lan", lambda *a, **k: None, lambda ch: None)
+    proxy_a.router = {"0000beef": proxy_b}.get
+    tasks = [asyncio.create_task(p.run()) for p in (proxy_a, proxy_b)]
+    try:
+        for _ in range(50):
+            if proxy_a._server is not None and proxy_b._server is not None:
+                break
+            await asyncio.sleep(0.02)
+        assert proxy_a._server is not None
+        port = proxy_a._server.sockets[0].getsockname()[1]
+        assert (await _read(port, 1, 2, 7))[2:4] == struct.pack(">H", 70)  # through B
+        assert proxy_b.units[1].answered == 1 and 2 not in proxy_a.units
+        assert (await _read(port, 2, 1, 3))[2:4] == struct.pack(">H", 30)  # A's own device
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(struct.pack(">HHHBBHH", 3, 0, 6, 2, 6, 1, 1))  # B allows no writes
+        head = await reader.readexactly(7)
+        assert await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1) == bytes([0x86, 1])
+        writer.close()
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        inverter.close()
+        meter.close()

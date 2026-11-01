@@ -593,6 +593,11 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("who")}</span><span>${who(c, s)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
+              ${c.unit_routes ? html`<span>${t("mbRoutes")}</span><span>${c.unit_routes.split(/\s+/).filter(Boolean).map((item) => {
+                const [unit, rest] = item.split("="), [target, targetUnit] = rest.split(":");
+                const other = this.state.connections.find((x) => x.id === target);
+                return t("mbRouteShort", { u: unit, n: other ? other.name : target, d: targetUnit || unit });
+              }).join(" · ")}</span>` : ""}
 
               ${c.probe_seconds ? html`<span>${t("mbProbe")}</span><span>${t("mbProbeVal", { s: c.probe_seconds, u: c.probe_unit, f: c.probe_function, a: c.probe_address })}</span>` : ""}
 

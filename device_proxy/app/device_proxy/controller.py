@@ -688,6 +688,8 @@ class Controller:
             proxy.only = (
                 self.exclusive[connection_id][0] if connection_id in self.exclusive else None
             )
+            if isinstance(proxy, ModbusProxy):
+                proxy.router = self._modbus_proxy
             if isinstance(proxy, EnOceanProxy):
                 proxy.serves = self._serves(c)  # a fallback: no port of its own
             self.proxies[connection_id] = proxy
@@ -1386,6 +1388,11 @@ class Controller:
             frames=capture.frames,
         )
         return capture.to_dict()
+
+    def _modbus_proxy(self, connection_id: str) -> ModbusProxy | None:
+        """The running proxy of a Modbus connection, for units routed to it."""
+        proxy = self.proxies.get(connection_id)
+        return proxy if isinstance(proxy, ModbusProxy) else None
 
     def _modbus(self, connection_id: str) -> ModbusProxy:
         proxy = self.proxies.get(connection_id)

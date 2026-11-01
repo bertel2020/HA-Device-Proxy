@@ -41,6 +41,7 @@ from .model import (
     client_allowed,
     from_this_host,
     parse_ranges,
+    parse_routes,
     parse_unit_map,
     peer_allowed,
 )
@@ -703,6 +704,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_clients="",
         write_registers="",
         listen_max_age_s=0,
+        unit_routes="",
         cache_ms=0,
         unit_map="",
         probe_seconds=0,
@@ -790,6 +792,8 @@ class ModbusProxy:
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
         self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)  # the clients' writes
+        # the proxy of another connection, for units routed there (set by the controller)
+        self.router: Callable[[str], ModbusProxy | None] = lambda connection_id: None
         self.listening = False
         self.listen_error = ""
         self.reachable: bool | None = None
@@ -1163,6 +1167,7 @@ class ModbusProxy:
     ) -> None:
         idle = self.c.timeout or None
         mapped: tuple[str, dict[int, int]] = ("", {})
+        routed: tuple[str, dict[int, tuple[str, int]]] = ("", {})
         while True:
             head = await asyncio.wait_for(reader.readexactly(7), idle)
             tid, protocol, length, unit = struct.unpack(">HHHB", head)
@@ -1173,12 +1178,18 @@ class ModbusProxy:
             if mapped[0] != self.c.unit_map:  # changes without a restart
                 mapped = (self.c.unit_map, parse_unit_map(self.c.unit_map))
             device_unit = mapped[1].get(unit, unit)
+            if routed[0] != self.c.unit_routes:
+                routed = (self.c.unit_routes, parse_routes(self.c.unit_routes))
             write = is_write(pdu)
-            if write and not self.may_write(host, local):
+            route = routed[1].get(unit)
+            answer: bytes | None
+            if route is not None:
+                answer = await self._routed(route, pdu, info, host, local, write)
+            elif write and not self.may_write(host, local):
                 self.stats.blocked += 1
                 info.blocked += 1
                 self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
-                answer: bytes | None = exception(pdu, EXC_FUNCTION)
+                answer = exception(pdu, EXC_FUNCTION)
                 self._log_write(info, unit, pdu, "blocked")
             elif (
                 write
@@ -1209,6 +1220,52 @@ class ModbusProxy:
             writer.write(frame)
             await writer.drain()
             info.bytes_out += len(frame)
+
+    def write_refusal(self, host: str, local: bool, pdu: bytes) -> int | None:
+        """The exception a client's write gets from this connection's rules, None when it
+        may pass."""
+        if not self.may_write(host, local):
+            return EXC_FUNCTION
+        if self.c.write_registers and not in_ranges(
+            write_span(pdu), parse_ranges(self.c.write_registers)
+        ):
+            return EXC_ADDRESS
+        return None
+
+    async def _routed(
+        self,
+        route: tuple[str, int],
+        pdu: bytes,
+        info: ClientInfo,
+        host: str,
+        local: bool,
+        write: bool,
+    ) -> bytes | None:
+        """A unit that lives on another connection of the app: its proxy asks the device,
+        in turn with its own clients; a write must pass both connections' rules."""
+        target = self.router(route[0])
+        self.stats.requests += 1
+        if target is None:
+            self.stats.failed += 1
+            return exception(pdu, EXC_PATH)
+        if write:
+            code = self.write_refusal(host, local, pdu) or target.write_refusal(host, local, pdu)
+            if code is not None:
+                self.stats.blocked += 1
+                info.blocked += 1
+                self._log_write(
+                    info, route[1], pdu, "blocked" if code == EXC_FUNCTION else "outside"
+                )
+                return exception(pdu, code)
+        answer = await target.request(route[1], pdu, info)
+        if answer is not None and not answer[0] & 0x80:
+            self.stats.answered += 1
+        elif answer is not None:
+            self.stats.exceptions += 1
+        if write:
+            failed = answer is None or bool(answer[0] & 0x80)
+            self._log_write(info, route[1], pdu, "failed" if failed else "written")
+        return answer
 
     def _log_write(self, info: ClientInfo, unit: int, pdu: bytes, result: str) -> None:
         span = write_span(pdu)

@@ -16,6 +16,9 @@ const TEXT = {
     tipExceptions: "{p} % der Anfragen beantwortete das Gerät mit einem Fehler, meist eine Adresse, die es nicht kennt. Die Register in den Clients prüfen (unter „Pro Unit-ID“ steht, welche Unit betroffen ist).",
     movedOne: "{d} fehlt, aber der Adapter steckt offenbar an einer anderen Stelle (gleicher Typ, frei):", movedMany: "{d} fehlt. Mehrere freie Adapter dieses Typs stecken: welcher ist es?",
     movedUse: "Übernehmen", movedAsk: "„{n}“ auf {d} umstellen? Die Verbindung startet danach mit diesem Adapter.",
+    mbRoutes: "Units anderer Verbindungen", mbRoutesHint: "Ein Port für mehrere Geräte: fragt ein Client diese Unit, beantwortet sie das Gerät einer anderen Modbus-Verbindung, der Reihe nach mit deren Clients. Schreiben muss beiden Verbindungen erlaubt sein.",
+    mbRoutesNone: "Ein Port für mehrere Geräte: dafür braucht es eine weitere Modbus-Verbindung.", mbRouteUnit: "Unit hier", mbRouteTarget: "Verbindung", mbRouteDeviceUnit: "Unit dort", mbRouteAdd: "Unit hinzufügen",
+    mbRouteShort: "Unit {u} → {n} (Unit {d})",
     testcase: "Als Testfall", testcaseTipEo: "Die letzten Telegramme als Datei für eine Fehlermeldung; Sender- und Base-IDs sind durch erfundene ersetzt. Der Dev-Server spielt sie ab.",
     testcaseTipMb: "Die letzten Anfragen und Antworten als Datei für eine Fehlermeldung, ohne Client-Adressen. Der Dev-Server spielt sie als Gerät ab.",
     testcaseTipSerial: "Die letzten Daten als Datei für eine Fehlermeldung. Achtung: Zählertelegramme enthalten die Zählernummer. Der Dev-Server spielt sie ab.",
@@ -533,6 +536,9 @@ const TEXT = {
     tipExceptions: "The device answered {p} % of the requests with an error, usually an address it does not know. Check the registers in the clients (“Per unit id” shows which unit).",
     movedOne: "{d} is missing, but the adapter seems to be plugged in elsewhere (same kind, free):", movedMany: "{d} is missing. Several free adapters of this kind are plugged in: which one is it?",
     movedUse: "Use this one", movedAsk: "Switch “{n}” to {d}? The connection then starts with this adapter.",
+    mbRoutes: "Units of other connections", mbRoutesHint: "One port for several devices: a client asking this unit is answered by another Modbus connection's device, in turn with that connection's clients. A write must be allowed by both connections.",
+    mbRoutesNone: "One port for several devices: this needs another Modbus connection.", mbRouteUnit: "Unit here", mbRouteTarget: "Connection", mbRouteDeviceUnit: "Unit there", mbRouteAdd: "Add a unit",
+    mbRouteShort: "unit {u} → {n} (unit {d})",
     testcase: "As a test case", testcaseTipEo: "The last telegrams as a file for an issue; sender and base IDs are replaced by made-up ones. The dev server plays them back.",
     testcaseTipMb: "The last requests and answers as a file for an issue, without client addresses. The dev server plays them back as a device.",
     testcaseTipSerial: "The last data as a file for an issue. Note: meter telegrams contain the meter's number. The dev server plays them back.",
@@ -1123,6 +1129,8 @@ const NOTES = {
 
 // The app checks fields in English; these are its messages in German.
 const FIELD_ERRORS_DE = [
+  [/^'(.+)' is not unit=connection or unit=connection:unit$/, "„$1“ ist nicht Unit=Verbindung oder Unit=Verbindung:Unit"], [/^'(.+)': units 1 to 247$/, "„$1“: Units 1 bis 247"],
+  [/^(\S+) is not a Modbus connection of this app$/, "$1 ist keine Modbus-Verbindung dieser App"], [/^(.+) routes units of its own$/, "$1 leitet selbst Units weiter"],
   [/^'(.+)' is not an address or a range like 40100-40120$/, "„$1“ ist keine Adresse und kein Bereich wie 40100-40120"], [/^'(.+)': addresses 0 to 65535, the first not above the last$/, "„$1“: Adressen 0 bis 65535, die erste nicht über der letzten"],
   [/^line (\d+): an IP address first, then the name$/, "Zeile $1: zuerst eine IP-Adresse, dann der Name"], [/^line (\d+): a name after the address$/, "Zeile $1: ein Name nach der Adresse"],
   [/^between (\d+) and (\d+)$/, "zwischen $1 und $2"], [/^(\d+) to (\d+) seconds$/, "$1 bis $2 Sekunden"],

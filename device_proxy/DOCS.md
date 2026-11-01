@@ -177,6 +177,14 @@ address alike. The card **Writes** on the connection's page lists the clients' l
 writes: when, who, unit, function, address, values and whether they were written, refused
 by the device, not allowed or outside the allowed registers.
 
+**Units of other connections** (under **Advanced**): one port for several devices, as many
+energy managers and evcc expect a single Modbus gateway. Each line names a unit asked here,
+another Modbus connection of the app and the unit there, e.g. unit 2 → "Meter" (unit 1). A
+client asking unit 2 is answered by that connection's device, in turn with its own clients
+and with its cache; a write must be allowed by both connections (write access and registers).
+Only one step: a connection whose units are routed elsewhere routes none of its own. While
+the other connection is off, the client gets exception 0A.
+
 **Unit ids**: under **Advanced** the unit a client asks for can be rewritten
 (`client=device`, e.g. `1=3, 2=5`), for clients that always ask unit 1 while the device
 answers on another one. Imported from modbus-proxy's `unit_id_remapping`.
