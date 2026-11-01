@@ -10,7 +10,7 @@ const DEFAULTS = {
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
-  notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial",
+  notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
@@ -604,13 +604,18 @@ export class EditPage extends Page {
 
         <section class="card" aria-labelledby="t-dev">
           <h2 id="t-dev">${t("devicePick")}</h2>
-          ${this._devicePicker(chosen)}
+          <div class="fld"><span class="lbl" id="l-source">${t("dataSource")}</span>
+            <div class="seg" role="group" aria-labelledby="l-source">${["device", "tcp"].map((v) => html`<button type="button" aria-pressed=${d.source === v ? "true" : "false"}
+              @click=${() => this._set(v === "device" ? { source: v, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { source: v, host_port: d.host_port === 502 ? 8888 : d.host_port })}>${t(`source_${v}`)}</button>`)}</div>
+            <span class="hint">${t(`sourcesub_${d.source}`)}</span>${this._err("source")}</div>
+          ${d.source === "tcp" ? html`<div class="grid2">${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`
+            : this._devicePicker(chosen)}
         </section>
 
-        <section class="card" aria-labelledby="t-if">
+        ${d.source === "tcp" ? "" : html`<section class="card" aria-labelledby="t-if">
           <div><h2 id="t-if">${t("ifSerial")}</h2><p class="hint" style="margin-top:4px">${t("ifSerialSub", { f: `${d.baud} ${d.data_bits}${d.parity.toUpperCase()}${d.stop_bits}` })}</p></div>
           <div class="grid2">${this._serialFormat()}</div>
-        </section>
+        </section>`}
 
         <section class="card" aria-labelledby="t-net">
           <div><h2 id="t-net">${t("ifNetOnly")}</h2><p class="hint" style="margin-top:4px">${t("ifNetSub")}</p></div>

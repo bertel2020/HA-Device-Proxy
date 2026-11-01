@@ -48,6 +48,13 @@ serial adapter with its stable name (`/dev/serial/by-id/…`), vendor, product a
 number. Identical adapters without a serial number (many CH340) are told apart by their USB
 port (`/dev/serial/by-path/…`); the app warns about them.
 
+**A serial bridge in the network**: under **Device → Where the data comes from → Network (TCP)**
+a connection takes its data from a serial bridge instead of a device of this host, e.g. an
+ESPHome stream server, a Tasmota reading head or a USR-TCP232. Such bridges usually accept one
+client only; the app connects to the bridge (only while it has clients itself) and shares it.
+Baud rate and format are set on the bridge; the tools that need the device itself (baud rate
+detection, line errors, FTDI latency) are not offered.
+
 **An adapter on another port**: the app remembers which adapter each connection had (vendor,
 product and serial number). When the device is missing and a free adapter of the same kind is
 plugged in (on another USB port, in the VM under another number), the connection's page and

@@ -348,6 +348,7 @@ export class DetailPage extends Page {
           ${best.slice(0, 3).map((r) => html`<div class="row well"><span class="mono">${fmt(r)}</span><span class="hint">${t("score")} ${Math.round(r.score * 100)} %</span>
             <button class="btn btn-g" @click=${() => this._useCandidate(c, r)}>${t("applyThis")}</button></div>`)}`
         : html`<div class="note warn">${t("noDetect")}</div>` : ""}`;
+    if (c.source === "tcp") return toolsCard("device_proxy.tools.serial", "t-tools", t("toolsSubSerial"), meter(true), !!m);
     return toolsCard("device_proxy.tools.serial", "t-tools", t("toolsSubSerial"), meterFirst ? html`${meter(true)}${baud(false)}` : html`${baud(true)}
         <details class="sep fold" ?open=${!!m}><summary>${t("moreTools")}</summary><div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">${meter(true)}</div></details>`, !!m || !!job);
   }
@@ -535,6 +536,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("mbWrite")}</span>
 <span>${t(`wa_${c.write_access}`)}${c.write_access === "listed" ? html` · <span class="mono">${c.write_clients}</span>` : ""}</span>
 
+            </div>` : c.source === "tcp" ? html`<div class="kv">
+              <span>${t("dataSource")}</span><span>${t("source_tcp")} · <span class="mono">${c.host}:${c.host_port}</span></span>
             </div>` : html`<div class="kv">
               <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
               <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
