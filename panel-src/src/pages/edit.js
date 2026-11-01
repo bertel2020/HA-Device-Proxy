@@ -12,7 +12,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
@@ -33,7 +33,7 @@ const TEMPLATES = {
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Erweitert" and counts when it differs from the default
-const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "timeout", "kickolduser", "low_latency"];
+const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const BUS_GATEWAYS = ["fam14", "fgw14_usb"]; // on the RS485 bus of the series 14, not radio only
@@ -283,6 +283,31 @@ export class EditPage extends Page {
       ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} ?selected=${d.trace === v}>${t(d.kind === "modbus" ? `trmb_${v}` : `tr_${v}`)}</option>`)}</select></label>`;
   }
 
+  /** Units that live on other Modbus connections: one port for several devices. */
+  _routes(d) {
+    const others = this.state.connections.filter((c) => c.kind === "modbus" && c.id !== d.id && !c.unit_routes);
+    const rows = (d.unit_routes || "").split(/[\s,;]+/).filter(Boolean).map((item) => {
+      const m = item.match(/^(\d+)=([0-9a-f]{8})(?::(\d+))?$/) || [];
+      return { unit: m[1] || "", target: m[2] || "", targetUnit: m[3] || m[1] || "" };
+    });
+    const save = (list) => this._set({ unit_routes: list.filter((r) => r.unit && r.target).map((r) => `${r.unit}=${r.target}${r.targetUnit && r.targetUnit !== r.unit ? `:${r.targetUnit}` : ""}`).join(" ") });
+    const change = (i, patch) => save(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+    return html`<div class="fld"><span class="lbl">${t("mbRoutes")}</span>
+      <span class="hint">${others.length ? t("mbRoutesHint") : t("mbRoutesNone")}</span>
+      ${rows.map((r, i) => html`<div style="display:grid;grid-template-columns:5rem 1fr 5rem auto;gap:8px;align-items:end;margin-top:6px">
+        <label class="fld"><span class="lbl">${t("mbRouteUnit")}</span><input class="inp" inputmode="numeric" .value=${r.unit} @change=${(e) => change(i, { unit: e.target.value.trim() })}></label>
+        <label class="fld"><span class="lbl">${t("mbRouteTarget")}</span><select class="inp" @change=${(e) => change(i, { target: e.target.value })}>
+          ${others.map((c) => html`<option value=${c.id} ?selected=${c.id === r.target}>${c.name}</option>`)}</select></label>
+        <label class="fld"><span class="lbl">${t("mbRouteDeviceUnit")}</span><input class="inp" inputmode="numeric" .value=${r.targetUnit} @change=${(e) => change(i, { targetUnit: e.target.value.trim() })}></label>
+        <button type="button" class="btn btn-g" aria-label=${t("lanRemove")} @click=${() => save(rows.filter((_, j) => j !== i))}>${icon("x")}</button></div>`)}
+      ${others.length ? html`<div><button type="button" class="btn btn-s" style="margin-top:6px" @click=${() => {
+        const used = new Set(rows.map((r) => Number(r.unit)));
+        const unit = String([...Array(247).keys()].map((n) => n + 2).find((n) => !used.has(n)) || 2);
+        save([...rows, { unit, target: others[0].id, targetUnit: "1" }]);
+      }}>${t("mbRouteAdd")}</button></div>` : ""}
+      ${this._err("unit_routes")}</div>`;
+  }
+
   _check(key, plain = false) {
     const option = !plain && !["keep_open", "stuck_disconnect", "meter_entities"].includes(key) && !key.startsWith("notify");
     return html`<label class="chk"><input type="checkbox" .checked=${!!this.draft[key]} @change=${(e) => this._set({ [key]: e.target.checked })}>
@@ -375,7 +400,8 @@ export class EditPage extends Page {
           <div class="grp"><h3>${t("grpClients")}</h3>
             <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}</div>
             <div class="opts">${this._check("kickolduser", true)}</div>
-            ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}</div>
+            ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
+            ${this._routes(d)}</div>
           <div class="grp"><h3>${t("mbProbe")}</h3><p class="hint">${t("mbProbeSub")}</p>
             <div class="grid2">
               ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}

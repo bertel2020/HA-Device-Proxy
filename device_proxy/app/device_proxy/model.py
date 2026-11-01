@@ -218,6 +218,9 @@ class Connection:
     write_clients: str = ""  # for "listed": addresses or networks
     write_registers: str = ""  # writes only to these addresses ("40100-40120 47000"); "" any
     listen_max_age_s: int = 60  # rtu_listen: registers heard longer ago count as unknown
+    # several devices behind this port: a client unit → another Modbus connection of the
+    # app and its unit ("2=0000beef:1 3=0000cafe")
+    unit_routes: str = ""
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
     unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
@@ -469,6 +472,13 @@ class Connection:
             parse_ranges(self.write_registers)
         except ValueError as err:
             e["write_registers"] = str(err)
+        try:
+            routes = parse_routes(self.unit_routes)
+        except ValueError as err:
+            e["unit_routes"] = str(err)
+        else:
+            if self.id in {target for target, _ in routes.values()}:
+                e["unit_routes"] = "not the connection itself"
 
 
 def parse_ranges(text: str) -> list[tuple[int, int]]:
@@ -675,8 +685,26 @@ class AppConfig:
                 e[f"connections.{index}.name"] = "another connection has this name"
             seen["name"].setdefault(folded, c.name)
         self._validate_fallbacks(e)
+        self._validate_routes(e)
         if e:
             raise ValidationError(e)
+
+    def _validate_routes(self, e: dict[str, str]) -> None:
+        """Units routed to other Modbus connections of the app, one step only (no chains)."""
+        for index, c in enumerate(self.connections):
+            if c.kind != "modbus" or not c.unit_routes:
+                continue
+            try:
+                routes = parse_routes(c.unit_routes)
+            except ValueError:
+                continue  # said by the connection's own check
+            for target, _ in routes.values():
+                other = self.connection(target)
+                key = f"connections.{index}.unit_routes"
+                if other is None or other.kind != "modbus":
+                    e[key] = f"{target} is not a Modbus connection of this app"
+                elif other.unit_routes:
+                    e[key] = f"{other.name} routes units of its own"
 
     def _validate_fallbacks(self, e: dict[str, str]) -> None:
         """A fallback gateway is another EnOcean connection with the same protocol, serves
@@ -900,6 +928,26 @@ def parse_unit_map(text: str) -> dict[int, int]:
         if client in result:
             raise ValueError(f"unit {client} twice")
         result[client] = device
+    return result
+
+
+def parse_routes(text: str) -> dict[int, tuple[str, int]]:
+    """ "2=0000beef:1 3=0000cafe" → {2: ("0000beef", 1), 3: ("0000cafe", 3)}: the unit a
+    client asks for → another connection and the unit there (the same when left out)."""
+    result: dict[int, tuple[str, int]] = {}
+    for item in re.split(r"[,;\s]+", text.strip()):
+        if not item:
+            continue
+        match = re.fullmatch(r"(\d{1,3})=([0-9a-f]{8})(?::(\d{1,3}))?", item)
+        if not match:
+            raise ValueError(f"{item!r} is not unit=connection or unit=connection:unit")
+        unit = int(match.group(1))
+        target_unit = int(match.group(3) or unit)
+        if not (1 <= unit <= 247 and 1 <= target_unit <= 247):
+            raise ValueError(f"{item!r}: units 1 to 247")
+        if unit in result:
+            raise ValueError(f"unit {unit} twice")
+        result[unit] = (match.group(2), target_unit)
     return result
 
 
