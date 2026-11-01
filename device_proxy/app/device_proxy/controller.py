@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import ipaddress
 import json
 import logging
 import os
@@ -91,6 +92,7 @@ MQTT_KEYS = (
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
 JOBS_KEPT = 20  # finished tool runs kept for the web interface
 IDENTIFY_MAX = 16  # units the scan asks who they are
+EXCLUSIVE_MAX = 240  # minutes one host may have a connection to itself
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
@@ -271,6 +273,9 @@ class Controller:
         self.store = store
         self.known_clients = known_clients or KnownClients()
         self.prints_file = prints_file
+        # maintenance: connection id → (the one host that may connect, until when); ends with
+        # an app restart, so access always comes back
+        self.exclusive: dict[str, tuple[str, float]] = {}
         try:  # the adapter each connection had last, to find it again on another port
             self.prints: dict[str, dict[str, str]] = json.loads(prints_file.read_text())
         except (OSError, ValueError):
@@ -335,7 +340,8 @@ class Controller:
 
     def _runtime(self) -> tuple[str, dict[str, str]]:
         if not self.uses_custom:
-            return render(self.config), blocks(self.config)
+            config = self._with_exclusive(self.config)
+            return render(config), blocks(config)
         try:
             text = self.custom_file.read_text(encoding="utf-8")
         except OSError as err:
@@ -679,6 +685,9 @@ class Controller:
                 continue
             build = PROXIED[c.kind].build
             proxy = build(c, listen, self._proxy_event(connection_id), self._proxy_trace(c))
+            proxy.only = (
+                self.exclusive[connection_id][0] if connection_id in self.exclusive else None
+            )
             if isinstance(proxy, EnOceanProxy):
                 proxy.serves = self._serves(c)  # a fallback: no port of its own
             self.proxies[connection_id] = proxy
@@ -750,6 +759,9 @@ class Controller:
             self.stop_capture()
 
     async def _proxy_tick(self) -> None:
+        for connection_id, (_, until) in list(self.exclusive.items()):
+            if time.time() >= until or self.config.connection(connection_id) is None:
+                await self.end_exclusive(connection_id, "expired")
         now = time.monotonic()
         for proxy in self.proxies.values():
             s = proxy.stats
@@ -1217,6 +1229,72 @@ class Controller:
         )
         return count
 
+    # maintenance: one host alone
+
+    def _with_exclusive(self, config: AppConfig) -> AppConfig:
+        """ser2net's connections in maintenance accept their one host only."""
+        for connection_id, (host, _) in self.exclusive.items():
+            c = config.connection(connection_id)
+            if c is not None and c.kind == "serial":
+                net = f"{host}/128" if ":" in host else f"{host}/32"
+                config = config.with_connection(replace(c, remaddr=net))
+        return config
+
+    def _exclusive_info(self, connection_id: str) -> dict[str, object] | None:
+        if connection_id not in self.exclusive:
+            return None
+        host, until = self.exclusive[connection_id]
+        return {"host": host, "until": until}
+
+    async def set_exclusive(self, connection_id: str, host: str, minutes: int) -> None:
+        """Only this host may use the connection for a while, e.g. a service tool or a
+        firmware update; the other clients are disconnected and kept out."""
+        c = self.config.connection(connection_id)
+        if c is None or not c.enabled:
+            raise ValueError("the connection is not active")
+        try:
+            host = str(ipaddress.ip_address(host))
+        except ValueError:
+            raise ValueError("an IP address") from None
+        if not 1 <= minutes <= EXCLUSIVE_MAX:
+            raise ValueError(f"1 to {EXCLUSIVE_MAX} minutes")
+        if c.kind == "serial" and self.uses_custom:
+            raise ValueError("not with an own ser2net.yaml")
+        self.exclusive[connection_id] = (host, time.time() + minutes * 60)
+        await self._apply_exclusive(connection_id)
+        self.events.emit(
+            "warning", "exclusive_on", connection=c.id, name=c.name, host=host, minutes=minutes
+        )
+
+    async def end_exclusive(self, connection_id: str, reason: str = "by_hand") -> bool:
+        if self.exclusive.pop(connection_id, None) is None:
+            return False
+        await self._apply_exclusive(connection_id)
+        c = self.config.connection(connection_id)
+        self.events.emit(
+            "info",
+            "exclusive_off",
+            connection=connection_id,
+            name=c.name if c else connection_id,
+            reason=reason,
+        )
+        return True
+
+    async def _apply_exclusive(self, connection_id: str) -> None:
+        host = self.exclusive[connection_id][0] if connection_id in self.exclusive else None
+        proxy = self.proxies.get(connection_id)
+        if proxy is not None:
+            proxy.only = host
+            if host:
+                proxy.disconnect_clients(keep=host)
+            return
+        async with self._lock:  # ser2net: its remaddr changes, the clients reconnect
+            before = self._written
+            self.write_config()
+            touched = changed(before, self._written)
+            if touched and self.ser2net.running:
+                await self._reload(touched)
+
     async def press(self, connection_id: str, action: str) -> None:
         """A button of the connection's device in Home Assistant (MQTT)."""
         if action == "disconnect":
@@ -1470,6 +1548,7 @@ class Controller:
                     "last_data": flow.last_rx if flow else None,
                     "line_errors": self.line_errors.get(c.id),
                     "moved_to": self.moved_to(c),
+                    "exclusive": self._exclusive_info(c.id),
                     "latency": self.latency.get(c.id),
                     "addresses": addresses(c, settings, self.lan_ip),
                 }
@@ -1524,6 +1603,7 @@ class Controller:
             "last_data": flow.last_rx if flow else None,
             "line_errors": None,
             "moved_to": self.moved_to(c),
+            "exclusive": self._exclusive_info(c.id),
             "latency": self.latency.get(c.id),
             "addresses": addresses(c, self.config.settings, self.lan_ip),
             c.kind: state,

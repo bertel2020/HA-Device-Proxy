@@ -112,6 +112,8 @@ MESSAGES = {
     "client_refused": "Client refused, all places taken: {address}",
     "client_new": "New client, never seen before: {address}",
     "clients_disconnected": "{count} client(s) disconnected ({by})",
+    "exclusive_on": "Maintenance: only {host} may connect for {minutes} minutes",
+    "exclusive_off": "Maintenance over ({reason}): all allowed clients may connect again",
     "write_blocked": "Write refused (function {function}) from {address}",
 }
 

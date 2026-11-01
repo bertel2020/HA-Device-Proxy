@@ -175,6 +175,7 @@ class EnOceanProxy:
         )
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
+        self.only: str | None = None  # maintenance: only this host may connect
         self.listening = False
         self.listen_error = ""
         self.reachable: bool | None = None
@@ -422,6 +423,10 @@ class EnOceanProxy:
         if not peer_allowed(self.c.remaddr, self.listen, peer, writer.get_extra_info("sockname")):
             self.stats.refused += 1
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
+            writer.close()
+            return
+        if self.only and host != self.only:
+            _LOGGER.info("%s: client %s refused (only %s for now)", self.c.name, address, self.only)
             writer.close()
             return
         if len(self.clients) >= self.c.max_clients:
@@ -851,9 +856,10 @@ class EnOceanProxy:
 
     # state
 
-    def disconnect_clients(self) -> int:
-        """Close every program's connection (they may connect again); the app's own stay."""
-        clients = [c for c in self.clients.values() if c.writer is not None]
+    def disconnect_clients(self, keep: str | None = None) -> int:
+        """Close every program's connection (they may connect again); the app's own stay,
+        and with keep the clients of that host."""
+        clients = [c for c in self.clients.values() if c.writer is not None and c.host != keep]
         for client in clients:
             assert client.writer is not None
             client.writer.close()
