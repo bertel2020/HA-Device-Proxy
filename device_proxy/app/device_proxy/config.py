@@ -47,6 +47,9 @@ def accepter(c: Connection, listen: str) -> str:
 
 
 def connector(c: Connection) -> str:
+    if c.source == "tcp":  # a serial bridge in the network: its bytes as they come
+        host = f"[{c.host}]" if ":" in c.host else c.host
+        return f"tcp,{host},{c.host_port}"
     flags = [
         name
         for name, on in (

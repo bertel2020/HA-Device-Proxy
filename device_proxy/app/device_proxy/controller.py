@@ -331,7 +331,7 @@ class Controller:
     @property
     def with_device(self) -> tuple[Connection, ...]:
         """The connections in use that open a serial device (ser2net's and the proxies')."""
-        return self.active + tuple(c for c in self.config.proxied if c.uses_device)
+        return tuple(c for c in self.active + self.config.proxied if c.uses_device)
 
     def _runtime(self) -> tuple[str, dict[str, str]]:
         if not self.uses_custom:
@@ -1392,8 +1392,8 @@ class Controller:
         c = self.config.connection(connection_id)
         if c is None:
             raise ValueError("no such connection")
-        if c.kind != "serial":
-            raise ValueError("only for ser2net's connections")
+        if c.kind != "serial" or not c.uses_device:
+            raise ValueError("only for a serial device of this host")
         job_id = self._new_job(connection_id, 0)
         self._spawn(job_id, self._detect(job_id, c))
         return job_id

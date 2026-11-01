@@ -202,6 +202,9 @@ class Connection:
     notify_missing: bool = True
     notify_no_client: bool = False
     silence_minutes: int = 0
+    # a serial connection's data: a device of this host, or a serial bridge in the network
+    # (ESPHome stream server, Tasmota reading head, USR-TCP232) at host and host_port
+    source: str = "device"
     # Modbus proxy (kind "modbus")
     link: str = "tcp"  # Modbus TCP, Modbus RTU on the serial device, or RTU over TCP
     host: str = ""  # the device's address for "tcp" and "rtu_tcp"
@@ -236,12 +239,15 @@ class Connection:
     @property
     def uses_device(self) -> bool:
         """Has a serial device: ser2net's connections and a proxy's on a local adapter."""
-        return self.kind == "serial" or self.link in SERIAL_LINKS
+        if self.kind == "serial":
+            return self.source == "device"
+        return self.link in SERIAL_LINKS
 
     @property
     def remote(self) -> bool:
-        """A proxy that reaches its device over the network (host and host_port)."""
-        return self.kind != "serial" and not self.uses_device
+        """Reaches its device over the network (host and host_port): a proxy, or a serial
+        connection on a serial bridge."""
+        return not self.uses_device
 
     @property
     def upstream(self) -> str:
@@ -369,6 +375,10 @@ class Connection:
             e["silence_minutes"] = "0 to 1440 minutes"
         if self.kind != "serial":
             self._validate_link(e)
+        elif self.source not in ("device", "tcp"):
+            e["source"] = "device or tcp"
+        elif self.source == "tcp":
+            self._validate_host(e)
         if self.kind == "modbus":
             self._validate_modbus(e)
         elif self.kind == "enocean":
@@ -381,11 +391,16 @@ class Connection:
         if self.link not in links:
             e["link"] = f"one of {', '.join(links)}"
         elif self.remote:
-            if not HOST.fullmatch(self.host) or len(self.host) > 253:
-                e["host"] = "a host name or IP address"
-            elif self.host in ("127.0.0.1", "localhost", "::1") and self.host_port == self.port:
-                e["host_port"] = "is this connection's own port"
+            self._validate_host(e)
         if not 1 <= self.host_port <= 65535:
+            e["host_port"] = "between 1 and 65535"
+
+    def _validate_host(self, e: dict[str, str]) -> None:
+        if not HOST.fullmatch(self.host) or len(self.host) > 253:
+            e["host"] = "a host name or IP address"
+        elif self.host in ("127.0.0.1", "localhost", "::1") and self.host_port == self.port:
+            e["host_port"] = "is this connection's own port"
+        elif not 1 <= self.host_port <= 65535:
             e["host_port"] = "between 1 and 65535"
 
     def _validate_enocean(self, e: dict[str, str]) -> None:

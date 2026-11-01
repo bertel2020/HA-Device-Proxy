@@ -165,3 +165,18 @@ def test_history_names_the_new_settings_values_but_not_secrets() -> None:
     [item] = changes(old, new)
     assert item["values"] == {"listen": "apps"}
     assert item["fields"] == ["listen", "mqtt_user", "mqtt_password"]
+
+
+def test_a_serial_bridge_in_the_network_is_a_tcp_connector() -> None:
+    bridge = Connection(
+        "Lesekopf", "", 3340, id="0000000c", source="tcp", host="192.168.1.50", host_port=8888
+    )
+    bridge.validate()
+    assert not bridge.uses_device and bridge.remote
+    assert (
+        "  connector: tcp,192.168.1.50,8888\n"
+        in blocks(AppConfig(connections=(bridge,)))[bridge.alias]
+    )
+    with pytest.raises(ValidationError) as err:
+        replace(bridge, host="").validate()
+    assert "host" in err.value.errors
