@@ -46,7 +46,19 @@ from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
 from .kinds import PROXIED, AppProxy
 from .meter import analyze
-from .modbus import EXC_PATH, EXC_TARGET, ModbusProxy, read_result, write_pdu
+from .modbus import (
+    DEVICE_ID_REQUEST,
+    EXC_PATH,
+    EXC_TARGET,
+    SUNSPEC_BASES,
+    SUNSPEC_COMMON,
+    ModbusProxy,
+    device_id,
+    is_sunspec,
+    read_result,
+    sunspec_common,
+    write_pdu,
+)
 from .model import AppConfig, Connection, ValidationError, new_id
 from .notify import Notifier
 from .process import Ser2Net
@@ -76,6 +88,7 @@ MQTT_KEYS = (
 )
 ANALYZE_SECONDS = 30  # of trace the meter check looks at
 JOBS_KEPT = 20  # finished tool runs kept for the web interface
+IDENTIFY_MAX = 16  # units the scan asks who they are
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
@@ -1236,12 +1249,40 @@ class Controller:
                     raise ConnectionError(proxy.stats.last_error or "device not reachable")
                 if answer and code != EXC_TARGET:
                     found.append({"unit": unit, "exception": code})
+            job["phase"] = "identify"
+            for entry in found[:IDENTIFY_MAX]:
+                entry.update(
+                    await self._identify(proxy, int(str(entry["unit"])), max(timeout, 1.0))
+                )
             job["state"] = "done"
         except (OSError, ConnectionError) as err:
             job["state"], job["error"] = "failed", str(err)
         except asyncio.CancelledError:
             job["state"], job["error"] = "failed", "stopped"
             raise
+
+    @staticmethod
+    async def _identify(proxy: ModbusProxy, unit: int, timeout: float) -> dict[str, object]:
+        """What a unit the scan found says about itself: its device identification and, for
+        inverters and meters, the SunSpec common model."""
+        info: dict[str, object] = {}
+        ident = device_id(await proxy.ask(unit, DEVICE_ID_REQUEST, timeout=timeout, retries=0))
+        if ident:
+            info["ident"] = ident
+        for base in SUNSPEC_BASES:
+            mark = await proxy.ask(
+                unit, struct.pack(">BHH", 3, base, 2), timeout=timeout, retries=0
+            )
+            if is_sunspec(mark):
+                common = await proxy.ask(
+                    unit,
+                    struct.pack(">BHH", 3, base + 2, SUNSPEC_COMMON),
+                    timeout=timeout,
+                    retries=0,
+                )
+                info["sunspec"] = {"base": base, **sunspec_common(common)}
+                break
+        return info
 
     def start_detect(self, connection_id: str) -> str:
         """Find the baud rate of a pushing meter; ser2net lets go of the device meanwhile."""

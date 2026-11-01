@@ -193,6 +193,52 @@ def read_result(function: int, count: int, answer: bytes | None) -> dict[str, An
     return {"ok": True, "values": values, "hex": data.hex(" ").upper()}
 
 
+# identifying a device the scan found: its device identification (FC43/14, basic objects) and
+# the SunSpec marker that inverters and meters keep at one of these addresses
+DEVICE_ID_REQUEST = b"\x2b\x0e\x01\x00"
+DEVICE_ID_OBJECTS = {0: "vendor", 1: "product", 2: "revision"}
+SUNSPEC_BASES = (40000, 0, 50000)
+SUNSPEC_MARK = b"SunS"
+SUNSPEC_COMMON = 50  # registers after the marker: ID, L, Mn, Md, Opt, Vr (not the serial)
+
+
+def _id_text(data: bytes) -> str:
+    return data.replace(b"\x00", b" ").decode("latin-1").strip()
+
+
+def device_id(answer: bytes | None) -> dict[str, str]:
+    """Vendor, product code and revision from an answer to DEVICE_ID_REQUEST."""
+    if not answer or len(answer) < 7 or answer[0] != 0x2B or answer[1] != 0x0E:
+        return {}
+    found: dict[str, str] = {}
+    pos = 7
+    for _ in range(answer[6]):
+        if pos + 2 > len(answer):
+            break
+        object_id, size = answer[pos], answer[pos + 1]
+        text = _id_text(answer[pos + 2 : pos + 2 + size])
+        pos += 2 + size
+        if object_id in DEVICE_ID_OBJECTS and text:
+            found[DEVICE_ID_OBJECTS[object_id]] = text
+    return found
+
+
+def is_sunspec(answer: bytes | None) -> bool:
+    """The answer to reading two registers at a SunSpec base: "SunS"."""
+    return answer is not None and answer[:2] == b"\x03\x04" and answer[2:6] == SUNSPEC_MARK
+
+
+def sunspec_common(answer: bytes | None) -> dict[str, str]:
+    """Manufacturer, model and version from the SunSpec common model (ID 1) after the marker."""
+    if not answer or answer[0] != 3 or len(answer) < 2 + 100:
+        return {}
+    data = answer[2:]
+    if int.from_bytes(data[0:2], "big") != 1:
+        return {}
+    fields = {"vendor": data[4:36], "product": data[36:68], "revision": data[84:100]}
+    return {k: text for k, v in fields.items() if (text := _id_text(v))}
+
+
 WRITE_TOOL_FUNCTIONS = (5, 6, 15, 16)
 
 

@@ -57,6 +57,16 @@ async def meter(trace: TraceHub, alias: str, stop: asyncio.Event) -> None:
         await asyncio.sleep(1)
 
 
+SUNSPEC = (
+    b"SunS"
+    + struct.pack(">HH", 1, 65)
+    + b"".join(
+        text.ljust(size * 2, b"\x00")
+        for text, size in ((b"SolarEdge", 16), (b"SE10K", 16), (b"", 8), (b"0004.0019", 8))
+    )
+)
+
+
 async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     """Units 1 and 2; holding register n holds n * 10 (an inverter's power, say)."""
     try:
@@ -65,7 +75,22 @@ async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             pdu = await reader.readexactly(length - 1)
             if unit not in (1, 2):
                 continue  # nobody there
+            if pdu[:2] == b"\x2b\x0e" and unit == 1:  # device identification
+                objects = ((0, b"SolarEdge"), (1, b"SE10K"), (2, b"0004.0019"))
+                body = bytes([0x2B, 0x0E, 1, 1, 0, 0, len(objects)])
+                body += b"".join(bytes([i, len(v)]) + v for i, v in objects)
+                writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+                continue
+            if pdu[0] != 3:
+                body = bytes([pdu[0] | 0x80, 1])  # illegal function
+                writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+                continue
             address, count = struct.unpack(">HH", pdu[1:5])
+            if unit == 1 and 40000 <= address < 40070:  # SunSpec marker and common model
+                regs = SUNSPEC[(address - 40000) * 2 :].ljust(count * 2, b"\x00")[: count * 2]
+                body = bytes([3, count * 2]) + regs
+                writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+                continue
 
             body = bytes([3, count * 2]) + b"".join(
                 struct.pack(">H", (address + i) * 10 % 65536) for i in range(count)

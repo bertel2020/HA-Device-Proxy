@@ -421,3 +421,34 @@ async def test_kickolduser_keeps_the_limit() -> None:
         writer.close()
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
+
+
+def test_device_identification_and_sunspec_are_read() -> None:
+    from device_proxy.modbus import device_id, is_sunspec, sunspec_common
+
+    answer = bytes([0x2B, 0x0E, 1, 1, 0, 0, 3])
+    for object_id, text in ((0, b"SolarEdge"), (1, b"SE10K"), (2, b"0004.0019")):
+        answer += bytes([object_id, len(text)]) + text
+    assert device_id(answer) == {"vendor": "SolarEdge", "product": "SE10K", "revision": "0004.0019"}
+    assert device_id(bytes([0xAB, 1])) == {}  # an exception
+    assert device_id(answer[:12]) == {"vendor": "Sol"}  # cut short: what is there
+
+    assert is_sunspec(b"\x03\x04SunS")
+    assert not is_sunspec(b"\x03\x04\x00\x00\x00\x00") and not is_sunspec(None)
+
+    def padded(text: bytes, regs: int) -> bytes:
+        return text.ljust(regs * 2, b"\x00")
+
+    regs = (
+        struct.pack(">HH", 1, 66)
+        + padded(b"Fronius", 16)
+        + padded(b"Symo 10.0-3-M", 16)
+        + padded(b"", 8)
+        + padded(b"1.2.3", 8)
+    )
+    assert sunspec_common(bytes([3, len(regs)]) + regs) == {
+        "vendor": "Fronius",
+        "product": "Symo 10.0-3-M",
+        "revision": "1.2.3",
+    }
+    assert sunspec_common(bytes([3, len(regs)]) + b"\x00\x02" + regs[2:]) == {}  # not model 1
