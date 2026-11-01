@@ -1,5 +1,7 @@
 # Device Proxy
 
+*[Deutsche Fassung](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/DOCS.de.md)*
+
 The app shares devices with several programs at once:
 
 - **Serial and USB devices** connected to Home Assistant on TCP ports, using
