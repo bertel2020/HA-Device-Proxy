@@ -349,6 +349,17 @@ a stick that keeps dropping out, are summed up. The history is kept 30 days by d
 **Settings → Configuration history** keeps the last 25 configurations with their
 differences; each one can be restored.
 
+## Clients
+
+**Settings → Clients** gives the addresses of your clients names, one line each:
+`192.168.1.20 evcc`. The name shows next to the address in the lists of clients and in the
+events. The ports have no login, so a computer that connects for the first time is reported:
+an event and, unless switched off there, a notification in Home Assistant. It stays under
+**New clients** until you mark it as **Known** or give it a name. Home Assistant, its apps and
+this host always count as known; after the first start (or the update that brought this) the
+app takes the clients of the first ten minutes as known without a word. Diagnostics leave the
+names out.
+
 ## Notifications
 
 Problems appear under Home Assistant's bell: one notification per connection and problem,

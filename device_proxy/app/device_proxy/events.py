@@ -110,6 +110,7 @@ MESSAGES = {
     "capture_stopped": "Recording ended: {file}, {frames} frames",
     "listen_failed": "Port {port} cannot be opened: {error}",
     "client_refused": "Client refused, all places taken: {address}",
+    "client_new": "New client, never seen before: {address}",
     "write_blocked": "Write refused (function {function}) from {address}",
 }
 

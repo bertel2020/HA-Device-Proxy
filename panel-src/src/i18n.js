@@ -6,6 +6,10 @@ const TEXT = {
     appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht", appRunning: "Läuft", problems: "{n} mit Problem",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche",
+    sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
+    newClients: "Neue Clients", newClientAt: "zuerst an {c}, {t}", newClientKnown: "Bekannt", newClientName: "Benennen",
+    clientNames: "Namen", clientNamesHint: "Eine Zeile je Rechner: IP-Adresse, Leerzeichen, Name. Ein Name macht den Rechner bekannt. Home Assistant, die Apps und dieser Rechner gelten immer als bekannt.",
+    notifyNewClients: "Benachrichtigen, wenn sich ein neuer Rechner verbindet",
     connectionsTitle: "Verbindungen", connectionsSub: "Serielle Geräte, Modbus-Geräte und EnOcean-Gateways, geteilt über das Netzwerk.", addConnection: "Verbindung hinzufügen",
     clientsLine: "{n} von {m} Clients", missingHint: "{d} ist nicht angeschlossen. USB-Stick und Kabel prüfen.", lastDataAgo: "Letzte Daten {ago}", noDataYet: "Noch keine Daten", bandOf: "von {n} aktiv", bandProblems: "brauchen Aufmerksamkeit", bandFine: "Alles in Ordnung", bandClients: "Clients verbunden", filterProblems: "Probleme {n}", netLanOneShort: "Heimnetz (1 Netz)", netLanNShort: "Heimnetz ({n} Netze)",
     tileErrors: "Leitungsfehler", tileReach: "Erreichbar aus",
@@ -484,6 +488,10 @@ const TEXT = {
 
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
     navMain: "Sections",
+    sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",
+    newClients: "New clients", newClientAt: "first at {c}, {t}", newClientKnown: "Known", newClientName: "Name it",
+    clientNames: "Names", clientNamesHint: "One line per computer: IP address, a space, the name. A name makes the computer known. Home Assistant, the apps and this host always count as known.",
+    notifyNewClients: "Notify when a new computer connects",
     connectionsTitle: "Connections", connectionsSub: "Serial and Modbus devices and EnOcean gateways, shared over the network.", addConnection: "Add connection",
     clientsLine: "{n} of {m} clients", missingHint: "{d} is not plugged in. Check the USB stick and cable.", lastDataAgo: "Last data {ago}", noDataYet: "No data yet", bandOf: "of {n} active", bandProblems: "need attention", bandFine: "All fine", bandClients: "clients connected", filterProblems: "Problems {n}", netLanOneShort: "Home network (1 network)", netLanNShort: "Home network ({n} networks)",
     tileErrors: "Line errors", tileReach: "Reachable from",
@@ -966,6 +974,7 @@ const EVENTS = {
     modbus_loaded: "{state}: Modbus {link} {target} · Port {port} · bis {max_clients} Clients",
     modbus_down: "Gerät nicht erreichbar: {target} ({error})", modbus_back: "Gerät wieder erreichbar: {target}",
     listen_failed: "Port {port} kann nicht geöffnet werden: {error}", client_refused: "Client abgewiesen, alle Plätze belegt: {address}",
+    client_new: "Neuer Client, noch nie gesehen: {address}",
     write_blocked: "Schreiben abgewiesen (Funktion {function}) von {address}",
 
     keep_open_failed: "Gerät konnte nicht offen gehalten werden: {error}",
@@ -1039,6 +1048,7 @@ const NOTES = {
 
 // The app checks fields in English; these are its messages in German.
 const FIELD_ERRORS_DE = [
+  [/^line (\d+): an IP address first, then the name$/, "Zeile $1: zuerst eine IP-Adresse, dann der Name"], [/^line (\d+): a name after the address$/, "Zeile $1: ein Name nach der Adresse"],
   [/^between (\d+) and (\d+)$/, "zwischen $1 und $2"], [/^(\d+) to (\d+) seconds$/, "$1 bis $2 Sekunden"],
   [/^(\d+) to (\d+) minutes$/, "$1 bis $2 Minuten"], [/^(\d+) to (\d+) days$/, "$1 bis $2 Tage"],
   [/^(\d+) to (\d+) characters$/, "$1 bis $2 Zeichen"], [/^(\d+) to (\d+) files$/, "$1 bis $2 Dateien"],
@@ -1187,7 +1197,25 @@ export function eventText(event) {
   return plain(rawEventText(event));
 }
 
+// the names given to client addresses (Settings → Clients): "192.168.1.20 evcc" per line
+let clientNames = new Map();
+
+export function setClientNames(text = "") {
+  clientNames = new Map(text.split("\n").map((l) => l.split("#")[0].trim()).filter(Boolean)
+    .map((l) => { const i = l.indexOf(" "); return [l.slice(0, i), l.slice(i + 1).trim()]; }).filter(([h, n]) => h && n));
+}
+
+/** The name of a client "192.168.1.20:50114" or "[fe80::1]:50114", "" when it has none. */
+export function clientName(address = "") {
+  const host = address.startsWith("[") ? address.slice(1).split("]")[0] : (address.match(/:/g) || []).length === 1 ? address.split(":")[0] : address;
+  return clientNames.get(host) || "";
+}
+
 function rawEventText(event) {
+  return named(templatedText(event), event.params?.address);
+}
+
+function templatedText(event) {
   const template = EVENTS[lang][event.kind];
   if (!template) return event.message;
   const params = { ...event.params };
@@ -1199,6 +1227,11 @@ function rawEventText(event) {
   if (Array.isArray(params.errors)) params.errors = params.errors.map((n) => (n?.code ? noteText(n) : String(n))).join("; ");
   if (params.error?.code) params.error = noteText(params.error);
   return fill(template, params);
+}
+
+function named(text, address) {
+  const name = clientName(address);
+  return name && address ? text.replace(address, `${address} (${name})`) : text;
 }
 
 export function noteText(note) {

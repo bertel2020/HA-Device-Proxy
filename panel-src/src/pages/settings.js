@@ -145,6 +145,13 @@ export class SettingsPage extends Page {
     } catch { /* stays empty */ }
   }
 
+  async _knownClient(host) {
+    try {
+      await api("api/clients/known", { method: "POST", body: { host } });
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   /** The Save button of a card: active once one of the card's settings differs from the saved one. */
   _saveRow(keys) {
     const dirty = keys.some((k) => this.draft[k] !== this.state.settings[k]);
@@ -346,7 +353,7 @@ export class SettingsPage extends Page {
     return html`<div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
-        ${[["net", "sNetNav"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
+        ${[["net", "sNetNav"], ["clients", "sClients"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" aria-current=${(this.active || "net") === id ? "true" : "false"} @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
@@ -379,6 +386,25 @@ export class SettingsPage extends Page {
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
           ${deviating ? html`<div class="hint" style="font-size:13px">${deviating === 1 ? t("netDeviateOne") : t("netDeviateMany", { n: deviating })} <a href="#/connections">${t("netDeviateLink")}</a></div>` : ""}
           <div class="hint">${t("netChangeHint")}</div>
+        </section>
+
+        <section id="clients" class="card" aria-labelledby="t-clients">
+          <div><h2 id="t-clients">${t("sClients")}</h2><p class="hint" style="margin-top:4px">${t("sClientsSub")}</p></div>
+          ${(s.new_clients || []).length ? html`<div class="grp" style="gap:8px">
+            <h3>${t("newClients")}</h3>
+            ${s.new_clients.map((n) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${n.address}</span>
+                <span class="hint">${t("newClientAt", { c: n.connection, t: fmtTime(n.first) })}</span></div>
+              <div style="display:flex;gap:8px;margin-left:auto">
+                <button class="btn btn-g" @click=${() => { this.draft = { ...d, client_names: `${(d.client_names || "").trimEnd()}${d.client_names ? "\n" : ""}${n.host} ` }; this.renderRoot.getElementById("client-names")?.focus(); }}>${t("newClientName")}</button>
+                <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button></div>
+            </div>`)}</div>` : ""}
+          <label class="fld"><span class="lbl">${t("clientNames")}</span>
+            <textarea id="client-names" class="inp mono" rows="4" placeholder="192.168.1.20 evcc&#10;192.168.1.35 Laptop" .value=${d.client_names || ""}
+              @input=${(e) => { this.draft = { ...this.draft, client_names: e.target.value }; }}></textarea>
+            <span class="hint">${t("clientNamesHint")}</span></label>
+          <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; }}><span>${t("notifyNewClients")}</span></label>
+          ${this._saveRow(["client_names", "notify_new_clients"])}
         </section>
 
         <section id="backup" class="card" aria-labelledby="t-backup">

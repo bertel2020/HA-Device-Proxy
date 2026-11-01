@@ -171,6 +171,7 @@ class WebServer:
         self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
+        self._route("POST", r"api/clients/known", self.known_client)
         self._route("GET", r"api/diagnostics", self.diagnostics)
 
     def _route(self, method: str, pattern: str, handler: Handler) -> None:
@@ -647,6 +648,13 @@ class WebServer:
         if job is None:
             raise HttpError(404, "no such job")
         return ok(job)
+
+    async def known_client(self, request: Request) -> Response:
+        data = request.json()
+        host = data.get("host") if isinstance(data, dict) else None
+        if not isinstance(host, str) or not self.c.acknowledge_client(host):
+            raise HttpError(404, "no such new client")
+        return ok()
 
     async def notify_services(self, request: Request) -> Response:
         return ok(await asyncio.to_thread(notify_services))

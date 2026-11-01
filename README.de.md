@@ -84,6 +84,7 @@ Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Dokumentati
 - Die Ports sind roher TCP ohne Anmeldung. Standardmäßig nehmen sie Clients von Home Assistant, seinen Apps und aus dem eigenen Netz des Hosts („Mein Netz“) an; die Z-Wave-Vorlage beschränkt sie auf Home Assistant und seine Apps. Unter **Einstellungen → Netzwerk** lässt sich das auf Home Assistant (und Apps) einschränken, und weitere Heimnetze lassen sich festlegen.
 - Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. Wer sich verbinden darf, folgt bei allen Arten der Netzwerk-Einstellung, solange eine Verbindung keine eigene Vorgabe hat.
 - Die Admin-Schnittstelle von ser2net ist nur innerhalb der App erreichbar; die Weboberfläche nur über Home Assistant (Ingress).
+- Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet (**Einstellungen → Clients**, dort bekommen Clients auch Namen).
 - Die Diagnose lässt IP-Adressen, Hostnamen, die MQTT-Anmeldung und Personennamen weg.
 
 ## Änderungen
