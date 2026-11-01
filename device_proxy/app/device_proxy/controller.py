@@ -34,7 +34,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, esp, health, model
+from . import custom, esp, health, model, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, parse_names
@@ -1175,6 +1175,16 @@ class Controller:
         if not isinstance(proxy, EnOceanProxy):
             raise ValueError("the connection is not active")
         return proxy
+
+    def testcase(self, connection_id: str, anonymised: bool) -> dict[str, Any]:
+        """The connection's last frames as a test case (testcase.py)."""
+        c = self.config.connection(connection_id)
+        if c is None:
+            raise ValueError("no such connection")
+        proxy = self.proxies.get(connection_id)
+        base_id = proxy.base_id or proxy.known_base_id if isinstance(proxy, EnOceanProxy) else None
+        chunks = list(self.trace.live.get(c.alias, ()))
+        return testcase.build(c, chunks, base_id=base_id, anonymised=anonymised)
 
     def enocean_senders(self, connection_id: str) -> list[dict[str, Any]]:
         return self._enocean(connection_id).senders_list()

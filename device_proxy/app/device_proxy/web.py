@@ -165,6 +165,7 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/senders", self.enocean_senders)
+        self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/testcase", self.testcase)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/capture", self.capture_start)
@@ -703,6 +704,21 @@ class WebServer:
             data,
             "application/zip",
             {"Content-Disposition": f'attachment; filename="device-proxy-diagnostics-{stamp}.zip"'},
+        )
+
+    async def testcase(self, request: Request) -> Response:
+        """The last frames as a file for an issue (tools/dev_server.py plays it back)."""
+        try:
+            case = self.c.testcase(request.params["id"], request.query.get("keep_ids") != "1")
+        except ValueError as err:
+            raise HttpError(404, str(err)) from None
+        stamp = time.strftime("%Y%m%d-%H%M")
+        kind = case["connection"]["kind"]
+        return Response(
+            200,
+            json.dumps(case, indent=1).encode(),
+            "application/json; charset=utf-8",
+            {"Content-Disposition": f'attachment; filename="testcase-{kind}-{stamp}.json"'},
         )
 
     async def enocean_senders(self, request: Request) -> Response:

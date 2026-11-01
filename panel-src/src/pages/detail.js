@@ -1,5 +1,5 @@
 import { css, html, svg } from "lit";
-import { api, saveConnection, toConnection, useMovedDevice } from "../api.js";
+import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
@@ -458,6 +458,7 @@ export class DetailPage extends Page {
         <div style="display:flex;gap:4px">
           ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
+          <a class="btn btn-g" href=${url(`api/tools/${this.connectionId}/testcase`)} download title=${t(enocean ? "testcaseTipEo" : modbus ? "testcaseTipMb" : "testcaseTipSerial")}>${t("testcase")}</a>
           <button class="btn btn-g" @click=${() => this._setOpen(false)}>${t("liveHide")}</button>
         </div></div>
       ${enocean ? html`<div class="row" style="justify-content:flex-start;gap:8px">

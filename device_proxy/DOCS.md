@@ -525,6 +525,15 @@ adapters without a serial number can only be told apart when they are passed thr
 USB port, not by vendor and product ID. If a stick keeps disconnecting, try switching the
 USB3 option of the passed-through device.
 
+## Test cases for issues
+
+**As a test case** in a connection's live data downloads its last few hundred frames as a
+file to attach to an issue, so an odd inverter or gateway can be looked at without the
+hardware. Client addresses are left out; EnOcean sender IDs and the base ID are replaced by
+made-up ones (the checksums computed again). Modbus registers stay as they are, and a smart
+meter's telegrams contain the meter's number: look before you share. The development server
+plays a test case back as a device: `python tools/dev_server.py 8399 --replay file.json`.
+
 ## Diagnostics
 
 **Settings → Help and info → Download diagnostics** gets a ZIP with versions, configuration,
