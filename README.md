@@ -77,7 +77,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 3. Open **Device Proxy** in the sidebar and add a connection: pick the device and a template, save. **Details → Addresses** shows the address to enter in the integration, for example `tcp://127.0.0.1:3333` or a Modbus host and port.
 4. Coming from ser2net or ha-modbusproxy? **Settings → Back up and transfer → Import** takes over the existing configuration with a preview.
 
-Every page, every setting and help when something does not work: **[documentation](device_proxy/DOCS.md)** (also shown in Home Assistant on the app's Documentation tab).
+Every page, every setting and help when something does not work: **[documentation](device_proxy/DOCS.md)** (also shown in Home Assistant on the app's Documentation tab); in German: **[Anleitung](device_proxy/DOCS.de.md)**.
 
 ## Safety in short
 
