@@ -6,6 +6,8 @@ const TEXT = {
     appTitle: "Device Proxy", running: "ser2net läuft", notRunning: "ser2net läuft nicht", appRunning: "Läuft", problems: "{n} mit Problem",
     navConnections: "Verbindungen", navEvents: "Ereignisse", navTrace: "Mitschnitt", navSettings: "Einstellungen",
     navMain: "Bereiche",
+    movedOne: "{d} fehlt, aber der Adapter steckt offenbar an einer anderen Stelle (gleicher Typ, frei):", movedMany: "{d} fehlt. Mehrere freie Adapter dieses Typs stecken: welcher ist es?",
+    movedUse: "Übernehmen", movedAsk: "„{n}“ auf {d} umstellen? Die Verbindung startet danach mit diesem Adapter.",
     disconnectClients: "Clients trennen", disconnectAsk: "Alle Clients von „{n}“ trennen? Sie können sich gleich wieder verbinden; die meisten tun das von selbst.", disconnected: "{n} Client(s) getrennt",
     by_ui: "von Hand", by_mqtt: "über Home Assistant",
     sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
@@ -490,6 +492,8 @@ const TEXT = {
 
     navConnections: "Connections", navEvents: "Events", navTrace: "Trace", navSettings: "Settings",
     navMain: "Sections",
+    movedOne: "{d} is missing, but the adapter seems to be plugged in elsewhere (same kind, free):", movedMany: "{d} is missing. Several free adapters of this kind are plugged in: which one is it?",
+    movedUse: "Use this one", movedAsk: "Switch “{n}” to {d}? The connection then starts with this adapter.",
     disconnectClients: "Disconnect clients", disconnectAsk: "Disconnect all clients of “{n}”? They can connect again right away; most do so by themselves.", disconnected: "{n} client(s) disconnected",
     by_ui: "by hand", by_mqtt: "from Home Assistant",
     sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",

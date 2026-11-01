@@ -48,6 +48,12 @@ serial adapter with its stable name (`/dev/serial/by-id/…`), vendor, product a
 number. Identical adapters without a serial number (many CH340) are told apart by their USB
 port (`/dev/serial/by-path/…`); the app warns about them.
 
+**An adapter on another port**: the app remembers which adapter each connection had (vendor,
+product and serial number). When the device is missing and a free adapter of the same kind is
+plugged in (on another USB port, in the VM under another number), the connection's page and
+card say so, with a button to take it over; with several such adapters you pick the right
+one. An adapter with a serial number is only offered when the serial number matches.
+
 **Advanced** holds ser2net's options, all optional: flow control (RTS/CTS, XON/XOFF), modem
 lines (`local`), DTR/RTS on open, RS485, timeout, retry time, allowed clients (`remaddr`),
 banner, open and close strings, `nodelay`, a bind address, FTDI latency and further ser2net
@@ -490,7 +496,7 @@ attach it to a public issue.
 
 | What you see | What to check |
 |---|---|
-| Device missing | Is the adapter passed through to the VM? Does it show in the device list? |
+| Device missing | Is the adapter passed through to the VM? Does it show in the device list? Plugged into another port: the page offers to take it over. |
 | Waiting for ser2net | The app log: ser2net reports why it does not start (e.g. a port in use). |
 | A client is refused | Network setting or `remaddr`: is the client's address allowed? |
 | Data looks like noise | Baud rate or format: use **Detect baud rate** or the template. |

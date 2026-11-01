@@ -1,8 +1,8 @@
 import { css, html } from "lit";
-import { api, url } from "../api.js";
+import { api, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { clientName, plain, t } from "../i18n.js";
-import { confirmDialog, connectionState, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
+import { confirmDialog, connectionState, movedNote, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -95,6 +95,15 @@ export class ConnectionsPage extends Page {
     return html`<span class="last ${quiet ? "warn" : ""}"><span class="dot"></span>${c.last_data ? t("lastDataAgo", { ago: fmtAgo(c.last_data) }) : t("noDataYet")}</span>`;
   }
 
+  async _useMoved(c, d) {
+    if (!(await confirmDialog(this, t("movedAsk", { n: c.name, d: d.stable }), t("movedUse")))) return;
+    try {
+      await useMovedDevice(c, d);
+      this.toast(t("saved"));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   _card(c, running, own) {
     if (c.kind !== "serial") own = false; // the app's own proxies work with an own ser2net.yaml too
     const [stateKey, stateClass] = connectionState(c, running);
@@ -149,7 +158,7 @@ export class ConnectionsPage extends Page {
         ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
         ${c.clients.length ? "" : off ? html`<div class="why">${t("disabledText")}</div>`
-          : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>`
+          : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
           : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       </div>
       <div class="foot">

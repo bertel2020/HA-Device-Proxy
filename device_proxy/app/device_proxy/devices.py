@@ -109,6 +109,33 @@ def scan(dev_root: Path = DEV, sys_root: Path = SYS) -> list[Device]:
     return sorted(serial_ports or found.values(), key=lambda d: d.tty)
 
 
+def fingerprint(device: Device) -> dict[str, str] | None:
+    """What tells an adapter apart from others wherever it is plugged in (None: not USB)."""
+    if not device.vendor_id:
+        return None
+    return {
+        "vendor_id": device.vendor_id,
+        "product_id": device.product_id,
+        "serial": device.serial,
+        "product": device.product,
+    }
+
+
+def moved(print_: dict[str, str], devices: list[Device], used: set[str]) -> list[Device]:
+    """The free adapters a missing device may be now (plugged into another port, or a new
+    tty number): the same kind, and with a serial number the same serial number. used: the
+    paths the connections name, and what they resolve to."""
+    same = [
+        d
+        for d in devices
+        if not {d.tty, *d.by_id, *d.by_path} & used
+        and (d.vendor_id, d.product_id) == (print_["vendor_id"], print_["product_id"])
+    ]
+    if print_.get("serial"):
+        return [d for d in same if d.serial == print_["serial"]]
+    return same
+
+
 def device_for(path: str, devices: list[Device]) -> Device | None:
     target = os.path.realpath(path)
     return next((d for d in devices if d.tty == target), None)

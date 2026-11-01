@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import json
 import logging
 import os
 import re
@@ -38,7 +39,7 @@ from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, parse_names
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
-from .devices import Device, device_for, line_counters, scan, set_low_latency
+from .devices import Device, device_for, fingerprint, line_counters, moved, scan, set_low_latency
 from .enocean import EnOceanProxy
 from .enocean_ha import EnOceanHa
 from .enocean_tools import Captures, parse_frame, sendable
@@ -224,6 +225,7 @@ REASONS = {  # why a gateway went on through its fallback, or why the fallback i
         "silent": "the fallback does not answer",
     },
 }
+PRINTS_FILE = Path("/data/device_prints.json")  # the adapter of each connection, see moved_to
 IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
 
 
@@ -264,9 +266,15 @@ class Controller:
         import_dir: Path = IMPORT_DIR,
         trace: TraceHub | None = None,
         known_clients: KnownClients | None = None,
+        prints_file: Path = PRINTS_FILE,
     ) -> None:
         self.store = store
         self.known_clients = known_clients or KnownClients()
+        self.prints_file = prints_file
+        try:  # the adapter each connection had last, to find it again on another port
+            self.prints: dict[str, dict[str, str]] = json.loads(prints_file.read_text())
+        except (OSError, ValueError):
+            self.prints = {}
         self.events = events
         self.config_file = config_file
         self.custom_file = custom_file
@@ -759,6 +767,7 @@ class Controller:
     # devices
 
     def check_devices(self) -> None:
+        prints = dict(self.prints)
         for c in self.with_device:
             if not c.enabled:
                 self.present.pop(c.id, None)
@@ -766,6 +775,9 @@ class Controller:
             present = os.path.exists(c.device)
             before = self.present.get(c.id)
             self.present[c.id] = present
+            device = device_for(c.device, self.devices) if present else None
+            if device is not None and (print_ := fingerprint(device)):
+                prints[c.id] = print_
             if present == before:
                 continue
             if present:
@@ -782,6 +794,26 @@ class Controller:
                 self.events.emit(
                     "warning", "device_missing", connection=c.id, name=c.name, device=c.device
                 )
+        self._save_prints(prints)
+
+    def _save_prints(self, prints: dict[str, dict[str, str]]) -> None:
+        prints = {k: v for k, v in prints.items() if self.config.connection(k)}
+        if prints == self.prints:
+            return
+        self.prints = prints
+        try:
+            self.prints_file.write_text(json.dumps(prints), encoding="utf-8")
+        except OSError as err:
+            _LOGGER.debug("Adapters not saved: %s", err)
+
+    def moved_to(self, c: Connection) -> list[dict[str, object]]:
+        """A missing device's adapter plugged in elsewhere: the free adapters it may be."""
+        print_ = self.prints.get(c.id)
+        if not c.uses_device or self.present.get(c.id) is not False or not print_:
+            return []
+        paths = [o.device for o in self.config.connections if o.uses_device]
+        used = {*paths, *(os.path.realpath(p) for p in paths)}
+        return [d.to_dict() for d in moved(print_, self.devices, used)]
 
     async def _device_tick(self) -> None:
         self.devices = await asyncio.to_thread(scan)
@@ -1434,6 +1466,7 @@ class Controller:
                     "rate_to_device": rate[4] if rate else 0.0,
                     "last_data": flow.last_rx if flow else None,
                     "line_errors": self.line_errors.get(c.id),
+                    "moved_to": self.moved_to(c),
                     "latency": self.latency.get(c.id),
                     "addresses": addresses(c, settings, self.lan_ip),
                 }
@@ -1487,6 +1520,7 @@ class Controller:
             "rate_to_device": rate[4] if rate else 0.0,
             "last_data": flow.last_rx if flow else None,
             "line_errors": None,
+            "moved_to": self.moved_to(c),
             "latency": self.latency.get(c.id),
             "addresses": addresses(c, self.config.settings, self.lan_ip),
             c.kind: state,

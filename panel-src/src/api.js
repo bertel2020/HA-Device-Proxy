@@ -33,9 +33,12 @@ export async function api(path, { method = "GET", body } = {}) {
 
 // What the status adds to a connection; dropped before the connection is saved again.
 const STATUS_KEYS = ["alias", "present", "tty", "usb", "running", "pending", "clients", "kept_open", "bytes_from_device",
-  "bytes_to_device", "rate_from_device", "rate_to_device", "last_data", "line_errors", "latency", "addresses", "modbus", "enocean"];
+  "bytes_to_device", "rate_from_device", "rate_to_device", "last_data", "line_errors", "moved_to", "latency", "addresses", "modbus", "enocean"];
 
 export const toConnection = (status) => Object.fromEntries(Object.entries(status).filter(([k]) => !STATUS_KEYS.includes(k)));
+
+/** A missing device's adapter found on another port: the connection takes its name. */
+export const useMovedDevice = (status, device) => saveConnection({ ...toConnection(status), device: device.stable });
 
 export const saveConnection = (connection) =>
   connection.id

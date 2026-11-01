@@ -1,10 +1,10 @@
 import { css, html, svg } from "lit";
-import { api, saveConnection, toConnection } from "../api.js";
+import { api, saveConnection, toConnection, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
-import { confirmDialog, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -188,6 +188,15 @@ export class DetailPage extends Page {
       await saveConnection({ ...toConnection(c), baud: r.baud, data_bits: r.data_bits, parity: r.parity, stop_bits: r.stop_bits });
       this.toast(t("saved"));
       this.job = null;
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _useMoved(c, d) {
+    if (!(await confirmDialog(this, t("movedAsk", { n: c.name, d: d.stable }), t("movedUse")))) return;
+    try {
+      await useMovedDevice(c, d);
+      this.toast(t("saved"));
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -619,6 +628,6 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
         </div>
       </div>
-      <div class="stack">${body}</div>`;
+      <div class="stack">${movedNote(c, (d) => this._useMoved(c, d))}${body}</div>`;
   }
 }
