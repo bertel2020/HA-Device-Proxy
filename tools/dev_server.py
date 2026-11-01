@@ -11,6 +11,7 @@ ser2net shows as not running. Data lives in a temporary folder that is removed a
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import struct
 import sys
@@ -22,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "a
 
 from device_proxy import controller as controller_module  # noqa: E402
 from device_proxy import enocean, process  # noqa: E402
+from device_proxy.clients import KnownClients  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
 from device_proxy.events import EventLog  # noqa: E402
@@ -194,7 +196,9 @@ async def main(port: int, offset: int = 0) -> None:
         events = EventLog(db)
         store = Store(db, data / "config.json")
         config = AppConfig(
-            settings=Settings(enocean_status_port=19199 + offset),
+            settings=Settings(
+                enocean_status_port=19199 + offset, client_names="127.0.0.1 Home Assistant"
+            ),
             connections=(
                 Connection(
                     "eHZ Stromzähler",
@@ -290,6 +294,21 @@ async def main(port: int, offset: int = 0) -> None:
         )
         store.save(AppConfig(), config, "test")
         trace = TraceHub(record_dir=data / "trace", shm_dir=data / "shm")
+        # a computer seen for the first time, for the card Clients in the settings
+        (data / "known_clients.json").write_text(
+            json.dumps(
+                {
+                    "known": {},
+                    "new": {
+                        "192.168.1.77": {
+                            "first": time.time() - 3600,
+                            "connection": "SolarEdge Wechselrichter",
+                            "address": "192.168.1.77:51234",
+                        }
+                    },
+                }
+            )
+        )
         controller = Controller(
             store,
             events,
@@ -297,6 +316,7 @@ async def main(port: int, offset: int = 0) -> None:
             custom_file=data / "own.yaml",
             import_dir=data / "import",
             trace=trace,
+            known_clients=KnownClients(data / "known_clients.json"),
         )
         web = WebServer(controller, port=port, hosts=("127.0.0.1",), peers=None, version="dev")
         await web.start()

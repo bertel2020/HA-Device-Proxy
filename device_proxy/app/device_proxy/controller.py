@@ -35,6 +35,7 @@ from typing import Any
 from . import custom, esp, health, model
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
+from .clients import KnownClients, parse_names
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
 from .devices import Device, device_for, line_counters, scan, set_low_latency
@@ -100,6 +101,11 @@ NOTES = {
             "Device Proxy: {name} – kein Client",
             "Seit {since} ist kein Client verbunden.",
         ),
+        "new_client": (
+            "Device Proxy: neuer Client {host}",
+            "{address} hat sich am {since} mit {name} verbunden, zum ersten Mal. Bekannt? Dann "
+            "unter Einstellungen → Clients als bekannt markieren oder ihm einen Namen geben.",
+        ),
         "silence": (
             "Device Proxy: {name} – keine Daten",
             "Seit {since} kommen keine Daten vom Gerät.",
@@ -149,6 +155,11 @@ NOTES = {
             "{device} is not plugged in (since {since}).",
         ),
         "no_client": ("Device Proxy: {name} – no client", "No client connected since {since}."),
+        "new_client": (
+            "Device Proxy: new client {host}",
+            "{address} connected to {name} on {since}, for the first time. Known? Then mark it as "
+            "known under Settings → Clients or give it a name.",
+        ),
         "silence": ("Device Proxy: {name} – no data", "No data from the device since {since}."),
         "stuck": (
             "Device Proxy: {name} – client does not read",
@@ -252,8 +263,10 @@ class Controller:
         custom_file: Path = custom.PATH,
         import_dir: Path = IMPORT_DIR,
         trace: TraceHub | None = None,
+        known_clients: KnownClients | None = None,
     ) -> None:
         self.store = store
+        self.known_clients = known_clients or KnownClients()
         self.events = events
         self.config_file = config_file
         self.custom_file = custom_file
@@ -423,6 +436,7 @@ class Controller:
                 new = new(old)
             items = self.store.save(old, new, source)
             self.config = new
+            self.known_clients.named(parse_names(new.settings.client_names))
             self.write_config()
             touched = changed(before, self._written)
             self.apply_log_level()
@@ -580,6 +594,18 @@ class Controller:
             self.client_since.pop((alias, address), None)
         event = "client_connected" if kind == "new connection" else "client_disconnected"
         self.events.emit("info", event, connection=connection_id, name=name, address=address)
+        if event == "client_connected":
+            self._client_seen(connection_id, name, address)
+
+    def _client_seen(self, connection_id: str | None, name: str, address: str) -> None:
+        names = parse_names(self.config.settings.client_names)
+        if self.known_clients.seen(address, name, names, self.lan_ip):
+            self.events.emit(
+                "warning", "client_new", connection=connection_id, name=name, address=address
+            )
+
+    def acknowledge_client(self, host: str) -> bool:
+        return self.known_clients.acknowledge(host)
 
     def _ser2net_ended(self, code: int | None, delay: float) -> None:
         self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
@@ -699,6 +725,8 @@ class Controller:
             c = self.config.connection(connection_id)
             name = c.name if c else connection_id
             self.events.emit(level, kind, connection=connection_id, name=name, **params)
+            if kind == "client_connected":
+                self._client_seen(connection_id, name, str(params.get("address", "")))
 
         return emit
 
@@ -890,6 +918,17 @@ class Controller:
 
         def clock(ts: float) -> str:
             return time.strftime("%d.%m. %H:%M", time.localtime(ts))
+
+        if settings.notify_new_clients:
+            for host, entry in self.known_clients.new.items():
+                add(
+                    f"device_proxy_client_{re.sub(r'[^0-9a-f]', '_', host.lower())}",
+                    "new_client",
+                    host=host,
+                    address=entry.get("address", host),
+                    name=entry.get("connection", "?"),
+                    since=clock(float(str(entry.get("first", now)))),
+                )
 
         for c in self.config.proxied:
             proxy = self.proxies.get(c.id)
@@ -1379,6 +1418,7 @@ class Controller:
             "settings": hidden(settings.to_dict(), {"mqtt_password"}, PASSWORD_KEPT),
             "lan_ip": self.lan_ip,
             "lan_net": self.lan_net,
+            "new_clients": [{"host": h, **entry} for h, entry in self.known_clients.new.items()],
             "connections": connections,
             "custom_ports": [
                 {"alias": p.alias, "clients": [cl.address for cl in p.clients]}

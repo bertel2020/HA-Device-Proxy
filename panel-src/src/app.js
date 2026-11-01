@@ -2,7 +2,7 @@
 // The state is polled every 2 s while the page is visible; events since the last seen one come with it.
 import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
-import { lang, setLang, t } from "./i18n.js";
+import { lang, setClientNames, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { applyTheme } from "./theme.js";
 import { confirmDialog, connectionState, focused, logo, recordRates, trapTab } from "./ui.js";
@@ -127,6 +127,7 @@ export class DeviceProxyApp extends LitElement {
         this._loadHistory();
       }
       this._boot = state.boot;
+      setClientNames(state.settings.client_names);
       this.state = state;
       if (events.length) {
         this._seq = events[events.length - 1].seq;

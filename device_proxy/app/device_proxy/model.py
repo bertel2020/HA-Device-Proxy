@@ -13,6 +13,8 @@ import secrets
 from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
 
+from .clients import parse_names
+
 _LOGGER = logging.getLogger(__name__)
 
 SCHEMA = 1
@@ -469,6 +471,10 @@ class Settings:
     notify_ser2net: bool = True
     notify_language: str = "de"
     no_client_minutes: int = 2
+    # names for client addresses ("192.168.1.20 evcc" per line), and a notification when a
+    # host connects that was never seen before
+    client_names: str = ""
+    notify_new_clients: bool = True
     # entities in Home Assistant over MQTT discovery
     mqtt_enabled: bool = True  # only with a broker in Home Assistant
     mqtt_prefix: str = "homeassistant"
@@ -538,6 +544,10 @@ class Settings:
             e["notify_language"] = "de or en"
         if not 1 <= settings.no_client_minutes <= 1440:
             e["no_client_minutes"] = "1 to 1440 minutes"
+        try:
+            parse_names(settings.client_names)
+        except ValueError as err:
+            e["client_names"] = str(err)
         for key in ("mqtt_prefix", "mqtt_base"):
             if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
                 e[key] = "an MQTT topic without wildcards"
