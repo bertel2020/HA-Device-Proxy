@@ -175,7 +175,10 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
   compared. Each write is an event in the log. The tool stays locked when the connection's
   write access is "Nobody".
 - **Scan the bus**: which unit ids answer (it reads register 0, an exception counts as an
-  answer too). The units found can be taken over into "read registers".
+  answer too). The units found can be taken over into "read registers". Afterwards each unit
+  found is asked who it is: its device identification (function 43) and, for inverters and
+  meters, the SunSpec common model at register 40000, 0 or 50000. Vendor, model and version
+  are shown, with a fitting integration where one is known.
 
 Tool requests are not counted as the clients'. Only "write registers" changes the device.
 

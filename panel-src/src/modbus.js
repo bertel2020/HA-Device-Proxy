@@ -82,3 +82,18 @@ export function sensorYaml({ unit, fc, address, type, swap, scale, count }) {
   lines.push("  scan_interval: 30");
   return lines.join("\n");
 }
+
+// integrations that fit a device the scan identified, by its vendor; any other SunSpec device
+// works with the SunSpec integration
+const INTEGRATIONS = [
+  [/solaredge/i, "SolarEdge Modbus Multi (HACS)"],
+  [/huawei/i, "Huawei Solar (HACS)"],
+];
+
+/** Who a unit is, from the scan's identification: vendor, product, revision, a fitting integration. */
+export function identity(u) {
+  const id = { ...(u.sunspec || {}), ...(u.ident || {}) };
+  if (!id.vendor && !id.product) return null;
+  const hit = INTEGRATIONS.find(([re]) => re.test(id.vendor || ""));
+  return { ...id, sunspec: u.sunspec ? u.sunspec.base : null, integration: hit ? hit[1] : u.sunspec ? "SunSpec (HACS)" : null };
+}

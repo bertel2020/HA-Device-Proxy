@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
-import { TYPES, fmtValue, rows as decodeRows, sensorYaml, swapsFor, width } from "../modbus.js";
+import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, width } from "../modbus.js";
 import { eventText, retriesText, t } from "../i18n.js";
 import { confirmDialog, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -293,11 +293,15 @@ export class DetailPage extends Page {
         ${this._num(this.scanForm, "timeout_ms", t("mbScanTimeout"), "scanForm")}
         <button class="btn btn-s" ?disabled=${!c.enabled || (sc && sc.state === "running")} @click=${this._mbScan}>${t("start")}</button>
       </div>
-      ${sc ? html`${sc.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: sc.done, t: sc.total })}</p>` : ""}
+      ${sc ? html`${sc.state === "running" ? html`<p class="hint" role="status">${sc.phase === "identify" ? t("mbIdentifying") : t("detecting", { d: sc.done, t: sc.total })}</p>` : ""}
         ${sc.state === "failed" ? html`<div class="note bad">${t("error")}: ${sc.error}</div>` : ""}
         ${sc.results.length ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">${sc.results.map((u) => html`<button class="chip ${u.exception === null ? "ok" : "info"}" style="cursor:pointer;border:none"
           title=${u.exception === null ? "" : exText(u.exception)} @click=${() => { this.mbForm = { ...this.mbForm, unit: u.unit }; }}>Unit ${u.unit}</button>`)}</div>`
-          : sc.state === "done" ? html`<p class="hint">${t("mbScanNone")}</p>` : ""}` : ""}
+          : sc.state === "done" ? html`<p class="hint">${t("mbScanNone")}</p>` : ""}
+        ${sc.results.map((u) => [u, identity(u)]).filter(([, id]) => id).map(([u, id]) => html`<div class="well" style="display:flex;flex-direction:column;gap:2px">
+          <div><b style="font-weight:500">Unit ${u.unit} · ${[id.vendor, id.product].filter(Boolean).join(" ")}</b>${id.revision ? html` <span class="hint">${id.revision}</span>` : ""}</div>
+          ${id.sunspec !== null ? html`<span class="hint">${t("mbSunspec", { a: id.sunspec })}</span>` : ""}
+          ${id.integration ? html`<span class="hint">${t("mbIntegration", { i: id.integration })}</span>` : ""}</div>`)}` : ""}
     `, !!r || !!sc);
   }
 
