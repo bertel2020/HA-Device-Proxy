@@ -438,10 +438,12 @@ class WebServer:
         warnings: dict[str, str] = {}
         if "port" not in errors and (problem := self.c.port_problem(connection)):
             warnings["port"] = problem
-        if connection.kind != "serial":  # the app's Modbus proxy, not ser2net
-            return ok({"yaml": "", "errors": errors, "warnings": warnings})
-        text = block(connection, self.c.config.settings.access, trace=False)
-        return ok({"yaml": text, "errors": errors, "warnings": warnings})
+        # what saving does to the running connections (only a valid change gets saved)
+        effects = [] if errors else self.c.effects(others)
+        text = ""
+        if connection.kind == "serial":  # not the app's own proxies
+            text = block(connection, self.c.config.settings.access, trace=False)
+        return ok({"yaml": text, "errors": errors, "warnings": warnings, "effects": effects})
 
     async def settings(self, request: Request) -> Response:
         data = request.json().get("settings")

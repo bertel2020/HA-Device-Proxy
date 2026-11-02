@@ -475,6 +475,46 @@ class Controller:
                 self.events.emit("info", "config_changed", summary=summary(items), changes=items)
             return ApplyResult(items, names, disconnected)
 
+    def effects(self, new: AppConfig) -> list[dict[str, object]]:
+        """What saving new would do to the running connections, decided as apply() decides
+        it but without doing it: the ones set up again or stopped, each with the clients
+        that have to connect again. Connections that only start are left out."""
+        found: list[dict[str, object]] = []
+        if not self.uses_custom and new.settings.source != "custom":  # the own file: its page
+            after = blocks(self._with_exclusive(new))
+            for alias in sorted(changed(self._written, after)):
+                if alias not in self._written:
+                    continue
+                port = self.status.get(alias)
+                clients = [
+                    cl for cl in (port.clients if port else []) if cl.address not in self.internal
+                ]
+                found.append(
+                    {
+                        "name": self._names(alias)[1],
+                        "effect": "restart" if alias in after else "stop",
+                        "clients": len(clients),
+                    }
+                )
+        listen = new.settings.access
+        wanted = {c.id: c for c in new.proxied if c.enabled}
+        for connection_id, proxy in self.proxies.items():
+            c = wanted.get(connection_id)
+            if (
+                c is not None
+                and proxy.key == PROXIED[c.kind].restart_key(c, listen)
+                and bool(self._serves(c, new)) == bool(getattr(proxy, "serves", ""))
+            ):
+                continue
+            found.append(
+                {
+                    "name": proxy.c.name if c is None else c.name,
+                    "effect": "stop" if c is None else "restart",
+                    "clients": len(proxy.clients),
+                }
+            )
+        return found
+
     async def check_custom(self, text: str) -> custom.CustomCheck:
         """The file as it is, and the ports the app's proxies hold already (in a thread: a
         large file must not stop the proxies)."""
@@ -701,9 +741,9 @@ class Controller:
         self._wire_fallbacks()
         return touched
 
-    def _serves(self, c: Connection) -> str:
+    def _serves(self, c: Connection, config: AppConfig | None = None) -> str:
         """The name of the gateway this EnOcean connection is the fallback of, or ""."""
-        main = self.config.fallback_of(c.id) if c.kind == "enocean" else None
+        main = (config or self.config).fallback_of(c.id) if c.kind == "enocean" else None
         return main.name if main is not None else ""
 
     def _wire_fallbacks(self) -> None:
