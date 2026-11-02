@@ -89,6 +89,10 @@ zeigt beim Tippen den entstehenden Teil der `ser2net.yaml`.
 - **Jeder** – keine Grenze. ser2net hat keine Anmeldung: wer den Port erreicht, kann das Gerät
   lesen und steuern.
 
+Ein **Z-Wave-Stick** beginnt mit einer eigenen Vorgabe, weil er ohne Anmeldung Befehle annimmt:
+nur Home Assistant und die Apps (`127.0.0.1, 172.30.32.0/23` unter **Erweitert → Erlaubte
+Clients**). Ist das Feld leer, entscheidet die Netzwerk-Einstellung.
+
 ### Mehrere Clients an einem Gerät
 
 Eine Verbindung kann mehrere Clients zulassen. Jeder Client bekommt alle Daten des Geräts; was
@@ -177,7 +181,12 @@ behalten „Alle Clients“, sodass sich für ihre Clients nichts ändert. Durch
 Lesezugriffe (Funktionen 1–4, 7, 11, 12, 17, 20, 24, das Diagnose-Echo und das Lesen der
 Geräte-Identifikation), und nur mit genau der Länge dieser Anfrage; alles andere –
 Schreibzugriffe, Herstellerfunktionen wie Huaweis 0x41 – bekommt Fehler 0x01 und wird gezählt
-und protokolliert. Lesen bleibt allen erlaubten Clients offen.
+und protokolliert. Lesen bleibt allen erlaubten Clients offen. Eine Verbindung, die ohne dieses
+Feld angelegt wird (über die API, per Skript), beginnt ebenfalls mit „Nur diese“; eine, die
+gespeichert wurde, bevor es das Feld gab, behält „Alle Clients“. Die Seite der Verbindung zeigt,
+wer wirklich schreiben darf: jeder Client, der sich verbinden darf, die eingetragenen, niemand,
+wenn bei „Nur diese“ keiner eingetragen ist, die erlaubten Register und bei Units anderer
+Verbindungen auch deren Regel.
 
 **Erlaubte Register beim Schreiben** (bei Schreibzugriff „Alle Clients“ oder „Nur diese“):
 Adressen und Bereiche, z. B. `40100-40120 47000`. Ein Schreibzugriff, der etwas außerhalb ändert
@@ -238,6 +247,13 @@ Anfrage und Antwort als Hex mit Unit, Funktion, Register und Anzahl (z. B.
   Wechselrichtern und Zählern, das SunSpec-Common-Model an Register 40000, 0 oder 50000.
   Hersteller, Modell und Version werden angezeigt, dazu eine passende Integration, wo eine
   bekannt ist.
+
+- **Zugriff prüfen**: IP-Adresse eines Clients, Unit, Funktion und Register; die Antwort sagt,
+  ob er sich verbinden, lesen und schreiben darf und welche Regel entscheidet – die
+  Bind-Adresse, die erlaubten Clients der Verbindung, die Netzwerk-Einstellung, der
+  Schreibzugriff, die erlaubten Register oder eine Unit, die an eine andere Verbindung geht. Es
+  wird nichts gesendet; ein Client auf diesem Rechner zählt als 127.0.0.1. Geprüft werden die
+  gespeicherten Regeln, dieselben, die der Proxy anwendet.
 
 Anfragen der Werkzeuge zählen nicht als die der Clients. Nur „Register schreiben“ ändert das
 Gerät.
@@ -443,6 +459,15 @@ Historie: Abbrüche und Verfügbarkeit je Verbindung über 30 Tage und eine Zeit
 wiederholende Ereignisse, etwa ein Stick, der immer wieder wegfällt, werden zusammengefasst. Die
 Historie wird standardmäßig 30 Tage aufbewahrt. **Einstellungen → Konfig-Historie** hält die
 letzten 25 Konfigurationen mit ihren Unterschieden; jede lässt sich wiederherstellen.
+
+**Vor dem Speichern** nennt das Formular einer Verbindung die laufenden Verbindungen, die beim
+Speichern neu aufgebaut oder beendet werden, und wie viele Clients sich neu verbinden müssen
+(„nur diese Verbindung“ stimmt nicht immer: ein Ersatz-Gateway oder die Netzwerk-Einstellung
+betreffen andere). Ebenso die Rückfragen vor einer Änderung der Netzwerk-Einstellung oder des
+Heimnetzes, einem Import und dem Wiederherstellen einer Version oder Sicherung. **Nach dem
+Speichern**: arbeitet eine Verbindung nicht mehr, die vorher lief (Gerät nicht erreichbar, Port
+belegt), sagen das die Übersicht und die Seite der Verbindung, mit **Stand davor
+wiederherstellen** – die Konfiguration von vor der Änderung, in einem Schritt.
 
 ## Clients
 

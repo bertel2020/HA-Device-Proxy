@@ -85,6 +85,10 @@ type.
 - **Anyone** – no limit. ser2net has no login: whoever reaches the port can read and control
   the device.
 
+A **Z-Wave stick** starts with a rule of its own, because it takes commands without a login:
+Home Assistant and the apps only (`127.0.0.1, 172.30.32.0/23` under **Advanced → Allowed
+clients**). Empty the field to let the network setting decide.
+
 ### Several clients on one device
 
 A connection can allow several clients. Every client gets all data from the device; what the
@@ -169,7 +173,11 @@ keep "all clients", so nothing changes for their clients. Only known reads pass 
 1–4, 7, 11, 12, 17, 20, 24, the diagnostics echo and reading the device identification), and
 only with the exact length of that request; everything else – writes, vendor functions such
 as Huawei's 0x41 – gets exception 0x01 and is counted and logged. Reading stays open to all
-allowed clients.
+allowed clients. A connection created without this field (over the API, by a script) starts
+with "only these" too; one saved before the field existed keeps "all clients". The
+connection's page shows who may really write: every client that may connect, the listed ones,
+nobody when "only these" lists nobody, the registers it is limited to and, for units of other
+connections, their rule as well.
 
 **Registers that may be written** (with write access "All" or "Listed"): addresses and ranges,
 e.g. `40100-40120 47000`. A write that changes anything outside, or whose addresses cannot be
@@ -225,6 +233,12 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
   found is asked who it is: its device identification (function 43) and, for inverters and
   meters, the SunSpec common model at register 40000, 0 or 50000. Vendor, model and version
   are shown, with a fitting integration where one is known.
+
+- **Check access**: a client's IP address, unit, function and register; the answer says
+  whether it may connect, read and write and which rule decides – the bind address, the
+  connection's allowed clients, the network setting, the write access, the registers, or a
+  unit sent on to another connection. Nothing is sent; a client on this host counts as
+  127.0.0.1. It checks the saved rules, the same the proxy applies.
 
 Tool requests are not counted as the clients'. Only "write registers" changes the device.
 
@@ -419,6 +433,14 @@ drops and availability per connection over 30 days and a timeline. Repeating eve
 a stick that keeps dropping out, are summed up. The history is kept 30 days by default.
 **Settings → Configuration history** keeps the last 25 configurations with their
 differences; each one can be restored.
+
+**Before saving** the connection form names the running connections that saving sets up again
+or stops and how many clients have to connect again ("only this connection" is not always
+so: a fallback or the network setting touch others). The same goes for the questions before a
+change of the network setting or the home networks, an import, and restoring a version or a
+backup. **After saving**: when a connection that worked before stops working (device not
+reachable, port taken), the connections page and the connection's page say so, with **Restore
+the version before** – the configuration as it was before the change, in one step.
 
 ## Clients
 
