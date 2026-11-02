@@ -272,3 +272,12 @@ def test_a_long_text_without_colons_is_read_quickly() -> None:
     started = time.monotonic()
     assert not legacy.looks_legacy("x\n" * 100_000)  # took minutes before
     assert time.monotonic() - started < 1
+
+
+def test_a_control_character_is_a_read_error_not_a_crash() -> None:
+    import pytest
+
+    from device_proxy.importer import ReadError
+
+    with pytest.raises(ReadError):
+        read(V2.replace("bwt:", "bw\x08t:"))

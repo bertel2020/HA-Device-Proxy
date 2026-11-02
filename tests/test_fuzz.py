@@ -3,12 +3,14 @@ device or a bus sends must never raise where the proxies do not expect it. The s
 fixed, so a failure can be repeated."""
 
 import asyncio
+import json
 import random
 import struct
 
 import pytest
 
-from device_proxy import esp, meter
+from device_proxy import custom, esp, meter
+from device_proxy.importer import ReadError, read
 from device_proxy.listen import JUNK_MAX, BusSniffer
 from device_proxy.modbus import (
     ModbusProxy,
@@ -26,7 +28,7 @@ from device_proxy.modbus import (
     write_span,
     written_values,
 )
-from device_proxy.model import Connection
+from device_proxy.model import AppConfig, Connection, ValidationError
 
 ROUNDS = 3000
 FUNCTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 15, 16, 17, 20, 22, 23, 24, 43, 0x83, 0x90, 0xFF]
@@ -291,3 +293,135 @@ async def test_a_modbus_proxy_keeps_serving_while_clients_send_garbage() -> None
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         device.close()
+
+
+# what a user uploads: a ser2net.yaml to import or use as it is, a backup to restore
+
+SER2NET = """%YAML 1.1
+---
+define: &banner1 Hallo
+default:
+  name: local
+  value: true
+connection: &zwave
+  accepter: tcp(nodelay),3333
+  connector: serialdev,/dev/serial/by-id/usb-Zooz-if00,115200n81
+  options:
+    max-connections: 2
+    kickolduser: true
+    banner: "*(banner1) eHZ"
+    remaddr: 192.168.1.20,0;10.0.0.0/8,1234
+connections:
+  bwt:
+    accepter: telnet(rfc2217),tcp,192.168.1.10,3334
+    connector: serialdev,/dev/ttyUSB0,19200e71,local,dtr=off
+"""
+LEGACY_CONF = """BANNER:hello:Hallo \\r\\n
+DEVICE:zwave:/dev/serial/by-id/usb-Zooz-if00
+3333:raw:0:zwave:115200 NONE 1STOPBIT 8DATABITS -LOCAL max-connections=2 kickolduser
+3335:telnet:30:/dev/ttyUSB1:9600 EVEN 7DATABITS remctl \\
+  hello RTSCTS
+127.0.0.1,3336:off:0:/dev/ttyS1:4800
+"""
+MODBUS_PROXY = """devices:
+  - upstreamhost: 192.168.1.10
+    upstreamport: 502
+    listenport: 502
+    timeout: 5
+  - modbus: {url: 'plc1.acme.org:502', timeout: 2}
+    listen: {bind: ':5020'}
+    unit_id_remapping: {1: 0}
+timeout: 10
+"""
+SIGNIFICANT = ":,;&*!%-{}[]'\"\\#|>\n\t =()/.0123456789"
+
+
+def _mutated(rng: random.Random, text: str) -> str:
+    for _ in range(rng.randint(1, 4)):
+        at = rng.randrange(len(text) + 1)
+        kind = rng.randint(0, 5)
+        if kind == 0:  # a piece gone
+            text = text[:at] + text[at + rng.randint(1, 40) :]
+        elif kind == 1:  # a character changed
+            text = text[:at] + rng.choice(SIGNIFICANT) + text[at + 1 :]
+        elif kind == 2:  # a line twice
+            lines = text.split("\n")
+            n = rng.randrange(len(lines))
+            text = "\n".join(lines[: n + 1] + lines[n:])
+        elif kind == 3:  # a number out of range
+            text = (
+                text[:at]
+                + rng.choice(["-1", "0", "99999999999999999999", "1e400", "nan"])
+                + text[at:]
+            )
+        elif kind == 4:  # anything
+            text = (
+                text[:at]
+                + "".join(chr(rng.randint(1, 0x2FFF)) for _ in range(rng.randint(1, 8)))
+                + text[at:]
+            )
+        else:  # cut off
+            text = text[:at]
+    return text
+
+
+@pytest.mark.parametrize("sample", [SER2NET, LEGACY_CONF, MODBUS_PROXY])
+def test_an_uploaded_ser2net_file_is_read_or_refused(sample: str) -> None:
+    rng = random.Random(10)
+    for _ in range(400):
+        text = _mutated(rng, sample)
+        try:
+            read(text)
+        except ReadError:
+            pass  # the page says why
+        custom.check(text)  # the own file: errors in the result, never an exception
+
+
+ODD_VALUES = [None, "", " ", -1, 0, 10**20, 1.5, float("nan"), True, "x" * 2000, [], {}, [1], "nan"]
+
+
+def test_a_broken_backup_is_refused_not_a_crash() -> None:
+    rng = random.Random(11)
+    sample = AppConfig(
+        connections=(
+            Connection("Meter", "/dev/null", 3335, id="0000000a", template="ehz_sml"),
+            Connection.from_dict(
+                {
+                    "name": "PV",
+                    "port": 1502,
+                    "kind": "modbus",
+                    "host": "10.0.0.9",
+                    "id": "0000000b",
+                    "unit_routes": "2=0000000d:1",
+                }
+            ),
+            Connection(
+                "FAM",
+                "/dev/zero",
+                9100,
+                id="0000000c",
+                kind="enocean",
+                link="serial",
+                fallback="0000000e",
+            ),
+            Connection.from_dict(
+                {"name": "WP", "port": 1503, "kind": "modbus", "host": "10.0.0.8", "id": "0000000d"}
+            ),
+            Connection("FAM 2", "/dev/ttyS3", 0, id="0000000e", kind="enocean", link="serial"),
+        )
+    ).to_dict()
+    for _ in range(2000):
+        data = json.loads(json.dumps(sample))
+        for _ in range(rng.randint(1, 3)):
+            items = data.get("connections")
+            parts = [data.get("settings"), *(items if isinstance(items, list) else [])]
+            target = rng.choice([data, *(x for x in parts if isinstance(x, dict))])
+            key = rng.choice(list(target) or ["x"])
+            if rng.random() < 0.2:
+                target.pop(key, None)
+            else:
+                target[key] = rng.choice(ODD_VALUES)
+        try:
+            AppConfig.from_dict(data)
+        except ValidationError:
+            pass
