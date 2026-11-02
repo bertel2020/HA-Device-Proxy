@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, { method = "GET", body } = {}) {
+export async function api(path, { method = "GET", body, timeout } = {}) {
   let response;
   try {
     response = await fetch(url(path), {
@@ -21,6 +21,7 @@ export async function api(path, { method = "GET", body } = {}) {
       credentials: "same-origin",
       headers: body === undefined ? {} : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: timeout ? AbortSignal.timeout(timeout) : undefined,  // an app that hangs counts as gone
     });
   } catch {
     throw new ApiError(0, { error: "network error" });  // the app is not reachable (restarting)

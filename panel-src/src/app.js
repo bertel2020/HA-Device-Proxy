@@ -8,6 +8,7 @@ import { applyTheme } from "./theme.js";
 import { confirmDialog, connectionState, focused, logo, recordRates, trapTab } from "./ui.js";
 
 const POLL_MS = 2000;
+const POLL_TIMEOUT_MS = 10000;
 const EVENTS_KEPT = 1500;
 
 export class DeviceProxyApp extends LitElement {
@@ -85,7 +86,8 @@ export class DeviceProxyApp extends LitElement {
     this._onVisible = () => { if (!document.hidden) { applyTheme(); this.refresh(); } };
     document.addEventListener("visibilitychange", this._onVisible);
     applyTheme();
-    this._timer = setInterval(() => { if (!document.hidden) { applyTheme(); this.refresh(); } }, POLL_MS);
+    // a tick while the last request still runs is left out
+    this._timer = setInterval(() => { if (!document.hidden && !this._polling) { applyTheme(); this.refresh(); } }, POLL_MS);
   }
 
   disconnectedCallback() {
@@ -117,9 +119,19 @@ export class DeviceProxyApp extends LitElement {
     } catch { /* the live events still come */ }
   }
 
+  /** One status request at a time, so an older answer never overwrites a newer one; a refresh
+   *  asked for meanwhile (after a save) follows it. */
   async refresh() {
+    if (this._polling) { this._again = true; return; }
+    this._polling = true;
+    try { await this._poll(); } finally { this._polling = false; }
+    if (this._again) { this._again = false; this.refresh(); }
+  }
+
+  async _poll() {
     try {
-      const [state, events] = await Promise.all([api("api/state"), api(`api/events?after=${this._seq}`)]);
+      const opts = { timeout: POLL_TIMEOUT_MS };
+      const [state, events] = await Promise.all([api("api/state", opts), api(`api/events?after=${this._seq}`, opts)]);
       recordRates(state.connections);
       if (this._boot && state.boot !== this._boot) {  // the app restarted: its numbers start over
         this._seq = 0;
