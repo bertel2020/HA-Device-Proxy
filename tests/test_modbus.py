@@ -640,3 +640,47 @@ def test_check_access_names_the_rule_that_decides() -> None:
     )
     assert check_access(router, lan, "192.168.1.50", 1, write, {"0000000b": heat})["allowed"]
     assert check_access(router, lan, "192.168.1.50", 2, read, {})["why"] == "no_route"
+
+
+async def test_a_host_name_that_does_not_resolve_or_hangs() -> None:
+    """DNS away or slow: the clients get an exception within the time limit, the proxy goes
+    on, and the state says what happened in words."""
+    import socket
+    import time
+    from unittest import mock
+
+    def unknown(*args: object, **kwargs: object) -> list[object]:
+        raise socket.gaierror(socket.EAI_NONAME, "Name or service not known")
+
+    def hanging(*args: object, **kwargs: object) -> list[object]:
+        time.sleep(1.5)
+        raise socket.gaierror(socket.EAI_AGAIN, "Temporary failure in name resolution")
+
+    for lookup in (unknown, hanging):
+        c = Connection(
+            "Inverter",
+            "",
+            0,
+            kind="modbus",
+            host="inverter.home",
+            host_port=502,
+            bind="127.0.0.1",
+            request_timeout_ms=300,
+            retries=0,
+        )
+        proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+        with mock.patch("socket.getaddrinfo", lookup):
+            task = asyncio.create_task(proxy.run())
+            async with asyncio.timeout(3):
+                while proxy._server is None:
+                    await asyncio.sleep(0.02)
+            port = proxy._server.sockets[0].getsockname()[1]
+            started = time.monotonic()
+            async with asyncio.timeout(2):
+                answer = await _read(port, 1, 1, 0)
+            assert answer[0] == 0x83 and answer[1] in (0x0A, 0x0B)
+            assert time.monotonic() - started < 1.0  # the time limit, not the lookup's
+            assert not task.done() and proxy.reachable is False
+            assert "inverter.home" in proxy.stats.last_error, proxy.stats.last_error
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
