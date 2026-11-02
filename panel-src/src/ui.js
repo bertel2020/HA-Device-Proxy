@@ -1,5 +1,6 @@
 // Small helpers shared by the pages: formats, icons, the switch, copying, confirming.
 import { html, nothing, svg } from "lit";
+import { api } from "./api.js";
 import { lang, t } from "./i18n.js";
 
 export const logo = (size = 36) => html`<svg width=${size} height=${size} viewBox="0 0 128 128" aria-hidden="true" style="flex:none">
@@ -59,6 +60,30 @@ export function sparkline(values, { w = 84, h = 26, label = "" } = {}) {
 }
 
 export const fmtRate = (bytesPerSecond) => `${fmtBytes(Math.round(bytesPerSecond || 0))}/s`;
+
+/** Connections that worked before the last change of the configuration and do not now. */
+export function brokenByChange(s) {
+  const change = s.last_change;
+  if (!change || Date.now() / 1000 - change.ts > 86400) return [];
+  return s.connections.filter((c) => change.working.includes(c.id) && connectionState(c, s.ser2net_running)[1] === "bad");
+}
+
+/** The way back after a change that broke a connection: the configuration before it. */
+export function changeNote(page, s, only = "") {
+  const broken = brokenByChange(s).filter((c) => !only || c.id === only);
+  if (!broken.length) return "";
+  const restore = async () => {
+    if (!(await confirmDialog(page, t("restoreConfirm"), t("restore")))) return;
+    try {
+      await api(`api/versions/${s.last_change.version}/restore`, { method: "POST" });
+      page.toast(t("saved"));
+      page.refresh();
+    } catch (err) { page.toast(`${t("error")}: ${err.message}`); }
+  };
+  return html`<div class="note warn" role="status" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between">
+    <span>${t("brokenByChange", { n: broken.map((c) => c.name).join(", "), t: fmtTime(s.last_change.ts, false) })}</span>
+    <button class="btn btn-s" @click=${restore}>${t("restoreBefore")}</button></div>`;
+}
 
 export function fmtTime(ts, withDate = true, seconds = false) {
   if (!ts) return t("never");

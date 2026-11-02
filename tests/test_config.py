@@ -284,3 +284,43 @@ def test_effects_name_what_saving_sets_up_again_and_stops(tmp_path: Path) -> Non
         {"name": "Stick", "effect": "stop", "clients": 0},
         {"name": "Inverter", "effect": "stop", "clients": 2},
     ]
+
+
+async def test_a_change_keeps_the_version_before_and_what_worked(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    meter = Connection("Meter", "/dev/null", 3335, id="0000000a")
+    pv = Connection.from_dict(
+        {"name": "PV", "port": 1502, "kind": "modbus", "host": "10.0.0.9", "id": "0000000b"}
+    )
+    start = AppConfig(connections=(meter, replace(pv, enabled=False)))  # starts no proxy
+    store.save(AppConfig(), start, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = start
+    controller.proxies["0000000b"] = SimpleNamespace(  # type: ignore[assignment]
+        c=pv, listening=True, reachable=True, serves=""
+    )
+    assert controller.working(pv) and not controller.working(meter)  # ser2net is not running
+    controller.proxies["0000000b"].reachable = False  # type: ignore[attr-defined]
+    assert not controller.working(pv)
+    controller.proxies["0000000b"].reachable = None  # type: ignore[attr-defined]
+    before = store.latest_id()
+    controller.working = lambda c: c.id == "0000000b"  # type: ignore[method-assign]
+    controller.proxies.clear()
+    await controller.apply(start.with_connection(replace(meter, baud=19200)), "test")
+    assert controller.last_change is not None
+    assert controller.last_change["version"] == before and controller.last_change["working"] == [
+        "0000000b"
+    ]
+    restored = store.version(int(str(controller.last_change["version"])))
+    assert restored is not None and restored.connection("0000000a") == meter

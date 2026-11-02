@@ -4,7 +4,7 @@ import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
-import { confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { changeNote, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -757,6 +757,6 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           ${toggle(c.enabled, t("switchLabel", { name: c.name }), (v) => this._enable(c, v), s.source === "custom" && c.kind === "serial")}
         </div>
       </div>
-      <div class="stack">${movedNote(c, (d) => this._useMoved(c, d))}${this._exclusiveNote(c)}${body}</div>`;
+      <div class="stack">${changeNote(this, s, c.id)}${movedNote(c, (d) => this._useMoved(c, d))}${this._exclusiveNote(c)}${body}</div>`;
   }
 }
