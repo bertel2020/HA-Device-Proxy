@@ -214,13 +214,23 @@ class EnOceanHa:
             if len(head) > MAX_REQUEST:
                 _LOGGER.warning("EnOcean status: request from %s too long", where)
                 return
-            line = head.split(b"\r\n", 1)[0].decode("latin-1")
+            line, *headers = head.decode("latin-1").split("\r\n")
             # read before refusing: closing with the request unread would reset the connection
             if not peer_allowed(STATUS_PEERS, "all", peer, sock):
-                _LOGGER.warning(
-                    "EnOcean status: %s refused, not in %s (%s)", where, STATUS_PEERS, line
+                reason = (
+                    f"{peer[0]} is not in {STATUS_PEERS} and not an address of this host "
+                    f"({sock[0] if sock else '?'})"
                 )
-                self._reply(writer, "403 Forbidden", b"forbidden", "text/plain")
+                host = next(
+                    (h.split(":", 1)[1].strip() for h in headers if h.lower().startswith("host:")),
+                    "-",
+                )
+                _LOGGER.warning(
+                    "EnOcean status: %s refused, Host %s, %s: %s", where, host, line, reason
+                )
+                self._reply(
+                    writer, "403 Forbidden", f"forbidden: {reason}\n".encode(), "text/plain"
+                )
                 await writer.drain()
                 return
             method, path, *_ = line.split(" ")

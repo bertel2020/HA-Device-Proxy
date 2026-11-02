@@ -20,7 +20,11 @@ _LOGGER = logging.getLogger(__name__)
 
 PATH = Path("/data/known_clients.json")
 LEARN_SECONDS = 600  # quiet learning after a start without the file
-APPS_NETWORK = ipaddress.ip_network("172.30.32.0/23")  # the Supervisor's network: the apps
+# the Supervisor's network, IPv4 and IPv6: the apps
+APPS_NETWORKS = (
+    ipaddress.ip_network("172.30.32.0/23"),
+    ipaddress.ip_network("fd0c:ac1e:2100::/48"),
+)
 
 
 def host_of(address: str) -> str:
@@ -56,7 +60,11 @@ def is_local(host: str, own: str | None = None) -> bool:
         return False
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
         ip = ip.ipv4_mapped
-    return ip.is_loopback or ip in APPS_NETWORK or host == own
+    return (
+        ip.is_loopback
+        or any(ip in n for n in APPS_NETWORKS if n.version == ip.version)
+        or host == own
+    )
 
 
 class KnownClients:

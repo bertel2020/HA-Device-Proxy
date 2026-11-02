@@ -623,12 +623,15 @@ async def test_status_and_discovery_for_the_integration(
 
     monkeypatch.setattr(enocean_ha, "STATUS_PEERS", "192.0.2.0/24")
     r, w = await asyncio.open_connection("127.0.0.1", ha.port)
-    w.write(b"GET /api/status HTTP/1.1\r\n\r\n")
+    monkeypatch.setattr(enocean_ha, "peer_allowed", lambda *args: False)  # not this host either
+    w.write(b"GET /api/status HTTP/1.1\r\nHost: 194d6409-device-proxy:9199\r\n\r\n")
     with caplog.at_level(logging.WARNING, logger="device_proxy.enocean_ha"):
         # not Home Assistant or an app: refused with a reason, not reset, and logged
-        assert (await r.read()).startswith(b"HTTP/1.1 403")
+        head, _, body = (await r.read()).partition(b"\r\n\r\n")
+    assert head.startswith(b"HTTP/1.1 403")
+    assert body.startswith(b"forbidden: 127.0.0.1 is not in 192.0.2.0/24")
     assert "127.0.0.1" in caplog.text and "refused" in caplog.text
-    assert "GET /api/status" in caplog.text
+    assert "Host 194d6409-device-proxy:9199" in caplog.text and "GET /api/status" in caplog.text
 
     controller.config = AppConfig(controller.config.settings, (replace(c, enabled=False),))
     await ha.update()  # no gateway left: discovery withdrawn, status closed

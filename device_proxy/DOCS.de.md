@@ -79,8 +79,8 @@ zeigt beim Tippen den entstehenden Teil der `ser2net.yaml`.
 `remaddr`:
 
 - **Nur Home Assistant** – 127.0.0.1, nur dieser Host.
-- **Home Assistant und Apps** – auch die anderen Apps (z. B. Z-Wave JS UI), 127.0.0.0/8 und
-  172.30.32.0/23, aber nichts aus dem LAN.
+- **Home Assistant und Apps** – auch die anderen Apps (z. B. Z-Wave JS UI), 127.0.0.0/8,
+  172.30.32.0/23 und fd0c:ac1e:2100::/48 (IPv6), aber nichts aus dem LAN.
 - **Heimnetz** (Standard) – Home Assistant, seine Apps und die Netze unter **Erlaubte Netze**.
   „Mein Netz“ (das Netz des Hosts, vom Supervisor gelesen) ist vorgegeben; weitere Netze wie
   `192.168.80.0/24` lassen sich hinzufügen, oder die privaten Bereiche. Eine leere Liste lässt

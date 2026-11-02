@@ -75,8 +75,8 @@ type.
 `remaddr`:
 
 - **Home Assistant only** – 127.0.0.1, this host only.
-- **Home Assistant and apps** – also the other apps (e.g. Z-Wave JS UI), 127.0.0.0/8 and
-  172.30.32.0/23, but nothing from the LAN.
+- **Home Assistant and apps** – also the other apps (e.g. Z-Wave JS UI), 127.0.0.0/8,
+  172.30.32.0/23 and fd0c:ac1e:2100::/48 (IPv6), but nothing from the LAN.
 - **Home network** (default) – Home Assistant, its apps and the networks listed under
   **Allowed networks**. "My network" (the host's network, read from the Supervisor) is
   predefined; add further networks such as `192.168.80.0/24` or use the private ranges. An
