@@ -2,6 +2,8 @@ import asyncio
 import json
 from pathlib import Path
 
+import pytest
+
 from device_proxy.controller import Controller
 from device_proxy.db import Database
 from device_proxy.events import EventLog
@@ -186,4 +188,35 @@ async def test_bodies_of_the_wrong_shape_and_trace_links(tmp_path: Path) -> None
     big = bytes(range(256)) * 1000  # several blocks and a short last one
     (tmp_path / "trace" / "big.log").write_bytes(big)
     assert await request(port, "GET", "api/trace/big.log") == (200, big)
+    await web.stop()
+
+
+async def test_a_request_that_does_not_come_closes_the_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from device_proxy import web as web_module
+
+    monkeypatch.setattr(web_module, "IDLE_SECONDS", 0.2)
+    monkeypatch.setattr(web_module, "BODY_SECONDS", 0.2)
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    for sent in (
+        b"",
+        b"GET /api/sta",
+        b"POST /api/settings HTTP/1.1\r\nContent-Length: 9\r\n\r\n{",
+    ):
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(sent)
+        assert await asyncio.wait_for(reader.read(), 2) == b""  # closed, nothing answered
+        writer.close()
+    assert (await request(port, "GET", "api/state"))[0] == 200  # the others are served
     await web.stop()

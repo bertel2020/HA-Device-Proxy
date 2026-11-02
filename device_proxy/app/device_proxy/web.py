@@ -48,6 +48,10 @@ INGRESS_PEERS = ("172.30.32.2",)  # the Supervisor's ingress proxy
 MAX_HEADER = 16384
 MAX_BODY = 1 << 20  # an imported ser2net.yaml or a backup
 FILE_BLOCK = 1 << 16  # a downloaded file goes out in blocks this large
+# a connection without the next request's head this long is closed (also a half sent one),
+# and so is one whose body does not come in time: neither holds a connection for good
+IDLE_SECONDS = 60
+BODY_SECONDS = 30
 STATIC = {
     "": ("index.html", "text/html; charset=utf-8"),
     "app.js": ("app.js", "text/javascript; charset=utf-8"),
@@ -229,8 +233,8 @@ class WebServer:
 
     async def _read(self, reader: asyncio.StreamReader) -> Request | None:
         try:
-            head = await reader.readuntil(b"\r\n\r\n")
-        except asyncio.IncompleteReadError:
+            head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), IDLE_SECONDS)
+        except (asyncio.IncompleteReadError, TimeoutError):
             return None
         except asyncio.LimitOverrunError:
             raise HttpError(413, "headers too large") from None
@@ -254,7 +258,12 @@ class WebServer:
             raise HttpError(400, "bad Content-Length")
         if length > MAX_BODY:
             raise HttpError(413, "body too large")
-        body = await reader.readexactly(length) if length else b""
+        try:
+            body = (
+                await asyncio.wait_for(reader.readexactly(length), BODY_SECONDS) if length else b""
+            )
+        except TimeoutError:
+            return None
         url = urlsplit(target)
         query = {k: v[-1] for k, v in parse_qs(url.query).items()}
         return Request(method.upper(), unquote(url.path).lstrip("/"), query, body)
