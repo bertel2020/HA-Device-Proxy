@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.2 - 2026-11-02
+
+Die EnOcean-Eltako-Integration kommt wieder an den Statusport, auch über IPv6.
+
+- **EnOcean, Statusport**: Home Assistant wurde mit 403 abgewiesen. Es läuft im Host-Netzwerk und
+  kann von einer anderen Adresse des Rechners kommen als der, an die es sich verbindet. Jede Adresse
+  des Rechners zählt jetzt als dieser Rechner (Statusport, EnOcean- und Modbus-Proxy,
+  Modbus-Schreibsperre).
+- **Apps über IPv6**: Das IPv6-Netz des Supervisors (fd0c:ac1e:2100::/48) zählt wie 172.30.32.0/23
+  zu den Apps (Statusport, „Home Assistant und Apps“, ser2net).
+- **Abweisung am Statusport**: Die Antwort 403 nennt den Grund; das Log nennt dazu den Host-Header.
+
+### English
+
+The EnOcean Eltako integration reaches the status port again, over IPv6 too.
+
+- **EnOcean, status port**: Home Assistant was refused with 403. It runs in the host network and
+  may come from another address of the host than the one it connects to. Every address of the
+  host now counts as this host (status port, EnOcean and Modbus proxy, Modbus write lock).
+- **Apps over IPv6**: The Supervisor's IPv6 network (fd0c:ac1e:2100::/48) counts as the apps,
+  like 172.30.32.0/23 (status port, "Home Assistant and apps", ser2net).
+- **Refusal at the status port**: The 403 answer gives the reason; the log adds the Host header.
+
 ## 1.2.1 - 2026-11-02
 
 Der Statusport für die EnOcean-Eltako-Integration sagt, warum er eine Anfrage nicht beantwortet,
