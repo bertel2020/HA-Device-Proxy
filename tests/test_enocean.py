@@ -903,3 +903,49 @@ def test_a_test_case_hides_sender_and_base_ids() -> None:
     ((t, direction, raw),) = testcase.frames_of(case)
     assert (t, direction) == (0.0, "rx") and b"\x00\x21\x63\x43" not in raw
     assert raw[13] == sum(raw[2:13]) & 0xFF  # ESP2 checksum computed again
+
+
+async def test_garbage_from_clients_reaches_the_gateway_as_whole_frames_only(
+    setup: Setup,
+) -> None:
+    import random
+
+    gateway, proxy = setup.gateway, setup.proxy
+    rng = random.Random(9)
+
+    async def garbage() -> None:
+        reader, writer = await _connect(proxy, replay=rng.random() < 0.3)
+        try:
+            for _ in range(rng.randint(1, 8)):
+                part = rng.choice(
+                    [
+                        rng.randbytes(rng.randint(0, 200)),
+                        b"EOPX" + rng.randbytes(rng.randint(0, 80)),
+                        b"EOPX REPLAY" + rng.choice([b"", b"\n", b" TS\n", b" X\n"]),
+                        COMMAND,
+                        COMMAND[: rng.randint(1, 13)],
+                        b"\xa5\x5a" + rng.randbytes(12),
+                    ]
+                )
+                writer.write(part)
+                await writer.drain()
+                if rng.random() < 0.3:
+                    gateway.send(FRAME_A)
+                await asyncio.sleep(rng.random() * 0.005)
+        except OSError:
+            pass
+        finally:
+            writer.transport.abort()
+
+    for _ in range(8):
+        await asyncio.gather(*(garbage() for _ in range(8)))
+    await asyncio.sleep(0.2)  # what is queued reaches the gateway
+    splitter = Splitter("esp2")
+    frames = splitter.feed(bytes(gateway.received))
+    assert frames and b"".join(frames) == bytes(gateway.received)  # nothing torn or mixed
+    reader, writer = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    gateway.send(FRAME_B)
+    async with asyncio.timeout(2):
+        assert await reader.readexactly(len(FRAME_B)) == FRAME_B
+    writer.close()
