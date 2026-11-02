@@ -98,6 +98,9 @@ PRIVATE_NETWORKS = (
 )
 # Home Assistant itself and the other apps (the Supervisor's network)
 APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23")
+# who may write to a new Modbus connection that names nobody: Home Assistant and the other
+# apps (the panel's form starts with the same, panel-src/src/pages/edit.js)
+MODBUS_WRITE_CLIENTS = "127.0.0.1, 172.30.32.0/23"
 OWN_NETWORK = "own"  # in Settings.lan_networks: the network of this host
 HOST_NETWORK: str | None = None  # set from the Supervisor (controller.py), e.g. 192.168.1.0/24
 # options the forms set; "weitere Optionen" may not set them a second time
@@ -300,6 +303,11 @@ class Connection:
         if errors:
             raise ValidationError(errors)
         values.setdefault("device", "")  # a proxy that reaches its device over the network
+        if values.get("kind") == "modbus" and "write_access" not in data:
+            # a new connection: only Home Assistant and the other apps may write (saved ones
+            # from before the field keep "all", migrate)
+            values["write_access"] = "listed"
+            values.setdefault("write_clients", MODBUS_WRITE_CLIENTS)
         if "model" not in data and values.get("kind") == "enocean":
             # saved before there was the field: the model of its template, if it fits
             model = TEMPLATE_MODELS.get(values.get("template", ""), "")
@@ -805,8 +813,16 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
         }
     connections = data.get("connections")
     if isinstance(connections, list):
-        data = {**data, "connections": [_without_unsafe(c) for c in connections]}
+        data = {**data, "connections": [_old_write_access(_without_unsafe(c)) for c in connections]}
     return data
+
+
+def _old_write_access(item: Any) -> Any:
+    """A Modbus connection saved before it had a write access: every client could write,
+    and so it stays (a new one without the field only lets Home Assistant and the apps)."""
+    if isinstance(item, dict) and item.get("kind") == "modbus" and "write_access" not in item:
+        return {**item, "write_access": "all"}
+    return item
 
 
 def _without_unsafe(item: Any) -> Any:

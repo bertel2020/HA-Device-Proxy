@@ -18,7 +18,8 @@ const DEFAULTS = {
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
-// new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write
+// new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write,
+// as the app does for one that names nobody (MODBUS_WRITE_CLIENTS in model.py)
 const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
   write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
 
