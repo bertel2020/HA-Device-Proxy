@@ -17,6 +17,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field, replace
 from importlib import resources
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -46,6 +47,7 @@ INGRESS_HOSTS = ("172.30.32.1", "0.0.0.0")  # the Supervisor network first, else
 INGRESS_PEERS = ("172.30.32.2",)  # the Supervisor's ingress proxy
 MAX_HEADER = 16384
 MAX_BODY = 1 << 20  # an imported ser2net.yaml or a backup
+FILE_BLOCK = 1 << 16  # a downloaded file goes out in blocks this large
 STATIC = {
     "": ("index.html", "text/html; charset=utf-8"),
     "app.js": ("app.js", "text/javascript; charset=utf-8"),
@@ -83,6 +85,9 @@ class Response:
     body: bytes = b""
     content_type: str = "application/json"
     headers: dict[str, str] = field(default_factory=dict)
+    # a file sent after the head in blocks, its first length bytes (body stays empty)
+    file: Path | None = None
+    length: int = 0
 
 
 def ok(data: Any = None, status: int = 200) -> Response:
@@ -213,6 +218,8 @@ class WebServer:
                 response = await self._dispatch(request)
                 self._write(writer, response)
                 await writer.drain()
+                if response.file is not None:
+                    await self._send_file(writer, response.file, response.length)
         except (ConnectionError, asyncio.IncompleteReadError):
             pass
         except HttpError as err:
@@ -286,11 +293,24 @@ class WebServer:
         head = [
             f"HTTP/1.1 {response.status} {reason}",
             f"Content-Type: {response.content_type}",
-            f"Content-Length: {len(response.body)}",
+            f"Content-Length: {response.length if response.file else len(response.body)}",
             "X-Content-Type-Options: nosniff",
             *(f"{k}: {v}" for k, v in response.headers.items()),
         ]
         writer.write(("\r\n".join(head) + "\r\n\r\n").encode("latin-1") + response.body)
+
+    @staticmethod
+    async def _send_file(writer: asyncio.StreamWriter, path: Path, length: int) -> None:
+        """A large file without holding it in memory or blocking the app while reading:
+        block by block, each one after the client took the last (a client gone ends it)."""
+        with path.open("rb") as f:
+            while length > 0:
+                block = await asyncio.to_thread(f.read, min(FILE_BLOCK, length))
+                if not block:  # shortened meanwhile: the client sees the connection end
+                    raise ConnectionError(f"{path.name} became shorter")
+                writer.write(block)
+                await writer.drain()
+                length -= len(block)
 
     # API
 
@@ -613,9 +633,11 @@ class WebServer:
         path = self._trace_path(request.params["name"])
         return Response(
             200,
-            path.read_bytes(),
+            b"",
             "text/plain; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="{path.name}"'},
+            file=path,
+            length=path.stat().st_size,  # one still recorded: as far as it is now
         )
 
     async def meter(self, request: Request) -> Response:
