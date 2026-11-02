@@ -28,7 +28,7 @@ export class DeviceProxyApp extends LitElement {
     .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
     .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 12px 0; min-width: 0; }
     .brand .name { display: flex; flex-direction: column; }
-    .brand b { font-size: 18px; display: block; line-height: 1.2; white-space: nowrap; }
+    .brand b { font-size: calc(18px * var(--fs, 1)); display: block; line-height: 1.2; white-space: nowrap; }
     nav { display: flex; gap: 4px; padding: 8px 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
     nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-weight: 500; color: var(--muted); text-decoration: none; border-radius: 20px; transition: background .15s, color .15s; }
     nav a:hover { color: var(--text); background: var(--neutral-soft); }
@@ -37,7 +37,7 @@ export class DeviceProxyApp extends LitElement {
     .offline { max-width: 1200px; margin: 12px auto 0; padding: 0 24px; }
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--surface);
       padding: 12px 18px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: min(560px, calc(100vw - 32px)); z-index: 10; }
-    @media (max-width: 600px) { .bar, main, .offline { padding-left: 16px; padding-right: 16px; } nav { flex: 1 1 100%; gap: 0; } nav a { padding: 0 5px; font-size: 13px; white-space: nowrap; } }
+    @media (max-width: 600px) { .bar, main, .offline { padding-left: 16px; padding-right: 16px; } nav { flex: 1 1 100%; gap: 0; } nav a { padding: 0 5px; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; } }
   `];
 
   constructor() {

@@ -47,11 +47,11 @@ export class DetailPage extends Page {
     .kv > :nth-child(odd) { color: var(--muted); }
     .counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .counters .well { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .counters b { font-size: 18px; font-weight: 500; }
+    .counters b { font-size: calc(18px * var(--fs, 1)); font-weight: 500; }
     .counters .hint { overflow-wrap: anywhere; hyphens: auto; }
     @media (max-width: 480px) { .counters { grid-template-columns: repeat(2, 1fr); } }
     .live { max-height: 340px; overflow: auto; }
-    .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
+    .live table { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: calc(12px * var(--fs, 1)); color: var(--code-text); }
     .live td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .live .info { white-space: normal; overflow-wrap: anywhere; }
     .live td.fit { width: 1%; }
@@ -62,7 +62,7 @@ export class DetailPage extends Page {
     ol { list-style: none; margin: 0; padding: 0; }
     ol.recent { display: grid; grid-template-columns: max-content auto 1fr; column-gap: 10px; row-gap: 10px; align-items: baseline; }
     ol.recent li { display: contents; }
-    ol.recent time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    ol.recent time { color: var(--muted); font-size: calc(13px * var(--fs, 1)); font-variant-numeric: tabular-nums; white-space: nowrap; }
     ol.recent .dot { align-self: center; }
     ol.recent .txt { overflow-wrap: anywhere; min-width: 0; }
     .grid4 { display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 10px; }
@@ -220,9 +220,9 @@ export class DetailPage extends Page {
     return foldCard("device_proxy.mbwrites", "t-writes", t("mbWrites"), t("mbWritesSub", { n: writes.length }), html`
       <div class="scroll"><table><thead><tr><th>${t("timeTh")}</th><th>${t("clientTh")}</th><th>Unit</th><th>FC</th><th>${t("mbAddress")}</th><th>${t("mbValues")}</th><th></th></tr></thead>
         <tbody>${writes.map((w) => html`<tr><td style="white-space:nowrap">${fmtTime(w.ts, false, true)}</td>
-          <td class="mono" style="font-size:12px">${w.client}${clientName(w.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(w.client)}</b>` : ""}</td>
+          <td class="mono" style="font-size: calc(12px * var(--fs, 1))">${w.client}${clientName(w.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(w.client)}</b>` : ""}</td>
           <td>${w.unit}</td><td>${String(w.function).padStart(2, "0")}</td><td class="mono">${w.address ?? "–"}${w.count > 1 ? ` ×${w.count}` : ""}</td>
-          <td class="mono" style="font-size:12px">${w.values.join(", ") || "–"}</td><td><span class="chip ${cls[w.result]}">${t(`wr_${w.result}`)}</span></td></tr>`)}</tbody></table></div>
+          <td class="mono" style="font-size: calc(12px * var(--fs, 1))">${w.values.join(", ") || "–"}</td><td><span class="chip ${cls[w.result]}">${t(`wr_${w.result}`)}</span></td></tr>`)}</tbody></table></div>
       ${c.write_registers ? html`<p class="hint" style="margin:0">${t("mbWriteRegistersNow", { r: c.write_registers })}</p>` : ""}`);
   }
 
@@ -342,7 +342,7 @@ export class DetailPage extends Page {
           @change=${(e) => { const v = Number(String(e.target.value).replace(",", ".")); this.mbDecode = { ...d, scale: Number.isFinite(v) && v !== 0 ? v : 1 }; }}></label>
       </div>
       ${list.length ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th><th>${t("mbRegisters")}</th><th style="text-align:right">${t("mbValue")}</th></tr></thead>
-        <tbody>${list.map((row) => html`<tr><td class="mono">${row.address}</td><td class="mono" style="font-size:12px">${row.regs.map(hex4).join(" ")}</td><td style="text-align:right">${fmtValue(row.value)}</td></tr>`)}</tbody></table></div>`
+        <tbody>${list.map((row) => html`<tr><td class="mono">${row.address}</td><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${row.regs.map(hex4).join(" ")}</td><td style="text-align:right">${fmtValue(row.value)}</td></tr>`)}</tbody></table></div>`
         : html`<p class="hint">${t("mbDecodeShort", { n })}</p>`}
       <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("mbSensorYaml", { a: r.form.address })}</p>${this._copyBtn("mb-sensor", yaml)}</div>
       <div class="code">${yaml}</div>
@@ -432,8 +432,8 @@ export class DetailPage extends Page {
             ${m.telegrams ? html`<span class="chip">${t("telegrams", { n: m.telegrams })}</span>
               <span class="chip ${m.valid === m.telegrams ? "ok" : "warn"}">${t(m.protocol === "sml" ? "validCrc" : "validD0", { n: m.valid })}</span>` : ""}
             ${this.meterAt ? html`<span class="hint" style="margin-left:auto">${t("checkedAt", { t: fmtTime(this.meterAt, false) })}</span>` : ""}</div>
-          ${m.readings.length ? html`<table><tbody>${m.readings.slice(0, 12).map((r) => html`<tr><td class="mono" style="font-size:12px">${r.obis}</td><td>${r.name ? t(`obis_${r.obis}`) : ""}</td><td style="text-align:right">${value(r)}</td></tr>`)}</tbody></table>` : ""}
-        </div>` : html`<div class="well hint" style="font-size:13px">${t("noData30")} ${t("noData30Help")} <a href="#/edit/${c.id}">${t("edit")}</a></div>` : ""}`;
+          ${m.readings.length ? html`<table><tbody>${m.readings.slice(0, 12).map((r) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${r.obis}</td><td>${r.name ? t(`obis_${r.obis}`) : ""}</td><td style="text-align:right">${value(r)}</td></tr>`)}</tbody></table>` : ""}
+        </div>` : html`<div class="well hint" style="font-size: calc(13px * var(--fs, 1))">${t("noData30")} ${t("noData30Help")} <a href="#/edit/${c.id}">${t("edit")}</a></div>` : ""}`;
     const baud = (head) => html`<div class="row ${head ? "" : "sep"}"><div><b style="font-weight:500">${t("baudDetect")}</b>${blocked ? html`<p class="hint" style="color:var(--bad)">${t(blocked)}</p>` : html`<p class="hint">${t("baudDetectSub")}</p>`}</div>
         <button class="btn btn-s" ?disabled=${!!blocked || (job && job.state === "running")} @click=${this._detect}>${t("toolStart")}</button></div>
       ${job ? job.state === "running" ? html`<p class="hint" role="status">${t("detecting", { d: job.done, t: job.total || "…" })}</p>`
@@ -509,10 +509,10 @@ export class DetailPage extends Page {
           <td class="fit" style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
           <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
           <td class=${ch.info ? "frame" : ""}>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
-            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px;color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
+            @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
           ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}
-        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size:14px">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
+        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size: calc(14px * var(--fs, 1))">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
     </section>`;
   }
 
@@ -537,7 +537,7 @@ export class DetailPage extends Page {
                 <div class="row" style="justify-content:flex-start;gap:8px"><span class="dot" style="color:${a.reachable ? "var(--ok)" : "var(--muted)"}"></span>
                   <b style="font-weight:500;${a.reachable ? "" : "color:var(--muted)"}">${t(`target_${a.target}`)}</b></div>
                 ${Object.entries(a.urls).map(([k, u]) => html`<div class="row" style="gap:4px;margin-top:4px">
-                  <span class="mono" style="font-size:13px;overflow-wrap:anywhere">${u}</span>
+                  <span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${u}</span>
                   ${this._copyBtn(`${a.target}${k}`, u)}</div>`)}
                 ${a.reachable ? "" : html`<div class="hint" style="margin-top:2px">${a.host ? html`${t(`why_${a.why}`, { a: c.remaddr })}${a.why === "network" ? html` <a href="#/settings">${t("settingsTitle")}</a>` : html` <a href="#/edit/${c.id}">${t("edit")}</a>`}` : t("lanUnknown")}</div>`}
               </div>`)}
@@ -563,9 +563,9 @@ export class DetailPage extends Page {
     const rate = rq.length ? rq.slice(-5).reduce((x, y) => x + y, 0) / Math.min(rq.length, 5) : 0;
     return html`<section class="card" aria-labelledby="t-mb">
       <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
-      <div><b style="font-size:22px;font-weight:500">${(m.requests ?? 0).toLocaleString()}</b> <span class="hint">${summary}</span></div>
+      <div><b style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(m.requests ?? 0).toLocaleString()}</b> <span class="hint">${summary}</span></div>
       ${this._sparkline(rq, t("mbRate"))}
-      <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
+      <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
       <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
       <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
       ${problems.length || m.cached || m.probes || (m.queue ?? 0) > 1 ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -621,19 +621,19 @@ export class DetailPage extends Page {
     const enocean = c.kind === "enocean", eo = c.enocean || {};
     const conf = html`
           <section class="card" aria-labelledby="t-conf">
-            <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size:13px">${t("edit")}</a></div>
+            <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size: calc(13px * var(--fs, 1))">${t("edit")}</a></div>
             ${enocean ? html`<div class="kv">
               <span>${t("eoTemplate")}</span><span>${t(`tpl_${c.template}`)}</span>
-              <span>${t("eoGateway")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
-              ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("eoGateway")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${c.esp_protocol.toUpperCase()} · ${proxyTarget(c)}${c.link === "serial" ? ` · ${c.baud}` : ""}</span>
+              ${c.link === "serial" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${c.tty || "–"}</span>` : ""}
               <span>${t("network")}</span><span>Port ${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
             </div>` : modbus ? html`<div class="kv">
               <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
-              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" || c.link === "rtu_listen" ? ` · ${fmtSerial(c)}` : ""}</span>
-              ${c.link === "rtu" || c.link === "rtu_listen" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>` : ""}
+              <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" || c.link === "rtu_listen" ? ` · ${fmtSerial(c)}` : ""}</span>
+              ${c.link === "rtu" || c.link === "rtu_listen" ? html`<span>${t("resolved")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${c.tty || "–"}</span>` : ""}
               ${c.device_connections > 1 ? html`<span>${t("mbLinksShort")}</span><span>${t("mbLinksVal", { o: m.links_open ?? 0, n: c.device_connections })}</span>` : ""}
               <span>${t("mbTimeLimit")}</span><span>${t("mbConf2", { s: Math.round(c.request_timeout_ms / 100) / 10, r: retriesText(c.retries) })}
 ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</span>
@@ -655,8 +655,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             </div>` : c.source === "tcp" ? html`<div class="kv">
               <span>${t("dataSource")}</span><span>${t("source_tcp")} · <span class="mono">${c.host}:${c.host_port}</span></span>
             </div>` : html`<div class="kv">
-              <span>${t("device")}</span><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${c.device}</span>
-              <span>${t("resolved")}</span><span class="mono" style="font-size:13px">${c.tty || "–"}</span>
+              <span>${t("device")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${c.device}</span>
+              <span>${t("resolved")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${c.tty || "–"}</span>
               ${usb ? html`<span>${t("usb")}</span><span>${[usb.manufacturer, usb.product].filter(Boolean).join(" · ") || `${usb.vendor_id}:${usb.product_id}`}${usb.serial ? ` · ${t("serialNo")} ${usb.serial}` : ""}${usb.driver ? ` · ${usb.driver}` : ""}</span>` : ""}
               <span>${t("interface")}</span><span>${fmtSerial(c)}${c.rtscts ? " · RTS/CTS" : ""}${c.xonxoff ? " · XON/XOFF" : ""}${c.local ? ` · ${t("ifLocal")}` : ""}</span>
               <span>${t("network")}</span><span>${c.mode} · Port ${c.port}</span>
@@ -664,25 +664,25 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             </div>`}
           </section>`;
     const clientsCard =           html`<section class="card" aria-labelledby="t-clients">
-            <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span style="display:flex;gap:10px;align-items:center"><span class="hint" style="font-size:13px">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
+            <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span style="display:flex;gap:10px;align-items:center"><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
               ${c.clients.length ? html`<button class="btn btn-g" style="min-height:32px" @click=${() => this._disconnect(c)}>${t("disconnectClients")}</button>` : ""}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>`
             : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size:12px">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
             : c.clients.length ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
-                <td class="mono" style="font-size:12px">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
+                <td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
                 <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="font-size:14px">${t("noClients")}</p>`}
-          ${modbus && (m.units || []).length ? html`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size:14px;font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size:13px">${t("mbUnitsSub")}</span></div>
+              : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noClients")}</p>`}
+          ${modbus && (m.units || []).length ? html`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size: calc(14px * var(--fs, 1));font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("mbUnitsSub")}</span></div>
             <div class="scroll"><table><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right" title=${t("mbTipExceptions")}>${t("mbExceptions")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
               <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
@@ -699,13 +699,13 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             <p class="hint" style="margin:0">${le || !c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</p>
           </section>`;
     const rateCard = html`<section class="card" aria-labelledby="t-rate">
-            <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size:18px;font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
+            <div class="row"><h2 id="t-rate">${t("dataFromDevice")}</h2><b style="font-size: calc(18px * var(--fs, 1));font-weight:500">${fmtRate(c.rate_from_device)}</b></div>
             ${this._sparkline()}
-            <div class="row hint" style="font-size:12px"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
+            <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
           </section>`;
     const recentCard = html`<section class="card" aria-labelledby="t-recent">
-            <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size:13px">${t("allEventsOf", { n: c.name })}</a></div>
+            <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size: calc(13px * var(--fs, 1))">${t("allEventsOf", { n: c.name })}</a></div>
             ${recent.length ? html`<ol class="recent">${recent.map((e) => html`<li><time>${fmtTime(e.ts)}</time><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
               <span class="txt">${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></li>`)}</ol>`
               : html`<p class="hint">${t("noEntries")}</p>`}
@@ -748,7 +748,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
         <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
-          <span class="hint" style="font-size:13px">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
           ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
           ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}${this._fallbackChip(c)}` : ""}</div>
         <div class="row">

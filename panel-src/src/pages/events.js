@@ -17,13 +17,13 @@ export class EventsPage extends Page {
     .tabs button { min-height: 40px; padding: 0 18px; border: none; border-radius: 18px; cursor: pointer; font: inherit; font-weight: 500; background: transparent; color: var(--muted); }
     .tabs button[aria-selected="true"] { background: var(--surface); color: var(--accent-hover); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
     .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 20px; }
-    .lv { min-height: 40px; padding: 0 14px; border-radius: 20px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
+    .lv { min-height: 40px; padding: 0 14px; border-radius: 20px; cursor: pointer; font: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500; border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
     .lv[aria-pressed="true"].info { background: var(--accent-soft); color: var(--accent-hover); border-color: var(--accent); }
     .lv[aria-pressed="true"].warning { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
     .lv[aria-pressed="true"].error { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
     .lv[aria-pressed="true"].debug { background: var(--neutral-soft); color: var(--neutral); border-color: var(--neutral); }
     .log { max-height: max(320px, calc(100vh - 330px)); overflow: auto; }
-    .dayrow { padding: 6px 16px; font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
+    .dayrow { padding: 6px 16px; font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
     .lv { display: inline-flex; align-items: center; gap: 6px; }
     .name { font-weight: 500; color: inherit; text-decoration: none; }
     a.name:hover { text-decoration: underline; }
@@ -83,8 +83,8 @@ export class EventsPage extends Page {
     return html`<div class="log" role="log">${lines.map((e, i) => html`${i === 0 || this._dayLabel(lines[i - 1].ts) !== this._dayLabel(e.ts) ? html`<div class="dayrow">${this._dayLabel(e.ts)}</div>` : ""}<div class="line">
         <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
         <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
-        ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size:14px">${t("noEntries")}</p>`}
-        ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size:13px">${t("moreEntries", { n: total - lines.length })}</p>` : ""}</div>`;
+        ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t("noEntries")}</p>`}
+        ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size: calc(13px * var(--fs, 1))">${t("moreEntries", { n: total - lines.length })}</p>` : ""}</div>`;
   }
 
   _live() {
@@ -92,7 +92,7 @@ export class EventsPage extends Page {
     const lines = all.slice(0, 500);
     return html`<section class="card" style="padding:0;gap:0;overflow:hidden" aria-label=${t("tabLive")}>
       <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
-        <span class="hint" style="font-size:13px;display:flex;align-items:center;gap:8px"><span class="dot" style="color:${this.paused ? "var(--muted)" : "var(--ok)"}"></span>
+        <span class="hint" style="font-size: calc(13px * var(--fs, 1));display:flex;align-items:center;gap:8px"><span class="dot" style="color:${this.paused ? "var(--muted)" : "var(--ok)"}"></span>
           ${this.paused ? t("paused") : t("liveState")} · ${t("entries", { n: all.length })}</span>
         <button class="btn btn-g" @click=${() => { this.paused = this.paused ? null : [...this.events]; }}>${this.paused ? t("resume") : t("pause")}</button></div>
       ${this._list(lines, all.length)}
@@ -114,16 +114,16 @@ export class EventsPage extends Page {
         return html`<section class="card" aria-label=${c.name} style="gap:10px">
           <div class="row" style="flex-wrap:nowrap"><b style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${c.name}>${c.name}</b><span class="chip ${st.drops ? "warn" : "ok"}" style="flex:none">${st.drops ? t("unstable", { n: st.drops }) : t("stable")}</span></div>
           <div style="display:flex;gap:20px">
-            <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size:22px;font-weight:500">${st.drops}</div></div>
-            <div><div class="hint">${t("availability")}</div><div style="font-size:22px;font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
+            <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${st.drops}</div></div>
+            <div><div class="hint">${t("availability")}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
           <div class="bars" role="img" aria-label="${t("drops", { d: days })}: ${st.drops}">${st.per_day.map((v, i) => html`<span title="${this._dayLabel(Date.now() / 1000 - (days - 1 - i) * 86400)}: ${v ? t("unstable", { n: v }) : t("stable")}" style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
-          <div class="row hint" style="font-size:12px"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
+          <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
       <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-tl">
         <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
-          <h2 id="t-tl" style="font-size:14px;font-weight:500">${t("timeline")}</h2>
-          <span class="hint" style="font-size:13px">${t("retention", { d: this.state.settings.history_days })} · ${t("entries", { n: all.length })}</span></div>
+          <h2 id="t-tl" style="font-size: calc(14px * var(--fs, 1));font-weight:500">${t("timeline")}</h2>
+          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("retention", { d: this.state.settings.history_days })} · ${t("entries", { n: all.length })}</span></div>
         ${this._list(all.slice(0, 500), all.length)}
       </section>`;
   }

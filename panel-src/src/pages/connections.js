@@ -22,11 +22,11 @@ export class ConnectionsPage extends Page {
 
   static styles = [...Page.styles, css`
     .band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
-      padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px var(--shadow-c); font-size: 14px; }
+      padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px var(--shadow-c); font-size: calc(14px * var(--fs, 1)); }
     .band b { font-weight: 500; }
     .band .warn { color: var(--warn); }
     .band .ok { color: var(--ok); }
-    .band a { font-size: 13px; }
+    .band a { font-size: calc(13px * var(--fs, 1)); }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
@@ -36,11 +36,11 @@ export class ConnectionsPage extends Page {
     .conn:hover { border-color: var(--input-line); box-shadow: 0 2px 4px var(--shadow-c), 0 12px 28px -12px var(--shadow-c); }
     .kind { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-hover); flex: none; }
     .conn.off { background: var(--surface-2); }
-    .why { font-size: 13px; color: var(--muted); }
+    .why { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
     .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-    .title h2 { font-size: 18px; }
-    .dev { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
+    .title h2 { font-size: calc(18px * var(--fs, 1)); }
+    .dev { font-size: calc(12px * var(--fs, 1)); color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     .meter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -50,18 +50,18 @@ export class ConnectionsPage extends Page {
     .bar.full i { background: var(--warn); }
     .rate { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
     .client { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
-    .tech { font-size: 13px; color: var(--muted); }
+    .tech { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
     .iconbtn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; color: var(--muted); }
     .iconbtn:hover { background: var(--line); color: var(--text); }
     .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
-    .last { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-width: 0; }
+    .last { display: flex; align-items: center; gap: 8px; font-size: calc(13px * var(--fs, 1)); color: var(--muted); min-width: 0; }
     .last .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
     .last.warn .dot { background: var(--warn); }
     .empty { text-align: center; padding: 48px 20px; align-items: center; }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
     .filters button { min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface);
-      color: var(--text); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+      color: var(--text); font: inherit; font-size: calc(13px * var(--fs, 1)); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .filters button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
   `];
 
@@ -155,7 +155,7 @@ export class ConnectionsPage extends Page {
             <span class="bar ${c.clients.length >= c.max_clients ? "full" : ""}" aria-hidden="true"><i style="width:${Math.min(100, (c.clients.length / (c.max_clients || 1)) * 100)}%"></i></span></div>
           ${c.enabled && (c.present || proxied) ? html`<div class="rate">${sparkline(rateHistory(c.id), { label: t("dataFromDevice") })}<span class="hint" style="font-weight:500">${fmtRate(c.rate_from_device)}</span></div>` : ""}
         </div>
-        ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size:13px">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
+        ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
           <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
         ${c.clients.length ? "" : off ? html`<div class="why">${t("disabledText")}</div>`
           : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
@@ -212,7 +212,7 @@ export class ConnectionsPage extends Page {
         ${KINDS.filter((k) => counts[k]).map((k) => html`<button aria-pressed=${filter === k ? "true" : "false"} @click=${() => this._filter(k)}>${icon(k, 16)}${t(`filter_${k}`, { n: counts[k] })}</button>`)}
       </div>` : ""}
       ${list.length ? html`<div class="cards">${list.map((c) => this._card(c, s.ser2net_running, own))}</div>` : html`
-        <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size:14px">${t("emptyText")}</p>
+        <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("emptyText")}</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
             <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("emptyImport")}</button>
             <a class="btn btn-p" href="#/edit/new">${icon("plus")}${t("addConnection")}</a></div></section>`}`;

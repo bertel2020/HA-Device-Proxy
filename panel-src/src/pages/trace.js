@@ -13,13 +13,13 @@ export class TracePage extends Page {
 
   static styles = [...Page.styles, css`
     .chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 14px; scrollbar-width: thin; }
-    .chips button { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; min-height: 36px; padding: 0 14px; border-radius: 18px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 500;
+    .chips button { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; min-height: 36px; padding: 0 14px; border-radius: 18px; cursor: pointer; font: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 500;
       border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
     .chips button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hover); border-color: var(--accent); }
     .chips .dot { width: 8px; height: 8px; color: var(--accent); }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
-    .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--code-text); }
+    .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: calc(12px * var(--fs, 1)); color: var(--code-text); }
     .view td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .view td.hex, .view td.asc { white-space: pre; }
     .view td.fit { width: 1%; }
@@ -119,20 +119,20 @@ export class TracePage extends Page {
               <td class="fit" style="color:#8f9ba8">${this._time(ch.ts)}</td>
               <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
               ${ch.info ? html`<td class="fit" style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex ${ch.info ? "frame" : ""}">${ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size:14px">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
+              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
-              <button class="btn btn-g mono" style="font-size:12px" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
+              <button class="btn btn-g mono" style="font-size: calc(12px * var(--fs, 1))" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
             <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
             ${files.length ? html`<div class="scroll"><table style="min-width:560px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
-              <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size:13px">${f.name}</td>
+              <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size: calc(13px * var(--fs, 1))">${f.name}</td>
                 <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}</td>
                 <td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
                 <td style="text-align:right;white-space:nowrap;padding:4px 0 4px 8px">
                   <a class="btn btn-g" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download aria-label="${f.name} ${t("download")}">${icon("download", 16)}</a>
                   <button class="btn btn-d" @click=${() => this._delete(f.name)}>${t("delete")}</button></td></tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="font-size:14px">${t("noFiles")}</p>`}
+              : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noFiles")}</p>`}
           </section>
         </div>
       </div>`;

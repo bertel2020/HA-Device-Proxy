@@ -63,16 +63,16 @@ export class EditPage extends Page {
     .grid2 { align-items: start; }
     .fld { justify-content: flex-start; }
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; margin-top: 6px; }
-    .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
+    .grp h3 { margin: 0; font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
     .grp p { margin: 0; }
     .grp p + .grid2 { margin-top: 6px; }
     .fold { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     fieldset { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-    legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
+    legend { padding: 0; margin-bottom: 8px; font-size: calc(13px * var(--fs, 1)); font-weight: 500; }
     .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
     .toggle-head { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0;
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
-    .toggle-head .chip::after, .arrow::after { content: "›"; font-size: 18px; line-height: 1; margin-left: 2px; transition: transform .15s; }
+    .toggle-head .chip::after, .arrow::after { content: "›"; font-size: calc(18px * var(--fs, 1)); line-height: 1; margin-left: 2px; transition: transform .15s; }
     .toggle-head[aria-expanded="true"] .chip::after, .arrow[aria-expanded="true"]::after { transform: rotate(90deg); }
     .flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 24px; }
     .flow li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
