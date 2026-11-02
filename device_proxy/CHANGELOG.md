@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.2.0
+
+See before saving what a change does, and get back in one step when it broke something; check
+who may write to a Modbus device; safer defaults where a connection is made without the form;
+a more robust web interface.
+
+**Before and after saving**
+
+- **What saving does**: the connection form, and the questions before a change of the network
+  setting or the home networks, an import or restoring a version or backup, name the running
+  connections that are set up again or stop and how many clients have to connect again.
+- **Restore the version before**: when a connection that worked stops working after a change,
+  the connections page and its own page say so and offer the configuration before the change.
+
+**Modbus**
+
+- **Check access** (Tools): whether a client at an address may connect, read and write a
+  register, and which rule decides – by the same checks the proxy makes, without sending.
+- **Who may really write** on the connection's page: every client that may connect, the listed
+  ones, nobody when none is listed, the allowed registers, and the rule of a connection that
+  units are sent on to.
+- **New connections made without the form** (API, scripts) let only Home Assistant and the apps
+  write, as the form always did. Connections saved before write access existed keep "all".
+- **Host names**: a name that cannot be looked up, or a device not reached in time, is said in
+  words ("host name … not found (DNS)", "… not reached within … s") instead of the system's
+  text or "no answer".
+
+**Z-Wave**
+
+- A Z-Wave stick made without the form also lets only Home Assistant and the apps connect.
+
+**EnOcean**
+
+- The settings say when the status port for the EnOcean Eltako integration could not be
+  opened, why, and that the app tries again.
+
+**Web interface**
+
+- Trace files are downloaded in blocks instead of read whole into memory; the interface stays
+  usable during a large download.
+- One status request at a time with a time limit: requests no longer pile up while the app is
+  busy, and an older answer never overwrites a newer one.
+- Leaving the settings with changes not saved yet asks first, as the connection form does.
+- The choice groups (network, MQTT broker, ser2net source, import mode) work with arrow keys.
+- A connection that does not send its request or body in time is closed.
+- A full disk: a configuration that cannot be saved changes nothing and the page says why.
+- A ser2net.yaml with a control character is refused with a message instead of an error.
+- New screenshots in the READMEs.
+
+**Tests and tools**
+
+- Random and broken input for all parsers and the running proxies, broken uploads and backups.
+- `tools/soak_test.py` with limits for answer times, memory and recovery, device outages and
+  slow readers; `tools/soak_enocean.py` for a gateway and its fallback.
+- `tests/HARDWARE.md`: the checks that need real devices on Home Assistant OS.
+
 ## 1.1.0
 
 Many new tools: Modbus values decoded and devices identified, names for clients and a word on
