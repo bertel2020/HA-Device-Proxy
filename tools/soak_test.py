@@ -5,11 +5,15 @@
 rtu runs over a pseudo terminal as the serial device (Linux, see tools/linux_check.py).
 
 The device answers after a random delay, sometimes not at all, sometimes late, now and then
-drops the connection or sends garbage. Clients poll in random patterns, write, ask the same
-registers (cache), some go away in the middle of a request. Every 30 s a line shows memory,
-open files, tasks and the proxy's queues; at the end, with all clients gone, nothing may be
-left over (waiting requests, requests on their way, clients) and memory, files and tasks
-must be back near where they started. Exit code 1 when not.
+drops the connection or sends garbage, and every OUTAGE_EVERY seconds it is away for
+OUTAGE_SECONDS. Clients poll in random patterns, write, ask the same registers (cache), some
+go away in the middle of a request; a few slow readers send requests and never read the
+answers. Every 30 s a line shows memory, open files, tasks and the proxy's queues.
+
+At the end, with all clients gone, nothing may be left over (waiting requests, requests on
+their way, clients), files and tasks must be back near where they started, and the limits
+below must hold: answer times of the normal clients, peak memory growth, and how soon after
+an outage the device answers again through the proxy. Exit code 1 when not.
 """
 
 from __future__ import annotations
@@ -29,6 +33,17 @@ from device_proxy.modbus import ModbusProxy, rtu_frame  # noqa: E402
 from device_proxy.model import Connection  # noqa: E402
 
 RNG = random.Random(1)
+OUTAGE_EVERY = 90  # s between the device's outages (the first after half of it)
+OUTAGE_SECONDS = 10
+SLOW_READERS = 3
+LIMITS = {  # what the normal clients and the app must stay within
+    "p95_s": 1.0,  # answer time of 95 % of the requests (Modbus TCP, two device connections)
+    "max_s": 5.0,  # the slowest answer
+    "memory_mb": 20.0,  # growth of the peak memory
+    "recovery_s": 35.0,  # device back → its first answer through the proxy
+}
+RTU_LIMITS = {"p95_s": 3.0, "max_s": 8.0}  # over RTU every request waits its turn on one line
+DEVICE = {"up": True, "writers": set()}  # the fake device: away or not, its connections
 
 
 def rss_mb() -> float:
@@ -88,6 +103,10 @@ def serial_device(master: int) -> None:
 
 
 async def device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, rtu: bool) -> None:
+    if not DEVICE["up"]:
+        writer.close()  # away: takes no connection
+        return
+    DEVICE["writers"].add(writer)  # type: ignore[attr-defined]
     try:
         while True:
             if rtu:
@@ -113,9 +132,44 @@ async def device(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, rtu
             await writer.drain()
     except (asyncio.IncompleteReadError, ConnectionError):
         writer.close()
+    finally:
+        DEVICE["writers"].discard(writer)  # type: ignore[attr-defined]
 
 
-async def client(port: int, stop: asyncio.Event, stats: dict[str, int]) -> None:
+async def outages(stop: asyncio.Event, back: list[float]) -> None:
+    """The device goes away now and then (its connections drop, new ones are refused)."""
+    await asyncio.sleep(OUTAGE_EVERY / 2)
+    while not stop.is_set():
+        DEVICE["up"] = False
+        for writer in list(DEVICE["writers"]):  # type: ignore[call-overload]
+            writer.transport.abort()
+        print(f"{time.strftime('%H:%M:%S')} device away for {OUTAGE_SECONDS} s", flush=True)
+        await asyncio.sleep(OUTAGE_SECONDS)
+        DEVICE["up"] = True
+        back.append(time.monotonic())
+        await asyncio.sleep(OUTAGE_EVERY - OUTAGE_SECONDS)
+
+
+async def slow_reader(port: int, stop: asyncio.Event) -> None:
+    """Polls like a normal client but never takes an answer: once the buffers are full the
+    proxy stops reading it, and it must hold nobody else up."""
+    try:
+        _, writer = await asyncio.open_connection("127.0.0.1", port)
+    except OSError:
+        return
+    tid = 0
+    while not stop.is_set():
+        tid = (tid + 1) & 0xFFFF
+        writer.write(struct.pack(">HHHBBHH", tid, 0, 6, 1, 3, 0, 120))
+        await asyncio.sleep(0.02)
+        if writer.transport.get_write_buffer_size() > 1 << 16:
+            await asyncio.sleep(1)  # its own side is full too: the proxy holds it back
+    writer.transport.abort()
+
+
+async def client(
+    port: int, stop: asyncio.Event, stats: dict[str, int], times: list[float], ok_at: list[float]
+) -> None:
     tid = 0
     while not stop.is_set():
         try:
@@ -145,13 +199,17 @@ async def client(port: int, stop: asyncio.Event, stats: dict[str, int]) -> None:
                 )
                 writer.write(struct.pack(">HHHB", tid, 0, len(pdu) + 1, unit) + pdu)
                 await writer.drain()
+                sent = time.monotonic()
                 if RNG.random() < 0.01:
                     stats["walked_away"] += 1
                     break  # goes away in the middle of a request
                 head = await asyncio.wait_for(reader.readexactly(7), 30)
                 got, _, length, _ = struct.unpack(">HHHB", head)
                 body = await reader.readexactly(length - 1)
+                times.append(time.monotonic() - sent)
                 stats["answers" if not body[0] & 0x80 else "exceptions"] += 1
+                if not body[0] & 0x80 and unit == 1:
+                    ok_at.append(time.monotonic())
                 if got != tid:
                     stats["wrong_tid"] += 1
                 if not body[0] & 0x80 and body != expected:
@@ -217,7 +275,12 @@ async def main(minutes: float, link: str) -> int:
         )
     }
     stop = asyncio.Event()
-    clients = [asyncio.create_task(client(port, stop, stats)) for _ in range(20)]
+    times: list[float] = []
+    ok_at: list[float] = []
+    back: list[float] = []
+    clients = [asyncio.create_task(client(port, stop, stats, times, ok_at)) for _ in range(20)]
+    clients += [asyncio.create_task(slow_reader(port, stop)) for _ in range(SLOW_READERS)]
+    clients.append(asyncio.create_task(outages(stop, back)))
     end = time.monotonic() + minutes * 60
     print(f"start: {base[0]:.1f} MB, {base[1]} files, {base[2]} tasks; {minutes} min, {link}")
     while time.monotonic() < end:
@@ -242,7 +305,21 @@ async def main(minutes: float, link: str) -> int:
     }
     after = (rss_mb(), open_files(), len(asyncio.all_tasks()))
     print(f"end: {after[0]:.1f} MB, {after[1]} files, {after[2]} tasks; left {left}; {events}")
+    times.sort()
+    p95 = times[int(len(times) * 0.95)] if times else 0.0
+    slowest = times[-1] if times else 0.0
+    # each time the device came back: until a client got an answer from it again
+    recovery = [next((t for t in ok_at if t >= b), float("inf")) - b for b in back]
+    measured = {
+        "p95_s": round(p95, 3),
+        "max_s": round(slowest, 3),
+        "memory_mb": round(after[0] - base[0], 1),
+        "recovery_s": round(max(recovery), 1) if recovery else 0.0,
+    }
+    print(f"measured {measured} · {len(back)} outages", flush=True)
     problems = [k for k, v in left.items() if v]
+    limits = {**LIMITS, **(RTU_LIMITS if link != "tcp" else {})}
+    problems += [f"{k} {measured[k]} > {v}" for k, v in limits.items() if measured[k] > v]
     if stats["wrong_tid"]:
         problems.append("answers with a wrong transaction id")
     if stats["wrong_answer"]:
