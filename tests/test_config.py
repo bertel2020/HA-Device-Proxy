@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -205,3 +206,25 @@ async def test_maintenance_limits_a_serial_connection_to_one_host(tmp_path: Path
     controller.exclusive["0000000a"] = ("192.168.1.35", 0)  # its time is up
     await controller._proxy_tick()
     assert "192.168.1.35" not in (tmp_path / "s.yaml").read_text()
+
+
+def test_a_new_modbus_connection_lets_only_home_assistant_and_the_apps_write(
+    tmp_path: Path,
+) -> None:
+    from device_proxy.model import MODBUS_WRITE_CLIENTS
+    from device_proxy.store import Store
+
+    new = {"name": "Inverter", "port": 1502, "kind": "modbus", "host": "192.168.1.20"}
+    modbus = Connection.from_dict(new)
+    assert (modbus.write_access, modbus.write_clients) == ("listed", MODBUS_WRITE_CLIENTS)
+    named = Connection.from_dict({**new, "write_access": "all"})
+    assert (named.write_access, named.write_clients) == ("all", "")
+    assert Connection.from_dict({**new, "write_clients": "10.0.0.5"}).write_clients == "10.0.0.5"
+    # saved (or backed up) before the field existed: every client could write, and still may
+    old = {**new, "id": "0000000a"}
+    assert AppConfig.from_dict({"connections": [old]}).connections[0].write_access == "all"
+    (tmp_path / "c.json").write_text(json.dumps({"connections": [old]}), encoding="utf-8")
+    assert Store(None, tmp_path / "c.json").load().connections[0].write_access == "all"
+    # the panel's form starts a new Modbus connection with the same clients
+    edit = Path(__file__).parents[1] / "panel-src" / "src" / "pages" / "edit.js"
+    assert f'write_access: "listed", write_clients: "{MODBUS_WRITE_CLIENTS}"' in edit.read_text()
