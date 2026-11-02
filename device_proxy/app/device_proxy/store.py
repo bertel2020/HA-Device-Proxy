@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,10 @@ def summary(items: list[Change]) -> str:
     return "; ".join(parts) or "no change"
 
 
+class SaveError(OSError):
+    """The configuration could not be written (a full disk, for one): nothing changed."""
+
+
 class Store:
     def __init__(self, db: Database | None, path: Path = PATH) -> None:
         self.db = db
@@ -95,7 +100,12 @@ class Store:
         """The id of the last saved version: the configuration as it is now."""
         if self.db is None:
             return None
-        row = self.db.execute("SELECT id FROM config_versions ORDER BY id DESC LIMIT 1").fetchone()
+        try:
+            row = self.db.execute(
+                "SELECT id FROM config_versions ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        except sqlite3.Error:  # no way back offered, saving goes on
+            return None
         return int(row[0]) if row else None
 
     def _latest_version(self) -> AppConfig | None:
@@ -117,23 +127,36 @@ class Store:
         """Write the configuration and keep it as a version; returns what changed."""
         text = json.dumps(new.to_dict(), ensure_ascii=False, indent=1)
         tmp = self.path.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8") as f:
-            f.write(text)
-            f.flush()
-            os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
-        os.replace(tmp, self.path)
+        try:
+            with tmp.open("w", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
+            os.replace(tmp, self.path)
+        except OSError as err:
+            tmp.unlink(missing_ok=True)
+            raise SaveError(err.errno, f"configuration not saved: {err.strerror or err}") from err
         items = changes(old, new)
         if self.db is not None and items:  # saving without a change is no new version
-            self.db.execute(
-                "INSERT INTO config_versions (ts, source, summary, changes, config)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (time.time(), source, summary(items), json.dumps(items, ensure_ascii=False), text),
-            )
-            self.db.execute(
-                "DELETE FROM config_versions WHERE id NOT IN"
-                " (SELECT id FROM config_versions ORDER BY id DESC LIMIT ?)",
-                (KEEP_VERSIONS,),
-            )
+            try:
+                self.db.execute(
+                    "INSERT INTO config_versions (ts, source, summary, changes, config)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (
+                        time.time(),
+                        source,
+                        summary(items),
+                        json.dumps(items, ensure_ascii=False),
+                        text,
+                    ),
+                )
+                self.db.execute(
+                    "DELETE FROM config_versions WHERE id NOT IN"
+                    " (SELECT id FROM config_versions ORDER BY id DESC LIMIT ?)",
+                    (KEEP_VERSIONS,),
+                )
+            except sqlite3.Error as err:  # the file is saved: the change counts, without history
+                _LOGGER.warning("Configuration saved, but not kept in the history: %s", err)
         return items
 
     def versions(self) -> list[dict[str, Any]]:

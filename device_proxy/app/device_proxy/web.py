@@ -39,7 +39,7 @@ from .model import (
 )
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services
-from .store import PASSWORD_KEPT, hidden
+from .store import PASSWORD_KEPT, SaveError, hidden
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,6 +120,7 @@ REASONS = {
     409: "Conflict",
     413: "Payload Too Large",
     500: "Internal Server Error",
+    507: "Insufficient Storage",
 }
 
 
@@ -293,6 +294,8 @@ class WebServer:
                 return ok({"error": str(err), "details": err.details}, err.status)
             except ValidationError as err:
                 return ok({"error": "invalid", "errors": err.errors}, 400)
+            except SaveError as err:  # a full disk: nothing changed, and the page says why
+                return ok({"error": err.strerror}, 507)
             except Exception:
                 _LOGGER.exception("Web interface: %s %s failed", request.method, request.path)
                 return ok({"error": "internal error, see the app log"}, 500)
