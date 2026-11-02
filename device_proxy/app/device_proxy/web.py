@@ -9,10 +9,12 @@ relative URLs, so it works under the ingress path.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import re
+import struct
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field, replace
@@ -25,6 +27,7 @@ from . import diagnostics
 from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
+from .modbus import check_access, write_pdu
 from .model import (
     INGRESS_PORT,
     KINDS,
@@ -170,6 +173,7 @@ class WebServer:
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/detect", self.detect)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/read", self.modbus_read)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/access", self.modbus_access)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/write", self.modbus_write)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
@@ -679,6 +683,34 @@ class WebServer:
             )
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def modbus_access(self, request: Request) -> Response:
+        """May a client at this address read or write this, by the saved rules?"""
+        data = request.json()
+        unit, function, address, count = self._ints(data, "unit", "function", "address", "count")
+        host = str(data.get("host", "")).strip()
+        config = self.c.config
+        c = config.connection(request.params["id"])
+        if c is None or c.kind != "modbus":
+            raise HttpError(404, "no such Modbus connection")
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            raise HttpError(400, "an IP address is needed") from None
+        if not 0 <= unit <= 255 or not 0 <= address <= 65535 or not 1 <= count <= 2000:
+            raise HttpError(400, "unit 0 to 255, address 0 to 65535, count 1 to 2000")
+        try:
+            if function in (5, 6, 15, 16):
+                many = 1 if function in (5, 6) else min(count, 123)
+                pdu = write_pdu(function, address, [0] * many)
+            elif function in (1, 2, 3, 4):
+                pdu = struct.pack(">BHH", function, address, count)
+            else:
+                raise ValueError("function 1 to 6, 15 or 16")
+        except ValueError as err:
+            raise HttpError(400, str(err)) from None
+        others = {x.id: x for x in config.connections if x.kind == "modbus"}
+        return ok(check_access(c, config.settings.access, host, unit, pdu, others))
 
     async def modbus_write(self, request: Request) -> Response:
         data = request.json()

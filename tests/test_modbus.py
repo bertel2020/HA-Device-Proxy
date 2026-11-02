@@ -597,3 +597,46 @@ async def test_units_routed_to_another_connection() -> None:
         await asyncio.gather(*tasks, return_exceptions=True)
         inverter.close()
         meter.close()
+
+
+def test_check_access_names_the_rule_that_decides() -> None:
+    from device_proxy.modbus import check_access, write_pdu
+
+    def modbus(**values: object) -> Connection:
+        base = {"name": "PV", "port": 1502, "kind": "modbus", "host": "10.0.0.9", "id": "0000000a"}
+        return Connection.from_dict({**base, **values})
+
+    read = struct.pack(">BHH", 3, 40000, 2)
+    write = write_pdu(6, 40100, [1])
+    lan = "lan:192.168.1.0/24"
+    pv = modbus()  # new: Home Assistant and the apps may write
+    assert check_access(pv, lan, "192.168.1.50", 1, read, {}) == {
+        "connect": True,
+        "write": False,
+        "allowed": True,
+        "why": "read",
+    }
+    assert check_access(pv, lan, "192.168.1.50", 1, write, {})["why"] == "write_access"
+    assert check_access(pv, lan, "172.30.32.5", 1, write, {})["allowed"] is True
+    assert check_access(pv, lan, "10.9.9.9", 1, read, {}) == {"connect": False, "why": "network"}
+    own = modbus(remaddr="10.9.9.0/24")
+    assert check_access(own, lan, "192.168.1.50", 1, read, {})["why"] == "own_rule"
+    local = modbus(bind="127.0.0.1")
+    assert check_access(local, lan, "192.168.1.50", 1, read, {})["why"] == "bind"
+    assert check_access(local, lan, "127.0.0.1", 1, read, {})["connect"] is True
+    limited = modbus(write_access="all", write_registers="40000-40050")
+    assert check_access(limited, lan, "192.168.1.50", 1, write, {})["why"] == "registers"
+    listening = modbus(write_access="all", link="rtu_listen", device="/dev/ttyUSB0")
+    assert check_access(listening, lan, "192.168.1.50", 1, write, {})["why"] == "listen_only"
+    # a routed unit: the write must pass the other connection's rules too
+    heat = modbus(name="WP", id="0000000b", write_access="none", port=1503, host="10.0.0.8")
+    router = modbus(write_access="all", unit_routes="2=0000000b:1")
+    result = check_access(router, lan, "192.168.1.50", 2, write, {"0000000b": heat})
+    assert (result["allowed"], result["why"], result["by"], result["route"]) == (
+        False,
+        "write_access",
+        "WP",
+        "WP",
+    )
+    assert check_access(router, lan, "192.168.1.50", 1, write, {"0000000b": heat})["allowed"]
+    assert check_access(router, lan, "192.168.1.50", 2, read, {})["why"] == "no_route"
