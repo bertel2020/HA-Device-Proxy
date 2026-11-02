@@ -61,6 +61,23 @@ export function sparkline(values, { w = 84, h = 26, label = "" } = {}) {
 
 export const fmtRate = (bytesPerSecond) => `${fmtBytes(Math.round(bytesPerSecond || 0))}/s`;
 
+/** What saving does to the running connections, in one line ("" when nothing). */
+export function effectsText(list) {
+  if (!list || !list.length) return "";
+  return `${t("effLead")} ${list.map((e) => t(e.effect === "stop" ? "effStop" : "effRestart", { n: e.name })
+    + (e.clients ? t(e.effect === "stop" ? "effClientsStop" : "effClients", { c: e.clients }) : "")).join(" · ")}`;
+}
+
+/** effectsText of an effects check before a confirm; "" when the check fails. */
+export async function effectsOf(path, body) {
+  try {
+    return effectsText((await api(path, body === undefined ? {} : { method: "POST", body })).effects);
+  } catch { return ""; }
+}
+
+/** A confirm question with what it does to the running connections after it. */
+export const withEffects = (question, effects) => (effects ? `${question} ${effects}.` : question);
+
 /** Connections that worked before the last change of the configuration and do not now. */
 export function brokenByChange(s) {
   const change = s.last_change;

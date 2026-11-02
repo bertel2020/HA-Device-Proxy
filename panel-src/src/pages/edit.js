@@ -5,7 +5,7 @@ import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from 
 import { fieldError, retriesText, t } from "../i18n.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
-import { confirmDialog, icon, navigate, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -225,8 +225,7 @@ export class EditPage extends Page {
   /** What saving does to the running connections, from the last preview of the form. */
   _effects(isNew) {
     const list = this._dirty() ? this.effects || [] : [];
-    const text = list.length ? `${t("effLead")} ${list.map((e) => t(e.effect === "stop" ? "effStop" : "effRestart", { n: e.name })
-      + (e.clients ? t(e.effect === "stop" ? "effClientsStop" : "effClients", { c: e.clients }) : "")).join(" · ")}`
+    const text = list.length ? effectsText(list)
       : isNew ? t("saveHintNew") : this.effects && this._dirty() ? t("effNone") : t("saveHint");
     const clients = list.some((e) => e.clients);
     return html`<span class="hint" role="status" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end;${clients ? "color:var(--warn)" : ""}">${icon(clients ? "warn" : "info", 16)}${text}</span>`;

@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
-import { confirmDialog, fmtSerial, focused, icon, modbusTarget, radioKeys, radioTab, trapTab } from "../ui.js";
+import { confirmDialog, effectsOf, fmtSerial, focused, icon, modbusTarget, radioKeys, radioTab, trapTab, withEffects } from "../ui.js";
 
 /** A missing device that also has an unstable name is one note, not two. */
 const joinNotes = (notes) => notes.flatMap((n) => {
@@ -95,7 +95,8 @@ export class ImportDialog extends Page {
   async _apply() {
     const take = [...this.preview.items.filter((i) => i.connection && (this.take.has(i.alias) || (this.choice[i.alias] && this.choice[i.alias] !== "skip"))).map((i) => i.alias)];
     const replaced = this.replaceAll ? this.state.connections.length : take.filter((a) => this.choice[a] === "replace").length;
-    if (replaced && !(await confirmDialog(this, t("importReplaceConfirm", { n: replaced }), t("importReplace")))) return;
+    const effects = await effectsOf("api/import/effects", { text: this.text, replace_all: this.replaceAll, take, on_conflict: this.choice });
+    if ((replaced || effects) && !(await confirmDialog(this, withEffects(replaced ? t("importReplaceConfirm", { n: replaced }) : t("importEffectsConfirm"), effects), replaced ? t("importReplace") : t("confirm")))) return;
     this.busy = true;
     try {
       const result = await api("api/import", { method: "POST", body: { text: this.text, replace_all: this.replaceAll, take, on_conflict: this.choice } });

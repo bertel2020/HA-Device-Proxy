@@ -154,7 +154,9 @@ class WebServer:
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.end_exclusive)
         self._route("POST", r"api/preview", self.preview)
         self._route("PUT", r"api/settings", self.settings)
+        self._route("POST", r"api/settings/effects", self.settings_effects)
         self._route("POST", r"api/import/preview", self.import_preview)
+        self._route("POST", r"api/import/effects", self.import_effects)
         self._route("POST", r"api/import", self.run_import)
         self._route("GET", r"api/export", self.export)
         self._route("GET", r"api/backup", self.backup)
@@ -168,6 +170,7 @@ class WebServer:
         self._route("GET", r"api/versions", self.versions)
         self._route("GET", r"api/versions/(?P<id>\d+)", self.version_config)
         self._route("POST", r"api/versions/(?P<id>\d+)/restore", self.restore)
+        self._route("GET", r"api/versions/(?P<id>\d+)/effects", self.restore_effects)
         self._route("GET", r"api/trace/(?P<name>[^/]+)", self.trace_file)
         self._route("DELETE", r"api/trace/(?P<name>[^/]+)", self.delete_trace)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
@@ -449,12 +452,25 @@ class WebServer:
             text = block(connection, self.c.config.settings.access, trace=False)
         return ok({"yaml": text, "errors": errors, "warnings": warnings, "effects": effects})
 
-    async def settings(self, request: Request) -> Response:
+    @staticmethod
+    def _settings_patch(request: Request) -> dict[str, Any]:
         data = request.json().get("settings")
         if not isinstance(data, dict):
             raise HttpError(400, "a settings object is needed")
         if data.get("mqtt_password") == PASSWORD_KEPT:
             data = {k: v for k, v in data.items() if k != "mqtt_password"}
+        return data
+
+    async def settings_effects(self, request: Request) -> Response:
+        """What saving these settings would do to the running connections."""
+        config = self.c.config
+        settings = Settings.from_dict(
+            {**config.settings.to_dict(), **self._settings_patch(request)}
+        )
+        return ok({"effects": self.c.effects(replace(config, settings=settings))})
+
+    async def settings(self, request: Request) -> Response:
+        data = self._settings_patch(request)
 
         def build(config: AppConfig) -> AppConfig:  # from the settings as they are by then
             settings = Settings.from_dict({**config.settings.to_dict(), **data})
@@ -486,19 +502,44 @@ class WebServer:
             }
         )
 
-    async def run_import(self, request: Request) -> Response:
-        data = request.json()
+    @staticmethod
+    def _import_choice(data: dict[str, Any]) -> tuple[set[str] | None, dict[str, str]]:
         take, on_conflict = data.get("take"), data.get("on_conflict") or {}
         if take is not None and not isinstance(take, list):
             raise HttpError(400, "take is a list of names")
         if not isinstance(on_conflict, dict):
             raise HttpError(400, "on_conflict is an object")
+        return (
+            {str(alias) for alias in take} if take is not None else None,
+            {str(k): str(v) for k, v in on_conflict.items()},
+        )
+
+    async def import_effects(self, request: Request) -> Response:
+        """What taking over this choice of the file would do to the running connections."""
+        data = request.json()
+        take, on_conflict = self._import_choice(data)
+        try:
+            config = await self.c.imported(
+                str(data.get("text", "")),
+                replace_all=bool(data.get("replace_all")),
+                take=take,
+                on_conflict=on_conflict,
+            )
+        except ReadError as err:
+            return ok({"error": "unreadable", "note": err.note}, 400)
+        except ValidationError:
+            return ok({"effects": []})  # taking it over is refused anyway, with the reason
+        return ok({"effects": self.c.effects(config)})
+
+    async def run_import(self, request: Request) -> Response:
+        data = request.json()
+        take, on_conflict = self._import_choice(data)
         try:
             result = await self.c.run_import(
                 str(data.get("text", "")),
                 replace_all=bool(data.get("replace_all")),
-                take={str(alias) for alias in take} if take is not None else None,
-                on_conflict={str(k): str(v) for k, v in on_conflict.items()},
+                take=take,
+                on_conflict=on_conflict,
             )
         except ReadError as err:
             return ok({"error": "unreadable", "note": err.note}, 400)
@@ -546,7 +587,7 @@ class WebServer:
         kinds = {k: sum(1 for c in config.connections if c.kind == k) for k in KINDS}
         return ok(
             {"created": created, "kinds": kinds, "total": len(config.connections)}
-            | {"current": len(self.c.config.connections)}
+            | {"current": len(self.c.config.connections), "effects": self.c.effects(config)}
         )
 
     async def restore_backup(self, request: Request) -> Response:
@@ -626,6 +667,12 @@ class WebServer:
         data = config.to_dict()
         data["settings"] = hidden(data["settings"], {"mqtt_password"}, PASSWORD_KEPT)
         return ok(data)
+
+    async def restore_effects(self, request: Request) -> Response:
+        config = self.c.store.version(int(request.params["id"]))
+        if config is None:
+            raise HttpError(404, "no such version")
+        return ok({"effects": self.c.effects(config)})
 
     async def restore(self, request: Request) -> Response:
         config = self.c.store.version(int(request.params["id"]))
