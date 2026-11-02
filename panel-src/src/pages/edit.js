@@ -3,6 +3,7 @@ import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
+import { deviceName, uniqueName } from "../names.js";
 import { confirmDialog, icon, navigate, proxyTarget, toggle } from "../ui.js";
 
 const DEFAULTS = {
@@ -149,14 +150,14 @@ export class EditPage extends Page {
     return { kind: "serial", template: "generic", ...TEMPLATES.generic, port: serial.length ? Math.max(...serial) + 1 : 3333, device: free ? free.stable : "" };
   }
 
-  /** A name from the chosen device, as long as the name is empty or still the last suggestion. */
+  /** A name from the template, else from the chosen device, as long as the name is empty or still the last suggestion. */
   _suggestName() {
     const d = this.draft;
+    if (d.name && d.name !== this._auto) return;
     const x = this.state.devices.find((v) => v.stable === d.device || v.by_id.includes(d.device) || v.by_path.includes(d.device));
-    const what = x ? [x.manufacturer, x.product].filter(Boolean).join(" ") : "";
-    if (!what || (d.name && d.name !== this._auto)) return;
-    this._auto = what;
-    this.draft = { ...d, name: what };
+    const base = (d.template !== "generic" && t(`nameTpl_${d.template}`)) || (x && deviceName(x.manufacturer, x.product)) || t("nameTpl_generic");
+    this._auto = uniqueName(base, this.state.connections.map((c) => c.name));
+    this.draft = { ...d, name: this._auto };
   }
 
   /** Who may connect when the connection has no limit of its own: the network setting. */
@@ -623,7 +624,7 @@ export class EditPage extends Page {
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
         </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
-        ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) }))}
+        ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => { this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) }); if (!d.id) this._suggestName(); })}
 
         <section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
