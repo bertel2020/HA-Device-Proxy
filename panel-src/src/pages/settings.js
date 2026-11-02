@@ -2,6 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
+import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
 import { confirmDialog, copyText, effectsOf, effectsText, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
@@ -49,35 +50,35 @@ export class SettingsPage extends Page {
     .act { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--input-line); border-radius: 12px; cursor: pointer; }
     .act:hover { background: var(--surface-1); }
     .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .act b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; }
-    .act span { font-size: 12px; color: var(--muted); }
+    .act b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: calc(14px * var(--fs, 1)); }
+    .act span { font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
     .act.on { background: var(--accent-soft); border-color: var(--accent); }
     .act.on b { color: var(--accent-hover); }
-    pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre; }
-    details.expert > summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; }
-    details.expert > summary::before { content: "›"; font-size: 20px; line-height: 1; transition: transform .15s; }
+    pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: calc(12px * var(--fs, 1)); line-height: 1.6; white-space: pre; }
+    details.expert > summary { cursor: pointer; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; }
+    details.expert > summary::before { content: "›"; font-size: calc(20px * var(--fs, 1)); line-height: 1; transition: transform .15s; }
     details.expert[open] > summary::before { transform: rotate(90deg); }
     .expert-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; }
-    .grp h3 { margin: 0; font-size: 14px; font-weight: 500; }
+    .grp h3 { margin: 0; font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
     .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+    .sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: calc(14px * var(--fs, 1)); }
     .sentence .num { width: 72px; text-align: center; padding: 0 8px; }
     .grp .grid2, .expert-body .grid2 { align-items: start; }
     .grp .fld { justify-content: flex-start; }
     .fld .hint { color: var(--muted); }
     .inp:disabled { opacity: .5; cursor: not-allowed; }
-    .day { font-size: 12px; font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
+    .day { font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
     .day:first-child { margin-top: 0; }
     .hrow { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; border-radius: 8px; }
     .hrow:hover { background: var(--line-2); }
     .hrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .hrow .chev { flex: none; width: 7px; height: 7px; margin: 0 4px 0 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
     .hrow[aria-expanded="true"] .chev { transform: rotate(45deg); }
-    .hrow .tm { flex: none; width: 44px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .hrow .tm { flex: none; width: 44px; font-size: calc(13px * var(--fs, 1)); color: var(--muted); font-variant-numeric: tabular-nums; }
     .hrow .tx { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
     .hbody { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px 69px; align-items: flex-start; }
-    textarea.editor { min-height: 260px; font-size: 12px; line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }
+    textarea.editor { min-height: 260px; font-size: calc(12px * var(--fs, 1)); line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }
   `];
 
   connectedCallback() {
@@ -396,7 +397,7 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net" @keydown=${radioKeys}>${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} tabindex=${radioTab(s.settings.listen === v)} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:12px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size: calc(12px * var(--fs, 1))">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "lan" ? html`<div class="grp" style="gap:12px">
             <div><h3>${t("lanTitle")}</h3><div class="hint" style="margin-top:2px">${t("lanSub")}</div></div>
             <div class="pills">
@@ -419,7 +420,7 @@ export class SettingsPage extends Page {
             </div>
           </div>` : ""}
           ${s.settings.listen === "all" ? html`<div class="note bad" role="alert">${t("netWarn")}</div>` : ""}
-          ${deviating ? html`<div class="hint" style="font-size:13px">${deviating === 1 ? t("netDeviateOne") : t("netDeviateMany", { n: deviating })} <a href="#/connections">${t("netDeviateLink")}</a></div>` : ""}
+          ${deviating ? html`<div class="hint" style="font-size: calc(13px * var(--fs, 1))">${deviating === 1 ? t("netDeviateOne") : t("netDeviateMany", { n: deviating })} <a href="#/connections">${t("netDeviateLink")}</a></div>` : ""}
           <div class="hint">${t("netChangeHint")}</div>
         </section>
 
@@ -455,7 +456,7 @@ export class SettingsPage extends Page {
               <button class="act" @click=${() => this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true }))}><b>${icon("upload")}${t("srcImport")}</b><span>${t("srcImportSub")}</span></button>
               <a class="act" href=${url(`api/export?disabled=${this.exportDisabled ? 1 : 0}`)} download><b>${icon("download")}${t("srcExportYaml")}</b><span>${t("srcExportSub")}</span></a>
             </div>
-            <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size:13px">${t("exportDisabled")}</span></label>
+            <label class="chk" style="min-height:24px"><input type="checkbox" .checked=${this.exportDisabled} @change=${(e) => { this.exportDisabled = e.target.checked; }}><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("exportDisabled")}</span></label>
           </div>
         </section>
 
@@ -473,7 +474,7 @@ export class SettingsPage extends Page {
             <div class="pills">${[["notify_missing", "nMissing"], ["notify_no_client", "nNoClient"], ["silence_minutes", "nNoData"]].map(([k, l]) => {
               const n = conns.filter((c) => c[k]).length;
               return html`<span class="chip ${n ? "ok" : ""}">${t(l)} · ${t("nOf", { n, m: conns.length })}</span>`;
-            })}<a href="#/connections" style="font-size:13px">${t("nPerConnection")}</a></div>
+            })}<a href="#/connections" style="font-size: calc(13px * var(--fs, 1))">${t("nPerConnection")}</a></div>
           </div>
           <div class="grp">
             <h3>${t("nWhen")}</h3>
@@ -625,7 +626,7 @@ export class SettingsPage extends Page {
           <h2 id="t-about">${t("sAbout")}</h2>
           <div class="grp" style="border-top:none;padding-top:0">
             <h3>${t("helpTitle")}</h3>
-            <p class="hint" style="font-size:14px">${t("helpText")}</p>
+            <p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("helpText")}</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <a class="btn btn-s" href=${url("api/diagnostics")} download>${icon("download")}${t("diagDownload")}</a>
               <a class="btn btn-g" href="https://github.com/bertel2020/HA-Device-Proxy/issues/new" target="_blank" rel="noopener">${t("reportIssue")}</a>
@@ -635,15 +636,20 @@ export class SettingsPage extends Page {
           </div>
           <div class="grp">
           <div style="display:flex;align-items:center;gap:16px">${logo(64)}
-              <div style="min-width:0"><h2 id="t-app" style="margin:0;font-size:22px">${t("appTitle")}</h2>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size:14px">${t("license")}</span></div></div></div>
+              <div style="min-width:0"><h2 id="t-app" style="margin:0;font-size: calc(22px * var(--fs, 1))">${t("appTitle")}</h2>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><span class="chip info">${s.version}</span><span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("license")}</span></div></div></div>
             <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
-              <span class="hint" style="font-size:14px">${t("language")}</span>
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("language")}</span>
               <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
                 <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select>
                 <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
-              <span class="hint" style="font-size:14px">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
-              <span class="hint" style="font-size:14px">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
+              ${[["lookScheme", "scheme", SCHEMES], ["lookMode", "mode", MODES], ["lookSize", "size", Object.keys(SIZES)]].map(([label, key, values]) => html`
+                <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t(label)}</span>
+                <span><span class="seg" role="group" aria-label=${t(label)}>${values.map((v) => html`<button aria-pressed=${look()[key] === v}
+                  @click=${() => { setLook({ [key]: v }); this.requestUpdate(); }}>${t(`${key}_${v}`)}</button>`)}</span>
+                  ${key === "size" ? html`<span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span>` : ""}</span>`)}
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
             </div>
           </div>
         </section>

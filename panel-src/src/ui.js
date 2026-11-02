@@ -185,7 +185,7 @@ export function foldCard(key, id, title, sub, body, force = false, sectionId = "
       .tc > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; list-style: none; border-radius: 10px; margin: -6px -8px; padding: 6px 8px; }
       .tc > summary::-webkit-details-marker { display: none; }
       .tc > summary:hover { background: var(--surface-2); }
-      .tc .chev { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-hover); font-size: 13px; font-weight: 500; }
+      .tc .chev { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-hover); font-size: calc(13px * var(--fs, 1)); font-weight: 500; }
       .tc .chev svg { transition: transform .15s; }
       .tc[open] .chev svg { transform: rotate(180deg); }
       .tc .chev .on { display: none; } .tc[open] .chev .on { display: inline; } .tc[open] .chev .off { display: none; }
@@ -245,7 +245,7 @@ export function movedNote(c, use) {
   return html`<div class="note warn" role="note" style="display:flex;flex-direction:column;gap:8px" @click=${(e) => e.stopPropagation()}>
     <span>${t(found.length === 1 ? "movedOne" : "movedMany", { d: c.device })}</span>
     ${found.map((d) => html`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span class="mono" style="font-size:12px;overflow-wrap:anywhere;flex:1;min-width:0">${d.stable}${d.product ? html` <span class="hint">· ${d.product}${d.serial ? ` · ${d.serial}` : ""}</span>` : ""}</span>
+      <span class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere;flex:1;min-width:0">${d.stable}${d.product ? html` <span class="hint">· ${d.product}${d.serial ? ` · ${d.serial}` : ""}</span>` : ""}</span>
       <button class="btn btn-s" @click=${(e) => { e.preventDefault(); use(d); }}>${t("movedUse")}</button></div>`)}
   </div>`;
 }

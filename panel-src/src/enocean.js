@@ -129,7 +129,7 @@ export function statusCard(c) {
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["eoDropped", "eoRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
       <span class="hint">${t(k)}</span></div>`)}</div>
     ${e.last_error && !e.connected ? html`<div class="note bad">${e.last_error}${e.last_error_at ? ` · ${fmtTime(e.last_error_at, true, true)}` : ""}</div>` : ""}
-    ${!c.fallback && !e.serves ? html`<a href="#/edit/${c.id}/fallback" style="font-size:13px">${t("fbAdd")}</a>` : ""}
+    ${!c.fallback && !e.serves ? html`<a href="#/edit/${c.id}/fallback" style="font-size: calc(13px * var(--fs, 1))">${t("fbAdd")}</a>` : ""}
   </section>`;
 }
 
@@ -263,7 +263,7 @@ export class EnOceanSenders extends LitElement {
 
   static styles = [tokens, base, css`
     :host { display: block; }
-    td, th { font-size: 13px; }
+    td, th { font-size: calc(13px * var(--fs, 1)); }
     .id { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; white-space: nowrap; }
   `];
 
@@ -297,7 +297,7 @@ export class EnOceanSenders extends LitElement {
       ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size:12px" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
           <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString()}</td><td>${fmtAgo(r.last)}</td>
           ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>
@@ -409,8 +409,8 @@ export class EnOceanTools extends LitElement {
       ${check.level !== "empty" ? html`<div class="row"><span class="hint" style="color:${check.level === "ok" ? "var(--ok)" : "var(--bad)"}">${check.msg}</span>
         ${check.fix ? html`<button class="btn btn-g" @click=${() => { this.text = toHex(check.fix); }}>${check.fixLabel}</button>` : ""}</div>` : ""}
       <div><button class="btn btn-s" ?disabled=${!!blocked || check.level !== "ok" || this.busy === "send"} @click=${this._send}>${t("eoSend")}</button></div>
-      ${this.answers.map((a) => html`<div class="well"><div class="hint">${fmtTime(a.ts, false, true)} · ${t("eoSent")}</div><div class="mono" style="font-size:12px;overflow-wrap:anywhere">${a.sent}</div>
-        <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size:12px;overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
+      ${this.answers.map((a) => html`<div class="well"><div class="hint">${fmtTime(a.ts, false, true)} · ${t("eoSent")}</div><div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.sent}</div>
+        <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoCapture")}</b><p class="hint">${t("eoCaptureSub")}</p></div>
       ${mine ? html`<div class="note info" role="status">${t("eoCaptureRunning", { f: cap.file, n: cap.frames, since: fmtAgo(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>

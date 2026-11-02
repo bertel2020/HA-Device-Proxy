@@ -27,14 +27,14 @@ export class ImportDialog extends Page {
       background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
     .steps li.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
     .steps li.past { color: var(--accent-hover); }
-    .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: 12px; background: var(--line); color: var(--muted); }
+    .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: calc(12px * var(--fs, 1)); background: var(--line); color: var(--muted); }
     .on .num, .past .num { background: var(--accent); color: var(--on-accent); }
     .drop { border: 2px dashed var(--input-line); border-radius: 16px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; background: var(--surface-2); }
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
     .formats p { margin: 6px 0 0; }
     .imp { min-width: 680px; }
     .imp td.nm { min-width: 130px; }
-    .imp td.dev { font-size: 12px; overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
+    .imp td.dev { font-size: calc(12px * var(--fs, 1)); overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
     .allt { display: none; }
     @media (max-width: 640px) {
       .steps { flex-wrap: nowrap; margin-bottom: 14px; }
@@ -55,11 +55,11 @@ export class ImportDialog extends Page {
       .imp td[data-l]:empty { display: none; }
     }
     .foot { position: sticky; bottom: 0; z-index: 1; background: var(--surface); border-top: 1px solid var(--line-2); padding: 14px 0 6px; }
-    .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: calc(13px * var(--fs, 1)); }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
-    .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
-    .sum b { font-size: 24px; font-weight: 500; color: var(--text, inherit); }
-    td .notes { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: var(--muted); }
+    .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .sum b { font-size: calc(24px * var(--fs, 1)); font-weight: 500; color: var(--text, inherit); }
+    td .notes { margin: 6px 0 0; padding-left: 16px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
   `];
 
   constructor() {
@@ -119,7 +119,7 @@ export class ImportDialog extends Page {
       <div class="drop" @dragover=${(e) => { e.preventDefault(); e.currentTarget.classList.add("over"); }}
         @dragleave=${(e) => e.currentTarget.classList.remove("over")}
         @drop=${(e) => { e.preventDefault(); e.currentTarget.classList.remove("over"); this._file(e.dataTransfer.files[0]); }}>
-        ${icon("upload", 40)}<b style="font-size:16px;font-weight:500">${t("importDrop")}</b>
+        ${icon("upload", 40)}<b style="font-size: calc(16px * var(--fs, 1));font-weight:500">${t("importDrop")}</b>
         <label class="btn btn-p">${t("chooseFile")}<input type="file" class="sr" accept=".yaml,.yml,.conf,.json,text/plain" @change=${(e) => this._file(e.target.files[0])}></label>
       </div>
       <details class="formats fold"><summary>${t("formatsMore")}</summary><p class="hint">${t("importFormats")}</p></details>
@@ -173,7 +173,7 @@ export class ImportDialog extends Page {
             </td></tr>`;
         })}</tbody></table></div>
       <div class="row foot">
-        <span class="hint" style="font-size:13px">${t("selected", { n: count, m: p.items.length })}</span>
+        <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("selected", { n: count, m: p.items.length })}</span>
         <div style="display:flex;gap:8px"><button class="btn btn-g" @click=${this._close}>${t("cancel")}</button>
           <button class="btn btn-p" ?disabled=${!count || this.busy} @click=${this._apply}>${t("apply", { n: count })}</button></div>
       </div></section>`;
@@ -197,8 +197,8 @@ export class ImportDialog extends Page {
     const off = this.preview.items.filter((i) => i.connection && !i.connection.enabled && taken.has(i.connection.name)).map((i) => i.connection.name);
     return html`<section class="card"><h2>${t("doneHead")}</h2>
       <div class="sum">${[["added", added], ["changed", changed], ...(removed ? [["removed", removed]] : []), ["skipped", skipped]].map(([k, v]) => html`<div><b>${v}</b>${t(`sum_${k}`)}</div>`)}</div>
-      ${off.length ? html`<p class="hint" style="font-size:14px">${t("doneOff", { n: off.join(", ") })}</p>` : ""}
-      <p class="hint" style="font-size:14px">${t("doneText")}</p>
+      ${off.length ? html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("doneOff", { n: off.join(", ") })}</p>` : ""}
+      <p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("doneText")}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-p" href="#/connections" @click=${this._close}>${t("toConnections")}</a><a class="btn btn-s" href="#/settings" @click=${this._close}>${t("sHistory")}</a></div></section>`;
   }
 
