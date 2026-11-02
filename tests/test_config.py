@@ -228,3 +228,48 @@ def test_a_new_modbus_connection_lets_only_home_assistant_and_the_apps_write(
     # the panel's form starts a new Modbus connection with the same clients
     edit = Path(__file__).parents[1] / "panel-src" / "src" / "pages" / "edit.js"
     assert f'write_access: "listed", write_clients: "{MODBUS_WRITE_CLIENTS}"' in edit.read_text()
+
+
+def test_effects_name_what_saving_sets_up_again_and_stops(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.modbus import restart_key
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    meter = Connection("Meter", "/dev/null", 3335, id="0000000a")
+    stick = Connection("Stick", "/dev/zero", 3336, id="0000000b")
+    inverter = Connection.from_dict(
+        {"name": "Inverter", "port": 1502, "kind": "modbus", "host": "10.0.0.9", "id": "0000000c"}
+    )
+    config = AppConfig(connections=(meter, stick, inverter))
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )
+    controller.config = config
+    controller.write_config()
+    access = config.settings.access
+    controller.proxies["0000000c"] = SimpleNamespace(  # type: ignore[assignment]
+        c=inverter, key=restart_key(inverter, access), clients={"10.0.0.5": 1, "10.0.0.6": 2}
+    )
+    assert controller.effects(config) == []
+    faster = config.with_connection(replace(meter, baud=19200))
+    assert controller.effects(faster) == [{"name": "Meter", "effect": "restart", "clients": 0}]
+    other_port = config.with_connection(replace(inverter, port=1503))
+    assert controller.effects(other_port) == [
+        {"name": "Inverter", "effect": "restart", "clients": 2}
+    ]
+    renamed = config.with_connection(replace(inverter, name="PV"))  # no restart for a name
+    assert controller.effects(renamed) == []
+    gone = config.without_connection("0000000b").without_connection("0000000c")
+    assert controller.effects(gone) == [
+        {"name": "Stick", "effect": "stop", "clients": 0},
+        {"name": "Inverter", "effect": "stop", "clients": 2},
+    ]

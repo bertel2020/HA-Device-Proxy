@@ -53,7 +53,7 @@ export class EditPage extends Page {
   static properties = {
     state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
-    otherDevice: { state: true }, replayOpen: { state: true }, fbOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
+    otherDevice: { state: true }, replayOpen: { state: true }, fbOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, effects: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
   };
 
@@ -217,7 +217,18 @@ export class EditPage extends Page {
       this.yaml = result.yaml;
       this.errors = fieldErrors(result.errors);
       this.warnings = result.warnings || {};
+      this.effects = result.effects;
     } catch { /* keep the last preview */ }
+  }
+
+  /** What saving does to the running connections, from the last preview of the form. */
+  _effects(isNew) {
+    const list = this._dirty() ? this.effects || [] : [];
+    const text = list.length ? `${t("effLead")} ${list.map((e) => t(e.effect === "stop" ? "effStop" : "effRestart", { n: e.name })
+      + (e.clients ? t(e.effect === "stop" ? "effClientsStop" : "effClients", { c: e.clients }) : "")).join(" · ")}`
+      : isNew ? t("saveHintNew") : this.effects && this._dirty() ? t("effNone") : t("saveHint");
+    const clients = list.some((e) => e.clients);
+    return html`<span class="hint" role="status" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end;${clients ? "color:var(--warn)" : ""}">${icon(clients ? "warn" : "info", 16)}${text}</span>`;
   }
 
   updated() {
@@ -743,7 +754,7 @@ export class EditPage extends Page {
         <div class="actions">
           ${isNew ? "" : html`<button type="button" class="btn btn-d" @click=${this._delete}>${t("delete")}</button>`}
           ${this._dirty() ? html`<span class="chip warn">${t("unsaved")}</span>` : ""}
-          <span class="hint" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end">${icon("info", 16)}${isNew ? t("saveHintNew") : t("saveHint")}</span>
+          ${this._effects(isNew)}
           <div style="display:flex;gap:8px;margin-left:auto">
             <a class="btn btn-g" href=${isNew ? "#/connections" : `#/connection/${d.id}`} @click=${(e) => this._cancel(e, isNew ? "#/connections" : `#/connection/${d.id}`)}>${t("cancel")}</a>
             <button type="submit" class="btn btn-p" ?disabled=${this.saving}>${t("save")}</button>

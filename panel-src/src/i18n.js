@@ -99,7 +99,7 @@ const TEXT = {
     extra: "Weitere Optionen", extraHint: "Eine pro Zeile: name: wert", traceMode: "Mitschnitt aufzeichnen", silence: "Warnen, wenn keine Daten seit (min, 0 = nie)",
     tr_off: "aus", tr_rx: "vom Gerät", tr_tx: "zum Gerät", tr_both: "beide Richtungen",
     preview: "Vorschau ser2net.yaml", previewSub: "So wird die Verbindung an ser2net übergeben.", save: "Speichern", unsaved: "Nicht gespeichert", discardConfirm: "Deine Änderungen an dieser Verbindung verwerfen?", discardSettingsConfirm: "Deine nicht gespeicherten Einstellungen verwerfen?", discard: "Verwerfen", cancel: "Abbrechen", delete: "Löschen",
-    saveHint: "Nur diese Verbindung wird neu aufgebaut. Andere bleiben verbunden.", saved: "Gespeichert.", savedRebuilt: "Gespeichert. Neu aufgebaut: {n}.", savedReconnect: " Clients neu verbunden: {n}.",
+    saveHint: "Nur diese Verbindung wird neu aufgebaut. Andere bleiben verbunden.", effLead: "Beim Speichern:", effRestart: "{n} wird neu aufgebaut", effStop: "{n} wird beendet", effClients: " ({c} Client(s) verbinden sich neu)", effClientsStop: " ({c} Client(s) werden getrennt)", effNone: "Keine laufende Verbindung wird neu aufgebaut, alle Clients bleiben verbunden.", saved: "Gespeichert.", savedRebuilt: "Gespeichert. Neu aufgebaut: {n}.", savedReconnect: " Clients neu verbunden: {n}.",
     deleteConfirm: "Verbindung „{n}“ löschen? Ihre Clients werden getrennt.", errorsBelow: "Bitte die markierten Felder prüfen.",
     // import
     importTitle: "Verbindungen importieren", stepChoose: "Datei wählen", stepPreview: "Vorschau prüfen", stepDone: "Übernommen",
@@ -620,7 +620,7 @@ const TEXT = {
     extra: "Further options", extraHint: "One per line: name: value", traceMode: "Record trace", silence: "Warn when no data for (min, 0 = never)",
     tr_off: "off", tr_rx: "from the device", tr_tx: "to the device", tr_both: "both directions",
     preview: "Preview ser2net.yaml", previewSub: "This is what ser2net gets.", save: "Save", unsaved: "Not saved", discardConfirm: "Discard your changes to this connection?", discardSettingsConfirm: "Discard your unsaved settings?", discard: "Discard", cancel: "Cancel", delete: "Delete",
-    saveHint: "Only this connection is rebuilt. The others stay connected.", saved: "Saved.", savedRebuilt: "Saved. Rebuilt: {n}.", savedReconnect: " Clients reconnected: {n}.",
+    saveHint: "Only this connection is rebuilt. The others stay connected.", effLead: "Saving:", effRestart: "{n} is set up again", effStop: "{n} stops", effClients: " ({c} client(s) reconnect)", effClientsStop: " ({c} client(s) disconnected)", effNone: "No running connection is set up again, all clients stay connected.", saved: "Saved.", savedRebuilt: "Saved. Rebuilt: {n}.", savedReconnect: " Clients reconnected: {n}.",
     deleteConfirm: "Delete connection “{n}”? Its clients are disconnected.", errorsBelow: "Please check the marked fields.",
     importTitle: "Import connections", stepChoose: "Choose file", stepPreview: "Check preview", stepDone: "Done",
     importChoose: "Where do the connections come from?", importDrop: "Drop a file here", formatsMore: "Which formats work?", importFormats: "ser2net 4 (YAML, version 1 and 2), ser2net 3 (ser2net.conf) or the options of ha-modbusproxy or modbus-proxy (YAML from its configuration tab)",
