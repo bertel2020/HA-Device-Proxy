@@ -5,6 +5,14 @@ import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { confirmDialog, copyText, fmtTime, icon, logo } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
+// the settings saved with a section's button; the others take effect when chosen
+const ROWS = {
+  clients: ["client_names", "notify_new_clients"],
+  notify: ["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"],
+  mqtt: ["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"],
+  enocean: ["enocean_discovery", "enocean_status_port"],
+  app: ["log_level", ...NUMBERS],
+};
 
 /** A short line diff of two JSON texts, enough to see what a version changed. */
 function lineDiff(before, after) {
@@ -87,11 +95,31 @@ export class SettingsPage extends Page {
       if (here && here.id !== this.active) this.active = here.id;
     };
     window.addEventListener("scroll", this._onScroll, { passive: true });
+    this._leave = (e) => { if (this._dirty()) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", this._leave);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("scroll", this._onScroll);
+    window.removeEventListener("beforeunload", this._leave);
+  }
+
+  /** Changes not saved yet: a section's fields, the home networks or the own ser2net.yaml. */
+  _dirty() {
+    if (!this.draft || !this.state) return false;
+    const fields = Object.values(ROWS).flat().some((k) => this.draft[k] !== this.state.settings[k]);
+    const own = this.custom && (this.customText ?? "") !== (this.custom.text ?? "");
+    return fields || (!!this.lanDraft && this._lanText() !== this.state.settings.lan_networks) || !!own;
+  }
+
+  discardText = "discardSettingsConfirm";  // what the frame asks before leaving
+
+  /** The frame leaves the page after asking: the changes are given up. */
+  discard() {
+    this.draft = { ...this.state.settings };
+    this.lanDraft = null;
+    if (this.custom) this.customText = this.custom.text;
   }
 
   firstUpdated() { this._onScroll(); }
@@ -404,7 +432,7 @@ export class SettingsPage extends Page {
               @input=${(e) => { this.draft = { ...this.draft, client_names: e.target.value }; }}></textarea>
             <span class="hint">${t("clientNamesHint")}</span></label>
           <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; }}><span>${t("notifyNewClients")}</span></label>
-          ${this._saveRow(["client_names", "notify_new_clients"])}
+          ${this._saveRow(ROWS.clients)}
         </section>
 
         <section id="backup" class="card" aria-labelledby="t-backup">
@@ -462,7 +490,7 @@ export class SettingsPage extends Page {
             </div>
             <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
           </div>
-          ${this._saveRow(["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"])}
+          ${this._saveRow(ROWS.notify)}
         </section>
 
         <section id="mqtt" class="card" aria-labelledby="t-mqtt">
@@ -504,7 +532,7 @@ export class SettingsPage extends Page {
               </div>
             </details>
           </div>
-          ${this._saveRow(["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"])}
+          ${this._saveRow(ROWS.mqtt)}
         </section>
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">
@@ -521,7 +549,7 @@ export class SettingsPage extends Page {
                 <span class="hint">${t("eoStatusPortHint")}</span></label>
             </div>
           </details>
-          ${this._saveRow(["enocean_discovery", "enocean_status_port"])}
+          ${this._saveRow(ROWS.enocean)}
         </section>
 
         <section id="log" class="card" aria-labelledby="t-log">
@@ -548,7 +576,7 @@ export class SettingsPage extends Page {
             </div>
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>
-          ${this._saveRow(["log_level", ...NUMBERS])}
+          ${this._saveRow(ROWS.app)}
         </section>
 
         <section id="src" class="card" aria-labelledby="t-src">

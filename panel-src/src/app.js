@@ -61,7 +61,7 @@ export class DeviceProxyApp extends LitElement {
       const target = location.hash;
       history.replaceState(null, "", this._hash || "#/");  // stay on the form while asking
       this._asking = true;
-      const leave = await confirmDialog(page, t("discardConfirm"), t("discard"));
+      const leave = await confirmDialog(page, t(page.discardText || "discardConfirm"), t("discard"));
       this._asking = false;
       if (!leave) return;
       page.discard?.();
