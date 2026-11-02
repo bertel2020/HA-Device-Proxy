@@ -280,7 +280,25 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
         product_id="7523",
         product="USB Serial",
     )
-    controller_module.scan = lambda: [adapter]
+    # sticks that name themselves: the form picks them by template, the plain adapter for a meter
+    enocean_stick = Device(
+        "/dev/ttyUSB0",
+        by_id=["/dev/serial/by-id/usb-EnOcean_GmbH_EnOcean_Programmer_V3.2_FTWH6OMP-if00-port0"],
+        vendor_id="0403",
+        product_id="6001",
+        manufacturer="EnOcean GmbH",
+        product="EnOcean Programmer V3.2",
+        serial="FTWH6OMP",
+        driver="ftdi_sio",
+    )
+    zwave_stick = Device(
+        "/dev/ttyACM0",
+        by_id=["/dev/serial/by-id/usb-0658_0200-if00"],
+        vendor_id="0658",
+        product_id="0200",
+        driver="cdc_acm",
+    )
+    controller_module.scan = lambda: [enocean_stick, zwave_stick, adapter]
     with tempfile.TemporaryDirectory() as tmp:
         data = Path(tmp)
         device = await asyncio.start_server(modbus_device, "127.0.0.1", 0)

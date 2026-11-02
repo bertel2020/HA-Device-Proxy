@@ -230,6 +230,8 @@ const TEXT = {
     // EnOcean
     eoKind_answer: "Antwort", eoKind_bus: "Bus", eoKind_command: "Befehl", eoDownText: "Gateway nicht erreichbar: {e}", captureChip: "Aufzeichnung läuft: {n}",
     kind_enocean: "EnOcean-Gateway",
+    usb_zwave: "Z-Wave-Stick", usb_enocean: "EnOcean-Gateway", usb_zigbee: "Zigbee-Stick",
+    usbEnoceanHint: "Das ist ein EnOcean-Gateway. Als Art „EnOcean-Gateway“ prüft die App die Telegramme, zeigt den Status und spielt Home Assistant verpasste Telegramme nach.", usbEnoceanUse: "Als EnOcean-Gateway",
     kindsub_enocean: "FAM-USB, FAM14, USB300, MGW … für mehrere Programme, mit Replay für Home Assistant",
     filterLabel: "Nach Art filtern",
     filterAll: "Alle {n}",
@@ -744,6 +746,8 @@ const TEXT = {
     // EnOcean
     eoKind_answer: "answer", eoKind_bus: "bus", eoKind_command: "command", eoDownText: "Gateway not reachable: {e}", captureChip: "Recording running: {n}",
     kind_enocean: "EnOcean gateway",
+    usb_zwave: "Z-Wave stick", usb_enocean: "EnOcean gateway", usb_zigbee: "Zigbee stick",
+    usbEnoceanHint: "This is an EnOcean gateway. As the kind “EnOcean gateway” the app checks its telegrams, shows its status and replays missed telegrams to Home Assistant.", usbEnoceanUse: "Use as EnOcean gateway",
     kindsub_enocean: "FAM-USB, FAM14, USB300, MGW … for several programs, with replay for Home Assistant",
     filterLabel: "Filter by kind",
     filterAll: "All {n}",
