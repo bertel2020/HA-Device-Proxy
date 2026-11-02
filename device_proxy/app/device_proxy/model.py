@@ -101,6 +101,9 @@ APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23")
 # who may write to a new Modbus connection that names nobody: Home Assistant and the other
 # apps (the panel's form starts with the same, panel-src/src/pages/edit.js)
 MODBUS_WRITE_CLIENTS = "127.0.0.1, 172.30.32.0/23"
+# who may connect to a new Z-Wave stick that names nobody: it has no login and takes
+# commands, so Home Assistant and the other apps only (as the panel's template)
+ZWAVE_CLIENTS = MODBUS_WRITE_CLIENTS
 OWN_NETWORK = "own"  # in Settings.lan_networks: the network of this host
 HOST_NETWORK: str | None = None  # set from the Supervisor (controller.py), e.g. 192.168.1.0/24
 # options the forms set; "weitere Optionen" may not set them a second time
@@ -308,6 +311,8 @@ class Connection:
             # from before the field keep "all", migrate)
             values["write_access"] = "listed"
             values.setdefault("write_clients", MODBUS_WRITE_CLIENTS)
+        if values.get("template") == "zwave" and "remaddr" not in data:
+            values["remaddr"] = ZWAVE_CLIENTS  # saved ones always have the field
         if "model" not in data and values.get("kind") == "enocean":
             # saved before there was the field: the model of its template, if it fits
             model = TEMPLATE_MODELS.get(values.get("template", ""), "")
