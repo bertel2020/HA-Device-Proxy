@@ -26,6 +26,7 @@ const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 1
 const LINKS = ["tcp", "rtu", "rtu_tcp", "rtu_listen"];
 const onBus = (d) => d.link === "rtu" || d.link === "rtu_listen"; // a serial adapter of this host
 // the Z-Wave stick has no login and takes commands: by default only Home Assistant and the other apps
+// (ZWAVE_CLIENTS in model.py, for one that names nobody)
 const ZWAVE_CLIENTS = "127.0.0.1, 172.30.32.0/23";
 const TEMPLATES = {
   ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false, meter_entities: true },

@@ -230,6 +230,17 @@ def test_a_new_modbus_connection_lets_only_home_assistant_and_the_apps_write(
     assert f'write_access: "listed", write_clients: "{MODBUS_WRITE_CLIENTS}"' in edit.read_text()
 
 
+def test_a_new_zwave_stick_lets_only_home_assistant_and_the_apps_connect() -> None:
+    from device_proxy.model import ZWAVE_CLIENTS
+
+    new = {"name": "Z-Wave", "port": 3333, "device": "/dev/zero", "template": "zwave"}
+    assert Connection.from_dict(new).remaddr == ZWAVE_CLIENTS
+    assert Connection.from_dict({**new, "remaddr": ""}).remaddr == ""  # chosen: the setting
+    assert Connection.from_dict({**new, "template": "generic"}).remaddr == ""
+    edit = Path(__file__).parents[1] / "panel-src" / "src" / "pages" / "edit.js"
+    assert f'const ZWAVE_CLIENTS = "{ZWAVE_CLIENTS}";' in edit.read_text()
+
+
 def test_effects_name_what_saving_sets_up_again_and_stops(tmp_path: Path) -> None:
     from types import SimpleNamespace
 
