@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
 import { noteText, t } from "../i18n.js";
-import { confirmDialog, fmtSerial, focused, icon, modbusTarget, trapTab } from "../ui.js";
+import { confirmDialog, fmtSerial, focused, icon, modbusTarget, radioKeys, radioTab, trapTab } from "../ui.js";
 
 /** A missing device that also has an unstable name is one note, not two. */
 const joinNotes = (notes) => notes.flatMap((n) => {
@@ -148,8 +148,8 @@ export class ImportDialog extends Page {
       <div class="row"><div style="display:flex;align-items:center;gap:12px">${icon("file", 28)}
         <div><h2 id="t-prev">${t(`format_${p.version}`)}</h2><span class="hint">${t("found", { n: p.items.length })}</span></div></div>
         <button class="btn btn-g" @click=${() => { this.preview = null; }}>${t("otherFile")}</button></div>
-      <div class="choices" role="radiogroup">${[[false, "merge", "mergeSub"], [true, "replaceAll", "replaceAllSub"]].map(([v, k, sub]) => html`
-        <button type="button" class="choice" role="radio" aria-checked=${this.replaceAll === v ? "true" : "false"} @click=${() => { this.replaceAll = v; }}>
+      <div class="choices" role="radiogroup" aria-label=${t("importMode")} @keydown=${radioKeys}>${[[false, "merge", "mergeSub"], [true, "replaceAll", "replaceAllSub"]].map(([v, k, sub]) => html`
+        <button type="button" class="choice" role="radio" aria-checked=${this.replaceAll === v ? "true" : "false"} tabindex=${radioTab(this.replaceAll === v)} @click=${() => { this.replaceAll = v; }}>
           <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
       ${this.replaceAll && this.state.connections.length ? html`<div class="gone" role="alert"><b style="font-weight:500">${t("willGo")}</b> ${this.state.connections.map((c) => c.name).join(", ")}</div>` : ""}
       ${p.notes.length ? html`<div class="note warn"><b>${t("fileNotes")}</b>${p.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}

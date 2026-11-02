@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
-import { confirmDialog, copyText, fmtTime, icon, logo } from "../ui.js";
+import { confirmDialog, copyText, fmtTime, icon, logo, radioKeys, radioTab } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 // the settings saved with a section's button; the others take effect when chosen
@@ -387,8 +387,8 @@ export class SettingsPage extends Page {
       <div class="content">
         <section id="net" class="card" aria-labelledby="t-net">
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
-          <div class="choices" role="radiogroup" aria-labelledby="t-net">${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
-            aria-checked=${s.settings.listen === v ? "true" : "false"} @click=${() => this._changeListen(v)}>
+          <div class="choices" role="radiogroup" aria-labelledby="t-net" @keydown=${radioKeys}>${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
+            aria-checked=${s.settings.listen === v ? "true" : "false"} tabindex=${radioTab(s.settings.listen === v)} @click=${() => this._changeListen(v)}>
             <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size:12px">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "lan" ? html`<div class="grp" style="gap:12px">
             <div><h3>${t("lanTitle")}</h3><div class="hint" style="margin-top:2px">${t("lanSub")}</div></div>
@@ -502,8 +502,8 @@ export class SettingsPage extends Page {
           <div style="display:flex;flex-direction:column;gap:16px;${d.mqtt_enabled ? "" : "opacity:.5"}" ?inert=${!d.mqtt_enabled}>
             <div class="grp">
               <h3>${t("mqttBrokerTitle")}</h3>
-              <div class="choices" role="radiogroup" aria-label=${t("mqttBrokerTitle")}>${[[false, "mqttAuto", "mqttAutoSub"], [true, "mqttOwn", "mqttOwnSub"]].map(([own, k, sub]) => html`
-                <button type="button" class="choice" role="radio" aria-checked=${ownBroker === own ? "true" : "false"} @click=${() => this._brokerMode(own)}>
+              <div class="choices" role="radiogroup" aria-label=${t("mqttBrokerTitle")} @keydown=${radioKeys}>${[[false, "mqttAuto", "mqttAutoSub"], [true, "mqttOwn", "mqttOwnSub"]].map(([own, k, sub]) => html`
+                <button type="button" class="choice" role="radio" aria-checked=${ownBroker === own ? "true" : "false"} tabindex=${radioTab(ownBroker === own)} @click=${() => this._brokerMode(own)}>
                   <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
               ${ownBroker ? html`
                 <div class="grid2">
@@ -581,10 +581,10 @@ export class SettingsPage extends Page {
 
         <section id="src" class="card" aria-labelledby="t-src">
           <div><h2 id="t-src">${t("sSource")}</h2><p class="hint" style="margin-top:4px">${t("sSourceSub")}</p></div>
-          <div class="choices" role="radiogroup" aria-labelledby="t-src">
-            <button type="button" class="choice" role="radio" aria-checked=${!own ? "true" : "false"} @click=${() => this._saveSettings({ source: "forms" })}>
+          <div class="choices" role="radiogroup" aria-labelledby="t-src" @keydown=${radioKeys}>
+            <button type="button" class="choice" role="radio" aria-checked=${!own ? "true" : "false"} tabindex=${radioTab(!own)} @click=${() => this._saveSettings({ source: "forms" })}>
               <b style="font-weight:500">${t("srcForms")}</b><span class="hint">${t("srcFormsSub")}</span></button>
-            <button type="button" class="choice" role="radio" aria-checked=${own ? "true" : "false"} @click=${() => this._chooseOwn()}>
+            <button type="button" class="choice" role="radio" aria-checked=${own ? "true" : "false"} tabindex=${radioTab(own)} @click=${() => this._chooseOwn()}>
               <b style="font-weight:500">${t("srcOwn")}</b><span class="hint">${own ? t("srcOwnOn") : this.custom?.exists ? t("srcOwnSaved") : t("srcOwnNone")}</span></button>
           </div>
           <div><a href="#/settings" @click=${(e) => { e.preventDefault(); this._toggleRuntime(); }}>${this.runtime ? t("runtimeHide") : t("srcRuntime")}</a></div>

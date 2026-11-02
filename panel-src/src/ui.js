@@ -169,6 +169,23 @@ export function focused() {
 }
 
 /** Keeps Tab inside a dialog's box. */
+/** Arrow keys, Home and End in a radio group (role="radiogroup"), as with native radio
+ *  buttons: the next or previous choice is focused and chosen. Tab reaches the group once,
+ *  at its chosen button (tabindex from radioTab). */
+export function radioKeys(e) {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (!step && e.key !== "Home" && e.key !== "End") return;
+  const radios = [...e.currentTarget.querySelectorAll('[role="radio"]')].filter((r) => !r.disabled);
+  const at = radios.indexOf(e.target.closest('[role="radio"]'));
+  if (at < 0) return;
+  e.preventDefault();
+  const next = radios[e.key === "Home" ? 0 : e.key === "End" ? radios.length - 1 : (at + step + radios.length) % radios.length];
+  next.focus();
+  if (next.getAttribute("aria-checked") !== "true") next.click();
+}
+
+export const radioTab = (checked) => (checked ? "0" : "-1");
+
 export function trapTab(e, box) {
   if (e.key !== "Tab" || !box) return;
   const items = [...box.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled);
