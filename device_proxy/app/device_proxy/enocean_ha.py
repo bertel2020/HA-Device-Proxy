@@ -206,29 +206,60 @@ class EnOceanHa:
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername") or ("?", 0)
+        sock = writer.get_extra_info("sockname")
+        where = f"{peer[0]}:{peer[1]} → {sock[0]}:{sock[1]}" if sock else f"{peer[0]}:{peer[1]}"
         try:
-            if not peer_allowed(STATUS_PEERS, "all", peer, writer.get_extra_info("sockname")):
-                return
             async with asyncio.timeout(5):
                 head = await reader.readuntil(b"\r\n\r\n")
             if len(head) > MAX_REQUEST:
+                _LOGGER.warning("EnOcean status: request from %s too long", where)
                 return
-            method, path, *_ = head.split(b"\r\n", 1)[0].decode("latin-1").split(" ")
+            line = head.split(b"\r\n", 1)[0].decode("latin-1")
+            # read before refusing: closing with the request unread would reset the connection
+            if not peer_allowed(STATUS_PEERS, "all", peer, sock):
+                _LOGGER.warning(
+                    "EnOcean status: %s refused, not in %s (%s)", where, STATUS_PEERS, line
+                )
+                self._reply(writer, "403 Forbidden", b"forbidden", "text/plain")
+                await writer.drain()
+                return
+            method, path, *_ = line.split(" ")
             if method == "GET" and path.split("?")[0].strip("/") == "api/status":
-                code, body = "200 OK", json.dumps(status(self.c)).encode()
-                kind = "application/json"
+                try:
+                    code, body = "200 OK", json.dumps(status(self.c)).encode()
+                except Exception:
+                    _LOGGER.exception("EnOcean status: the status for %s failed", where)
+                    code, body = "500 Internal Server Error", b"status failed"
+                    kind = "text/plain"
+                else:
+                    kind = "application/json"
             else:
+                _LOGGER.info("EnOcean status: %s asked for %s, not found", where, line)
                 code, body, kind = "404 Not Found", b"not found", "text/plain"
-            writer.write(
-                f"HTTP/1.1 {code}\r\nContent-Type: {kind}\r\nContent-Length: {len(body)}\r\n"
-                "Connection: close\r\n\r\n".encode()
-                + body
-            )
+            self._reply(writer, code, body, kind)
             await writer.drain()
-        except (OSError, TimeoutError, ValueError, asyncio.IncompleteReadError):
-            pass
+        except TimeoutError:
+            _LOGGER.warning("EnOcean status: no complete request from %s within 5 s", where)
+        except asyncio.IncompleteReadError as err:
+            _LOGGER.warning(
+                "EnOcean status: %s closed after %s bytes of request", where, len(err.partial)
+            )
+        except asyncio.LimitOverrunError:
+            _LOGGER.warning("EnOcean status: request from %s too long", where)
+        except (OSError, ValueError) as err:
+            _LOGGER.warning("EnOcean status: %s failed: %r", where, err)
+        except Exception:
+            _LOGGER.exception("EnOcean status: handling %s failed", where)
         finally:
             writer.close()
+
+    @staticmethod
+    def _reply(writer: asyncio.StreamWriter, code: str, body: bytes, kind: str) -> None:
+        writer.write(
+            f"HTTP/1.1 {code}\r\nContent-Type: {kind}\r\nContent-Length: {len(body)}\r\n"
+            "Connection: close\r\n\r\n".encode()
+            + body
+        )
 
     # discovery
 
