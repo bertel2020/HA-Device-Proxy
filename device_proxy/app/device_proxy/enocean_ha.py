@@ -160,6 +160,14 @@ class EnOceanHa:
     async def stop(self) -> None:
         await self._serve(None)
 
+    def state(self) -> dict[str, Any]:
+        """For the panel: whether the integration can reach the status (port None: no gateway)."""
+        return {
+            "port": self.port,
+            "listening": self._server is not None,
+            "error": self.listen_error or None,
+        }
+
     # status server
 
     async def _serve(self, port: int | None) -> None:

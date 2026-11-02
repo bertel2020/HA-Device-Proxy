@@ -376,6 +376,7 @@ export class SettingsPage extends Page {
       : !s.mqtt.broker ? html`<span class="chip warn">${t("mqttStateNone")}</span>`
       : html`<span class="chip ${s.mqtt.connected ? "ok" : "warn"}">${s.mqtt.connected ? t("mqttConnected") : t("mqttDisconnected")}</span>`;
     const gateways = conns.filter((c) => c.kind === "enocean" && c.enabled).length;
+    const eoStatus = s.enocean_status;
     const check = this.customCheck;
     const ready = !!check && !check.errors.length && !!(this.customText || "").trim();
     return html`<div class="layout">
@@ -539,6 +540,7 @@ export class SettingsPage extends Page {
           <div class="row"><div><h2 id="t-enocean">${t("sEnocean")}</h2><p class="hint" style="margin-top:4px">${t("sEnoceanSub")}</p></div>
             ${gateways ? html`<span class="chip ok">${t("eoStatusOn", { n: gateways })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
           ${gateways ? "" : html`<div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}<span>${t("eoNoGateway")} <a href="#/edit/new">${t("addConnection")}</a></span></div>`}
+          ${eoStatus?.port && !eoStatus.listening ? html`<div class="note bad" role="alert">${t("eoStatusClosed", { port: eoStatus.port, e: eoStatus.error || "?" })}</div>` : ""}
           <label class="chk"><input type="checkbox" .checked=${!!d.enocean_discovery} @change=${(e) => { this.draft = { ...this.draft, enocean_discovery: e.target.checked }; }}>
             <span>${t("eoDiscovery")}<br><span class="hint">${t("eoDiscoveryHint")}</span></span></label>
           <details class="expert" ?open=${d.enocean_status_port !== 9199}>
