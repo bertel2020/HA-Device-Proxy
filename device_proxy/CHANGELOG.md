@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.3.0 - 2026-11-02
+
+Das Panel lässt sich anpassen: drei Farbschemata, hell oder dunkel, und drei Schriftgrößen.
+
+- **Farbschema**: Ozean (wie bisher), Wald oder Graphit, jeweils hell und dunkel.
+- **Hell oder dunkel**: wie Home Assistant (wie bisher), immer hell oder immer dunkel.
+- **Schriftgröße**: Klein (12 px), Normal (14 px) oder Groß (16 px); alle Texte wachsen mit,
+  Abstände bleiben gleich.
+- Einzustellen unter Einstellungen → Hilfe und Info; gilt nur für diesen Browser und sofort.
+- Der gedämpfte Text im Schema Ozean ist etwas heller.
+
+### English
+
+The panel can be adjusted: three colour schemes, light or dark, and three text sizes.
+
+- **Colour scheme**: Ocean (as before), Forest or Graphite, each light and dark.
+- **Light or dark**: as Home Assistant (as before), always light or always dark.
+- **Text size**: Small (12 px), Normal (14 px) or Large (16 px); all texts scale with it,
+  spacing stays the same.
+- Set under Settings → Help and info; applies to this browser only, and at once.
+- The muted text in the Ocean scheme is a little lighter.
+
 ## 1.2.2 - 2026-11-02
 
 Die EnOcean-Eltako-Integration kommt wieder an den Statusport, auch über IPv6.
