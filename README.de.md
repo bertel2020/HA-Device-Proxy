@@ -28,7 +28,7 @@ Device Proxy ist eine Home-Assistant-App (früher Add-on), die ein Gerät für m
 
 Eingerichtet wird alles in einer Weboberfläche in der Seitenleiste, ohne YAML und ohne Kommandozeile. Der Reiter **Konfiguration** der App im Supervisor bleibt mit Absicht leer; alles steckt im Seitenleisten-Eintrag **Device Proxy**. Status, Live-Daten, Mitschnitt und Ereignisse zeigen, was auf der Leitung passiert.
 
-> Auf Home Assistant OS getestet mit EnOcean-Gateways (FAM-USB, MGW-ETH, Nachliefern nach einem Neustart, PCT14). Serielle und USB-Geräte, Modbus und das EnOcean-Ersatz-Gateway sind dort noch nicht mit echten Geräten getestet: Rückmeldungen sind willkommen. Braucht Home Assistant OS oder Supervised (Apps laufen unter dem Supervisor).
+> Auf Home Assistant OS getestet mit EnOcean-Gateways (FAM-USB, MGW-ETH, Nachliefern nach einem Neustart, PCT14). Serielle und USB-Geräte, Modbus und das EnOcean-Ersatz-Gateway sind dort noch nicht mit echten Geräten getestet: Rückmeldungen sind willkommen; [tests/HARDWARE.md](tests/HARDWARE.md) listet, was sich ausprobieren lässt. Braucht Home Assistant OS oder Supervised (Apps laufen unter dem Supervisor).
 
 ## Einblicke
 
@@ -57,12 +57,13 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
 ## Highlights
 
 - **Verbindungen in einer Weboberfläche**: Gerät aus einer Liste mit stabilen Namen, Vorlagen (Zähler SML oder D0, Z-Wave-Stick, Modbus), alle wichtigen ser2net-Optionen und eine Vorschau der `ser2net.yaml` beim Tippen. Speichern baut nur diese Verbindung neu auf; die anderen behalten ihre Clients.
-- **Modbus-Proxy**: ein Modbus-Gerät oder RS485-Bus für mehrere Modbus-TCP-Clients. Anfragen gehen nacheinander ans Gerät, jede Antwort zurück an den, der gefragt hat; Timeouts, Wiederholungen und Pausen sind einstellbar. Schreiben standardmäßig nur aus Home Assistant und den Apps, Zwischenspeicher für Lesezugriffe, Bus-Scan und Register lesen. Er kann auch nur mithören, auf einem RS485-Bus mit eigenem Master, und das Gehörte bereitstellen.
+- **Modbus-Proxy**: ein Modbus-Gerät oder RS485-Bus für mehrere Modbus-TCP-Clients. Anfragen gehen nacheinander ans Gerät, jede Antwort zurück an den, der gefragt hat; Timeouts, Wiederholungen und Pausen sind einstellbar. Schreiben standardmäßig nur aus Home Assistant und den Apps, Zwischenspeicher für Lesezugriffe, Bus-Scan, Register lesen und ein Zugriffstest, der sagt, ob ein Client lesen oder schreiben darf und welche Regel entscheidet. Er kann auch nur mithören, auf einem RS485-Bus mit eigenem Master, und das Gehörte bereitstellen.
 - **EnOcean-Gateways**: ein FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH oder Symcon LAN gleichzeitig für die Integration EnOcean Eltako, eo_man und PCT14. Ganze Telegramme der Reihe nach, Antworten an das fragende Programm, Telegramme aus einem Neustart von Home Assistant mit Empfangszeit nachgeliefert, Erkennung durch die Integration samt Modell des Gateways. Live-Telegramme mit Absender und Art, Funkzeit gegenüber dem 1-%-Limit, Gateway-Test, Base-ID ändern (mit den übrigen Änderungen), geprüftes Senden, Mitschnitt mit Sperre für PCT14. Ein zweites Gateway mit derselben Base-ID springt bei einem Ausfall ein, ohne dass die Programme neu verbinden. Löst die App EnOcean Proxy ab.
 - **Status auf einen Blick**: Gerät vorhanden, Clients mit Adresse und Bytes, Datenrate, letzte Daten, Leitungsfehler vom Treiber, Modbus-Anfragen und Antwortzeiten; Clients, die nicht mehr lesen, werden erkannt.
 - **Live-Daten und Mitschnitt** ohne Client-Platz, bei Modbus dekodiert; Aufzeichnung in rotierende Dateien, ohne jemanden zu trennen.
 - **Werkzeuge für Zähler**: SML (mit CRC-Prüfung) und D0 auswerten, Baudrate erkennen.
 - **Sichern und Wiederherstellen** der ganzen Konfiguration als eine Datei (**Einstellungen → Sichern und Übertragen**) sowie **Import und Export**: ser2net-4-`ser2net.yaml`, ser2net-3-`ser2net.conf`, die Optionen der App ha-modbusproxy oder eine modbus-proxy-Datei, jeweils mit Vorschau. Oder die eigene `ser2net.yaml` direkt verwenden.
+- **Vor und nach dem Speichern**: Formular und Rückfragen nennen die laufenden Verbindungen, die eine Änderung neu aufbaut oder beendet, und wie viele Clients das trennt; arbeitet nach einer Änderung eine Verbindung nicht mehr, die vorher lief, stellt ein Klick den Stand davor wieder her.
 - **Ereignisse und Historie** (30 Tage, Abbrüche und Verfügbarkeit), Konfig-Historie mit Unterschieden und Wiederherstellen.
 - **Benachrichtigungen** in Home Assistant, optional aufs Handy, und **Entitäten über MQTT-Discovery**: ein Gerät je Verbindung mit Zustand und Schalter.
 - Deutsch und Englisch, hell und dunkel (nach dem Theme von Home Assistant), Handy-tauglich.
@@ -82,7 +83,7 @@ Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Anleitung](
 ## Sicherheit in Kürze
 
 - Die Ports sind roher TCP ohne Anmeldung. Standardmäßig nehmen sie Clients von Home Assistant, seinen Apps und aus dem eigenen Netz des Hosts („Mein Netz“) an; die Z-Wave-Vorlage beschränkt sie auf Home Assistant und seine Apps. Unter **Einstellungen → Netzwerk** lässt sich das auf Home Assistant (und Apps) einschränken, und weitere Heimnetze lassen sich festlegen.
-- Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. Wer sich verbinden darf, folgt bei allen Arten der Netzwerk-Einstellung, solange eine Verbindung keine eigene Vorgabe hat.
+- Modbus-Verbindungen lassen standardmäßig nur Home Assistant und die Apps schreiben; andere Clients dürfen nur lesen. Die Seite der Verbindung zeigt, wer wirklich schreiben darf, und **Werkzeuge → Zugriff prüfen** sagt es für jede Adresse. Wer sich verbinden darf, folgt bei allen Arten der Netzwerk-Einstellung, solange eine Verbindung keine eigene Vorgabe hat.
 - Die Admin-Schnittstelle von ser2net ist nur innerhalb der App erreichbar; die Weboberfläche nur über Home Assistant (Ingress).
 - Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet (**Einstellungen → Clients**, dort bekommen Clients auch Namen).
 - Die Diagnose lässt IP-Adressen, Hostnamen, die MQTT-Anmeldung und Personennamen weg.
@@ -100,7 +101,7 @@ mypy
 python -m pytest
 ```
 
-Die Weboberfläche wird aus `panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf einem Desktop mit Beispielverbindungen. `tools/render_images.py` zeichnet `icon.png` und `logo.png`.
+Die Weboberfläche wird aus `panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf einem Desktop mit Beispielverbindungen und spielt mit `--replay datei.json` einen Testfall ab, der aus den Live-Daten einer Verbindung heruntergeladen wurde. `tools/screenshots.mjs` erzeugt die Screenshots oben, `tools/render_images.py` zeichnet `icon.png` und `logo.png`. `tools/soak_test.py` (Modbus) und `tools/soak_enocean.py` (EnOcean mit Ersatz-Gateway) lassen die Proxys minutenlang unter Last und Fehlern laufen und prüfen feste Grenzwerte; [tests/HARDWARE.md](tests/HARDWARE.md) listet die Prüfungen, die echte Geräte brauchen.
 
 ## Dank
 

@@ -28,7 +28,7 @@ Device Proxy is a Home Assistant app (formerly add-on) that makes a device usabl
 
 Everything is set up in a web interface in the sidebar: no YAML, no command line. The app's **Configuration** tab in the Supervisor stays empty on purpose; everything is in the sidebar entry **Device Proxy**. Status, live data, traces and events show what is happening on the line.
 
-> Tested on Home Assistant OS with EnOcean gateways (FAM-USB, MGW-ETH, replay after a restart, PCT14). Serial and USB devices, Modbus and the EnOcean fallback gateway are not yet tested there with real devices: feedback is welcome. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
+> Tested on Home Assistant OS with EnOcean gateways (FAM-USB, MGW-ETH, replay after a restart, PCT14). Serial and USB devices, Modbus and the EnOcean fallback gateway are not yet tested there with real devices: feedback is welcome; [tests/HARDWARE.md](tests/HARDWARE.md) lists what to try. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
 
 ## Screenshots
 
@@ -57,12 +57,13 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 ## Highlights
 
 - **Connections in a web interface**: device from a list with stable names, templates (smart meter SML or D0, Z-Wave stick, Modbus), all important ser2net options and a live `ser2net.yaml` preview. Saving rebuilds only that connection; the others keep their clients.
-- **Modbus proxy**: one Modbus device or RS485 bus for several Modbus TCP clients. Requests go to the device one after another and each answer back to the client that asked; timeouts, retries and pauses are adjustable. Writes only from Home Assistant and apps by default, a cache for reads, a bus scan and a register reader. It can also only listen on an RS485 bus that has a master already and serve what it hears.
+- **Modbus proxy**: one Modbus device or RS485 bus for several Modbus TCP clients. Requests go to the device one after another and each answer back to the client that asked; timeouts, retries and pauses are adjustable. Writes only from Home Assistant and apps by default, a cache for reads, a bus scan, a register reader and an access check that tells whether a client may read or write and which rule decides. It can also only listen on an RS485 bus that has a master already and serve what it hears.
 - **EnOcean gateways**: one FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH or Symcon LAN for the EnOcean Eltako integration, eo_man and PCT14 at once. Whole frames in turn, answers to the program that asked, telegrams missed during a Home Assistant restart replayed with their reception time, discovery by the integration with the gateway's model. Live frames with sender and kind, air time against the 1 % limit, gateway test, changing the base ID (with the changes left), sending a checked frame, captures with a lock for PCT14. A second gateway with the same base ID can stand in when one fails, without the programs reconnecting. Replaces the EnOcean Proxy app.
 - **Status at a glance**: device present, clients with address and bytes, data rate, last data, line errors from the driver, Modbus requests and answer times; clients that stop reading are spotted.
 - **Live data and traces** without taking a client place, decoded for Modbus; recording to rotating files without disconnecting anyone.
 - **Smart meter tools**: SML (with CRC check) and D0 decoded, baud rate detection.
 - **Backup and restore** of the whole configuration as one file (**Settings → Back up and transfer**), and **import and export**: ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf`, the options of the ha-modbusproxy app or a modbus-proxy file, with a preview. Or use your own `ser2net.yaml` as it is.
+- **Before and after saving**: the form and the questions name the running connections a change sets up again or stops and how many clients that disconnects; when a connection that worked stops after a change, one click restores the version before.
 - **Events and history** (30 days, drops and availability), configuration history with differences and restore.
 - **Notifications** in Home Assistant, optionally to a phone, and **entities over MQTT discovery**: one device per connection with its state and a switch.
 - German and English, light and dark (following Home Assistant's theme), phone width.
@@ -82,7 +83,7 @@ Every page, every setting and help when something does not work: **[documentatio
 ## Safety in short
 
 - The ports are plain TCP without a login. By default clients are accepted from Home Assistant, its apps and the host's own network ("My network"); the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed to Home Assistant (and apps) only, and further home networks can be listed.
-- Modbus connections let only Home Assistant and the apps write by default; other clients can only read. The allowed clients of every kind follow the network setting unless a connection names its own.
+- Modbus connections let only Home Assistant and the apps write by default; other clients can only read. The connection's page shows who may really write, and **Tools → Check access** tells it for any address. The allowed clients of every kind follow the network setting unless a connection names its own.
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
 - A computer that connects for the first time is reported (**Settings → Clients**, where clients also get names).
 - Diagnostics leave out IP addresses, host names, the MQTT login and personal names.
@@ -100,7 +101,7 @@ mypy
 python -m pytest
 ```
 
-The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/render_images.py` draws `icon.png` and `logo.png`.
+The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/screenshots.mjs` renders the screenshots above, `tools/render_images.py` draws `icon.png` and `logo.png`. `tools/soak_test.py` (Modbus) and `tools/soak_enocean.py` (EnOcean with a fallback) run the proxies for minutes under load and faults and check fixed limits; [tests/HARDWARE.md](tests/HARDWARE.md) lists the checks that need real devices.
 
 ## Thanks
 
