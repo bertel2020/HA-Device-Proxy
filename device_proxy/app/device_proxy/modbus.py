@@ -418,9 +418,16 @@ class TcpLink(Link):
         return self._writer is not None and self._pump is not None and not self._pump.done()
 
     async def open(self, timeout: float) -> None:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(self.host, self.port), timeout
-        )
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(self.host, self.port), timeout
+            )
+        except socket.gaierror as err:  # DNS: say which name, the system's text does not
+            raise ConnectionError(f"host name {self.host} not found ({err.strerror})") from err
+        except TimeoutError as err:  # no connection (or a name server that does not answer)
+            raise ConnectionError(
+                f"{self.host}:{self.port} not reached within {timeout:g} s"
+            ) from err
         sock = writer.get_extra_info("socket")
         if sock is not None:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

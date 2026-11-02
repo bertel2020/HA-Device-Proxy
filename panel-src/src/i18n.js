@@ -1282,6 +1282,8 @@ export function plain(text) {
   return String(text)
     .replace(/\[Errno (?:61|111)\] Connect call failed \('([^']+)', (\d+)\)/g, (_, h, p) => (de ? `Verbindung abgelehnt: auf ${h}:${p} lauscht niemand` : `Connection refused: nothing listens on ${h}:${p}`))
     .replace(/\[Errno (?:113|65)\][^)]*/g, de ? "Kein Weg zum Host" : "No route to host")
+    .replace(/host name (\S+) not found \([^)]*\)/g, (_, h) => (de ? `Hostname ${h} nicht gefunden (DNS)` : `Host name ${h} not found (DNS)`))
+    .replace(/(\S+) not reached within ([\d.]+) s/g, (_, a, n) => (de ? `${a} in ${n} s nicht erreicht` : `${a} not reached within ${n} s`))
     .replace(/\btimed out\b/g, de ? "Zeitüberschreitung" : "timed out");
 }
 
