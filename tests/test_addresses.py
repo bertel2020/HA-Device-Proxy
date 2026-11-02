@@ -35,7 +35,7 @@ def test_home_network_list(monkeypatch) -> None:
     guest = Settings(listen="lan", lan_networks="own 192.168.80.0/24")
     c = Connection("x", "/dev/ttyX", 3333)
     assert remaddr(c, guest.access) == (
-        "127.0.0.0/8,0;::1/128,0;172.30.32.0/23,0;192.168.79.0/24,0;192.168.80.0/24,0"
+        "127.0.0.0/8,0;::1/128,0;172.30.32.0/23,0;fd0c:ac1e:2100::/48,0;192.168.79.0/24,0;192.168.80.0/24,0"
     )
     assert client_allowed("", guest.access, "192.168.80.7")
     assert client_allowed("", guest.access, "172.30.33.2")  # apps are always in
@@ -79,3 +79,20 @@ def test_home_network_validation_and_migration() -> None:
     assert old.settings.lan_networks == "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
     new = AppConfig.from_dict({"schema": 1, "settings": {"lan_networks": "own"}})
     assert new.settings.lan_networks == "own"
+
+
+def test_home_assistant_from_another_address_of_this_host_counts_as_local() -> None:
+    """Home Assistant in the host network may leave from another address of the host than the
+    one it connected to (e.g. its Supervisor-network address over IPv6): still this host. The
+    Supervisor's IPv6 network counts as the apps."""
+    from device_proxy.model import client_allowed, from_this_host, own_address, peer_allowed
+
+    status = "127.0.0.0/8, ::1/128, 172.30.32.0/23, fd0c:ac1e:2100::/48"
+    assert own_address("127.0.0.1") and own_address("::ffff:127.0.0.1")
+    assert not own_address("192.0.2.77") and not own_address("not an address")
+    assert from_this_host(("127.0.0.1", 5000), ("192.0.2.1", 9199))  # another own address
+    assert not from_this_host(("192.0.2.77", 5000), ("192.0.2.1", 9199))
+    assert peer_allowed("127.0.0.1", "all", ("127.0.0.1", 1), ("192.0.2.1", 9199))
+    assert client_allowed(status, "all", "fd0c:ac1e:2100::1")
+    assert client_allowed("", "apps", "fd0c:ac1e:2100::5")
+    assert not client_allowed(status, "all", "fd00::5")

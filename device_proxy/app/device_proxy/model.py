@@ -10,6 +10,7 @@ import ipaddress
 import logging
 import re
 import secrets
+import socket
 from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
 
@@ -96,8 +97,8 @@ PRIVATE_NETWORKS = (
     "fc00::/7",
     "fe80::/10",
 )
-# Home Assistant itself and the other apps (the Supervisor's network)
-APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23")
+# Home Assistant itself and the other apps (the Supervisor's network, IPv4 and IPv6)
+APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23", "fd0c:ac1e:2100::/48")
 # who may write to a new Modbus connection that names nobody: Home Assistant and the other
 # apps (the panel's form starts with the same, panel-src/src/pages/edit.js)
 MODBUS_WRITE_CLIENTS = "127.0.0.1, 172.30.32.0/23"
@@ -921,10 +922,31 @@ def client_allowed(remaddr: str, listen: str, address: str) -> bool:
 
 
 def from_this_host(peer: Any, sock: Any) -> bool:
-    """A connection whose client has the address it connected to comes from this host. Home
-    Assistant and the apps in the host network reach the app by its host name (the discovery's
-    "host"), which is the host's LAN address, so they come from there and not from 127.0.0.1."""
-    return bool(peer and sock) and str(peer[0]) == str(sock[0])
+    """A connection whose client has the address it connected to, or another address of this
+    host, comes from this host. Home Assistant and the apps in the host network reach the app by
+    its host name (the discovery's "host"), which is the host's LAN address or its address in the
+    Supervisor network (IPv4 or IPv6), so they come from there and not from 127.0.0.1."""
+    if not (peer and sock):
+        return False
+    return str(peer[0]) == str(sock[0]) or own_address(str(peer[0]))
+
+
+def own_address(host: str) -> bool:
+    """Is this an address of this host? Only those can be bound to (the app runs in the host
+    network, so that is the host's)."""
+    try:
+        ip = ipaddress.ip_address(host.split("%")[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        host, ip = str(ip.ipv4_mapped), ip.ipv4_mapped
+    family = socket.AF_INET6 if ip.version == 6 else socket.AF_INET
+    try:
+        with socket.socket(family, socket.SOCK_DGRAM) as probe:
+            probe.bind((host, 0))
+    except OSError:
+        return False
+    return True
 
 
 def peer_allowed(remaddr: str, listen: str, peer: Any, sock: Any) -> bool:
