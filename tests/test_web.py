@@ -183,4 +183,7 @@ async def test_bodies_of_the_wrong_shape_and_trace_links(tmp_path: Path) -> None
     (tmp_path / "trace" / "x.log").symlink_to(tmp_path / "secret")
     assert (await request(port, "GET", "api/trace/x.log"))[0] == 404
     assert (await request(port, "GET", "api/trace/a%22b.log"))[0] == 400
+    big = bytes(range(256)) * 1000  # several blocks and a short last one
+    (tmp_path / "trace" / "big.log").write_bytes(big)
+    assert await request(port, "GET", "api/trace/big.log") == (200, big)
     await web.stop()
