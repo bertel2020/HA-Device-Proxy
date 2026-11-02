@@ -91,6 +91,13 @@ class Store:
             self.path.replace(self.path.with_suffix(f".invalid-{int(time.time())}"))
             return self._latest_version() or AppConfig()
 
+    def latest_id(self) -> int | None:
+        """The id of the last saved version: the configuration as it is now."""
+        if self.db is None:
+            return None
+        row = self.db.execute("SELECT id FROM config_versions ORDER BY id DESC LIMIT 1").fetchone()
+        return int(row[0]) if row else None
+
     def _latest_version(self) -> AppConfig | None:
         if self.db is None:
             return None

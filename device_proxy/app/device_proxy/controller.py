@@ -320,6 +320,7 @@ class Controller:
         self.captures = Captures(self.trace.record_dir)
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
+        self.last_change: dict[str, object] | None = None  # see apply()
         self._stop = asyncio.Event()
 
     # configuration
@@ -448,7 +449,17 @@ class Controller:
             old, before = self.config, self._written
             if callable(new):
                 new = new(old)
+            working = [c.id for c in old.connections if self.working(c)]
+            version = self.store.latest_id()
             items = self.store.save(old, new, source)
+            if items:
+                # the configuration before, while it is the last change: what to go back to
+                # when a connection that worked stops working (the panel offers it)
+                self.last_change = (
+                    {"ts": time.time(), "version": version, "working": working}
+                    if version is not None
+                    else None
+                )
             self.config = new
             self.known_clients.named(parse_names(new.settings.client_names))
             self.write_config()
@@ -1635,7 +1646,19 @@ class Controller:
             "mqtt": self.mqtt.state,
             "capture": self.captures.current.to_dict() if self.captures.current else None,
             "enocean_status": self.enocean_ha.state(),
+            "last_change": self.last_change,
         }
+
+    def working(self, c: Connection) -> bool:
+        """Does the connection do its job right now: open port, device there and reachable."""
+        if not c.enabled or (c.uses_device and self.present.get(c.id) is False):
+            return False
+        if c.kind in PROXIED:
+            proxy = self.proxies.get(c.id)
+            serves = bool(getattr(proxy, "serves", ""))  # a fallback gateway: no port of its own
+            return bool(proxy and (proxy.listening or serves) and proxy.reachable is not False)
+        port = self.status.get(c.alias)
+        return not self.uses_custom and self.ser2net.running and bool(port and port.enabled)
 
     def _proxy_snapshot(self, c: Connection) -> dict[str, object]:
         """A proxied connection; its proxy's state() under the kind's name ("modbus": ...)."""
