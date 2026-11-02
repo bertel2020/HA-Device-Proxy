@@ -18,6 +18,15 @@ function who(c, s) {
   return bind + (c.remaddr ? t("whoOwn", { a: c.remaddr }) : local ? t("listen_local") : reach(c, s));
 }
 
+/** Who may write to a Modbus connection, as the proxy decides it (modbus.py may_write):
+ *  "only these" with nobody listed lets nobody write, and the registers limit any rule. */
+function writeRule(c) {
+  const listed = c.write_access === "listed", empty = listed && !(c.write_clients || "").trim();
+  if (c.write_access === "none" || empty) return t(empty ? "waListedEmpty" : "wa_none");
+  const rule = listed ? html`${t("wa_listed")} · <span class="mono">${c.write_clients}</span>` : t("waAllEffective");
+  return c.write_registers ? html`${rule} · ${t("mbWriteRegsShort", { r: c.write_registers })}` : rule;
+}
+
 function reach(c, s) {
   const { listen, lan_networks: list = "" } = s.settings, net = s.lan_net;
   if (listen !== "lan") return t(`listen_${listen}`);
@@ -506,6 +515,15 @@ export class DetailPage extends Page {
     `, false, "addresses");
   }
 
+  /** Units sent on to another connection: a write must pass that connection's rule too. */
+  _routedWrites(c) {
+    const targets = [...new Set((c.unit_routes || "").split(/\s+/).filter(Boolean).map((item) => item.split("=")[1]?.split(":")[0]))];
+    return targets.map((id) => {
+      const other = this.state.connections.find((x) => x.id === id);
+      return other ? html`<br><span class="hint">${t("mbRouteWrite", { n: other.name })} ${writeRule(other)}</span>` : "";
+    });
+  }
+
   _modbusCard(m, c) {
     const tips = timingTips(c, m);
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
@@ -602,7 +620,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               ${c.probe_seconds ? html`<span>${t("mbProbe")}</span><span>${t("mbProbeVal", { s: c.probe_seconds, u: c.probe_unit, f: c.probe_function, a: c.probe_address })}</span>` : ""}
 
               <span>${t("mbWrite")}</span>
-<span>${t(`wa_${c.write_access}`)}${c.write_access === "listed" ? html` · <span class="mono">${c.write_clients}</span>` : ""}</span>
+<span>${writeRule(c)}${this._routedWrites(c)}</span>
 
             </div>` : c.source === "tcp" ? html`<div class="kv">
               <span>${t("dataSource")}</span><span>${t("source_tcp")} · <span class="mono">${c.host}:${c.host_port}</span></span>
