@@ -4,6 +4,7 @@ import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
 import { deviceName, uniqueName } from "../names.js";
+import { pickDevice, usbKind } from "../usb.js";
 import { confirmDialog, icon, navigate, proxyTarget, toggle } from "../ui.js";
 
 const DEFAULTS = {
@@ -126,7 +127,7 @@ export class EditPage extends Page {
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
     this.fbOpen = this.draft.fallback_trigger !== DEFAULTS.fallback_trigger || this.draft.fallback_return !== DEFAULTS.fallback_return || this.draft.fallback_listen;
     this._jump = location.hash.endsWith("/fallback");
-    if (!existing && this.draft.kind === "serial") this._suggestName();
+    if (!existing) this._suggestName();
     this.tplOpen = false;
     this._orig = JSON.stringify(this.draft);
     this._preview();
@@ -135,7 +136,6 @@ export class EditPage extends Page {
   /** Port and device for a new connection of this kind. */
   _fresh(kind) {
     const ports = this.state.connections.map((c) => c.port);
-    const free = this.state.devices.find((d) => !d.used_by);
     if (kind === "modbus") {
       let port = 502;
       while (ports.includes(port)) port++;
@@ -144,18 +144,33 @@ export class EditPage extends Page {
     if (kind === "enocean") {
       let port = 9100;
       while (ports.includes(port)) port++;
-      return { ...ENOCEAN, port, device: free ? free.stable : "" };
+      return { ...ENOCEAN, port, device: this._autoPick("enocean") };
     }
     const serial = ports.filter((p) => p >= 1024);
-    return { kind: "serial", template: "generic", ...TEMPLATES.generic, port: serial.length ? Math.max(...serial) + 1 : 3333, device: free ? free.stable : "" };
+    return { kind: "serial", template: "generic", ...TEMPLATES.generic, port: serial.length ? Math.max(...serial) + 1 : 3333, device: this._autoPick("") };
+  }
+
+  /** A free adapter that fits (usb.js), remembered so a template picked later may replace it but never one picked by hand. */
+  _autoPick(want) {
+    this._autoDevice = pickDevice(this.state.devices, want);
+    return this._autoDevice;
+  }
+
+  /** The device to keep, or the adapter fitting the template when the device is still empty or the last automatic pick. */
+  _fitDevice(want) {
+    const d = this.draft;
+    return d.id || (d.device && d.device !== this._autoDevice) ? d.device : this._autoPick(want);
   }
 
   /** A name from the template, else from the chosen device, as long as the name is empty or still the last suggestion. */
   _suggestName() {
     const d = this.draft;
-    if (d.name && d.name !== this._auto) return;
-    const x = this.state.devices.find((v) => v.stable === d.device || v.by_id.includes(d.device) || v.by_path.includes(d.device));
-    const base = (d.template !== "generic" && t(`nameTpl_${d.template}`)) || (x && deviceName(x.manufacturer, x.product)) || t("nameTpl_generic");
+    if (d.kind === "modbus" || (d.name && d.name !== this._auto)) return;
+    const x = (d.kind === "serial" ? d.source === "device" : d.link === "serial")
+      && this.state.devices.find((v) => v.stable === d.device || v.by_id.includes(d.device) || v.by_path.includes(d.device));
+    const fromDevice = x ? deviceName(x.manufacturer, x.product) : "";
+    const base = d.kind === "enocean" ? fromDevice || (d.template && d.template !== "enocean" ? t(`tpl_${d.template}`) : t("kind_enocean"))
+      : (d.template !== "generic" && t(`nameTpl_${d.template}`)) || fromDevice || t("nameTpl_generic");
     this._auto = uniqueName(base, this.state.connections.map((c) => c.name));
     this.draft = { ...d, name: this._auto };
   }
@@ -181,7 +196,11 @@ export class EditPage extends Page {
     if (kind === this.draft.kind) return;
     this.otherDevice = false;
     this._set({ ...DEFAULTS, ...this._fresh(kind), name: this.draft.name, enabled: this.draft.enabled });
-    if (!this.draft.id) this.touched = new Set(); // a new connection: no errors before typing
+    if (!this.draft.id) {
+      this.touched = new Set(); // a new connection: no errors before typing
+      if (kind === "modbus" && this.draft.name === this._auto) this.draft = { ...this.draft, name: "" }; // a serial suggestion says nothing about it
+      this._suggestName();
+    }
   }
 
   _set(patch) {
@@ -321,7 +340,7 @@ export class EditPage extends Page {
         <select class="inp" aria-invalid=${this._shown().device ? "true" : "false"} @change=${(e) => {
           if (e.target.value === "__other") { this.otherDevice = true; return; }
           this.otherDevice = false; this._set({ device: e.target.value });
-          if (d.kind === "serial") this._suggestName();
+          if (!d.id) this._suggestName();
         }}>
           ${d.device ? "" : html`<option value="" selected>–</option>`}
           ${devices.map((x) => html`<option value=${x.stable} ?selected=${!this.otherDevice && chosen === x}>${this._deviceLabel(x)}</option>`)}
@@ -329,7 +348,9 @@ export class EditPage extends Page {
         </select>
         ${this.otherDevice ? html`<input class="inp mono" .value=${d.device} placeholder="/dev/serial/by-id/…" @input=${(e) => this._set({ device: e.target.value })}>` : html`<span class="hint mono" style="overflow-wrap:anywhere">${d.device}</span>`}
         ${this._err("device")}</label>
-      ${chosen && chosen.ambiguous ? html`<div class="note warn" role="note">${t("ambiguous")}</div>` : ""}`;
+      ${chosen && chosen.ambiguous ? html`<div class="note warn" role="note">${t("ambiguous")}</div>` : ""}
+      ${chosen && !d.id && d.kind === "serial" && usbKind(chosen) === "enocean" ? html`<div class="note warn" role="note" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+        <span>${t("usbEnoceanHint")}</span><button type="button" class="btn btn-s" style="white-space:nowrap" @click=${() => this._kind("enocean")}>${t("usbEnoceanUse")}</button></div>` : ""}`;
   }
 
   _serialFormat() {
@@ -352,7 +373,7 @@ export class EditPage extends Page {
         <h2 id="t-mdev">${t("mbDevice")}</h2>
         <div class="fld"><span class="lbl" id="l-link">${t("mbLink")}</span>
           <div class="seg" role="group" aria-labelledby="l-link">${LINKS.map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
-            @click=${() => this._set(l === "rtu" || l === "rtu_listen" ? { link: l, device_connections: 1, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
+            @click=${() => this._set(l === "rtu" || l === "rtu_listen" ? { link: l, device_connections: 1, device: d.device || this._autoPick("") } : { link: l })}>${t(`link_${l}`)}</button>`)}</div>
 
           <span class="hint">${t(`linksub_${d.link}`)}</span></div>
         ${onBus(d) ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
@@ -423,8 +444,16 @@ export class EditPage extends Page {
   _eoTemplate(k) {
     const d = this.draft, tpl = EO_TEMPLATES[k];
     const patch = { template: k, ...tpl };
-    if (tpl.link === "serial" && !d.device) patch.device = (this.state.devices.find((x) => !x.used_by) || {}).stable || "";
+    if (tpl.link === "serial") patch.device = this._fitDevice("enocean");
     this._set(patch);
+    if (!d.id) this._suggestName();
+  }
+
+  _serialTemplate(k) {
+    const d = this.draft, patch = { template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) };
+    if (d.source === "device") patch.device = this._fitDevice(k === "zwave" ? "zwave" : "");
+    this._set(patch);
+    if (!d.id) this._suggestName();
   }
 
   /** The template card: the choices for a new connection; for an existing one folded, and a pick asks first because it overwrites fields. */
@@ -462,7 +491,7 @@ export class EditPage extends Page {
         <div class="grid2">
           <div class="fld"><span class="lbl" id="l-eolink">${t("eoLink")}</span>
             <div class="seg" role="group" aria-labelledby="l-eolink">${["serial", "tcp"].map((l) => html`<button type="button" aria-pressed=${d.link === l ? "true" : "false"}
-              @click=${() => this._set(l === "serial" ? { link: l, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { link: l })}>${t(`eolink_${l}`)}</button>`)}</div>
+              @click=${() => this._set(l === "serial" ? { link: l, device: d.device || this._autoPick("enocean") } : { link: l })}>${t(`eolink_${l}`)}</button>`)}</div>
             ${this._err("link")}</div>
           <div class="fld"><span class="lbl" id="l-eoproto">${t("eoProtocol")}</span>
             <div class="seg" role="group" aria-labelledby="l-eoproto">${["esp2", "esp3"].map((p) => html`<button type="button" aria-pressed=${d.esp_protocol === p ? "true" : "false"}
@@ -601,7 +630,8 @@ export class EditPage extends Page {
     const what = [d.manufacturer, d.product].filter(Boolean).join(" ") || d.driver || d.tty;
     const serial = d.serial ? `${t("serialNo")} ${d.serial}` : t("noSerial");
     const used = d.used_by && d.used_by !== this.draft.name ? ` (${t("usedBy", { n: d.used_by })})` : "";
-    return `${what} · ${serial} · ${d.tty}${used}`;
+    const kind = usbKind(d) ? ` · ${t(`usb_${usbKind(d)}`)}` : "";
+    return `${what}${kind} · ${serial} · ${d.tty}${used}`;
   }
 
   render() {
@@ -624,7 +654,7 @@ export class EditPage extends Page {
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
         </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
-        ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => { this._set({ template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) }); if (!d.id) this._suggestName(); })}
+        ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => this._serialTemplate(k))}
 
         <section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
@@ -635,7 +665,7 @@ export class EditPage extends Page {
           <h2 id="t-dev">${t("devicePick")}</h2>
           <div class="fld"><span class="lbl" id="l-source">${t("dataSource")}</span>
             <div class="seg" role="group" aria-labelledby="l-source">${["device", "tcp"].map((v) => html`<button type="button" aria-pressed=${d.source === v ? "true" : "false"}
-              @click=${() => this._set(v === "device" ? { source: v, device: d.device || (this.state.devices.find((x) => !x.used_by) || {}).stable || "" } : { source: v, host_port: d.host_port === 502 ? 8888 : d.host_port })}>${t(`source_${v}`)}</button>`)}</div>
+              @click=${() => this._set(v === "device" ? { source: v, device: d.device || this._autoPick(d.template === "zwave" ? "zwave" : "") } : { source: v, host_port: d.host_port === 502 ? 8888 : d.host_port })}>${t(`source_${v}`)}</button>`)}</div>
             <span class="hint">${t(`sourcesub_${d.source}`)}</span>${this._err("source")}</div>
           ${d.source === "tcp" ? html`<div class="grid2">${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`
             : this._devicePicker(chosen)}
