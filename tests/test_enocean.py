@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
@@ -542,7 +543,10 @@ async def test_replay_buffer_kept_over_a_restart(
 
 
 async def test_status_and_discovery_for_the_integration(
-    setup: Setup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    setup: Setup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     from device_proxy import enocean_ha
     from device_proxy.controller import Controller
@@ -620,10 +624,11 @@ async def test_status_and_discovery_for_the_integration(
     monkeypatch.setattr(enocean_ha, "STATUS_PEERS", "192.0.2.0/24")
     r, w = await asyncio.open_connection("127.0.0.1", ha.port)
     w.write(b"GET /api/status HTTP/1.1\r\n\r\n")
-    try:
-        assert await r.read() == b""  # not Home Assistant or an app
-    except ConnectionResetError:
-        pass  # closed before the request was read
+    with caplog.at_level(logging.WARNING, logger="device_proxy.enocean_ha"):
+        # not Home Assistant or an app: refused with a reason, not reset, and logged
+        assert (await r.read()).startswith(b"HTTP/1.1 403")
+    assert "127.0.0.1" in caplog.text and "refused" in caplog.text
+    assert "GET /api/status" in caplog.text
 
     controller.config = AppConfig(controller.config.settings, (replace(c, enabled=False),))
     await ha.update()  # no gateway left: discovery withdrawn, status closed
@@ -952,3 +957,35 @@ async def test_garbage_from_clients_reaches_the_gateway_as_whole_frames_only(
     async with asyncio.timeout(2):
         assert await reader.readexactly(len(FRAME_B)) == FRAME_B
     writer.close()
+
+
+async def test_status_server_logs_a_failure_and_answers(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A status that fails is logged with the peer and answered with 500, not a reset."""
+    from device_proxy import enocean_ha
+
+    def broken(controller: Any) -> dict[str, Any]:
+        raise KeyError("gateway")
+
+    monkeypatch.setattr(enocean_ha, "status", broken)
+    ha = enocean_ha.EnOceanHa.__new__(enocean_ha.EnOceanHa)
+    ha.c = None  # type: ignore[assignment]
+    server = await asyncio.start_server(ha._handle, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    with caplog.at_level(logging.WARNING, logger="device_proxy.enocean_ha"):
+        r, w = await asyncio.open_connection("127.0.0.1", port)
+        w.write(b"GET /api/status HTTP/1.1\r\nHost: 194d6409-device-proxy:9199\r\n\r\n")
+        assert (await r.read()).startswith(b"HTTP/1.1 500")
+        w.close()
+        r, w = await asyncio.open_connection("127.0.0.1", port)
+        w.write(b"GET /api/status HTTP/1.1\r\n")  # and away before the request ends
+        w.close()
+        for _ in range(100):
+            if "closed after" in caplog.text:
+                break
+            await asyncio.sleep(0.01)
+    server.close()
+    await server.wait_closed()
+    assert "the status for 127.0.0.1:" in caplog.text and "KeyError" in caplog.text
+    assert "closed after 26 bytes" in caplog.text
