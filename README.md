@@ -89,7 +89,7 @@ Every page, every setting and help when something does not work: **[documentatio
 
 ## Changelog
 
-See [device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md); Home Assistant shows it before an update.
+See [device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md) for release notes in German and English; Home Assistant shows them before an update.
 
 ## Development
 

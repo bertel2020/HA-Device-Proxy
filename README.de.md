@@ -89,7 +89,7 @@ Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Anleitung](
 
 ## Änderungen
 
-Siehe [device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md); Home Assistant zeigt sie vor einem Update an.
+Die Versionshinweise auf Deutsch und Englisch stehen in [device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md); Home Assistant zeigt sie vor einem Update an.
 
 ## Entwicklung
 
