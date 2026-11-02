@@ -133,9 +133,23 @@ class _Defines:
         return re.sub(r"([*=])\(([A-Za-z0-9_.-]+)\)", sub, text)
 
 
+def _yaml_error(err: yaml.YAMLError) -> ReadError:
+    mark = getattr(err, "problem_mark", None)
+    return ReadError(
+        {
+            "code": "yaml",
+            "line": mark.line + 1 if mark else None,
+            "message": str(err).splitlines()[0],
+        }
+    )
+
+
 def parse(text: str) -> tuple[int, list[tuple[str, dict[str, Any]]], list[Note]]:
     """The connections of a ser2net.yaml as (name, raw definition), plus file notes."""
-    loader = _Loader(text)
+    try:
+        loader = _Loader(text)  # a control character in the file fails here already
+    except yaml.YAMLError as err:
+        raise _yaml_error(err) from None
     try:
         documents: list[Node] = []
         while loader.check_node():
@@ -143,14 +157,7 @@ def parse(text: str) -> tuple[int, list[tuple[str, dict[str, Any]]], list[Note]]
             if node is not None:
                 documents.append(node)
     except yaml.YAMLError as err:
-        mark = getattr(err, "problem_mark", None)
-        raise ReadError(
-            {
-                "code": "yaml",
-                "line": mark.line + 1 if mark else None,
-                "message": str(err).splitlines()[0],
-            }
-        ) from None
+        raise _yaml_error(err) from None
     finally:
         loader.dispose()
     keys = {key for doc in documents for key, _ in _pairs(doc)}
