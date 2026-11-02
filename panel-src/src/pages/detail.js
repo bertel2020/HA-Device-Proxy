@@ -39,7 +39,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, acForm: { state: true }, acResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -82,6 +82,7 @@ export class DetailPage extends Page {
     this._samples = [];
     this._after = 0;
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
+    this.acForm = { host: "", unit: 1, function: 6, address: 0, count: 1 };
     this.mbDecode = { type: "float32", swap: "none", scale: 1 };
     this.maint = { host: "", minutes: 30 };
     this.wrForm = { unit: 1, function: 6, address: 0, values: "0" };
@@ -300,6 +301,23 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  async _access() {
+    try {
+      this.acResult = await api(`api/tools/${this.connectionId}/modbus/access`, { method: "POST", body: this.acForm });
+    } catch (err) {
+      this.acResult = { error: err.message };
+    }
+  }
+
+  /** The answer of the access check in words: who decides and what the client gets. */
+  _accessText(r) {
+    if (r.error) return html`<div class="note bad">${r.error}</div>`;
+    const route = r.route ? ` ${t("acRoute", { r: r.route })}` : "";
+    if (!r.connect) return html`<div class="note bad">${t(`ac_${r.why}`, { b: r.bind })}</div>`;
+    if (r.allowed) return html`<div class="note ok">${t(r.write ? "ac_write" : "ac_read")}${route}</div>`;
+    return html`<div class="note warn">${t(`ac_${r.why}`, { by: r.by, r: r.route })}${r.why === "no_route" ? "" : route}</div>`;
+  }
+
   _num(form, key, label, prop) {
     return html`<label class="fld"><span class="lbl">${label}</span><input class="inp" inputmode="numeric" .value=${String(form[key])}
       @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
@@ -385,7 +403,19 @@ export class DetailPage extends Page {
           <div><b style="font-weight:500">Unit ${u.unit} · ${[id.vendor, id.product].filter(Boolean).join(" ")}</b>${id.revision ? html` <span class="hint">${id.revision}</span>` : ""}</div>
           ${id.sunspec !== null ? html`<span class="hint">${t("mbSunspec", { a: id.sunspec })}</span>` : ""}
           ${id.integration ? html`<span class="hint">${t("mbIntegration", { i: id.integration })}</span>` : ""}</div>`)}` : ""}
-    `, !!r || !!sc);
+      <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("acTitle")}</b><p class="hint">${t("acSub")}</p></div>
+      <div class="grid5">
+        <label class="fld"><span class="lbl">${t("acHost")}</span><input class="inp mono" .value=${this.acForm.host} placeholder="192.168.1.50"
+          @input=${(e) => { this.acForm = { ...this.acForm, host: e.target.value.trim() }; }} @keydown=${(e) => { if (e.key === "Enter") this._access(); }}></label>
+        ${this._num(this.acForm, "unit", t("mbUnit"), "acForm")}
+        <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.acForm = { ...this.acForm, function: Number(e.target.value) }; }}>
+          ${[3, 4, 1, 2].map((v) => html`<option value=${v} ?selected=${this.acForm.function === v}>${t(`fc_${v}`)}</option>`)}
+          ${[6, 16, 5, 15].map((v) => html`<option value=${v} ?selected=${this.acForm.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
+        ${this._num(this.acForm, "address", t("mbAddress"), "acForm")}
+        <button class="btn btn-s" ?disabled=${!this.acForm.host} @click=${this._access}>${t("acCheck")}</button>
+      </div>
+      ${this.acResult ? this._accessText(this.acResult) : ""}
+    `, !!r || !!sc || !!this.acResult);
   }
 
   _tools(c) {

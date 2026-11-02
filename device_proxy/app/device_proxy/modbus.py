@@ -681,6 +681,60 @@ EventSink = Callable[..., None]  # (level, kind, **params)
 TraceSink = Callable[[Chunk], None]
 
 
+def may_write(c: Connection, host: str, local: bool = False) -> bool:
+    """local: the client is on this host (from_this_host), so it counts as 127.0.0.1 too."""
+    if c.write_access == "listed":
+        listed = c.write_clients
+        return bool(listed) and (
+            client_allowed(listed, "all", host)
+            or (local and client_allowed(listed, "all", "127.0.0.1"))
+        )
+    return c.write_access == "all"
+
+
+def write_refusal(c: Connection, host: str, local: bool, pdu: bytes) -> int | None:
+    """The exception a client's write gets from this connection's rules, None when it may
+    pass."""
+    if not may_write(c, host, local):
+        return EXC_FUNCTION
+    if c.write_registers and not in_ranges(write_span(pdu), parse_ranges(c.write_registers)):
+        return EXC_ADDRESS
+    return None
+
+
+def check_access(
+    c: Connection, listen: str, host: str, unit: int, pdu: bytes, others: dict[str, Connection]
+) -> dict[str, Any]:
+    """What a client at this address may do with this request, and which rule decides it: the
+    same checks the proxy makes (a client on this host is taken as 127.0.0.1)."""
+    local = host in ("127.0.0.1", "::1")
+    bind = c.bind or ("127.0.0.1" if listen == "local" else "")
+    if (bind.startswith("127.") or bind == "::1") and not local:
+        return {"connect": False, "why": "bind", "bind": bind}
+    if not client_allowed(c.remaddr, listen, host):
+        return {"connect": False, "why": "own_rule" if c.remaddr else "network"}
+    write = is_write(pdu)
+    result: dict[str, Any] = {"connect": True, "write": write}
+    route = parse_routes(c.unit_routes).get(unit)
+    target = others.get(route[0]) if route else None
+    if route:
+        result["route"] = target.name if target else route[0]
+        if target is None:
+            return {**result, "allowed": False, "why": "no_route"}
+    if not write:
+        return {**result, "allowed": True, "why": "read"}
+    if c.link == "rtu_listen":
+        return {**result, "allowed": False, "why": "listen_only"}
+    for rules in (c, target):
+        if rules is None:
+            continue
+        code = write_refusal(rules, host, local, pdu)
+        if code is not None:
+            why = "write_access" if code == EXC_FUNCTION else "registers"
+            return {**result, "allowed": False, "why": why, "by": rules.name}
+    return {**result, "allowed": True, "why": "write"}
+
+
 def restart_key(c: Connection, listen: str) -> Connection:
     """What a running proxy depends on: a change of anything else does not restart it."""
     return replace(
@@ -1147,15 +1201,7 @@ class ModbusProxy:
             self.on_event("info", "client_disconnected", address=address)
 
     def may_write(self, host: str, local: bool = False) -> bool:
-        """local: the client is on this host (from_this_host), so it counts as 127.0.0.1 too."""
-        access = self.c.write_access
-        if access == "listed":
-            listed = self.c.write_clients
-            return bool(listed) and (
-                client_allowed(listed, "all", host)
-                or (local and client_allowed(listed, "all", "127.0.0.1"))
-            )
-        return access == "all"
+        return may_write(self.c, host, local)
 
     async def _serve(
         self,
@@ -1222,15 +1268,7 @@ class ModbusProxy:
             info.bytes_out += len(frame)
 
     def write_refusal(self, host: str, local: bool, pdu: bytes) -> int | None:
-        """The exception a client's write gets from this connection's rules, None when it
-        may pass."""
-        if not self.may_write(host, local):
-            return EXC_FUNCTION
-        if self.c.write_registers and not in_ranges(
-            write_span(pdu), parse_ranges(self.c.write_registers)
-        ):
-            return EXC_ADDRESS
-        return None
+        return write_refusal(self.c, host, local, pdu)
 
     async def _routed(
         self,
