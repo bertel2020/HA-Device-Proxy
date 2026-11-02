@@ -265,3 +265,56 @@ async def test_effects_before_settings_imports_and_restores(tmp_path: Path) -> N
     assert status == 200 and answer == {"effects": []}  # the version that runs
     assert (await request(port, "GET", "api/versions/999/effects"))[0] == 404
     await web.stop()
+
+
+async def test_a_full_disk_saves_nothing_and_says_so(tmp_path: Path) -> None:
+    import errno
+    import os
+    import sqlite3
+
+    db = Database(tmp_path / "history.db")
+    store = Store(db, tmp_path / "config.json")
+    controller = Controller(
+        store,
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    first = {"name": "eHZ", "device": "/dev/null", "port": 3335}
+    assert (await request(port, "POST", "api/connections", {"connection": first}))[0] == 200
+    saved = (tmp_path / "config.json").read_text()
+
+    def full(fd: int) -> None:
+        raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+    real_fsync = os.fsync
+    os.fsync = full  # type: ignore[assignment]
+    try:
+        second = {"name": "Z-Wave", "device": "/dev/zero", "port": 3333}
+        status, answer = await request(port, "POST", "api/connections", {"connection": second})
+    finally:
+        os.fsync = real_fsync
+    assert status == 507 and isinstance(answer, dict) and "not saved" in answer["error"]
+    assert [c.name for c in controller.config.connections] == ["eHZ"]  # nothing changed
+    assert (tmp_path / "config.json").read_text() == saved and not (
+        tmp_path / "config.tmp"
+    ).exists()
+
+    # the file is written, the history is full: the change counts all the same
+    real_execute = db.execute
+
+    def history_full(sql: str, params: tuple[object, ...] = ()) -> sqlite3.Cursor:
+        if sql.startswith(("INSERT INTO config_versions", "DELETE FROM config_versions")):
+            raise sqlite3.OperationalError("database or disk is full")
+        return real_execute(sql, params)
+
+    db.execute = history_full  # type: ignore[method-assign]
+    status, _ = await request(port, "POST", "api/connections", {"connection": second})
+    db.execute = real_execute  # type: ignore[method-assign]
+    assert status == 200 and len(controller.config.connections) == 2
+    assert "Z-Wave" in (tmp_path / "config.json").read_text()
+    await web.stop()
