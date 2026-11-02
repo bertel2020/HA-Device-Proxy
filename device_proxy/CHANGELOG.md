@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.2.1 - 2026-11-02
+
+Der Statusport für die EnOcean-Eltako-Integration sagt, warum er eine Anfrage nicht beantwortet,
+statt die Verbindung zurückzusetzen.
+
+- **EnOcean, Statusport**: Eine abgewiesene Anfrage bekam einen Verbindungsabbruch („Connection
+  reset by peer“), weil die App die Verbindung schloss, bevor sie die Anfrage gelesen hatte. Jetzt
+  liest sie die Anfrage und antwortet mit 403; schlägt der Status selbst fehl, mit 500.
+- **Log**: Jede Abweisung und jeder Fehler am Statusport steht im Log der App, mit Adresse und Port
+  des Clients, der Adresse, an der er ankam, und dem Grund (nicht erlaubt, Zeitlimit, Anfrage
+  abgebrochen oder zu lang, Fehler beim Status mit Traceback).
+
+### English
+
+The status port for the EnOcean Eltako integration says why it does not answer a request instead
+of resetting the connection.
+
+- **EnOcean, status port**: A refused request got "Connection reset by peer", because the app
+  closed the connection before reading the request. It now reads the request and answers 403; if
+  the status itself fails, 500.
+- **Log**: Every refusal and failure at the status port is in the app's log, with the client's
+  address and port, the address it arrived at, and the reason (not allowed, timeout, request cut
+  off or too long, status failure with traceback).
+
 ## 1.2.0 - 2026-11-02
 
 Vor dem Speichern sehen, was eine Änderung bewirkt, und mit einem Schritt zurück, wenn sie etwas
