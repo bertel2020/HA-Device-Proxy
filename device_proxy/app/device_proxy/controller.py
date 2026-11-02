@@ -562,6 +562,21 @@ class Controller:
         result = await asyncio.to_thread(read, text)  # a large file must not stop the proxies
         return result, {item.alias: conflicts(self.config, item) for item in result.items}
 
+    async def imported(
+        self,
+        text: str,
+        *,
+        replace_all: bool,
+        take: set[str] | None = None,
+        on_conflict: dict[str, str] | None = None,
+    ) -> AppConfig:
+        """The configuration an import would make, without saving it (as run_import builds it)."""
+        result = await asyncio.to_thread(read, text)
+        wanted = take if take is not None else {i.alias for i in result.items if i.connection}
+        return merge(
+            self.config, result, replace_all=replace_all, take=wanted, on_conflict=on_conflict or {}
+        )
+
     async def run_import(
         self,
         text: str,

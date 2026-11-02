@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
-import { confirmDialog, copyText, fmtTime, icon, logo, radioKeys, radioTab } from "../ui.js";
+import { confirmDialog, copyText, effectsOf, effectsText, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 // the settings saved with a section's button; the others take effect when chosen
@@ -223,17 +223,21 @@ export class SettingsPage extends Page {
   }
 
   async _lanSave() {
-    if (!(await confirmDialog(this, t("lanConfirm"), t("confirm")))) return;
-    if (await this._saveSettings({ lan_networks: this._lanText() })) this.lanDraft = null;
+    const patch = { lan_networks: this._lanText() };
+    const effects = await effectsOf("api/settings/effects", { settings: patch });
+    if (!(await confirmDialog(this, withEffects(t("lanConfirm"), effects), t("confirm")))) return;
+    if (await this._saveSettings(patch)) this.lanDraft = null;
   }
 
   async _changeListen(v) {
     if (v === this.state.settings.listen) return;
-    if (!(await confirmDialog(this, t("listenConfirm"), t("confirm")))) return;
     const saved = (this.state.settings.lan_networks || "").split(/[\s,;]+/).filter(Boolean).sort().join(" ");
     const legacy = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"].join(" ");
     // Home network starts with just this host's network; a list the user built stays
-    this._saveSettings(v === "lan" && (!saved || saved === legacy) ? { listen: v, lan_networks: "own" } : { listen: v });
+    const patch = v === "lan" && (!saved || saved === legacy) ? { listen: v, lan_networks: "own" } : { listen: v };
+    const effects = await effectsOf("api/settings/effects", { settings: patch });
+    if (!(await confirmDialog(this, withEffects(t("listenConfirm"), effects), t("confirm")))) return;
+    this._saveSettings(patch);
   }
 
   async _useOwn() {
@@ -297,7 +301,8 @@ export class SettingsPage extends Page {
     try {
       const p = await api("api/restore/preview", { method: "POST", body: { text } });
       const kinds = ["serial", "modbus", "enocean"].filter((k) => p.kinds[k]).map((k) => `${p.kinds[k]} ${t(`kindName_${k}`)}`).join(", ");
-      if (!(await confirmDialog(this, t("backupConfirm", { when: p.created || "–", n: p.total, kinds: kinds || "–", cur: p.current }), t("restoreDo")))) return;
+      const question = t("backupConfirm", { when: p.created || "–", n: p.total, kinds: kinds || "–", cur: p.current });
+      if (!(await confirmDialog(this, withEffects(question, effectsText(p.effects)), t("restoreDo")))) return;
       await api("api/restore", { method: "POST", body: { text } });
       this.toast(t("restoreDone"));
       this._afterRestore();
@@ -347,7 +352,8 @@ export class SettingsPage extends Page {
   }
 
   async _restore(v) {
-    if (!(await confirmDialog(this, t("restoreConfirm"), t("restore")))) return;
+    const effects = await effectsOf(`api/versions/${v.id}/effects`);
+    if (!(await confirmDialog(this, withEffects(t("restoreConfirm"), effects), t("restore")))) return;
     try {
       await api(`api/versions/${v.id}/restore`, { method: "POST" });
       this.toast(t("saved"));
