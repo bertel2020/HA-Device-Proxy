@@ -1634,7 +1634,7 @@ class Controller:
             "trace_files": self._trace_files(),
             "mqtt": self.mqtt.state,
             "capture": self.captures.current.to_dict() if self.captures.current else None,
-            "enocean_status_port": self.enocean_ha.port,
+            "enocean_status": self.enocean_ha.state(),
         }
 
     def _proxy_snapshot(self, c: Connection) -> dict[str, object]:

@@ -847,6 +847,8 @@ async def test_a_taken_status_port_is_tried_again() -> None:
     ha = EnOceanHa(fake)  # type: ignore[arg-type]
     await ha._serve(port)
     assert ha._server is None and events == ["listen_failed"]
+    state = ha.state()  # the panel says why the integration gets no status
+    assert state["port"] == port and state["listening"] is False and state["error"]
     blocker.close()
     await blocker.wait_closed()
     await ha.retry()  # too early
@@ -854,6 +856,7 @@ async def test_a_taken_status_port_is_tried_again() -> None:
     ha._failed_at = 0.0
     await ha.retry()
     assert ha._server is not None and ha.port == port and events == ["listen_failed"]
+    assert ha.state() == {"port": port, "listening": True, "error": None}
     await ha.stop()
 
 

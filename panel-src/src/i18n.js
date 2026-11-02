@@ -522,6 +522,7 @@ const TEXT = {
     eoDiscoveryHint: "Die Integration findet die Gateways dann selbst und richtet sie ein, einschließlich Replay (verpasste Funktelegramme nachliefern).",
     eoStatusPort: "Port der Status-Schnittstelle",
     eoStatusPortHint: "Die Integration fragt hier Verbindung, Sendezeit und Replay ab. Nur für Home Assistant und andere Apps, aus dem LAN abgewiesen. Läuft auch, wenn die Gateways nicht angeboten werden. Standard 9199, nur ändern, wenn der Port belegt ist.",
+    eoStatusClosed: "Status-Port {port} ist nicht offen ({e}). Die App versucht es alle 30 s wieder; bis dahin zeigt die Integration „Proxy-Status nicht erreichbar“. Ist der Port von einem anderen Programm belegt, unter „Erweitert“ einen anderen wählen.",
   },
   en: {
     portWarn: "Note: {w}. Saving still works; the connection starts as soon as the port is free.",
@@ -1038,6 +1039,7 @@ const TEXT = {
     eoDiscoveryHint: "The integration then finds the gateways itself and sets them up, including replay (delivering missed radio telegrams).",
     eoStatusPort: "Port of the status interface",
     eoStatusPortHint: "The integration reads the connection, air time and replay here. Only for Home Assistant and other apps, refused from the LAN. Also runs when the gateways are not offered. Default 9199, change it only if the port is taken.",
+    eoStatusClosed: "Status port {port} is not open ({e}). The app tries again every 30 s; until then the integration shows \"proxy status not reachable\". If another program has the port, choose a different one under \"Advanced\".",
   },
 };
 

@@ -297,7 +297,10 @@ integration with name, port, protocol and model, e.g. `{"name": "PioTek MGW-ETH"
 "protocol": "esp3", "model": "mgw_eth"}`; the integration offers each one for setup with replay
 switched on. A read-only status
 (port 9199, Home Assistant and the apps only) feeds the integration's gateway cards. Both are
-under **Settings → EnOcean**.
+under **Settings → EnOcean**, which also says when the status port could not be opened. If the
+integration shows "proxy status not reachable", check it in the terminal app with
+`curl http://<host name of this app>:9199/api/status`; from the LAN the connection is reset on
+purpose.
 
 **The detail page** shows what is wrong in plain words (gateway away, port taken, air time,
 frames dropped or held back, programs refused or disconnected, no program connected), every

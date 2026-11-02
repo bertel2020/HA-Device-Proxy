@@ -312,7 +312,11 @@ bewahrt sie auch über einen Neustart dieser App hinweg auf (`/data/replay`).
 Name, Port, Protokoll und Modell, z. B. `{"name": "PioTek MGW-ETH", "port": 9100,
 "protocol": "esp3", "model": "mgw_eth"}`; die Integration bietet jedes zur Einrichtung an, mit
 eingeschalteter Nachlieferung. Ein Status zum Lesen (Port 9199, nur Home Assistant und die Apps)
-versorgt die Gateway-Karten der Integration. Beides steht unter **Einstellungen → EnOcean**.
+versorgt die Gateway-Karten der Integration. Beides steht unter **Einstellungen → EnOcean**; dort
+steht auch, wenn der Status-Port nicht geöffnet werden konnte. Zeigt die Integration „Proxy-Status
+nicht erreichbar“, lässt er sich in der Terminal-App prüfen:
+`curl http://<Hostname dieser App>:9199/api/status`. Aus dem LAN wird die Verbindung absichtlich
+zurückgesetzt.
 
 **Die Detailseite** zeigt in Klartext, was nicht stimmt (Gateway weg, Port belegt, Funkzeit,
 Telegramme verworfen oder zurückgehalten, Programme abgewiesen oder getrennt, kein Programm
