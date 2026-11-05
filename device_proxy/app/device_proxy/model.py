@@ -209,6 +209,9 @@ class Connection:
     notify_missing: bool = True
     notify_no_client: bool = False
     silence_minutes: int = 0
+    # after silence_minutes without data: "" only warn, "restart" the connection, "usb" reset
+    # its USB adapter as well (controller.py, at most AUTO_RESTART_MAX times in a row)
+    silence_restart: str = ""
     # a serial connection's data: a device of this host, or a serial bridge in the network
     # (ESPHome stream server, Tasmota reading head, USR-TCP232) at host and host_port
     source: str = "device"
@@ -392,6 +395,14 @@ class Connection:
             e["trace"] = f"one of {', '.join(TRACE_MODES)}"
         if not 0 <= self.silence_minutes <= 1440:
             e["silence_minutes"] = "0 to 1440 minutes"
+        if self.silence_restart not in ("", "restart", "usb"):
+            e["silence_restart"] = "empty, restart or usb"
+        elif self.silence_restart and self.kind != "serial":
+            e["silence_restart"] = "only for a serial connection"
+        elif self.silence_restart and not self.silence_minutes:
+            e["silence_restart"] = "needs the minutes without data"
+        elif self.silence_restart == "usb" and not self.uses_device:
+            e["silence_restart"] = "a USB reset needs a device of this host"
         if self.kind != "serial":
             self._validate_link(e)
         elif self.source not in ("device", "tcp"):

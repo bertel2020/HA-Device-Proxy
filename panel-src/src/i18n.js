@@ -36,7 +36,15 @@ const TEXT = {
     maintAsk: "Alle Clients von „{n}“ trennen und {m} Minuten nur {h} zulassen?", maintActive: "Wartung: nur {h} darf sich verbinden, noch etwa {m} Minuten.",
     exReason_by_hand: "von Hand", exReason_expired: "Zeit abgelaufen",
     disconnectClients: "Clients trennen", disconnectAsk: "Alle Clients von „{n}“ trennen? Sie können sich gleich wieder verbinden; die meisten tun das von selbst.", disconnected: "{n} Client(s) getrennt",
-    by_ui: "von Hand", by_mqtt: "über Home Assistant",
+    by_ui: "von Hand", by_mqtt: "über Home Assistant", by_auto: "automatisch, keine Daten",
+    restartTitle: "Neu starten", restartSub: "wenn sich das Gerät aufgehängt hat",
+    restartText: "Schließt das Gerät und öffnet es neu; alle Clients werden getrennt und verbinden sich wieder.",
+    usbResetText: "Der USB-Reset setzt den Adapter zusätzlich zurück, als würde er ab- und wieder angesteckt (ohne den Strom zu unterbrechen). Eine aufgehängte Firmware im Gerät selbst braucht manchmal trotzdem einen Neustart ohne Strom.",
+    restartAuto: "Automatisch nach {m} min ohne Daten: {a} (höchstens 3-mal hintereinander, dann nur noch die Warnung).",
+    restartBtn: "Verbindung neu starten", usbResetBtn: "USB-Reset",
+    restartAsk: "„{n}“ neu starten? Die {c} verbundenen Clients werden getrennt und können sich gleich wieder verbinden.",
+    usbResetAsk: "Den USB-Adapter von „{n}“ zurücksetzen? Die Verbindung startet neu, die {c} verbundenen Clients werden getrennt; das dauert ein paar Sekunden.",
+    restartDone: "Verbindung neu gestartet.", usbResetDone: "USB-Reset erledigt, Verbindung neu gestartet.", usbResetFailed: "Verbindung neu gestartet, USB-Reset fehlgeschlagen",
     sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
     newClients: "Neue Clients", newClientAt: "zuerst an {c}, {t}", newClientKnown: "Bekannt", newClientName: "Benennen",
     clientNames: "Namen", clientNamesHint: "Eine Zeile je Rechner: IP-Adresse, Leerzeichen, Name. Ein Name macht den Rechner bekannt. Home Assistant, die Apps und dieser Rechner gelten immer als bekannt.",
@@ -97,6 +105,8 @@ const TEXT = {
     timeout: "Timeout (s, 0 = nie)", retry: "Neuer Versuch nach (s, 0 = Standard)", remaddr: "Erlaubte Clients", remaddrHint: "Leer: nach der globalen Einstellung. Adressen oder Netze, mit Leerzeichen getrennt.", remaddrZwave: "Voreingestellt ist nur Home Assistant und Apps, weil der Stick Befehle annimmt und keinen Login hat.",
     banner: "Banner", openstr: "openstr", closestr: "closestr", bind: "Bind-Adresse", bindHint: "Leer: nach der globalen Einstellung.",
     extra: "Weitere Optionen", extraHint: "Eine pro Zeile: name: wert", traceMode: "Mitschnitt aufzeichnen", silence: "Warnen, wenn keine Daten seit (min, 0 = nie)",
+    silenceRestart: "Dann", silenceRestart_off: "nur warnen", silenceRestart_restart: "Verbindung neu starten", silenceRestart_usb: "USB-Reset und neu starten",
+    silenceRestartHint: "Nur solange das Gerät offen ist (ein Client verbunden oder „Gerät offen halten“). Höchstens 3-mal hintereinander, bis wieder Daten kommen.",
     tr_off: "aus", tr_rx: "vom Gerät", tr_tx: "zum Gerät", tr_both: "beide Richtungen",
     preview: "Vorschau ser2net.yaml", previewSub: "So wird die Verbindung an ser2net übergeben.", save: "Speichern", unsaved: "Nicht gespeichert", discardConfirm: "Deine Änderungen an dieser Verbindung verwerfen?", discardSettingsConfirm: "Deine nicht gespeicherten Einstellungen verwerfen?", discard: "Verwerfen", cancel: "Abbrechen", delete: "Löschen",
     saveHint: "Nur diese Verbindung wird neu aufgebaut. Andere bleiben verbunden.", effLead: "Beim Speichern:", effRestart: "{n} wird neu aufgebaut", effStop: "{n} wird beendet", effClients: " ({c} Client(s) verbinden sich neu)", effClientsStop: " ({c} Client(s) werden getrennt)", effNone: "Keine laufende Verbindung wird neu aufgebaut, alle Clients bleiben verbunden.", saved: "Gespeichert.", savedRebuilt: "Gespeichert. Neu aufgebaut: {n}.", savedReconnect: " Clients neu verbunden: {n}.",
@@ -560,7 +570,15 @@ const TEXT = {
     maintAsk: "Disconnect all clients of “{n}” and allow only {h} for {m} minutes?", maintActive: "Maintenance: only {h} may connect, about {m} minutes left.",
     exReason_by_hand: "by hand", exReason_expired: "time is up",
     disconnectClients: "Disconnect clients", disconnectAsk: "Disconnect all clients of “{n}”? They can connect again right away; most do so by themselves.", disconnected: "{n} client(s) disconnected",
-    by_ui: "by hand", by_mqtt: "from Home Assistant",
+    by_ui: "by hand", by_mqtt: "from Home Assistant", by_auto: "automatically, no data",
+    restartTitle: "Restart", restartSub: "when the device hangs",
+    restartText: "Closes the device and opens it again; all clients are disconnected and connect again.",
+    usbResetText: "The USB reset also resets the adapter, as if it were unplugged and plugged in again (without cutting the power). A hung firmware in the device itself sometimes still needs a power cycle.",
+    restartAuto: "Automatically after {m} min without data: {a} (at most 3 times in a row, then only the warning).",
+    restartBtn: "Restart connection", usbResetBtn: "USB reset",
+    restartAsk: "Restart “{n}”? The {c} connected clients are disconnected and can connect again right away.",
+    usbResetAsk: "Reset the USB adapter of “{n}”? The connection restarts and the {c} connected clients are disconnected; it takes a few seconds.",
+    restartDone: "Connection restarted.", usbResetDone: "USB reset done, connection restarted.", usbResetFailed: "Connection restarted, USB reset failed",
     sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",
     newClients: "New clients", newClientAt: "first at {c}, {t}", newClientKnown: "Known", newClientName: "Name it",
     clientNames: "Names", clientNamesHint: "One line per computer: IP address, a space, the name. A name makes the computer known. Home Assistant, the apps and this host always count as known.",
@@ -619,6 +637,8 @@ const TEXT = {
     timeout: "Timeout (s, 0 = never)", retry: "Retry after (s, 0 = default)", remaddr: "Allowed clients", remaddrHint: "Empty: as the global setting. Addresses or networks, separated by spaces.", remaddrZwave: "Preset is Home Assistant and apps only, because the stick takes commands and has no login.",
     banner: "Banner", openstr: "openstr", closestr: "closestr", bind: "Bind address", bindHint: "Empty: as the global setting.",
     extra: "Further options", extraHint: "One per line: name: value", traceMode: "Record trace", silence: "Warn when no data for (min, 0 = never)",
+    silenceRestart: "Then", silenceRestart_off: "only warn", silenceRestart_restart: "restart the connection", silenceRestart_usb: "USB reset and restart",
+    silenceRestartHint: "Only while the device is open (a client connected or “Keep the device open”). At most 3 times in a row, until data comes again.",
     tr_off: "off", tr_rx: "from the device", tr_tx: "to the device", tr_both: "both directions",
     preview: "Preview ser2net.yaml", previewSub: "This is what ser2net gets.", save: "Save", unsaved: "Not saved", discardConfirm: "Discard your changes to this connection?", discardSettingsConfirm: "Discard your unsaved settings?", discard: "Discard", cancel: "Cancel", delete: "Delete",
     saveHint: "Only this connection is rebuilt. The others stay connected.", effLead: "Saving:", effRestart: "{n} is set up again", effStop: "{n} stops", effClients: " ({c} client(s) reconnect)", effClientsStop: " ({c} client(s) disconnected)", effNone: "No running connection is set up again, all clients stay connected.", saved: "Saved.", savedRebuilt: "Saved. Rebuilt: {n}.", savedReconnect: " Clients reconnected: {n}.",
@@ -1060,6 +1080,8 @@ const EVENTS = {
     listen_failed: "Port {port} kann nicht geöffnet werden: {error}", client_refused: "Client abgewiesen, alle Plätze belegt: {address}",
     client_new: "Neuer Client, noch nie gesehen: {address}",
     clients_disconnected: "{count} Client(s) getrennt ({by})",
+    connection_restarted: "Verbindung neu gestartet ({by})", usb_reset_failed: "USB-Reset fehlgeschlagen: {error}",
+    auto_restart_gave_up: "Nach {count} automatischen Neustarts noch immer keine Daten: kein weiterer Neustart, bis wieder Daten kommen",
     exclusive_on: "Wartung: {minutes} Minuten nur {host}", exclusive_off: "Wartung beendet ({reason}), alle erlaubten Clients dürfen wieder",
     write_blocked: "Schreiben abgewiesen (Funktion {function}) von {address}",
     write_blocked_register: "Schreiben abgewiesen (Funktion {function}, Register {register}) von {address}: außerhalb der erlaubten Register",
@@ -1090,6 +1112,8 @@ const EVENTS = {
   },
   en: { // the rest comes as the app's message; these carry notes worded here
     clients_disconnected: "{count} client(s) disconnected ({by})",
+    connection_restarted: "Connection restarted ({by})", usb_reset_failed: "USB reset failed: {error}",
+    auto_restart_gave_up: "Still no data after {count} automatic restarts: no further restarts until data comes",
     exclusive_off: "Maintenance over ({reason}): all allowed clients may connect again",
     enocean_failover: "Running on the fallback {fallback} ({reason}), {unanswered} commands unanswered",
     enocean_failback: "Back on its own gateway, the fallback {fallback} rests ({reason})",
@@ -1318,7 +1342,7 @@ function templatedText(event) {
   if (lang === "de" && params.error === "no answer") params.error = "keine Antwort";
   if (event.kind.startsWith("enocean_fall") && params.reason) params.reason = t(`fbReason_${params.reason}`);
   if (event.kind === "enocean_fallback_promoted") params.action = t(`fbAction_${params.action}`);
-  if (event.kind === "clients_disconnected") params.by = t(`by_${params.by}`);
+  if (event.kind === "clients_disconnected" || event.kind === "connection_restarted") params.by = t(`by_${params.by}`);
   if (event.kind === "exclusive_off") params.reason = t(`exReason_${params.reason}`);
   if (Array.isArray(params.errors)) params.errors = params.errors.map((n) => (n?.code ? noteText(n) : String(n))).join("; ");
   if (params.error?.code) params.error = noteText(params.error);

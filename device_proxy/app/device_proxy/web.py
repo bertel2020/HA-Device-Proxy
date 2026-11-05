@@ -151,6 +151,7 @@ class WebServer:
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})", self.delete)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/enabled", self.enable)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/disconnect", self.disconnect)
+        self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/restart", self.restart)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.exclusive)
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.end_exclusive)
         self._route("POST", r"api/preview", self.preview)
@@ -414,6 +415,16 @@ class WebServer:
             return ok({"count": await self.c.disconnect_clients(request.params["id"], "ui")})
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def restart(self, request: Request) -> Response:
+        usb = request.json().get("usb", False)
+        if not isinstance(usb, bool):
+            raise HttpError(400, "usb: true or false")
+        try:
+            result = await self.c.restart_connection(request.params["id"], "ui", usb=usb)
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+        return ok(result)
 
     async def exclusive(self, request: Request) -> Response:
         data = request.json()
