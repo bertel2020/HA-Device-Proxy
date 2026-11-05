@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.4.0 - 2026-11-05
+
+Eine hängende Verbindung lässt sich neu starten, auch mit einem USB-Reset des Adapters, von Hand,
+aus Home Assistant oder automatisch.
+
+- **Neu starten**: neue Karte auf der Seite einer Verbindung. Das Gerät (bei Modbus und EnOcean
+  der Proxy) wird geschlossen und neu geöffnet, die Clients verbinden sich wieder, auch mit
+  „Gerät offen halten“.
+- **USB-Reset**: für USB-Adapter dieses Rechners; setzt den Adapter zurück wie Ab- und
+  Anstecken, ohne den Strom zu unterbrechen, und wartet, bis er wieder da ist.
+- **Automatisch**: nach den Minuten ohne Daten wahlweise neu starten oder USB-Reset und neu
+  starten (serielle Verbindungen), höchstens dreimal in Folge, bis wieder Daten kommen.
+- **Home Assistant**: Buttons „Verbindung neu starten“ und „USB-Reset“ je Verbindung.
+- Jeder Neustart steht in der Historie, ein fehlgeschlagener USB-Reset als Warnung.
+
+### English
+
+A hanging connection can be restarted, also with a USB reset of its adapter: by hand, from
+Home Assistant or automatically.
+
+- **Restart**: a new card on a connection's page. The device (for Modbus and EnOcean the proxy)
+  is closed and opened again, the clients connect again, also with "Keep the device open".
+- **USB reset**: for USB adapters of this host; resets the adapter like unplugging and plugging
+  it in again, without cutting the power, and waits until it is back.
+- **Automatically**: after the minutes without data, restart or USB reset and restart (serial
+  connections), at most three times in a row until data comes again.
+- **Home Assistant**: buttons "Restart connection" and "USB reset" per connection.
+- Every restart is in the history, a failed USB reset as a warning.
+
 ## 1.3.0 - 2026-11-02
 
 Das Panel lässt sich anpassen: drei Farbschemata, hell oder dunkel, und drei Schriftgrößen.
