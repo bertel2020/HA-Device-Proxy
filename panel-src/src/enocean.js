@@ -21,7 +21,7 @@ export const MODELS = { fam_usb: "esp2", fgw14_usb: "esp2", fam14: "esp2", esp2:
 export const HA_ONLY = "127.0.0.1, 172.30.32.0/23";
 export const DEFAULTS = {
   kind: "enocean", template: "fam_usb", ...TEMPLATES.fam_usb, data_bits: 8, parity: "n", stop_bits: 1, mode: "raw",
-  max_clients: 4, remaddr: "", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
+  max_clients: 4, remaddr: "", keep_open: false, stuck_disconnect: false, silence_minutes: 0, silence_restart: "",
   send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };

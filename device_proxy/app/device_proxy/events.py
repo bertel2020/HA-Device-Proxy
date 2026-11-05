@@ -113,6 +113,11 @@ MESSAGES = {
     "client_refused": "Client refused, all places taken: {address}",
     "client_new": "New client, never seen before: {address}",
     "clients_disconnected": "{count} client(s) disconnected ({by})",
+    "connection_restarted": "Connection restarted ({by})",
+    "usb_reset_failed": "USB reset failed: {error}",
+    "auto_restart_gave_up": (
+        "Still no data after {count} automatic restarts: no further restarts until data comes"
+    ),
     "write_blocked_register": (
         "Write refused (function {function}, register {register}) from {address}: outside the "
         "allowed registers"

@@ -4,7 +4,8 @@
 (many CH340) can share one by-id name or have none, then by-path (the USB port) tells them
 apart. The line counters come from the driver (TIOCGICOUNT) and are read only while
 ser2net has the device open anyway, so the app never opens a device on its own (opening
-can raise DTR and reset some devices).
+can raise DTR and reset some devices). A USB reset (USBDEVFS_RESET on the adapter's node
+under /dev/bus/usb) is what unplugging and plugging in again does, without cutting the power.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ SYS = Path("/sys")
 DEV = Path("/dev")
 TTY_PATTERNS = ("ttyUSB*", "ttyACM*", "ttyAMA*", "ttyS[0-9]*", "ttyXRUSB*", "ttyCH343USB*")
 TIOCGICOUNT = 0x545D
+USBDEVFS_RESET = ord("U") << 8 | 20  # _IO('U', 20)
 ICOUNT = struct.Struct("20i")  # cts dsr rng dcd rx tx frame overrun parity brk buf_overrun ...
 
 
@@ -176,3 +178,34 @@ def set_low_latency(path: str, sys_root: Path = SYS) -> str:
     except OSError:
         return "read_only"  # /sys is read-only in the container: needs a udev rule on the host
     return "set"
+
+
+def usb_node(path: str, dev_root: Path = DEV, sys_root: Path = SYS) -> tuple[Path, str]:
+    """The node under /dev/bus/usb of a serial device's USB adapter, and the adapter's place
+    on the bus (e.g. 1-1.3); ValueError when the device is not there or not on USB."""
+    tty = os.path.basename(os.path.realpath(path))
+    device = sys_root / "class" / "tty" / tty / "device"
+    if not device.exists():
+        raise ValueError("the device is not there")
+    node = Path(os.path.realpath(device))
+    for _ in range(6):  # from the interface up to the USB device
+        bus, number = _read(node / "busnum"), _read(node / "devnum")
+        if bus.isdigit() and number.isdigit() and (node / "idVendor").exists():
+            return dev_root / "bus" / "usb" / f"{int(bus):03d}" / f"{int(number):03d}", node.name
+        node = node.parent
+    raise ValueError("not a USB adapter")
+
+
+def usb_reset(path: str, dev_root: Path = DEV, sys_root: Path = SYS) -> str:
+    """Reset the USB adapter of a serial device; its place on the bus. The device goes away
+    and comes back after about a second, possibly with another tty number."""
+    node, place = usb_node(path, dev_root, sys_root)
+    try:
+        fd = os.open(node, os.O_WRONLY)
+    except OSError as err:
+        raise OSError(err.errno, f"{node}: {err.strerror}") from None
+    try:
+        fcntl.ioctl(fd, USBDEVFS_RESET, 0)
+    finally:
+        os.close(fd)
+    return place

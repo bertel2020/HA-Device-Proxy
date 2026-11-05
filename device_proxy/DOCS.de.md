@@ -417,6 +417,25 @@ auf der Seite sagt, wie lange es noch dauert, und beendet es vorzeitig. Ist die 
 spätestens bei einem Neustart der App, darf sich jeder erlaubte Client wieder verbinden. Bei den
 Verbindungen von ser2net verbinden sich die Clients einmal am Anfang und einmal am Ende neu.
 
+## Neu starten und USB-Reset
+
+Hängt ein Gerät, startet **Neu starten** auf der Seite einer Verbindung sie neu: Das Gerät wird
+geschlossen und wieder geöffnet (bei Modbus und EnOcean der Proxy), alle Clients werden getrennt
+und verbinden sich wieder. Bei einem USB-Adapter dieses Rechners setzt **USB-Reset** den Adapter
+zusätzlich zurück, als würde er ab- und wieder angesteckt, nur ohne den Strom zu unterbrechen.
+Das hilft oft, wenn der Chip des Adapters hängt (FTDI, CP210x, CH340). Eine aufgehängte Firmware
+im Gerät selbst braucht manchmal trotzdem einen Neustart ohne Strom, z. B. über eine schaltbare
+Steckdose am USB-Hub. Nach dem Reset kann der Adapter eine andere tty-Nummer bekommen; mit dem
+Pfad unter `/dev/serial/by-id` findet die Verbindung ihn wieder.
+
+Automatisch: Im Formular einer seriellen Verbindung legt **Dann** fest, was nach den Minuten
+ohne Daten („Warnen, wenn keine Daten seit“) geschieht: nur warnen, die Verbindung neu starten
+oder USB-Reset und neu starten. Gezählt wird nur, solange das Gerät offen ist (ein Client
+verbunden oder **Gerät offen halten**). Kommen auch nach drei Neustarts in Folge keine Daten,
+bleibt es bei der Warnung, bis wieder Daten kommen. Jeder Neustart steht in der Historie.
+
+Beides gibt es auch als Buttons in Home Assistant (siehe unten).
+
 ## Status, Mitschnitt und Leitungsfehler
 
 - **Status**: Gerät vorhanden (und welcher Adapter es ist), Clients mit Adresse, Zeit und Bytes,
@@ -515,17 +534,18 @@ Supervisor. Ein anderer Broker (Host, Port, Benutzer, Passwort, TLS) lässt sich
 | Leitungsfehler | seit dem Start vom Treiber gezählte Fehler |
 | Aktiv (Schalter) | schaltet die Verbindung ein und aus |
 | Clients trennen (Button) | schließt die Verbindungen aller Clients; sie dürfen sich neu verbinden |
+| Verbindung neu starten (Button) | schließt das Gerät und öffnet es neu, die Clients verbinden sich wieder |
+| USB-Reset (Button) | nur mit einem Gerät dieses Rechners: setzt den USB-Adapter zurück und startet neu |
 
 Eine Modbus-Verbindung hat: Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
-Antwortzeit, den Schalter und den Button. Ein EnOcean-Gateway hat: Gateway erreichbar, Clients,
-Telegramme vom Gateway, Funkzeit (Anteil am 1-%-Limit), den Schalter und den Button; mit
+Antwortzeit, den Schalter und die Buttons. Ein EnOcean-Gateway hat: Gateway erreichbar, Clients,
+Telegramme vom Gateway, Funkzeit (Anteil am 1-%-Limit), den Schalter und die Buttons; mit
 Ersatz-Gateway außerdem „Ersatz-Gateway aktiv“ (ein Problem, solange es einspringt), „Aktives
 Gateway“ (der Name des genutzten), „Ersatz-Gateway bereit“ und die Buttons „Auf Ersatz-Gateway
 umschalten“ und „Zurück zum eigenen Gateway“ (wie auf der Karte **Gateways**). „Gateway
 erreichbar“ bleibt die eigene Hardware des Gateways.
 
-Die Buttons sind für Automationen gedacht, z. B. um die Clients eines hängenden Sticks zu
-trennen. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
+Die Buttons sind für Automationen gedacht, z. B. um einen hängenden Stick neu zu starten. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
 
 Dazu ein Gerät **Device Proxy** mit „ser2net läuft“. Ohne Broker ändert sich nichts. Präfix
 (`homeassistant`), Basis-Topic (`device_proxy`) und das Aktualisierungsintervall stehen unter

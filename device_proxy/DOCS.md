@@ -393,6 +393,24 @@ lasts and ends it early. When the time is up, and at the latest when the app res
 allowed client may connect again. For ser2net's connections the clients reconnect once at the
 start and once at the end.
 
+## Restart and USB reset
+
+When a device hangs, **Restart** on a connection's page restarts it: the device is closed and
+opened again (for Modbus and EnOcean the proxy), all clients are disconnected and connect again.
+For a USB adapter of this host, **USB reset** also resets the adapter, as if it were unplugged
+and plugged in again, only without cutting the power. That often helps when the adapter's chip
+hangs (FTDI, CP210x, CH340). A hung firmware in the device itself sometimes still needs a power
+cycle, e.g. with a switchable socket on the USB hub. After the reset the adapter may get another
+tty number; with the path under `/dev/serial/by-id` the connection finds it again.
+
+Automatically: in a serial connection's form, **Then** sets what happens after the minutes
+without data ("Warn when no data for"): only warn, restart the connection, or USB reset and
+restart. It only counts while the device is open (a client connected or **Keep the device
+open**). If there is still no data after three restarts in a row, only the warning stays until
+data comes again. Every restart is in the history.
+
+Both are also buttons in Home Assistant (see below).
+
 ## Status, traces and line errors
 
 - **Status**: device present (and which adapter it is), clients with address, time and bytes,
@@ -488,16 +506,18 @@ MQTT entities**, where the entities can also be switched off.
 | Line errors | errors counted by the driver since the start |
 | Active (switch) | turns the connection on and off |
 | Disconnect clients (button) | closes the connections of all clients; they may connect again |
+| Restart connection (button) | closes the device and opens it again, the clients connect again |
+| USB reset (button) | only with a device of this host: resets the USB adapter and restarts |
 
 A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
-time, the switch and the button. An EnOcean gateway has: gateway reachable, clients, telegrams
-from the gateway, air time (share of the 1 % limit), the switch and the button; with a fallback
+time, the switch and the buttons. An EnOcean gateway has: gateway reachable, clients, telegrams
+from the gateway, air time (share of the 1 % limit), the switch and the buttons; with a fallback
 also "Fallback gateway active" (a problem while it stands in), "Active gateway" (the name of the
 one in use), "Fallback gateway ready" and the buttons "Switch to the fallback gateway" and "Back
 to its own gateway" (as on the card **Gateways**). "Gateway reachable" stays the gateway's own
 hardware.
 
-The buttons are meant for automations, e.g. disconnecting the clients of a stick that hangs.
+The buttons are meant for automations, e.g. restarting a stick that hangs.
 **Disconnect clients** is also on a connection's page, next to its clients.
 
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes. Prefix

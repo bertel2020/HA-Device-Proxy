@@ -39,7 +39,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, acForm: { state: true }, acResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, acForm: { state: true }, acResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true }, restarting: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -274,6 +274,32 @@ export class DetailPage extends Page {
       this.toast(t("disconnected", { n: count }));
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  /** Close the device or proxy and open it again; for a USB adapter also a USB reset. */
+  _restart(c) {
+    if (!c.enabled || (c.kind === "serial" && this.state.source === "custom")) return "";
+    const usb = c.device && c.usb && c.usb.vendor_id && (c.kind !== "serial" || c.source === "device");
+    const busy = this.restarting === c.id;
+    return foldCard("device_proxy.restart", "t-restart", t("restartTitle"), t("restartSub"), html`
+      <p class="hint" style="margin:0">${t("restartText")}${usb ? ` ${t("usbResetText")}` : ""}</p>
+      ${c.silence_restart ? html`<p class="hint" style="margin:0">${t("restartAuto", { m: c.silence_minutes, a: t(`silenceRestart_${c.silence_restart}`) })}</p>` : ""}
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-s" ?disabled=${busy} @click=${() => this._doRestart(c, false)}>${t("restartBtn")}</button>
+        ${usb ? html`<button class="btn btn-g" ?disabled=${busy} @click=${() => this._doRestart(c, true)}>${t("usbResetBtn")}</button>` : ""}
+      </div>`);
+  }
+
+  async _doRestart(c, usb) {
+    const ask = t(usb ? "usbResetAsk" : "restartAsk", { n: c.name, c: c.clients.length });
+    if (!(await confirmDialog(this, ask, t(usb ? "usbResetBtn" : "restartBtn")))) return;
+    this.restarting = c.id;
+    try {
+      const r = await api(`api/connections/${c.id}/restart`, { method: "POST", body: { usb } });
+      this.toast(r.usb_error ? `${t("usbResetFailed")}: ${r.usb_error}` : t(usb ? "usbResetDone" : "restartDone"));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+    this.restarting = null;
   }
 
   async _mbRead() {
@@ -720,6 +746,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       <dp-eo-senders .connection=${c}></dp-eo-senders>
       <dp-enocean-tools .connection=${c} .capture=${s.capture}></dp-enocean-tools>
       ${this._addresses(c)}
+      ${this._restart(c)}
       ${this._maintenance(c)}
       ${conf}
       ${recentCard}`
@@ -731,6 +758,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._writeLog(c)}
       ${this._addresses(c)}
       ${this._haSnippet(c)}
+      ${this._restart(c)}
       ${this._maintenance(c)}
       ${recentCard}`
     : html`
@@ -739,6 +767,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       ${this.state.source === "custom" ? "" : this._tools(c)}
       ${this._addresses(c)}
+      ${this._restart(c)}
       ${this._maintenance(c)}
       ${conf}
       ${recentCard}`;

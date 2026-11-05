@@ -12,7 +12,7 @@ const DEFAULTS = {
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
-  notify_missing: true, notify_no_client: false, silence_minutes: 0, kind: "serial", source: "device",
+  notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
@@ -20,7 +20,7 @@ const DEFAULTS = {
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write,
 // as the app does for one that names nobody (MODBUS_WRITE_CLIENTS in model.py)
-const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0,
+const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 10, mode: "raw", keep_open: false, stuck_disconnect: false, silence_minutes: 0, silence_restart: "",
   write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
 
 const LINKS = ["tcp", "rtu", "rtu_tcp", "rtu_listen"];
@@ -736,7 +736,10 @@ export class EditPage extends Page {
         <section class="card" aria-labelledby="t-app">
           <h2 id="t-app">${t("alerts")}</h2>
           <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}${this._check("stuck_disconnect")}</div>
-          ${this._input("silence_minutes", t("silence"), { number: true })}
+          <div class="grid2">${this._input("silence_minutes", t("silence"), { number: true })}
+            <label class="fld"><span class="lbl">${t("silenceRestart")}</span><select class="inp" aria-invalid=${this._shown().silence_restart ? "true" : "false"} @change=${(e) => this._set({ silence_restart: e.target.value })}>
+              ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} ?selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
+              ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
         </section>`}
 
         <section class="card" aria-labelledby="t-on">

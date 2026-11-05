@@ -1,9 +1,10 @@
 """Home Assistant MQTT discovery: one device per connection with its entities.
 
 Per connection: device present, clients, data rate, bytes from the device, last data, line
-errors, a switch to turn the connection on and off and a button that disconnects its clients;
-for a Modbus connection the device reachable, clients, requests, unanswered requests, answer
-time, the switch and the button; an EnOcean gateway with a fallback has buttons to switch.
+errors, a switch to turn the connection on and off, buttons that disconnect its clients and
+restart the connection (and one for a USB reset of a local adapter); for a Modbus connection
+the device reachable, clients, requests, unanswered requests, answer time, the switch and the
+buttons; an EnOcean gateway with a fallback has buttons to switch.
 States go as one JSON per connection to <base>/<id>/state, the switch listens on
 <base>/<id>/enabled/set. <base>/status is the availability (the broker sets it to offline
 when the app goes away). Removed connections get an empty retained config, so Home
@@ -49,6 +50,8 @@ NAMES = {
         "active_gateway": "Aktives Gateway",
         "fallback_ready": "Ersatz-Gateway bereit",
         "disconnect": "Clients trennen",
+        "restart": "Verbindung neu starten",
+        "usb_reset": "USB-Reset",
         "meter_import": "Zählerstand Bezug",
         "meter_export": "Zählerstand Einspeisung",
         "meter_power": "Leistung",
@@ -74,6 +77,8 @@ NAMES = {
         "active_gateway": "Active gateway",
         "fallback_ready": "Fallback gateway ready",
         "disconnect": "Disconnect clients",
+        "restart": "Restart connection",
+        "usb_reset": "USB reset",
         "meter_import": "Meter reading import",
         "meter_export": "Meter reading export",
         "meter_power": "Power",
@@ -211,7 +216,9 @@ class HaBridge:
                 command_topic=f"{base}/{c.id}/enabled/set",
                 icon=kind.icon if kind else "mdi:serial-port",
             )
-            buttons = [("disconnect", "mdi:lan-disconnect")]
+            buttons = [("disconnect", "mdi:lan-disconnect"), ("restart", "mdi:restart")]
+            if c.uses_device:
+                buttons.append(("usb_reset", "mdi:usb-port"))
             if c.kind == "enocean" and c.fallback:
                 buttons += [
                     ("to_fallback", "mdi:swap-horizontal"),

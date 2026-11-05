@@ -40,7 +40,17 @@ from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, parse_names
 from .config import blocks, changed, readable_alias, render
 from .detect import detect
-from .devices import Device, device_for, fingerprint, line_counters, moved, scan, set_low_latency
+from .devices import (
+    Device,
+    device_for,
+    fingerprint,
+    line_counters,
+    moved,
+    scan,
+    set_low_latency,
+    usb_node,
+    usb_reset,
+)
 from .enocean import EnOceanProxy
 from .enocean_ha import EnOceanHa
 from .enocean_tools import Captures, parse_frame, sendable
@@ -93,6 +103,8 @@ ANALYZE_SECONDS = 30  # of trace the meter check looks at
 JOBS_KEPT = 20  # finished tool runs kept for the web interface
 IDENTIFY_MAX = 16  # units the scan asks who they are
 EXCLUSIVE_MAX = 240  # minutes one host may have a connection to itself
+USB_BACK = 10  # seconds a reset USB adapter may take to come back
+AUTO_RESTART_MAX = 3  # restarts in a row without data, then the app only warns
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
@@ -310,7 +322,9 @@ class Controller:
         self._custom_invalid = False
         self._since: dict[tuple[str, str], float] = {}  # (connection id, condition) → since
         self._line_rise: dict[str, float] = {}  # connection id → last rise of line errors
-        self._paused: set[str] = set()  # connections a tool has taken over
+        self._paused: set[str] = set()  # connections a tool or a restart has taken over
+        # automatic restarts without data: connection id → [last restart, count, gave up]
+        self._auto: dict[str, list[Any]] = {}
         self.proxies: dict[str, AppProxy] = {}  # connection id → running proxy
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self._proxy_failed: dict[str, float] = {}  # connection id → when its proxy ended
@@ -427,6 +441,7 @@ class Controller:
                 self._loop(stop, NOTIFY_POLL, self._notify_tick),
                 self._loop(stop, STATUS_POLL, self.read_status),
                 self._loop(stop, STATUS_POLL, self._proxy_tick),
+                self._loop(stop, STATUS_POLL, self._silence_tick),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
             )
         finally:
@@ -1122,11 +1137,8 @@ class Controller:
             since = self._lasting(c.id, "no_client", idle, now)
             if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
                 add(f"device_proxy_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
-            flow = self.trace.flow.get(c.alias)
-            last = flow.last_rx if flow and flow.last_rx else None
-            opened = self._lasting(c.id, "open", device_open, now)
-            if c.silence_minutes and opened:
-                quiet_since = max(last or opened, opened)
+            quiet_since = self._quiet_since(c, device_open, now)
+            if c.silence_minutes and quiet_since is not None:
                 if now - quiet_since >= c.silence_minutes * 60:
                     add(
                         f"device_proxy_{c.id}_silence",
@@ -1147,6 +1159,15 @@ class Controller:
         if self.uses_custom and self._custom_invalid:
             add("device_proxy_custom_invalid", "custom")
         return found
+
+    def _quiet_since(self, c: Connection, device_open: bool, now: float) -> float | None:
+        """Since when the open device has sent nothing (None while it is closed)."""
+        opened = self._lasting(c.id, "open", device_open, now)
+        if opened is None:
+            return None
+        flow = self.trace.flow.get(c.alias)
+        last = flow.last_rx if flow and flow.last_rx else None
+        return max(last or opened, opened)
 
     async def _notify_tick(self) -> None:
         settings = self.config.settings
@@ -1310,6 +1331,144 @@ class Controller:
         )
         return count
 
+    # restarting a connection, also with a USB reset of its adapter
+
+    async def restart_connection(
+        self, connection_id: str, source: str, *, usb: bool = False
+    ) -> dict[str, object]:
+        """Close the connection's device or proxy and open it again, e.g. for a hanging
+        stick; with usb, the adapter is reset in between, as if unplugged. The clients are
+        disconnected and may connect again."""
+        c = self.config.connection(connection_id)
+        if c is None or not c.enabled:
+            raise ValueError("the connection is not active")
+        if c.kind == "serial" and self.uses_custom:
+            raise ValueError("not with an own ser2net.yaml")
+        if connection_id in self._paused:
+            raise ValueError("a tool or a restart is using the connection right now")
+        if usb:
+            if not c.uses_device:
+                raise ValueError("a USB reset needs a device of this host")
+            await asyncio.to_thread(usb_node, c.device)  # ValueError: not there, not USB
+        result: dict[str, object] = {"usb": None, "usb_error": None}
+        if c.kind == "serial":
+            await self._restart_port(c, usb, result)
+        else:
+            await self._restart_proxy(c, usb, result)
+        self.events.emit(
+            "info",
+            "connection_restarted",
+            connection=c.id,
+            name=c.name,
+            by=source,
+            usb=str(result["usb"] or ""),
+        )
+        if result["usb_error"]:
+            self.events.emit(
+                "warning",
+                "usb_reset_failed",
+                connection=c.id,
+                name=c.name,
+                error=str(result["usb_error"]),
+            )
+        return result
+
+    async def _restart_port(self, c: Connection, usb: bool, result: dict[str, object]) -> None:
+        """ser2net closes the device (and drops the clients) and opens it again."""
+        self._paused.add(c.id)
+        keeper = self._keepers.pop(c.id, None)
+        if keeper is not None:
+            keeper.cancel()
+            await asyncio.gather(keeper, return_exceptions=True)
+        try:
+            await self.admin.command(f"setportenable {c.alias} off")
+            await asyncio.sleep(0.5)  # let ser2net close the device
+            if usb:
+                await self._reset_usb(c, result)
+        except AdminError as err:
+            raise ValueError(f"ser2net: {err}") from None
+        finally:
+            self._paused.discard(c.id)
+            current = self.config.connection(c.id)
+            if current is not None and current.enabled:
+                try:
+                    await self.admin.command(f"setportenable {c.alias} on")
+                except AdminError as err:
+                    _LOGGER.warning("Could not switch %s on again: %s", c.name, err)
+            self._reconcile_keepers()
+
+    async def _restart_proxy(self, c: Connection, usb: bool, result: dict[str, object]) -> None:
+        """The app's proxy stops (closing the device and the clients) and starts again."""
+        async with self._lock:
+            proxy = self.proxies.get(c.id)
+            task = self._proxy_tasks.pop(c.id, None)
+            if proxy is None or task is None:
+                raise ValueError("the connection is not active")
+            self._paused.add(c.id)
+            try:
+                if isinstance(proxy, EnOceanProxy):
+                    self._capture_ends(proxy)
+                self._proxy_failed.pop(c.id, None)
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)  # frees device and port
+                del self.proxies[c.id]
+                if usb:
+                    await self._reset_usb(c, result)
+            finally:
+                self._paused.discard(c.id)
+                await self._reconcile_proxies()
+
+    async def _reset_usb(self, c: Connection, result: dict[str, object]) -> None:
+        """USB reset of the connection's adapter; waits until its device is back."""
+        try:
+            result["usb"] = await asyncio.to_thread(usb_reset, c.device)
+        except (OSError, ValueError) as err:
+            result["usb_error"] = str(err)
+            _LOGGER.warning("USB reset of %s failed: %s", c.name, err)
+            return
+        await asyncio.sleep(1)  # the adapter goes away first
+        deadline = time.monotonic() + USB_BACK
+        while not os.path.exists(c.device) and time.monotonic() < deadline:
+            await asyncio.sleep(0.5)
+        self.devices = await asyncio.to_thread(scan)
+
+    async def _silence_tick(self, now: float | None = None) -> None:
+        """Restart the connections that want it after their minutes without data; after
+        AUTO_RESTART_MAX restarts in a row without data only the warning stays."""
+        now = time.time() if now is None else now
+        for c in self.active:
+            if not (c.enabled and c.silence_minutes and c.silence_restart):
+                self._auto.pop(c.id, None)
+                continue
+            if c.id in self._paused:
+                continue
+            port = self.status.get(c.alias)
+            quiet = self._quiet_since(c, bool(port and port.clients), now)
+            state = self._auto.setdefault(c.id, [0.0, 0, False])
+            flow = self.trace.flow.get(c.alias)
+            if flow and flow.last_rx and flow.last_rx > state[0]:
+                state[1], state[2] = 0, False  # data since the last restart: counts anew
+            if quiet is None:
+                continue
+            if now - max(quiet, state[0]) < c.silence_minutes * 60:
+                continue
+            if state[1] >= AUTO_RESTART_MAX:
+                if not state[2]:
+                    state[2] = True
+                    self.events.emit(
+                        "warning",
+                        "auto_restart_gave_up",
+                        connection=c.id,
+                        name=c.name,
+                        count=state[1],
+                    )
+                continue
+            state[0], state[1] = now, state[1] + 1
+            try:
+                await self.restart_connection(c.id, "auto", usb=c.silence_restart == "usb")
+            except ValueError as err:
+                _LOGGER.warning("Automatic restart of %s failed: %s", c.name, err)
+
     # maintenance: one host alone
 
     def _with_exclusive(self, config: AppConfig) -> AppConfig:
@@ -1380,6 +1539,8 @@ class Controller:
         """A button of the connection's device in Home Assistant (MQTT)."""
         if action == "disconnect":
             await self.disconnect_clients(connection_id, "mqtt")
+        elif action in ("restart", "usb_reset"):
+            await self.restart_connection(connection_id, "mqtt", usb=action == "usb_reset")
         elif action in ("to_fallback", "to_main"):
             self.enocean_switch(connection_id, action.removeprefix("to_"))
         else:
