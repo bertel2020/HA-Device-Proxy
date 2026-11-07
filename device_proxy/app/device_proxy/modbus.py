@@ -1099,13 +1099,14 @@ class ModbusProxy:
             client.failed += 1
             per_unit.failed += 1
             return exception(pdu, EXC_PATH)
+        connect_failed = False
         for _ in range(1 + retries):
             if not path.link.is_open:
                 try:
                     await self._connect(path)
                 except Exception as err:
                     self._down(_text(err), connect=True)
-                    code = EXC_PATH
+                    code, connect_failed = EXC_PATH, True
                     break  # connecting again at once would only make the client wait longer
             started, error = loop.time(), ""
             try:
@@ -1156,7 +1157,9 @@ class ModbusProxy:
             client.failed += 1
             per_unit.failed += 1
         self._failures += 1
-        if probe or self._failures >= DOWN_AFTER:  # a probe has had its retries already
+        # a probe has had its retries already; after a failed connect _down has been told
+        # (and the next clients are turned away at once for FAIL_FAST)
+        if (probe or self._failures >= DOWN_AFTER) and not connect_failed:
             self._down(stats.last_error or "no answer")
         return exception(pdu, code)
 
