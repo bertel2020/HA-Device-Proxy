@@ -1,6 +1,9 @@
 import asyncio
 import struct
 
+import pytest
+
+from device_proxy import modbus
 from device_proxy.modbus import ClientInfo, ModbusProxy, Scheduler, _Job, crc16, rtu_frame
 from device_proxy.model import Connection, parse_unit_map
 
@@ -684,3 +687,40 @@ async def test_a_host_name_that_does_not_resolve_or_hangs() -> None:
             assert "inverter.home" in proxy.stats.last_error, proxy.stats.last_error
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_a_device_that_cannot_be_connected_keeps_turning_clients_away(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Also after DOWN_AFTER failed connects: a client does not wait for another attempt."""
+    monkeypatch.setattr(modbus, "FAIL_FAST", 0.2)
+    probe = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
+    closed_port = probe.sockets[0].getsockname()[1]
+    probe.close()
+    await probe.wait_closed()
+    c = Connection(
+        "Inverter", "", 0, kind="modbus", host="127.0.0.1", retries=0,
+        host_port=closed_port, request_timeout_ms=100,
+    )  # fmt: skip
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    path = proxy.paths[0]
+    tries: list[int] = []
+    opened = path.link.open
+
+    async def counted(timeout: float) -> None:
+        tries.append(1)
+        await opened(timeout)
+
+    monkeypatch.setattr(path.link, "open", counted)
+    worker = asyncio.create_task(proxy._work(path))
+    client = ClientInfo("192.0.2.1:5", 0)
+    read = bytes([3, 0, 0, 0, 1])
+    for _ in range(modbus.DOWN_AFTER):  # each after FAIL_FAST: tried again
+        assert await proxy.request(1, read, client) == bytes([0x83, 0x0A])
+        await asyncio.sleep(0.25)
+    assert len(tries) == modbus.DOWN_AFTER
+    assert await proxy.request(1, read, client) == bytes([0x83, 0x0A])
+    assert await proxy.request(1, read, client) == bytes([0x83, 0x0A])
+    assert len(tries) == modbus.DOWN_AFTER + 1  # the first after the pause, then at once
+    worker.cancel()
+    await asyncio.gather(worker, return_exceptions=True)
