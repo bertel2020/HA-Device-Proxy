@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
@@ -225,3 +226,50 @@ def test_meter_readings_become_entity_values() -> None:
         "meter_export": None,
         "meter_power": 1500.0,
     }
+
+
+def test_notifications_are_dismissed_after_a_restart_and_a_failed_dismiss_again(
+    tmp_path: Path,
+) -> None:
+    from device_proxy.notify import QUIET_AFTER_START, RETRY_AFTER
+
+    sent: list[tuple[str, str]] = []
+    ok = [True]
+    now = [1000.0]
+    path = tmp_path / "notifications.json"
+
+    def notifier() -> Notifier:
+        n = Notifier(clock=lambda: now[0], path=path)
+        n.available = True
+
+        async def fake(target: str, data: dict[str, Any]) -> bool:
+            sent.append((target.rsplit("/", 1)[1], data.get("notification_id", "")))
+            return ok[0]
+
+        n._send = fake  # type: ignore[method-assign]
+        return n
+
+    async def run() -> None:
+        kwargs: dict[str, Any] = {"grace": 0, "dismiss": True}
+        first = notifier()
+        now[0] += QUIET_AFTER_START
+        await first.update({"gone": ("T", "m"), "stays": ("T", "m")}, **kwargs)
+        assert sent == [("create", "gone"), ("create", "stays")]
+
+        sent.clear()  # the app restarts; "gone" is over meanwhile
+        second = notifier()
+        await second.update({"stays": ("T", "m")}, **kwargs)
+        assert sent == []  # not in the first minute: it may still be there
+        now[0] += QUIET_AFTER_START
+        ok[0] = False
+        await second.update({"stays": ("T", "m")}, **kwargs)
+        assert ("dismiss", "gone") in sent
+        assert ("create", "stays") in sent  # its text again, no second push
+        sent.clear()
+        ok[0] = True
+        now[0] += RETRY_AFTER
+        await second.update({"stays": ("T", "m")}, **kwargs)
+        assert ("dismiss", "gone") in sent  # tried again
+        assert json.loads(path.read_text()) == ["stays"]
+
+    asyncio.run(run())

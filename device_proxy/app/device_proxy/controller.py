@@ -73,7 +73,7 @@ from .modbus import (
     write_pdu,
 )
 from .model import AppConfig, Connection, ValidationError, new_id
-from .notify import Notifier
+from .notify import SHOWN_FILE, Notifier
 from .process import Ser2Net
 from .store import PASSWORD_KEPT, Change, Store, hidden, summary
 from .trace import Chunk, TraceHub
@@ -281,6 +281,7 @@ class Controller:
         trace: TraceHub | None = None,
         known_clients: KnownClients | None = None,
         prints_file: Path = PRINTS_FILE,
+        notify_file: Path | None = SHOWN_FILE,
     ) -> None:
         self.store = store
         self.known_clients = known_clients or KnownClients()
@@ -315,7 +316,7 @@ class Controller:
         self._line_base: dict[str, dict[str, int]] = {}
         self.latency: dict[str, str] = {}  # connection id → result of set_low_latency
         self.ser2net_version = ""
-        self.notifier = Notifier()
+        self.notifier = Notifier(path=notify_file)
         self.jobs: dict[str, dict[str, object]] = {}  # tool runs: id → state
         self._tasks: set[asyncio.Task[None]] = set()  # the tool runs' tasks
         self._restarts: list[float] = []
