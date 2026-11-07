@@ -1017,6 +1017,8 @@ class Controller:
                 await self._mqtt_task
             except asyncio.CancelledError:
                 pass
+            except Exception:  # how the old one ended must not stop the new settings
+                _LOGGER.exception("MQTT had stopped with an error")
         self._start_mqtt()
 
     # notifications
