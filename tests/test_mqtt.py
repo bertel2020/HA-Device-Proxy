@@ -262,3 +262,32 @@ async def test_a_settings_save_before_the_start_does_not_start_mqtt(tmp_path: Pa
     controller = _controller(tmp_path)
     await controller._restart_mqtt()
     assert controller._mqtt_task is None
+
+
+async def test_old_entities_go_with_a_prefix_with_slashes_another_prefix_or_mqtt_off(
+    tmp_path: Path,
+) -> None:
+    controller = _controller(tmp_path, mqtt_prefix="ha/disc")
+    bridge = ha_mqtt.HaBridge(controller)
+    sent: list[tuple[str, object]] = []
+
+    async def publish(topic: str, payload: object, retain: bool = False) -> None:
+        sent.append((topic, payload))
+
+    bridge.client.publish = publish  # type: ignore[method-assign,assignment]
+    stale = "ha/disc/switch/device_proxy_0000dead/enabled/config"
+    await bridge._message(stale, b"{}")
+    assert sent == [(stale, b"")]
+
+    sent.clear()  # MQTT is switched off: what this bridge announced goes
+    await bridge.announce()
+    bridge.client.connected.set()
+    announced = {t for t, _ in sent}
+    sent.clear()
+    await bridge.clear(set())
+    assert {t for t, _ in sent} == announced and all(p == b"" for _, p in sent)
+
+    sent.clear()  # a connection removed: its retained state goes too
+    bridge._last["state:0000dead"] = "{}"
+    await bridge.publish_states()
+    assert (f"{bridge.base}/0000dead/state", b"") in sent

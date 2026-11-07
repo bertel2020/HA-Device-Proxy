@@ -322,15 +322,27 @@ class HaBridge:
             if force or self._last.get(key) != text:
                 await self.client.publish(f"{self.base}/{c['id']}/state", text, retain=True)
                 self._last[key] = text
+        ids = {f"state:{c['id']}" for c in connections}
+        for key in [k for k in self._last if k.startswith("state:") and k not in ids]:
+            await self.client.publish(f"{self.base}/{key[6:]}/state", b"", retain=True)  # gone
+            self._last.pop(key)
+
+    async def clear(self, keep: set[str]) -> None:
+        """Before this bridge stops for good (other prefix, MQTT off): the discovery configs it
+        announced that the next one will not, so their entities do not stay as unavailable."""
+        if not self.client.connected.is_set():
+            return
+        for topic in [t for t in self._last if t.endswith("/config") and t not in keep]:
+            await self.client.publish(topic, b"", retain=True)
+            self._last.pop(topic)
 
     async def _stale_config(self, topic: str, payload: bytes) -> None:
         """A retained discovery config of this app for an entity that no longer exists."""
-        parts = topic.split("/")
-        if not payload or len(parts) != 5 or parts[4] != "config" or topic in self.configs():
+        prefix = f"{self.c.config.settings.mqtt_prefix}/"  # may have slashes of its own
+        parts = topic.removeprefix(prefix).split("/") if topic.startswith(prefix) else []
+        if not payload or len(parts) != 4 or parts[3] != "config" or topic in self.configs():
             return
-        if parts[0] == self.c.config.settings.mqtt_prefix and (
-            parts[2] == "device_proxy" or parts[2].startswith("device_proxy_")
-        ):
+        if parts[1] == "device_proxy" or parts[1].startswith("device_proxy_"):
             await self.client.publish(topic, b"", retain=True)
             self._last.pop(topic, None)
 
