@@ -1,4 +1,5 @@
 import asyncio
+import socket
 import struct
 
 import pytest
@@ -760,3 +761,29 @@ async def test_a_write_of_the_write_tool_empties_the_cache() -> None:
     worker.cancel()
     await asyncio.gather(worker, return_exceptions=True)
     device.close()
+
+
+async def test_a_client_that_stops_in_the_middle_of_a_request_frees_its_place(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(modbus, "BODY_TIMEOUT", 0.2)
+    c = Connection(
+        "Inverter", "", 0, kind="modbus", host="127.0.0.1", bind="127.0.0.1", max_clients=1,
+        host_port=1,
+    )  # fmt: skip
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(struct.pack(">HHHB", 1, 0, 6, 1))  # the header, then nothing
+    while not proxy.clients:
+        await asyncio.sleep(0.01)
+    sock = next(iter(proxy.clients.values())).writer.get_extra_info("socket")
+    assert sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE)
+    assert await asyncio.wait_for(reader.read(), 2) == b""  # closed by the proxy
+    assert not proxy.clients
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
