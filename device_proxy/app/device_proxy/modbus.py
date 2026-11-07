@@ -432,6 +432,8 @@ class TcpLink(Link):
         return self._writer is not None and self._pump is not None and not self._pump.done()
 
     async def open(self, timeout: float) -> None:
+        if self._writer is not None:  # the device closed it (EOF): close our end too
+            await self.close()
         try:
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(self.host, self.port), timeout
@@ -1035,8 +1037,9 @@ class ModbusProxy:
             try:
                 answer = await asyncio.shield(pending)
             except asyncio.CancelledError:
-                if not pending.cancelled():
-                    raise  # this client went away
+                task = asyncio.current_task()
+                if not pending.cancelled() or (task is not None and task.cancelling()):
+                    raise  # this client went away (or the proxy stops)
             else:
                 self.stats.cached += 1
                 client.requests += 1
