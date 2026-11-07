@@ -337,6 +337,7 @@ class Controller:
         self._lock = asyncio.Lock()
         self.last_change: dict[str, object] | None = None  # see apply()
         self._stop = asyncio.Event()
+        self._running = False  # start() has begun: MQTT may be started
 
     # configuration
 
@@ -393,7 +394,7 @@ class Controller:
         return (c.id, c.name) if c else (None, alias)
 
     async def start(self, stop: asyncio.Event) -> None:
-        self._stop = stop
+        self._stop, self._running = stop, True
         self.apply_log_level()
         self.trace.prepare()
         self.lan_ip, self.lan_net = await asyncio.to_thread(host_lan)
@@ -976,6 +977,12 @@ class Controller:
             _LOGGER.debug("Status not read: %s", err)
             return
         self.status = {p.alias: p for p in ports}
+        # clients ser2net dropped without a word (a restart): no entry stays for ever
+        live = {(p.alias, cl.address) for p in ports for cl in p.clients}
+        recent = time.time() - 60  # just connected, maybe not in this answer yet
+        self.client_since = {
+            k: since for k, since in self.client_since.items() if k in live or since > recent
+        }
         now = time.monotonic()
         for port in ports:
             self._rate(port.alias, port.bytes_from_device, port.bytes_to_device, now)
@@ -1017,6 +1024,8 @@ class Controller:
     # MQTT
 
     def _start_mqtt(self) -> None:
+        if not self._running:
+            return  # a change saved before start(): start() starts MQTT with it
         self.mqtt = HaBridge(self)
         self._mqtt_task = asyncio.create_task(self.mqtt.run(self._stop))
 
@@ -1755,7 +1764,8 @@ class Controller:
             job["state"], job["error"] = "failed", str(err)
         finally:
             self._paused.discard(c.id)
-            if c.enabled:
+            current = self.config.connection(c.id)  # it may have been switched off meanwhile
+            if current is not None and current.enabled:
                 try:
                     await self.admin.command(f"setportenable {c.alias} on")
                 except AdminError as err:

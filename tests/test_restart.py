@@ -279,3 +279,23 @@ async def test_a_failing_background_part_ends_the_app_instead_of_hanging(
     with pytest.raises(RuntimeError, match="watcher broke"):
         await asyncio.wait_for(controller.start(stop), 5)
     assert stop.is_set()
+
+
+async def test_clients_ser2net_dropped_without_a_word_are_forgotten(tmp_path: Path) -> None:
+    import time
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"), EventLog(db), tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )  # fmt: skip
+    controller.client_since = {("a", "192.0.2.1:1"): time.time() - 3600}
+    controller.client_since[("a", "192.0.2.2:2")] = time.time() - 3600
+    controller.admin.connected.set()
+
+    async def showport() -> list[PortStatus]:
+        return [PortStatus("a", True, "/dev/null", [Client("192.0.2.2:2")])]
+
+    controller.admin.showport = showport  # type: ignore[method-assign]
+    await controller.read_status()
+    assert list(controller.client_since) == [("a", "192.0.2.2:2")]
