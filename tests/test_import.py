@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from device_proxy import custom
 from device_proxy.config import export
 from device_proxy.importer import merge, read
@@ -281,3 +283,36 @@ def test_a_control_character_is_a_read_error_not_a_crash() -> None:
 
     with pytest.raises(ReadError):
         read(V2.replace("bwt:", "bw\x08t:"))
+
+
+TWO_PORTS = """%YAML 1.1
+---
+connection: &raw
+  accepter: tcp,3001
+  connector: serialdev,/dev/ttyS0,9600n81
+connection: &rfc
+  accepter: telnet(rfc2217),tcp,3002
+  connector: serialdev,/dev/ttyS0,9600n81
+"""
+
+
+async def test_two_items_on_one_device_in_the_same_file_are_a_conflict(tmp_path: Path) -> None:
+    """The preview offers the choice for the second; replacing everything does not fail."""
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"), EventLog(db), tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )  # fmt: skip
+    _, found = await controller.preview(TWO_PORTS)
+    assert found == {"raw": {}, "rfc": {"device": "raw"}}
+
+    result = read(TWO_PORTS)
+    merged = merge(AppConfig(), result, replace_all=True, take={"raw", "rfc"}, on_conflict={})
+    assert [c.name for c in merged.connections] == ["raw"]  # skipped, as the panel said
+    merged.validate()

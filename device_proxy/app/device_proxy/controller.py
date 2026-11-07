@@ -578,7 +578,13 @@ class Controller:
     async def preview(self, text: str) -> tuple[ImportResult, dict[str, dict[str, str]]]:
         """What an import would bring, and the existing connections each item collides with."""
         result = await asyncio.to_thread(read, text)  # a large file must not stop the proxies
-        return result, {item.alias: conflicts(self.config, item) for item in result.items}
+        # also with an item before it in the same file (two ports on one serial device)
+        seen, found = list(self.config.connections), {}
+        for item in result.items:
+            found[item.alias] = conflicts(AppConfig(connections=tuple(seen)), item)
+            if item.connection is not None:
+                seen.append(item.connection)
+        return result, found
 
     async def imported(
         self,

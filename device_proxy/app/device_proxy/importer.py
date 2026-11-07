@@ -473,7 +473,8 @@ def merge(
         if item.alias not in take or item.connection is None:
             continue
         c = item.connection
-        found = {} if replace_all else conflicts(AppConfig(connections=tuple(connections)), item)
+        # what is there by now: with replace_all only what this import has added already
+        found = conflicts(AppConfig(connections=tuple(connections)), item)
         choice = on_conflict.get(item.alias, "skip") if found else "add"
         if choice == "skip":
             continue
