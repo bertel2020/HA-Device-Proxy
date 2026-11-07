@@ -278,9 +278,22 @@ export class EnOceanSenders extends LitElement {
     clearInterval(this._timer);
   }
 
+  /** Another gateway (main ↔ fallback is the same element): its rows, not the last one's. */
+  willUpdate(changed) {
+    const before = changed.get("connection");
+    if (before && this.connection && before.id !== this.connection.id) {
+      this.rows = undefined;
+      this._load();
+    }
+  }
+
   async _load() {
     if (!this.connection) return;
-    try { this.rows = await api(`api/tools/${this.connection.id}/enocean/senders`); } catch { /* the gateway restarts */ }
+    const id = this.connection.id;
+    try {
+      const rows = await api(`api/tools/${id}/enocean/senders`);
+      if (this.connection && this.connection.id === id) this.rows = rows; // not a late answer for the last gateway
+    } catch { /* the gateway restarts */ }
   }
 
   async _copy(id) {
@@ -370,9 +383,26 @@ export class EnOceanTools extends LitElement {
     } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = ""; }
   }
 
+  /** The program chosen for the lock, if it is still one of this gateway's clients. */
+  _lockPeer() {
+    return this._hosts().includes(this.peer) ? this.peer : "";
+  }
+
+  _hosts() {
+    return [...new Set((this.connection.clients || []).map((cl) => cl.address.replace(/^\[?(.*?)\]?:\d+$/, "$1")))];
+  }
+
+  /** Another gateway (main ↔ fallback is the same element): nothing of the last one stays. */
+  willUpdate(changed) {
+    const before = changed.get("connection");
+    if (before && this.connection && before.id !== this.connection.id) {
+      Object.assign(this, { text: "", answers: [], test: undefined, peer: "", baseId: "", baseResult: undefined });
+    }
+  }
+
   async _capture(start) {
     try {
-      if (start) await api(`api/tools/${this.connection.id}/enocean/capture`, { method: "POST", body: { exclusive_peer: this.peer || null } });
+      if (start) await api(`api/tools/${this.connection.id}/enocean/capture`, { method: "POST", body: { exclusive_peer: this._lockPeer() || null } });
       else await api("api/capture/stop", { method: "POST", body: {} });
       this._refresh();
     } catch (err) { this._toast(`${t("error")}: ${err.message}`); }
@@ -385,7 +415,7 @@ export class EnOceanTools extends LitElement {
     const bytes = parseHex(this.text);
     const check = checkFrame(bytes, c.esp_protocol);
     const baseCheck = checkBaseId(this.baseId, e.base_id);
-    const hosts = [...new Set(c.clients.map((cl) => cl.address.replace(/^\[?(.*?)\]?:\d+$/, "$1")))];
+    const hosts = this._hosts();
     return toolsCard("device_proxy.tools.enocean", "t-eotools", t("eoToolsSub"), html`
       ${blocked ? html`<div class="note warn">${blocked}</div>` : ""}
       <div class="row"><div><b style="font-weight:500">${t("eoTest")}</b><p class="hint">${t("eoTestSub")}</p></div>
@@ -418,7 +448,7 @@ export class EnOceanTools extends LitElement {
         : cap ? html`<div class="note warn">${t("eoCaptureOther", { n: cap.name })}</div>`
         : html`<div class="grid"><label class="fld"><span class="lbl">${t("eoLockTo")}</span>
             <select class="inp" @change=${(ev) => { this.peer = ev.target.value; }}>
-              <option value="" ?selected=${!this.peer}>${t("eoLockNone")}</option>
+              <option value="" ?selected=${!this._lockPeer()}>${t("eoLockNone")}</option>
               ${hosts.map((h) => html`<option value=${h} ?selected=${this.peer === h}>${h}</option>`)}</select>
             <span class="hint">${t("eoLockHint")}</span></label></div>
           <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${() => this._capture(true)}>${t("eoCaptureStart")}</button></div>
