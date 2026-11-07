@@ -1078,3 +1078,31 @@ async def test_the_apps_request_waits_for_its_answer_from_the_sending_on(
     async with asyncio.timeout(0.5):
         assert await proxy.request(BASE_ID_READ) is None
     proxy.exclusive_peer = None
+
+
+async def test_an_answer_after_its_command_gave_up_goes_to_nobody(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A client that has just sent its own command would take it for its answer."""
+    gateway, proxy = setup.gateway, setup.proxy
+    monkeypatch.setattr(enocean, "LATE_GRACE", 0.0)
+    (r1, w1), (r2, w2) = await _connect(proxy), await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 2)
+    for client in proxy.clients.values():
+        client.answer_within = 0.1
+    w1.write(BASE_ID_READ)
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ)
+    await asyncio.sleep(0.2)  # the read gives up
+    w2.write(COMMAND)  # radio: no answer expected, goes out at once
+    await _until(lambda: COMMAND in gateway.received)
+    gateway.send(BASE_ID_ANSWER)  # the late answer to the read
+    gateway.send(FRAME_A)  # then a telegram: proves the answer would have come first
+    assert await asyncio.wait_for(r1.readexactly(14), 2) == FRAME_A
+    assert await asyncio.wait_for(r2.readexactly(14), 2) == FRAME_A
+    assert proxy.stats.late == 1
+
+    monkeypatch.setattr(enocean, "LATE_WINDOW", 0.0)  # long after: the gateway's own words
+    gateway.send(BASE_ID_ANSWER)
+    assert await asyncio.wait_for(r1.readexactly(14), 2) == BASE_ID_ANSWER
+    w1.close()
+    w2.close()

@@ -117,7 +117,7 @@ export function statusCard(c) {
   const e = c.enocean || {};
   const f = e.frames || {};
   const reach = e.connected ? ["eoConnected", "ok"] : e.reachable === false ? ["eoDisconnected", "bad"] : ["eoConnecting", "warn"];
-  const counters = [["eoFromGw", f.from_gateway], ["eoToGw", f.to_gateway], ["eoReplayed", f.replayed], ["eoDropped", f.dropped], ["eoHeld", f.locked], ["eoRefused", f.refused]];
+  const counters = [["eoFromGw", f.from_gateway], ["eoToGw", f.to_gateway], ["eoReplayed", f.replayed], ["eoDropped", f.dropped], ["eoHeld", f.locked], ["eoRefused", f.refused], ...(f.late ? [["eoLate", f.late]] : [])];
   return html`<section class="card" aria-labelledby="t-eo">
     <div class="row"><h2 id="t-eo">${t("eoGateway")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
