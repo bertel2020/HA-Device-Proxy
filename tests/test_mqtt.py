@@ -70,7 +70,7 @@ async def test_discovery_and_switch_over_a_broker(tmp_path: Path, monkeypatch: o
     controller = Controller(
         store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
     )
-    controller._stop = asyncio.Event()
+    controller._stop, controller._running = asyncio.Event(), True
     controller._start_mqtt()
     await asyncio.wait_for(commands.get(), 5)
     for _ in range(50):
@@ -255,3 +255,10 @@ async def test_new_mqtt_settings_apply_when_mqtt_had_died(tmp_path: Path) -> Non
     controller._start_mqtt = lambda: started.append(True)  # type: ignore[method-assign]
     await controller._restart_mqtt()  # not raised
     assert started == [True]
+
+
+async def test_a_settings_save_before_the_start_does_not_start_mqtt(tmp_path: Path) -> None:
+    """Else start() starts a second client with the same id: both keep throwing out the other."""
+    controller = _controller(tmp_path)
+    await controller._restart_mqtt()
+    assert controller._mqtt_task is None
