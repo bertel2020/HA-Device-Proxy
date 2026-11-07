@@ -1030,6 +1030,12 @@ class Controller:
         self._mqtt_task = asyncio.create_task(self.mqtt.run(self._stop))
 
     async def _restart_mqtt(self) -> None:
+        if self._mqtt_task is not None and not self._mqtt_task.done():
+            keep = set(HaBridge(self).configs()) if self.config.settings.mqtt_enabled else set()
+            try:
+                await asyncio.wait_for(self.mqtt.clear(keep), 5)
+            except Exception as err:  # the broker is away: the next start clears what it can
+                _LOGGER.info("MQTT: old entities not cleared: %s", err)
         if self._mqtt_task is not None:
             self._mqtt_task.cancel()
             try:
