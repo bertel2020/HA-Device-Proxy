@@ -117,6 +117,16 @@ def is_radio(protocol: str, frame: bytes) -> bool:
     return hseq in (ESP2_RRT, ESP2_TRT, ESP2_RMT) and org in ESP2_RADIO_ORGS
 
 
+def checksum_error(protocol: str, frame: bytes) -> str | None:
+    """What is wrong with the checksum of one whole frame, or None. The splitter checks only
+    the ESP3 header; the app's own tools must not send what the gateway would throw away."""
+    if protocol == "esp3":
+        want = crc8(frame[6:-1])
+        return None if frame[-1] == want else f"data CRC should be {want:02X}"
+    want = sum(frame[2:13]) & 0xFF
+    return None if frame[13] == want else f"checksum should be {want:02X}"
+
+
 def is_response(protocol: str, frame: bytes) -> bool:
     """The gateway's answer to a command (OK, error, base ID ...)."""
     if protocol == "esp3":
