@@ -871,6 +871,7 @@ class ModbusProxy:
         self.tool = ClientInfo("app", time.time())  # ... and for the tools
         self._last_exchange = 0.0
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
+        self._writes = 0  # writes so far: a read answered across a write is not cached
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
 
     # running
@@ -1011,10 +1012,7 @@ class ModbusProxy:
         most cache_ms old, and the same read while one is on its way waits for that one.
         A write empties the cache."""
         if not (self.c.cache_ms and pdu and pdu[0] in READ_FUNCTIONS):
-            answer = await self._queued(unit, pdu, client)
-            if self._cache and is_write(pdu):
-                self._cache.clear()
-            return answer
+            return await self._queued(unit, pdu, client)
         key = (unit, pdu)
         now = asyncio.get_running_loop().time()
         hit = self._cache.get(key)
@@ -1035,6 +1033,7 @@ class ModbusProxy:
                 return answer
         future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
         self._inflight[key] = future
+        writes = self._writes
         try:
             answer = await self._queued(unit, pdu, client)
             future.set_result(answer)
@@ -1042,7 +1041,7 @@ class ModbusProxy:
             if not future.done():
                 future.cancel()
             self._inflight.pop(key, None)
-        if answer and not answer[0] & 0x80:
+        if answer and not answer[0] & 0x80 and writes == self._writes:  # no write meanwhile
             if len(self._cache) >= CACHE_SIZE:
                 self._cache.clear()
             self._cache[key] = (asyncio.get_running_loop().time(), answer)
@@ -1065,6 +1064,9 @@ class ModbusProxy:
         finally:
             if not future.done():
                 future.cancel()  # the worker skips it
+            if is_write(pdu):  # whoever wrote (a client, the write tool): the cache is old
+                self._writes += 1
+                self._cache.clear()
 
     async def _exchange(self, path: _Path, job: _Job) -> bytes | None:
         """One request to the device, with the retries. The app's own requests (probe,
