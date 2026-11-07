@@ -75,6 +75,7 @@ RECONNECT_DELAYS = (1, 2, 5, 10, 30)  # seconds between attempts to reach the ga
 LISTEN_RETRY = 10  # seconds between attempts to open the port
 OPEN_TIMEOUT = 10.0  # seconds for connecting to a network gateway
 RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
+LATE_WINDOW = 10.0  # s after a command gave up: an ESP2 answer nobody waits for is its, late
 LATE_GRACE = 0.5  # seconds an unanswered command keeps its place: a late answer is still its
 QUEUE_TIMEOUT = 30.0  # seconds the app's own request waits for its turn before it gives up
 BASE_ID_WRITE_TIMEOUT = 5.0  # the gateway writes its flash first
@@ -105,6 +106,7 @@ class Stats:
     refused: int = 0  # clients outside the allowed networks
     slow_clients: int = 0  # clients disconnected because they stopped reading
     locked: int = 0  # client frames dropped while another program had the gateway alone
+    late: int = 0  # gateway answers that came after their command had given up: dropped
     relayed: int = 0  # client frames sent through the fallback gateway
     from_fallback: int = 0  # frames from the fallback gateway passed to the clients
     bytes_to_device: int = 0
@@ -233,6 +235,7 @@ class EnOceanProxy:
         # who gets the next answer, until when, for which command: one at a time (_turn)
         self._awaiting: deque[tuple[_Client, float, bytes]] = deque()
         self._answered = asyncio.Event()  # an entry left _awaiting
+        self._gave_up = -LATE_WINDOW  # when a command last stopped waiting for its answer
         self._replay: deque[tuple[float, float, bytes]] = deque(maxlen=c.replay_size)
         self._airtime: deque[tuple[float, float]] = deque()  # (time, ms) of sent telegrams
         self._duty_warned = 0.0
@@ -389,11 +392,17 @@ class EnOceanProxy:
     def _from_gateway(self, frame: bytes) -> None:
         self.stats.from_gateway += 1
         self._trace("rx", frame)
-        if esp.is_response(self.protocol, frame) and (waiting := self._next_waiting()):
-            client, request = waiting
-            self._learn(frame, request)
-            self._send(client, frame)  # the answer to this client's command
-            return
+        if esp.is_response(self.protocol, frame):
+            if waiting := self._next_waiting():
+                client, request = waiting
+                self._learn(frame, request)
+                self._send(client, frame)  # the answer to this client's command
+                return
+            # ESP3 answers only commands; ESP2 also says things by itself (e.g. after a
+            # start), but an answer soon after a command gave up is that command's
+            if self.protocol == "esp3" or self._clock() - self._gave_up < LATE_WINDOW:
+                self.stats.late += 1  # to nobody: a client would take it for its own answer
+                return
         self._learn(frame, None)
         for listener in list(self.listeners):  # B: the gateway it stands in for
             listener(frame)
@@ -424,6 +433,7 @@ class EnOceanProxy:
             self._answered.set()
             if until >= now:
                 return client, request
+            self._gave_up = now
         return None
 
     async def _turn(self) -> None:
@@ -443,6 +453,7 @@ class EnOceanProxy:
                     pass
             if self._awaiting and self._awaiting[0] is entry:
                 self._awaiting.popleft()  # never answered: what comes later is not its answer
+                self._gave_up = self._clock()
 
     @staticmethod
     def _written(client: _Client, sent: bool) -> None:
@@ -865,6 +876,8 @@ class EnOceanProxy:
             waiting = [entry for entry in self._awaiting if not entry[0].own]
             for entry in waiting:  # A will not answer them any more
                 self._awaiting.remove(entry)
+            if waiting:
+                self._gave_up = self._clock()
             self._answered.set()
             _LOGGER.warning("%s: goes on through the fallback %s (%s)", self.c.name, name, reason)
             self.on_event(
@@ -1029,6 +1042,7 @@ class EnOceanProxy:
                 "refused": s.refused,
                 "slow_clients": s.slow_clients,
                 "locked": s.locked,
+                "late": s.late,
             },
             "queue": self._outgoing.qsize(),
             "replay": {
