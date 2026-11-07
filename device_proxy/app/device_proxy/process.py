@@ -79,7 +79,14 @@ class Ser2Net:
 
     async def _forward_log(self) -> None:
         assert self._proc is not None and self._proc.stdout is not None
-        async for raw in self._proc.stdout:
+        while True:
+            try:
+                raw = await self._proc.stdout.readline()
+            except ValueError:  # a line over 64 KiB: skipped, the log goes on
+                _LOGGER.warning("ser2net: a very long log line was skipped")
+                continue
+            if not raw:
+                return
             line = raw.decode(errors="replace").rstrip()
             if line:
                 _LOGGER.info("ser2net: %s", line)

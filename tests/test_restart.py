@@ -243,3 +243,39 @@ async def test_press_restarts(tmp_path: Path) -> None:
     await controller.press("0000000a", "restart")
     await controller.press("0000000a", "usb_reset")
     assert calls == [("0000000a", "mqtt", False), ("0000000a", "mqtt", True)]
+
+
+async def test_a_failing_background_part_ends_the_app_instead_of_hanging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If ser2net's watcher fails, everything stops and start() raises (the app is started
+    again), instead of waiting forever for MQTT with the proxies already gone."""
+    import asyncio
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    stop = asyncio.Event()
+
+    async def fails(stop: asyncio.Event) -> None:
+        raise RuntimeError("ser2net watcher broke")
+
+    async def until_stopped(stop: asyncio.Event) -> None:
+        await stop.wait()
+
+    async def no_version() -> str:
+        return ""
+
+    monkeypatch.setattr(controller.ser2net, "run", fails)
+    monkeypatch.setattr(controller.ser2net, "version", no_version)
+    monkeypatch.setattr(controller.admin, "run", until_stopped)
+
+    def mqtt() -> None:  # ends only with stop, like the real one
+        controller._mqtt_task = asyncio.create_task(until_stopped(stop))
+
+    monkeypatch.setattr(controller, "_start_mqtt", mqtt)
+    with pytest.raises(RuntimeError, match="watcher broke"):
+        await asyncio.wait_for(controller.start(stop), 5)
+    assert stop.is_set()
