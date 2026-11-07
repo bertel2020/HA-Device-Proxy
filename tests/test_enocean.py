@@ -741,6 +741,8 @@ async def test_tools_over_the_web_interface(setup: Setup, tmp_path: Path) -> Non
         lambda: controller.captures.current is not None and controller.captures.current.frames >= 1
     )
     assert controller.snapshot()["capture"]["file"] == capture["file"]  # type: ignore[index]
+    status, _ = await request(port, "DELETE", f"api/trace/{capture['file']}")  # type: ignore[index]
+    assert status == 409  # it is being written: not lost while it runs
     status, stopped = await request(port, "POST", "api/capture/stop", {})
     assert stopped["frames"] >= 1 and proxy.exclusive_peer is None  # type: ignore[index]
     lines = (tmp_path / "trace" / capture["file"]).read_text().splitlines()  # type: ignore[index]
