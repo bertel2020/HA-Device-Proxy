@@ -131,7 +131,7 @@ export class TracePage extends Page {
                 <td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
                 <td style="text-align:right;white-space:nowrap;padding:4px 0 4px 8px">
                   <a class="btn btn-g" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download aria-label="${f.name} ${t("download")}">${icon("download", 16)}</a>
-                  <button class="btn btn-d" @click=${() => this._delete(f.name)}>${t("delete")}</button></td></tr>`)}</tbody></table></div>`
+                  <button class="btn btn-d" ?disabled=${s.capture && s.capture.file === f.name} title=${s.capture && s.capture.file === f.name ? t("eoI_capture") : ""} @click=${() => this._delete(f.name)}>${t("delete")}</button></td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noFiles")}</p>`}
           </section>
         </div>

@@ -916,5 +916,9 @@ class WebServer:
         return ok(self.c.stop_capture())
 
     async def delete_trace(self, request: Request) -> Response:
-        os.unlink(self._trace_path(request.params["name"]))
+        path = self._trace_path(request.params["name"])
+        capture = self.c.captures.current
+        if capture is not None and capture.path.name == path.name:
+            raise HttpError(409, "the capture is still writing this file: stop it first")
+        os.unlink(path)
         return ok({"deleted": request.params["name"]})
