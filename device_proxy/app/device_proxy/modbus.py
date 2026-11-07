@@ -51,6 +51,7 @@ _LOGGER = logging.getLogger(__name__)
 
 EXC_FUNCTION = 0x01  # illegal function: the answer to a write that is not allowed
 EXC_ADDRESS = 0x02  # illegal data address: a write outside the allowed registers
+EXC_VALUE = 0x03  # illegal data value: e.g. more registers than one answer can carry
 EXC_PATH = 0x0A  # gateway path unavailable
 EXC_TARGET = 0x0B  # gateway target device failed to respond
 LISTEN_RETRY = 10  # seconds between attempts to open the port
