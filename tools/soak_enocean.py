@@ -52,7 +52,7 @@ LIMITS = {
     "failback_s": 15.0,  # A back → A takes over again (FALLBACK_STABLE and a probe)
     "memory_mb": 20.0,
 }
-BASE_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000000A")  # ESP2 base ID FF-B7-44-80
+BASE_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000009D")  # ESP2 base ID FF-B7-44-80
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")
 
 

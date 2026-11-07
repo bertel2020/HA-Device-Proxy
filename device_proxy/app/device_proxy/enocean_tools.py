@@ -140,10 +140,12 @@ def parse_frame(protocol: str, text: str) -> bytes:
         frame = bytes.fromhex(cleaned)
     except ValueError:
         raise ToolError("only hex digit pairs") from None
-    if esp.Splitter(protocol).feed(frame) != [frame]:
+    whole = esp.Splitter(protocol).feed(frame) == [frame]
+    looks_whole = protocol == "esp2" and len(frame) == esp.ESP2_FRAME and frame[:2] == b"\xa5\x5a"
+    if (whole or looks_whole) and (error := esp.checksum_error(protocol, frame)):
+        raise ToolError(f"{protocol.upper()} {error}")  # the splitter skips such an ESP2 frame
+    if not whole:
         raise ToolError(f"not exactly one complete {protocol.upper()} frame")
-    if error := esp.checksum_error(protocol, frame):
-        raise ToolError(f"{protocol.upper()} {error}")
     return frame
 
 

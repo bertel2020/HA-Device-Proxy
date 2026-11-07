@@ -16,12 +16,12 @@ from device_proxy.enocean import REPLAY_REQUEST, REPLAY_REQUEST_TS, EnOceanProxy
 from device_proxy.esp import Splitter, crc8
 from device_proxy.model import Connection, ValidationError
 
-FRAME_A = bytes.fromhex("A55A0B0570000000002163433000")
-FRAME_B = bytes.fromhex("A55A0B0550000000002163433000")
-COMMAND = bytes.fromhex("A55A6B0501000000FFB744813000")  # TRT RPS: sent over the air
+FRAME_A = bytes.fromhex("A55A0B0570000000002163433077")
+FRAME_B = bytes.fromhex("A55A0B0550000000002163433057")
+COMMAND = bytes.fromhex("A55A6B0501000000FFB74481301C")  # TRT RPS: sent over the air
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")  # TCT, ORG 0x58
-BASE_ID_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000000A")  # RMT, ORG 0x98
-BUS_POLL_ANSWER = bytes.fromhex("A55A8BF800000000000000000000")  # RMT, ORG 0xF8: FAM14 bus
+BASE_ID_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000009D")  # RMT, ORG 0x98
+BUS_POLL_ANSWER = bytes.fromhex("A55A8BF800000000000000000083")  # RMT, ORG 0xF8: FAM14 bus
 
 
 def esp3(data: bytes, optional: bytes = b"", packet_type: int = 1) -> bytes:
@@ -87,8 +87,8 @@ def test_frame_kinds() -> None:
     assert esp.is_response("esp3", response) and not esp.is_radio("esp3", response)
     assert esp.expects_response("esp3", command) and esp.expects_response("esp3", radio)
 
-    bus_actor = bytes.fromhex("A55A8B0570000000000000013000")  # RMT ORG 05: actor answer
-    poll = bytes.fromhex("A55AABFC00000000000000010000")  # TCT ORG FC: FAM14 poll
+    bus_actor = bytes.fromhex("A55A8B0570000000000000013031")  # RMT ORG 05: actor answer
+    poll = bytes.fromhex("A55AABFC000000000000000100A8")  # TCT ORG FC: FAM14 poll
     assert esp.is_radio("esp2", FRAME_A) and esp.is_radio("esp2", bus_actor)
     assert not esp.is_radio("esp2", poll) and not esp.expects_response("esp2", poll)
     assert not esp.is_response("esp2", bus_actor)
@@ -1114,3 +1114,10 @@ def test_a_repeated_esp3_telegram_is_the_same_for_the_duplicate_check() -> None:
     other = esp3(bytes.fromhex("F6700021634330"))
     assert esp.radio_key("esp3", direct) == esp.radio_key("esp3", repeated)
     assert esp.radio_key("esp3", direct) != esp.radio_key("esp3", other)
+
+
+def test_an_esp2_false_start_does_not_cost_the_next_frame() -> None:
+    """After noise, "A5 5A" in the junk is not a frame (its checksum is wrong): the real
+    frames behind it all come out, and the junk does not."""
+    splitter = Splitter("esp2")
+    assert splitter.feed(b"\x00\xa5\x5a\x01\x02" + FRAME_A + FRAME_A) == [FRAME_A, FRAME_A]
