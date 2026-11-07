@@ -1210,7 +1210,7 @@ const API_ERRORS_DE = [
   [/^the body is not JSON$/, "die Anfrage ist kein JSON"], [/^body too large$/, "die Datei ist zu groß"], [/^not allowed$/, "nicht erlaubt"],
   [/^the connection is not active$/, "die Verbindung ist nicht aktiv"], [/^already running$/, "läuft schon"], [/^only for ser2net's connections$/, "nur für Verbindungen über ser2net"],
   [/^the gateway is not connected$/, "das Gateway ist nicht verbunden"], [/^only hex digit pairs$/, "nur Hex-Ziffernpaare"],
-  [/^not exactly one complete (.+) frame$/, "nicht genau ein vollständiges $1-Telegramm"], [/^a capture of (.+) is running$/, "eine Aufzeichnung von „$1“ läuft"],
+  [/^not exactly one complete (.+) frame$/, "nicht genau ein vollständiges $1-Telegramm"], [/^(ESP3) data CRC should be ([0-9A-F]{2})$/, "$1: die Daten-CRC müsste $2 sein"], [/^(ESP2) checksum should be ([0-9A-F]{2})$/, "$1: die Prüfsumme müsste $2 sein"], [/^no free file name for the capture$/, "kein freier Dateiname für die Aufzeichnung"], [/^a capture of (.+) is running$/, "eine Aufzeichnung von „$1“ läuft"],
   [/^reserved for (.+) during a capture$/, "während einer Aufzeichnung für $1 reserviert"], [/^count: 1 to 100$/, "Anzahl: 1 bis 100"],
   [/^unit 1 to 255, address 0 to 65535$/, "Unit 1 bis 255, Adresse 0 bis 65535"], [/^units 1 to 247, timeout 50 to 5000 ms$/, "Units 1 bis 247, Zeitlimit 50 bis 5000 ms"],
   [/^function 1 to 4, 1 to (\d+) values$/, "Funktion 1 bis 4, 1 bis $1 Werte"], [/^device not reachable$/, "Gerät nicht erreichbar"],
