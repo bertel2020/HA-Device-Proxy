@@ -350,7 +350,7 @@ class WebServer:
         events = self.c.events.history(
             connection=request.query.get("connection") or None,
             since=_number(request.query, "since", 0.0, float),
-            limit=min(_number(request.query, "limit", 500, int), 5000),
+            limit=max(1, min(_number(request.query, "limit", 500, int), 5000)),  # -1: no limit
         )
         return ok([e.to_dict() for e in events])
 

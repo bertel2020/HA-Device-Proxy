@@ -622,14 +622,15 @@ class Controller:
             built.append(merged)
             return merged
 
-        before = {c.id for c in self.config.connections}
+        before = {c.id: c for c in self.config.connections}
         applied = await self.apply(build, "import")
-        added = [c for c in built[-1].connections if c.id not in before]
+        # added, or replaced (a replacing item keeps the old id): taken over either way
+        taken = [c for c in built[-1].connections if before.get(c.id) != c]
         self.events.emit(
             "info",
             "imported",
-            taken=len(added),
-            skipped=len(result.items) - len(added),
+            taken=len(taken),
+            skipped=len(result.items) - len(taken),
             notes=sum(len(i.notes) for i in result.items),
         )
         return applied
@@ -950,10 +951,12 @@ class Controller:
     def _trace_files(self) -> list[dict[str, object]]:
         """The recordings, each with the connection it belongs to (if it still exists)."""
         owner = {name: c.id for c, name in self._trace_names()}
-        return [
-            {**f, "connection": owner.get(re.split(r"\.(?:log|jsonl)", str(f["name"]))[0])}
-            for f in self.trace.files()
-        ]
+
+        def stem(name: str) -> str:  # "pump.log.1" → "pump", "pump-capture-….jsonl" too
+            base = re.split(r"\.(?:log|jsonl)", name)[0]
+            return re.sub(r"-capture-\d{8}-\d{6}(?:-\d+)?$", "", base)
+
+        return [{**f, "connection": owner.get(stem(str(f["name"])))} for f in self.trace.files()]
 
     async def _trace_tick(self) -> None:
         settings = self.config.settings

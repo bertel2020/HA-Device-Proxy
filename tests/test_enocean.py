@@ -754,6 +754,8 @@ async def test_tools_over_the_web_interface(setup: Setup, tmp_path: Path) -> Non
         FRAME_A.hex(),
     )
     names = [f["name"] for f in controller.trace.files()]
+    listed = {f["name"]: f["connection"] for f in controller.snapshot()["trace_files"]}  # type: ignore[union-attr]
+    assert listed[capture["file"]] == c.id  # type: ignore[index]  # its connection
     assert capture["file"] in names  # type: ignore[index]
     status, body = await request(port, "GET", f"api/trace/{capture['file']}")  # type: ignore[index]
     assert status == 200

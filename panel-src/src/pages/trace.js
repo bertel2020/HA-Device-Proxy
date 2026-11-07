@@ -92,7 +92,7 @@ export class TracePage extends Page {
     const current = this.connection(this.selected);
     const files = s.trace_files;
     const rows = this.chunks.slice(-200);
-    const file = current && current.trace !== "off" ? files.filter((f) => f.connection === current.id).sort((a, b) => b.modified - a.modified)[0] : null;
+    const file = current && current.trace !== "off" ? files.filter((f) => f.connection === current.id && f.name.includes(".log")).sort((a, b) => b.modified - a.modified)[0] : null;
     const locked = s.source === "custom" && current?.kind === "serial";
     const name = (id) => s.connections.find((c) => c.id === id)?.name;
     return html`

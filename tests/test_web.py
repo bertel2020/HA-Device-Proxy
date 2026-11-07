@@ -188,6 +188,10 @@ async def test_bodies_of_the_wrong_shape_and_trace_links(tmp_path: Path) -> None
     big = bytes(range(256)) * 1000  # several blocks and a short last one
     (tmp_path / "trace" / "big.log").write_bytes(big)
     assert await request(port, "GET", "api/trace/big.log") == (200, big)
+    for n in range(3):
+        controller.events.emit("info", "settings_saved", n=n)
+    status, history = await request(port, "GET", "api/history?limit=-1")
+    assert status == 200 and len(history) == 1  # type: ignore[arg-type]  # not unlimited
     await web.stop()
 
 
