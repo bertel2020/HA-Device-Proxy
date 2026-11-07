@@ -29,7 +29,8 @@ ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t"}
 
 def scalar(value: str) -> str:
     """A YAML scalar; double-quoted with escapes when a plain one would be read differently."""
-    if value and re.fullmatch(r"[A-Za-z0-9_./,()=+@-][A-Za-z0-9_./,:()=+@ -]*", value):
+    # not first: "-", "@" and "," (YAML indicators: "- x", "@home" or ",x" would not parse)
+    if value and re.fullmatch(r"[A-Za-z0-9_./()=+][A-Za-z0-9_./,:()=+@ -]*", value):
         if ": " not in value and not value.endswith(" "):
             return value
     quoted = "".join(
