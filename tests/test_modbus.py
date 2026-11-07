@@ -787,3 +787,35 @@ async def test_a_client_that_stops_in_the_middle_of_a_request_frees_its_place(
     writer.close()
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_a_connection_the_device_closed_is_closed_on_our_side_too() -> None:
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        writer.close()  # the device ends an idle connection
+
+    device = await asyncio.start_server(handle, "127.0.0.1", 0)
+    link = modbus.TcpLink("127.0.0.1", device.sockets[0].getsockname()[1])
+    await link.open(1)
+    old = link._writer
+    assert old is not None
+    while link.is_open:
+        await asyncio.sleep(0.01)
+    await link.open(1)
+    assert old.transport.is_closing()  # not left in CLOSE_WAIT
+    await link.close()
+    device.close()
+
+
+async def test_a_client_waiting_for_the_same_read_stops_with_the_proxy() -> None:
+    """With the cache on, B waits for A's read; cancelling both must end B too."""
+    c = Connection("Inverter", "", 0, kind="modbus", host="127.0.0.1", host_port=1, cache_ms=1000)
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    read = bytes([3, 0, 0, 0, 1])
+    a = asyncio.create_task(proxy.request(1, read, ClientInfo("192.0.2.1:1", 0)))
+    await asyncio.sleep(0)
+    b = asyncio.create_task(proxy.request(1, read, ClientInfo("192.0.2.2:1", 0)))
+    await asyncio.sleep(0)
+    a.cancel()
+    b.cancel()
+    await asyncio.wait([a, b], timeout=1)
+    assert a.done() and b.done()
