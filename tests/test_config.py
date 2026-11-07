@@ -3,8 +3,9 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import yaml
 
-from device_proxy.config import blocks, changed, render
+from device_proxy.config import blocks, changed, render, scalar
 from device_proxy.model import AppConfig, Connection, Settings, ValidationError
 
 PATH = "/dev/serial/by-path/pci-0000:00:1d.0-usb-0:1.3:1.0-port0"
@@ -327,3 +328,11 @@ async def test_a_change_keeps_the_version_before_and_what_worked(tmp_path: Path)
     ]
     restored = store.version(int(str(controller.last_change["version"])))
     assert restored is not None and restored.connection("0000000a") == meter
+
+
+def test_scalars_read_back_as_written() -> None:
+    """A banner or option that begins with a YAML indicator is quoted, so ser2net.yaml stays
+    readable."""
+    for value in ("- Welcome", "-", "@home", ",x", "a: b", "a #b", "x", "/dev/ttyUSB0", "-x"):
+        assert yaml.safe_load(f"k: {scalar(value)}")["k"] == value, value
+    assert scalar("/dev/ttyUSB0") == "/dev/ttyUSB0"  # plain where it is safe
