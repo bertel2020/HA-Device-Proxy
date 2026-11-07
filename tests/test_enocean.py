@@ -63,6 +63,16 @@ def test_esp3_does_not_wait_on_a_false_header() -> None:
     assert splitter.feed(radio) == [radio]
 
 
+def test_checksums_of_whole_frames() -> None:
+    radio = esp3(bytes.fromhex("F6500021634330"))
+    assert esp.checksum_error("esp3", radio) is None
+    assert esp.checksum_error("esp3", radio[:-1] + bytes([radio[-1] ^ 1])) == (
+        f"data CRC should be {radio[-1]:02X}"
+    )
+    assert esp.checksum_error("esp2", BASE_ID_READ) is None
+    assert esp.checksum_error("esp2", BASE_ID_READ[:-1] + b"\x07") == "checksum should be 03"
+
+
 def test_crc8_and_unknown_protocol() -> None:
     assert crc8(bytes.fromhex("00070701")) == 0x7A  # ESP3 header of a radio telegram
     with pytest.raises(ValueError):
@@ -705,6 +715,9 @@ async def test_tools_over_the_web_interface(setup: Setup, tmp_path: Path) -> Non
     }
     status, error = await request(port, "POST", f"{base}/send", {"hex": "A5 5A 00"})
     assert status == 409 and "ESP2" in error["error"]  # type: ignore[index]
+    bad_sum = BASE_ID_READ[:-1] + b"\x00"
+    status, error = await request(port, "POST", f"{base}/send", {"hex": bad_sum.hex()})
+    assert status == 409 and "checksum should be 03" in error["error"]  # type: ignore[index]
     status, error = await request(port, "POST", f"{base}/send", {"hex": "xyz"})
     assert status == 409 and "hex" in error["error"]  # type: ignore[index]
     status, result = await request(port, "POST", f"{base}/test", {"count": 2})

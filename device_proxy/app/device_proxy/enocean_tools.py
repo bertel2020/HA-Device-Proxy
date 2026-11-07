@@ -142,6 +142,8 @@ def parse_frame(protocol: str, text: str) -> bytes:
         raise ToolError("only hex digit pairs") from None
     if esp.Splitter(protocol).feed(frame) != [frame]:
         raise ToolError(f"not exactly one complete {protocol.upper()} frame")
+    if error := esp.checksum_error(protocol, frame):
+        raise ToolError(f"{protocol.upper()} {error}")
     return frame
 
 
