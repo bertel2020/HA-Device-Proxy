@@ -459,7 +459,12 @@ class EnOceanProxy:
                 self.stats.locked += 1  # another program has the gateway alone (PCT14)
                 self._written(client, False)
                 continue
-            if self.active == "fallback" and not client.own and self.fallback is not None:
+            if (
+                self.active == "fallback"
+                and not client.own
+                and self.fallback is not None
+                and self.exclusive_peer is None  # the locked program means this gateway only
+            ):
                 self._relay(self.fallback, client, frame)
                 continue
             answered = esp.expects_response(self.protocol, frame)
@@ -761,6 +766,8 @@ class EnOceanProxy:
         now = self._clock()
         if not interval or not self.link.is_open or now - self._probed < interval:
             return
+        if self.exclusive_peer is not None:
+            return  # a capture has the gateway alone: the probe would be dropped, not missed
         self._probed = now
         started = time.perf_counter()
         try:

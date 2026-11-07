@@ -361,6 +361,8 @@ und die Base-ID, sobald das Gateway sie genannt hat. Werkzeuge:
   **Mitschnitt**. Auf Wunsch darf währenddessen nur ein Programm senden, z. B. PCT14 beim Auslesen
   eines FAM14: die Telegramme der anderen Programme (auch Home Assistant) werden verworfen und
   danach nicht nachgesendet, die eigenen Werkzeuge der App senden währenddessen nicht.
+  Auch die Prüfung für das Ersatz-Gateway ruht dann, und die Telegramme dieses Programms gehen
+  nur an dieses Gateway, nie über das Ersatz-Gateway.
 
 ### Ersatz-Gateway
 
