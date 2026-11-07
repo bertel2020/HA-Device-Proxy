@@ -6,10 +6,12 @@ enocean_eltako integration, eo_man, PCT14 over the network ...) see the same beh
 Every telegram from the gateway goes to every client. Frames from clients are queued and
 written one at a time with a short gap (send_gap_ms), so two programs never interleave on
 the line. The gateway's answer to a command goes back to the client that sent it (ESP3
-answers every packet in order; ESP2 answers gateway commands); unsolicited messages go to
-everyone, FAM14 bus traffic (ESP2 ORG >= 0xF0) too. Frames a client sends are not echoed to
-the other clients. For a client that only knows ser2net, the proxy is just another raw TCP
-gateway.
+answers every packet in order; ESP2 answers gateway commands). Answers name no command, so
+only one command that expects an answer is out at a time: the next one waits for the answer
+or for RESPONSE_TIMEOUT + LATE_GRACE, and a late answer never counts for the next command.
+Unsolicited messages go to everyone, FAM14 bus traffic (ESP2 ORG >= 0xF0) too. Frames a
+client sends are not echoed to the other clients. For a client that only knows ser2net, the
+proxy is just another raw TCP gateway.
 
 Replay (used by the enocean_eltako integration): a client that sends the line
 "EOPX REPLAY" first gets the radio telegrams that arrived while no replaying client was
@@ -72,6 +74,8 @@ RECONNECT_DELAYS = (1, 2, 5, 10, 30)  # seconds between attempts to reach the ga
 LISTEN_RETRY = 10  # seconds between attempts to open the port
 OPEN_TIMEOUT = 10.0  # seconds for connecting to a network gateway
 RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
+LATE_GRACE = 0.5  # seconds an unanswered command keeps its place: a late answer is still its
+QUEUE_TIMEOUT = 30.0  # seconds the app's own request waits for its turn before it gives up
 BASE_ID_WRITE_TIMEOUT = 5.0  # the gateway writes its flash first
 CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before it is dropped
 CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
@@ -154,6 +158,8 @@ class _Client:
     bytes_in: int = 0
     bytes_out: int = 0
     queued: int = 0  # frames waiting in the outgoing queue
+    answer_within: float = RESPONSE_TIMEOUT  # the app's own requests may wait longer
+    written: asyncio.Future[bool] | None = None  # the app's own request: set once it went out
 
 
 def restart_key(c: Connection, listen: str) -> Connection:
@@ -223,7 +229,9 @@ class EnOceanProxy:
         self.observers: list[Callable[[str, bytes, str], None]] = []
         self._clock = clock
         self._outgoing: asyncio.Queue[tuple[_Client, bytes]] = asyncio.Queue()
-        self._awaiting: deque[tuple[_Client, float, bytes]] = deque()  # who gets the answer
+        # who gets the next answer, until when, for which command: one at a time (_turn)
+        self._awaiting: deque[tuple[_Client, float, bytes]] = deque()
+        self._answered = asyncio.Event()  # an entry left _awaiting
         self._replay: deque[tuple[float, float, bytes]] = deque(maxlen=c.replay_size)
         self._airtime: deque[tuple[float, float]] = deque()  # (time, ms) of sent telegrams
         self._duty_warned = 0.0
@@ -339,6 +347,7 @@ class EnOceanProxy:
                 await self.link.close()
                 self.connected_since = None
                 self._awaiting.clear()
+                self._answered.set()
             await asyncio.sleep(RECONNECT_DELAYS[0])
 
     async def _ask_base_id(self) -> None:
@@ -406,39 +415,70 @@ class EnOceanProxy:
                 _keep_base_id(self.c.id, found)
 
     def _next_waiting(self) -> tuple[_Client, bytes] | None:
+        """Whose command this answer belongs to. A client that has gone meanwhile still owns
+        it (the answer goes nowhere): handing it to the next one would be a wrong answer."""
         now = self._clock()
         while self._awaiting:
-            client, deadline, request = self._awaiting.popleft()
-            alive = (
-                client.inbox is not None
-                or client.sink is not None
-                or self.clients.get(client.address) is client
-            )
-            if deadline >= now and alive:
+            client, until, request = self._awaiting.popleft()
+            self._answered.set()
+            if until >= now:
                 return client, request
         return None
+
+    async def _turn(self) -> None:
+        """Wait until no command waits for its answer. Gateway answers name no command, only
+        their order tells whose they are: with one command at a time, an answer that comes
+        late cannot be taken for the answer to the next one."""
+        while self._awaiting:
+            entry = self._awaiting[0]
+            left = entry[1] - self._clock()
+            self._answered.clear()
+            if left > 0:
+                try:
+                    async with asyncio.timeout(left):
+                        await self._answered.wait()
+                    continue
+                except TimeoutError:
+                    pass
+            if self._awaiting and self._awaiting[0] is entry:
+                self._awaiting.popleft()  # never answered: what comes later is not its answer
+
+    @staticmethod
+    def _written(client: _Client, sent: bool) -> None:
+        if client.written is not None and not client.written.done():
+            client.written.set_result(sent)
 
     async def _writer_loop(self) -> None:
         while True:
             client, frame = await self._outgoing.get()
             client.queued -= 1
+            if client.written is not None and client.written.cancelled():
+                continue  # the app's own request has given up waiting for its turn
             if self.exclusive_peer is not None and client.host != self.exclusive_peer:
                 self.stats.locked += 1  # another program has the gateway alone (PCT14)
+                self._written(client, False)
                 continue
             if self.active == "fallback" and not client.own and self.fallback is not None:
                 self._relay(self.fallback, client, frame)
                 continue
+            answered = esp.expects_response(self.protocol, frame)
+            if answered:
+                await self._turn()
             if not self.link.is_open:
                 self.stats.dropped += 1
+                self._written(client, False)
                 continue
-            if esp.expects_response(self.protocol, frame):
-                self._awaiting.append((client, self._clock() + RESPONSE_TIMEOUT, frame))
+            if answered:
+                until = self._clock() + client.answer_within + LATE_GRACE
+                self._awaiting.append((client, until, frame))
             try:
                 await self.link.write(frame)
             except (OSError, ConnectionError) as err:
                 self.stats.dropped += 1
                 self.stats.last_error, self.stats.last_error_at = _text(err), time.time()
+                self._written(client, False)
                 continue
+            self._written(client, True)
             self.stats.to_gateway += 1
             self.stats.bytes_to_device += len(frame)
             try:
@@ -817,6 +857,7 @@ class EnOceanProxy:
             waiting = [entry for entry in self._awaiting if not entry[0].own]
             for entry in waiting:  # A will not answer them any more
                 self._awaiting.remove(entry)
+            self._answered.set()
             _LOGGER.warning("%s: goes on through the fallback %s (%s)", self.c.name, name, reason)
             self.on_event(
                 "warning", "enocean_failover", fallback=name, reason=reason, unanswered=len(waiting)
@@ -896,9 +937,16 @@ class EnOceanProxy:
         inbox: asyncio.Queue[bytes] = asyncio.Queue()
         splitter = esp.Splitter(self.protocol)
         local = _Client("app", "app", time.time(), None, splitter, inbox, own=True)
+        local.answer_within = timeout
+        local.written = asyncio.get_running_loop().create_future()
         local.queued += 1
         self._outgoing.put_nowait((local, frame))
-        if not esp.expects_response(self.protocol, frame):
+        try:  # the time for the answer counts from the sending, not from the queueing
+            async with asyncio.timeout(QUEUE_TIMEOUT):
+                sent = await local.written  # cancelled on giving up: then it is not sent
+        except TimeoutError:
+            return None
+        if not sent or not esp.expects_response(self.protocol, frame):
             return None
         try:
             async with asyncio.timeout(timeout):
