@@ -62,14 +62,13 @@ class Captures:
     def start(self, proxy: EnOceanProxy, exclusive_peer: str | None) -> Capture:
         if self.current is not None:
             raise ToolError(f"a capture of {self.current.name} is running")
-        stamp = time.strftime("%Y%m%d-%H%M%S")
         self.folder.mkdir(parents=True, exist_ok=True)
-        path = self.folder / f"{readable_alias(proxy.c.name, set())}-capture-{stamp}{SUFFIX}"
+        path, file = self._new_file(readable_alias(proxy.c.name, set()))
         capture = Capture(
             proxy.c.id,
             proxy.c.name,
             path,
-            path.open("a", encoding="utf-8"),
+            file,
             time.time(),
             exclusive_peer or None,
         )
@@ -78,6 +77,18 @@ class Captures:
         proxy.observers.append(self._write)
         _LOGGER.info("Capture of %s into %s", proxy.c.name, path.name)
         return capture
+
+    def _new_file(self, alias: str) -> tuple[Path, IO[str]]:
+        """A file of its own: a second capture in the same second gets "-2", "-3" ...,
+        never the first one's file."""
+        stem = f"{alias}-capture-{time.strftime('%Y%m%d-%H%M%S')}"
+        for number in range(1, 100):
+            path = self.folder / f"{stem}{f'-{number}' if number > 1 else ''}{SUFFIX}"
+            try:
+                return path, path.open("x", encoding="utf-8")
+            except FileExistsError:
+                continue
+        raise ToolError("no free file name for the capture")
 
     def stop(self) -> Capture | None:
         capture, proxy = self.current, self._proxy

@@ -992,3 +992,19 @@ async def test_status_server_logs_a_failure_and_answers(
     await server.wait_closed()
     assert "the status for 127.0.0.1:" in caplog.text and "KeyError" in caplog.text
     assert "closed after 26 bytes" in caplog.text
+
+
+async def test_a_second_capture_in_the_same_second_gets_its_own_file(
+    setup: Setup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from device_proxy.enocean_tools import Captures
+
+    monkeypatch.setattr(time, "strftime", lambda fmt, *args: "20261107-120000")
+    captures = Captures(tmp_path)
+    first = captures.start(setup.proxy, None)
+    first.file.write("kept\n")
+    captures.stop()
+    second = captures.start(setup.proxy, None)
+    captures.stop()
+    assert first.path != second.path and second.path.name.endswith("-2.jsonl")
+    assert first.path.read_text() == "kept\n"
