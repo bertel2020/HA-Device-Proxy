@@ -213,8 +213,10 @@ export class EditPage extends Page {
   }
 
   async _preview() {
+    const seq = (this._seq = (this._seq || 0) + 1);
     try {
       const result = await api("api/preview", { method: "POST", body: { connection: this.draft } });
+      if (seq !== this._seq) return; // an answer for an older draft: a newer one is on its way
       this.yaml = result.yaml;
       this.errors = fieldErrors(result.errors);
       this.warnings = result.warnings || {};
