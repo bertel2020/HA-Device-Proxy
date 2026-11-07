@@ -1,5 +1,6 @@
 import asyncio
 import struct
+import time
 from dataclasses import replace
 
 import pytest
@@ -55,6 +56,11 @@ async def test_clients_read_what_was_heard_and_cannot_write() -> None:
     assert await proxy.request(1, struct.pack(">BHH", 3, 0, 3), client) == bytes([0x83, 0x0B])
     assert await proxy.request(1, struct.pack(">BHH", 6, 0, 1), client) == bytes([0x86, 0x01])
     assert proxy.state()["listen"]["registers"] == 2
+    proxy.sniffer.registers.update({(1, 3, a): (0, time.time()) for a in range(100, 230)})
+    for count in (0, 126, 130):  # more than one answer carries: refused, not a crash
+        assert await proxy.request(1, struct.pack(">BHH", 3, 100, count), client) == bytes(
+            [0x83, 0x03]
+        )
     await asyncio.sleep(0)
 
 
