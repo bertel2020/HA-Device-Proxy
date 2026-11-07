@@ -3,11 +3,12 @@ import struct
 from pathlib import Path
 
 from device_proxy import ha_mqtt
+from device_proxy.admin import AdminError
 from device_proxy.controller import Controller
 from device_proxy.db import Database
 from device_proxy.events import EventLog
 from device_proxy.model import AppConfig, Connection
-from device_proxy.mqtt import Broker, _packet, check_broker
+from device_proxy.mqtt import Broker, MqttClient, _packet, check_broker
 from device_proxy.store import Store
 from device_proxy.trace import TraceHub
 
@@ -176,12 +177,19 @@ async def test_buttons_are_announced_and_pressed(tmp_path: Path) -> None:
         pressed.append((connection_id, action))
         if action == "nonsense":
             raise ValueError("no such button")
+        if action == "restart":
+            raise AdminError("ser2net's admin socket is not there")
 
     controller.press = press  # type: ignore[method-assign]
     bridge = ha_mqtt.HaBridge(controller)
     await bridge._message("device_proxy/0000000a/disconnect/press", b"PRESS")
     await bridge._message("device_proxy/0000000a/nonsense/press", b"PRESS")  # logged, not raised
-    assert pressed == [("0000000a", "disconnect"), ("0000000a", "nonsense")]
+    await bridge._message("device_proxy/0000000a/restart/press", b"PRESS")  # the same
+    assert pressed == [
+        ("0000000a", "disconnect"),
+        ("0000000a", "nonsense"),
+        ("0000000a", "restart"),
+    ]
 
 
 async def test_meter_entities_for_the_energy_dashboard(tmp_path: Path) -> None:
@@ -199,3 +207,51 @@ async def test_meter_entities_for_the_energy_dashboard(tmp_path: Path) -> None:
         "kWh",
     )
     assert energy["value_template"] == "{{ value_json.meter_import }}"
+
+
+async def test_a_failing_message_does_not_end_the_connection() -> None:
+    """An error while handling one message is logged; the next message still arrives."""
+    topics = [b"a/first", b"a/second"]
+
+    async def broker(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await reader.read(1024)  # CONNECT
+        writer.write(bytes([0x20, 2, 0, 0]))
+        for topic in topics:
+            writer.write(
+                bytes([0x30, 2 + len(topic) + 1]) + struct.pack("!H", len(topic)) + topic + b"x"
+            )
+        await writer.drain()
+        await reader.read(1024)
+
+    server = await asyncio.start_server(broker, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    seen: list[str] = []
+    stop = asyncio.Event()
+
+    async def on_message(topic: str, payload: bytes) -> None:
+        seen.append(topic)
+        if topic == "a/first":
+            raise RuntimeError("a bug")
+        stop.set()
+
+    async def on_connect() -> None:
+        pass
+
+    client = MqttClient("test", on_message, on_connect)
+    await asyncio.wait_for(client.run(Broker("127.0.0.1", port), stop), 5)
+    assert seen == ["a/first", "a/second"]
+    server.close()
+
+
+async def test_new_mqtt_settings_apply_when_mqtt_had_died(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+
+    async def died() -> None:
+        raise AdminError("no admin socket")
+
+    controller._mqtt_task = asyncio.create_task(died())
+    await asyncio.sleep(0)
+    started: list[bool] = []
+    controller._start_mqtt = lambda: started.append(True)  # type: ignore[method-assign]
+    await controller._restart_mqtt()  # not raised
+    assert started == [True]

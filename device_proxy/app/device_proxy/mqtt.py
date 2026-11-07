@@ -157,6 +157,9 @@ class MqttClient:
             except (OSError, asyncio.IncompleteReadError, ConnectionError, ValueError) as err:
                 self.error = str(err) or type(err).__name__
                 _LOGGER.warning("MQTT: %s, connecting again in %.0f s", self.error, delay)
+            except Exception as err:  # a bug must not end MQTT for good: connect again
+                self.error = str(err) or type(err).__name__
+                _LOGGER.exception("MQTT failed, connecting again in %.0f s", delay)
             finally:
                 self.connected.clear()
                 self._writer = None
@@ -205,7 +208,12 @@ class MqttClient:
                     topic_length = struct.unpack("!H", data[:2])[0]
                     topic = data[2 : 2 + topic_length].decode(errors="replace")
                     start = 2 + topic_length + (2 if flags & 0x06 else 0)
-                    await self.on_message(topic, data[start:])
+                    try:
+                        await self.on_message(topic, data[start:])
+                    except (OSError, ConnectionError):
+                        raise  # the connection itself: connect again
+                    except Exception:  # one message must not end the connection
+                        _LOGGER.exception("MQTT: message on %s failed", topic)
             if writer and not writer.is_closing():
                 if self.will:  # a clean disconnect does not send the will: say it ourselves
                     await self.publish(self.will[0], self.will[1], retain=True)

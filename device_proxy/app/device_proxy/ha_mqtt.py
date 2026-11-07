@@ -155,6 +155,8 @@ class HaBridge:
                     await self.publish_states()
                 except (OSError, ConnectionError) as err:
                     _LOGGER.debug("MQTT publish failed: %s", err)
+                except Exception:  # a bug must not stop the states for good
+                    _LOGGER.exception("MQTT: publishing the states failed")
 
     def _device(self, connection_id: str, name: str, model: str) -> dict[str, Any]:
         return {
@@ -343,7 +345,7 @@ class HaBridge:
             _LOGGER.info("MQTT: button %s of %s", parts[1], parts[0])
             try:
                 await self.c.press(parts[0], parts[1])
-            except (ValueError, OSError, ConnectionError) as err:
+            except Exception as err:  # also AdminError: ser2net's admin socket not there
                 _LOGGER.warning("MQTT: button %s of %s: %s", parts[1], parts[0], err)
             return
         if len(parts) != 3 or parts[1:] != ["enabled", "set"]:
