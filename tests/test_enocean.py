@@ -1106,3 +1106,11 @@ async def test_an_answer_after_its_command_gave_up_goes_to_nobody(
     assert await asyncio.wait_for(r1.readexactly(14), 2) == BASE_ID_ANSWER
     w1.close()
     w2.close()
+
+
+def test_a_repeated_esp3_telegram_is_the_same_for_the_duplicate_check() -> None:
+    direct = esp3(bytes.fromhex("F6500021634330"), bytes.fromhex("01FFFFFFFF4400"))
+    repeated = esp3(bytes.fromhex("F6500021634331"), bytes.fromhex("01FFFFFFFF5000"))
+    other = esp3(bytes.fromhex("F6700021634330"))
+    assert esp.radio_key("esp3", direct) == esp.radio_key("esp3", repeated)
+    assert esp.radio_key("esp3", direct) != esp.radio_key("esp3", other)
