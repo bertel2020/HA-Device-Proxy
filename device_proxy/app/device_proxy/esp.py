@@ -56,16 +56,19 @@ class Splitter:
             frames.append(frame)
 
     def _next_esp2(self) -> bytes | None:
-        start = self._buffer.find(b"\xa5\x5a")
-        if start < 0:
-            del self._buffer[: max(0, len(self._buffer) - 1)]  # keep a trailing 0xA5
-            return None
-        del self._buffer[:start]
-        if len(self._buffer) < ESP2_FRAME:
-            return None
-        frame = bytes(self._buffer[:ESP2_FRAME])
-        del self._buffer[:ESP2_FRAME]
-        return frame
+        while True:
+            start = self._buffer.find(b"\xa5\x5a")
+            if start < 0:
+                del self._buffer[: max(0, len(self._buffer) - 1)]  # keep a trailing 0xA5
+                return None
+            del self._buffer[:start]
+            if len(self._buffer) < ESP2_FRAME:
+                return None
+            frame = bytes(self._buffer[:ESP2_FRAME])
+            if sum(frame[2:13]) & 0xFF == frame[13]:
+                del self._buffer[:ESP2_FRAME]
+                return frame
+            del self._buffer[:1]  # a false start (noise, a frame cut off): look further
 
     def _next_esp3(self) -> bytes | None:
         while True:

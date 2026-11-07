@@ -134,7 +134,8 @@ def test_listening_finds_every_frame_however_the_bytes_come() -> None:
 
 def _esp_frame(rng: random.Random, protocol: str) -> bytes:
     if protocol == "esp2":
-        return b"\xa5\x5a" + rng.randbytes(12)
+        body = rng.randbytes(11)
+        return b"\xa5\x5a" + body + bytes([sum(body) & 0xFF])
     data, optional = _bytes(rng, 40), _bytes(rng, 10)
     header = len(data).to_bytes(2, "big") + bytes([len(optional), rng.choice([1, 2, 3, 5, 9, 10])])
     return (
@@ -176,6 +177,7 @@ def test_enocean_streams_of_noise_and_frames(protocol: str) -> None:
             for frame in splitter.feed(chunk):
                 if protocol == "esp2":
                     assert len(frame) == esp.ESP2_FRAME and frame[:2] == b"\xa5\x5a"
+                    assert sum(frame[2:13]) & 0xFF == frame[13]
                 else:
                     assert esp.crc8(frame[1:5]) == frame[5]
                     assert esp.crc8(frame[6:-1]) == frame[-1]

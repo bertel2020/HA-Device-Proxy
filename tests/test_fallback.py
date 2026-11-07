@@ -95,13 +95,13 @@ def test_changing_the_fallback_does_not_restart_the_gateway() -> None:
 # the proxies: A goes on through B
 
 
-BASE_A = bytes.fromhex("A55A8B98FFB7448000000000000A")  # ESP2 base ID answer FF-B7-44-80
-BASE_OTHER = bytes.fromhex("A55A8B98FFA1220000000000000A")  # FF-A1-22-00
+BASE_A = bytes.fromhex("A55A8B98FFB7448000000000009D")  # ESP2 base ID answer FF-B7-44-80
+BASE_OTHER = bytes.fromhex("A55A8B98FFA122000000000000E5")  # FF-A1-22-00
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")
-FRAME = bytes.fromhex("A55A0B0570000000002163433000")  # RPS from 00-21-63-43
-FRAME_REPEATED = bytes.fromhex("A55A0B0570000000002163433100")  # the same, status: repeated
-OWN = bytes.fromhex("A55A0B0570000000FFB744813000")  # RPS from FF-B7-44-81: A's own range
-COMMAND = bytes.fromhex("A55A6B0501000000FFB744813000")  # TRT RPS: sent over the air
+FRAME = bytes.fromhex("A55A0B0570000000002163433077")  # RPS from 00-21-63-43
+FRAME_REPEATED = bytes.fromhex("A55A0B0570000000002163433178")  # the same, status: repeated
+OWN = bytes.fromhex("A55A0B0570000000FFB74481302B")  # RPS from FF-B7-44-81: A's own range
+COMMAND = bytes.fromhex("A55A6B0501000000FFB74481301C")  # TRT RPS: sent over the air
 
 
 class Gateway:
@@ -315,7 +315,7 @@ async def test_listening_to_both_drops_duplicates_and_the_own_sending(
         pair.gateway_b.send(FRAME_REPEATED)  # the same telegram via B: a duplicate
         pair.gateway_b.send(OWN)  # B hears A's own sending: dropped
         await _until(lambda: pair.a.heard["own"] == 1 and pair.a.heard["duplicates"] == 1)
-        other = bytes.fromhex("A55A0B0550000000002163433000")
+        other = bytes.fromhex("A55A0B0550000000002163433057")
         pair.gateway_b.send(other)  # only B heard this one
         assert await asyncio.wait_for(reader.readexactly(28), 2) == FRAME + other
         assert pair.a.heard == {"main": 1, "fallback": 1, "duplicates": 1, "own": 1}
