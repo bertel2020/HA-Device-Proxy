@@ -4,7 +4,7 @@ A capture writes each frame in both directions as one JSON line (time, gateway, 
 peer, hex) into the trace folder, next to the trace recordings, so the trace page lists,
 downloads and deletes it. One capture at a time, at most MAX_BYTES. While it runs, the
 gateway can be reserved for one program (exclusive_peer: PCT14 reading a FAM14): the frames
-of the others are held back, and the app's own tools do not send either.
+of the others are dropped (not sent later), and the app's own tools do not send either.
 """
 
 from __future__ import annotations

@@ -335,7 +335,7 @@ nicht erreichbar“, lässt er sich in der Terminal-App prüfen:
 zurückgesetzt.
 
 **Die Detailseite** zeigt in Klartext, was nicht stimmt (Gateway weg, Port belegt, Funkzeit,
-Telegramme verworfen oder zurückgehalten, Programme abgewiesen oder getrennt, kein Programm
+Telegramme verworfen (auch wegen einer Sperre), Programme abgewiesen oder getrennt, kein Programm
 verbunden), jedes Telegramm live mit Art und Absender (Suche, Richtung, ein Klick auf eine ID
 zeigt nur diesen Absender, kopieren, in „Senden“ übernehmen), die Funkbelegung der letzten Stunde
 gegenüber dem 1-%-Limit (eine Benachrichtigung bei 80 %), Zähler und den Nachlieferungspuffer,
@@ -359,8 +359,8 @@ und die Base-ID, sobald das Gateway sie genannt hat. Werkzeuge:
   Richtungen als JSON-Zeilen (Zeit, Gateway, Richtung, Art, Programm, Hex) in den
   Mitschnitt-Ordner, höchstens 50 MB; aufgelistet, heruntergeladen und gelöscht auf der Seite
   **Mitschnitt**. Auf Wunsch darf währenddessen nur ein Programm senden, z. B. PCT14 beim Auslesen
-  eines FAM14: die Telegramme der anderen werden zurückgehalten und die eigenen Werkzeuge der App
-  warten.
+  eines FAM14: die Telegramme der anderen Programme (auch Home Assistant) werden verworfen und
+  danach nicht nachgesendet, die eigenen Werkzeuge der App senden währenddessen nicht.
 
 ### Ersatz-Gateway
 
