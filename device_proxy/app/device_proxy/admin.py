@@ -147,8 +147,14 @@ class AdminClient:
                 await _sleep(stop, 1)
                 continue
             self._writer = writer
-            writer.write(b"yaml\r\n")
-            await writer.drain()
+            try:
+                writer.write(b"yaml\r\n")
+                await writer.drain()
+            except OSError:  # ser2net went away right after the connect: try again
+                self._writer = None
+                writer.close()
+                await _sleep(stop, 1)
+                continue
             self.connected.set()
             _LOGGER.debug("Admin port connected")
             reading = asyncio.create_task(self._read(reader, stop))

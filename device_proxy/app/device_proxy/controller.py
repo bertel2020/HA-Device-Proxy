@@ -445,6 +445,9 @@ class Controller:
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
             )
         finally:
+            # also when one of them failed: the others and MQTT end too, and the app exits
+            # (and is started again) instead of serving the panel without its proxies
+            stop.set()
             for task in self._keepers.values():
                 task.cancel()
             for task in self._proxy_tasks.values():
@@ -452,7 +455,7 @@ class Controller:
             await asyncio.gather(*self._proxy_tasks.values(), return_exceptions=True)
             await self.enocean_ha.stop()
             if self._mqtt_task is not None:
-                await self._mqtt_task
+                await asyncio.gather(self._mqtt_task, return_exceptions=True)
 
     async def apply(
         self, new: AppConfig | Callable[[AppConfig], AppConfig], source: str
