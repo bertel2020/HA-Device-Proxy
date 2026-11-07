@@ -481,16 +481,22 @@ class EnOceanProxy:
             answered = esp.expects_response(self.protocol, frame)
             if answered:
                 await self._turn()
+                if client.written is not None and client.written.cancelled():
+                    continue  # gave up while it waited for its turn: not sent after all
             if not self.link.is_open:
                 self.stats.dropped += 1
                 self._written(client, False)
                 continue
-            if answered:
-                until = self._clock() + client.answer_within + LATE_GRACE
-                self._awaiting.append((client, until, frame))
+            entry = None
+            if answered:  # before the write: the answer can come before write() returns
+                entry = (client, self._clock() + client.answer_within + LATE_GRACE, frame)
+                self._awaiting.append(entry)
             try:
                 await self.link.write(frame)
             except (OSError, ConnectionError) as err:
+                if entry is not None and entry in self._awaiting:
+                    self._awaiting.remove(entry)  # not sent: no answer will come
+                    self._answered.set()
                 self.stats.dropped += 1
                 self.stats.last_error, self.stats.last_error_at = _text(err), time.time()
                 self._written(client, False)
@@ -763,14 +769,28 @@ class EnOceanProxy:
         return False
 
     async def _fallback_loop(self) -> None:
-        """Read the base ID now and then (A with a fallback, and B) and switch over or back."""
-        while True:
-            await asyncio.sleep(SUPERVISE)
-            try:
-                await self._probe()
-                self._supervise()
-            except Exception:  # a bug must not stop the gateway
-                _LOGGER.exception("%s: fallback check failed", self.c.name)
+        """Read the base ID now and then (A with a fallback, and B) and switch over or back.
+        The read runs on its own: waiting for its turn behind the clients' commands must not
+        hold up the check of the connection."""
+        probing: asyncio.Task[None] | None = None
+        try:
+            while True:
+                await asyncio.sleep(SUPERVISE)
+                if probing is None or probing.done():
+                    probing = asyncio.create_task(self._probe_logged())
+                try:
+                    self._supervise()
+                except Exception:  # a bug must not stop the gateway
+                    _LOGGER.exception("%s: fallback check failed", self.c.name)
+        finally:
+            if probing is not None:
+                probing.cancel()
+
+    async def _probe_logged(self) -> None:
+        try:
+            await self._probe()
+        except Exception:  # a bug must not stop the gateway
+            _LOGGER.exception("%s: base ID check failed", self.c.name)
 
     async def _probe(self) -> None:
         interval = FALLBACK_PROBE if self.serves else MAIN_PROBE if self.c.fallback else 0

@@ -1123,3 +1123,43 @@ def test_an_esp2_false_start_does_not_cost_the_next_frame() -> None:
     frames behind it all come out, and the junk does not."""
     splitter = Splitter("esp2")
     assert splitter.feed(b"\x00\xa5\x5a\x01\x02" + FRAME_A + FRAME_A) == [FRAME_A, FRAME_A]
+
+
+async def test_a_request_that_gave_up_waiting_for_its_turn_is_not_sent_later(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """E.g. a base ID write that reported "no answer" must not use a flash write after all."""
+    gateway, proxy = setup.gateway, setup.proxy
+    monkeypatch.setattr(enocean, "LATE_GRACE", 0.0)
+    monkeypatch.setattr(enocean, "QUEUE_TIMEOUT", 0.1)
+    _r, w = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    next(iter(proxy.clients.values())).answer_within = 0.4
+    w.write(BASE_ID_READ)  # never answered: holds the gateway for 0.4 s
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ)
+    assert await proxy.request(BASE_ID_READ) is None  # gives up after 0.1 s
+    await asyncio.sleep(0.6)
+    assert bytes(gateway.received) == BASE_ID_READ  # only the client's
+    w.close()
+
+
+async def test_a_frame_that_could_not_be_written_does_not_hold_the_next(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gateway, proxy = setup.gateway, setup.proxy
+    _r, w = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    next(iter(proxy.clients.values())).answer_within = 5.0
+    write, failed = proxy.link.write, []
+
+    async def once_broken(frame: bytes) -> None:
+        if not failed:
+            failed.append(frame)
+            raise OSError("write failed")
+        await write(frame)
+
+    monkeypatch.setattr(proxy.link, "write", once_broken)
+    w.write(BASE_ID_READ + BASE_ID_READ)
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ, timeout=1)  # not after 5 s
+    assert failed and proxy.stats.dropped == 1
+    w.close()
