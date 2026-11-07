@@ -428,3 +428,29 @@ def test_b_keeps_only_a_bounded_number_of_relayed_frames(monkeypatch: pytest.Mon
     sent = [b.relay(origin, COMMAND, lambda reply: None) for _ in range(5)]
     assert sent == [True, True, True, False, False]
     assert b._outgoing.qsize() == 3
+
+
+async def test_a_capture_with_a_lock_does_not_make_a_switch_over(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The lock drops A's own probes too: that is not a gateway that stopped answering, and
+    the locked program's frames never go out through B."""
+    pair = await _pair(monkeypatch, tmp_path)
+    try:
+        await _until(lambda: pair.a.fallback_ready)
+        reader, writer = await pair.client()
+        host = next(iter(pair.a.clients.values())).host
+        pair.a.exclusive_peer = host
+        await asyncio.sleep(0.5)  # about ten probe intervals
+        assert pair.a.active == "main"
+        assert "enocean_failover" not in pair.kinds()
+
+        pair.a.switch("fallback")  # B stands in by hand: the locked program stays on A
+        await _until(lambda: pair.a.active == "fallback")
+        pair.gateway_a.received.clear()
+        writer.write(COMMAND)
+        await _until(lambda: COMMAND in pair.gateway_a.received)
+        assert COMMAND not in pair.gateway_b.received
+        writer.close()
+    finally:
+        await _end(pair)

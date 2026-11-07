@@ -339,7 +339,8 @@ told it. Tools:
   program, hex) into the trace folder, at most 50 MB; listed, downloaded and deleted on the
   **Trace** page. Optionally only one program may send meanwhile, e.g. PCT14 reading a FAM14:
   the frames of the other programs (Home Assistant too) are dropped and not sent later, and
-  the app's own tools do not send meanwhile.
+  the app's own tools do not send meanwhile. The fallback check pauses then too, and that
+  program's frames go to this gateway only, never through the fallback gateway.
 
 ### Fallback gateway
 
