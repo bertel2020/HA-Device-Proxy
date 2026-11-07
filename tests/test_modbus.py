@@ -724,3 +724,39 @@ async def test_a_device_that_cannot_be_connected_keeps_turning_clients_away(
     assert len(tries) == modbus.DOWN_AFTER + 1  # the first after the pause, then at once
     worker.cancel()
     await asyncio.gather(worker, return_exceptions=True)
+
+
+async def test_a_write_of_the_write_tool_empties_the_cache() -> None:
+    registers = {0: 111}
+
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        while True:
+            try:
+                head = await reader.readexactly(7)
+            except asyncio.IncompleteReadError:
+                return
+            tid, _, length, unit = struct.unpack(">HHHB", head)
+            pdu = await reader.readexactly(length - 1)
+            address, value = struct.unpack(">HH", pdu[1:5])
+            if pdu[0] == 6:
+                registers[address] = value
+                body = pdu
+            else:
+                body = bytes([3, 2]) + struct.pack(">H", registers[address])
+            writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+
+    device = await asyncio.start_server(handle, "127.0.0.1", 0)
+    c = Connection(
+        "Inverter", "", 0, kind="modbus", host="127.0.0.1", cache_ms=10000,
+        host_port=device.sockets[0].getsockname()[1],
+    )  # fmt: skip
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    worker = asyncio.create_task(proxy._work(proxy.paths[0]))
+    client = ClientInfo("192.0.2.1:5", 0)
+    read = bytes([3, 0, 0, 0, 1])
+    assert await proxy.request(1, read, client) == bytes([3, 2, 0, 111])
+    await proxy.ask(1, modbus.write_pdu(6, 0, [222]))
+    assert await proxy.request(1, read, client) == bytes([3, 2, 0, 222])  # not the cached 111
+    worker.cancel()
+    await asyncio.gather(worker, return_exceptions=True)
+    device.close()
