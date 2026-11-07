@@ -317,7 +317,7 @@ integration shows "proxy status not reachable", check it in the terminal app wit
 purpose.
 
 **The detail page** shows what is wrong in plain words (gateway away, port taken, air time,
-frames dropped or held back, programs refused or disconnected, no program connected), every
+frames dropped (also because of a lock), programs refused or disconnected, no program connected), every
 frame live with its kind and sender (search, direction, a click on an ID shows only that
 sender, copy, take over into "send"), the air time of the last hour against the 1 % limit
 (a notification at 80 %), counters and the replay buffer, and the base ID once the gateway
@@ -338,7 +338,8 @@ told it. Tools:
 - **Record frames (PCT14)**: a single recording of every frame in both directions as JSON lines (time, gateway, direction, kind,
   program, hex) into the trace folder, at most 50 MB; listed, downloaded and deleted on the
   **Trace** page. Optionally only one program may send meanwhile, e.g. PCT14 reading a FAM14:
-  the frames of the others are held back and the app's own tools wait.
+  the frames of the other programs (Home Assistant too) are dropped and not sent later, and
+  the app's own tools do not send meanwhile.
 
 ### Fallback gateway
 

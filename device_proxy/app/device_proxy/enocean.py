@@ -26,7 +26,8 @@ next start, so telegrams received while Home Assistant restarts survive an app r
 
 A client that stops reading is disconnected before its unsent data grows without bound.
 While a capture reserves the gateway for one program (exclusive_peer, PCT14 with a FAM14),
-the frames of the others are held back.
+the frames of the others are dropped (not sent later: a bus or memory command must not
+arrive after the reservation).
 
 Fallback: a second gateway (B) with the same base ID can stand in for this one (A). B is an
 EnOcean connection of its own that the controller attaches here; while it serves A it has no
@@ -103,7 +104,7 @@ class Stats:
     replayed: int = 0
     refused: int = 0  # clients outside the allowed networks
     slow_clients: int = 0  # clients disconnected because they stopped reading
-    locked: int = 0  # client frames held back while another program had the gateway alone
+    locked: int = 0  # client frames dropped while another program had the gateway alone
     relayed: int = 0  # client frames sent through the fallback gateway
     from_fallback: int = 0  # frames from the fallback gateway passed to the clients
     bytes_to_device: int = 0
