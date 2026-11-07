@@ -419,3 +419,12 @@ async def test_the_controller_wires_the_fallback_and_swaps_the_hardware(
         await controller._reconcile_proxies()
         await gateway_a.stop()
         await gateway_b.stop()
+
+
+def test_b_keeps_only_a_bounded_number_of_relayed_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(enocean, "RELAY_QUEUE_MAX", 3)
+    b = EnOceanProxy(B, "all", lambda *a, **k: None, lambda chunk: None)
+    origin = enocean._Client("192.0.2.5:4000", "192.0.2.5", 0.0, None, enocean.esp.Splitter("esp2"))
+    sent = [b.relay(origin, COMMAND, lambda reply: None) for _ in range(5)]
+    assert sent == [True, True, True, False, False]
+    assert b._outgoing.qsize() == 3

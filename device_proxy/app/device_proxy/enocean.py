@@ -75,6 +75,7 @@ RESPONSE_TIMEOUT = 2.0  # seconds a client waits for the gateway's answer
 BASE_ID_WRITE_TIMEOUT = 5.0  # the gateway writes its flash first
 CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before it is dropped
 CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
+RELAY_QUEUE_MAX = 128  # B: frames of A's clients waiting; more are dropped, not kept forever
 CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
 REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
 BASE_ID_FILE = Path("/data/enocean_base_ids.json")  # last base ID of each gateway, for B's check
@@ -94,7 +95,7 @@ TraceSink = Callable[[Chunk], None]
 class Stats:
     from_gateway: int = 0  # frames
     to_gateway: int = 0
-    dropped: int = 0  # client frames while the gateway was not connected
+    dropped: int = 0  # client frames while the gateway was not connected (or B was full)
     replayed: int = 0
     refused: int = 0  # clients outside the allowed networks
     slow_clients: int = 0  # clients disconnected because they stopped reading
@@ -595,23 +596,30 @@ class EnOceanProxy:
 
     def _relay(self, fallback: EnOceanProxy, client: _Client, frame: bytes) -> None:
         """A: send a client's frame through B; B's answer goes back to the client."""
-        self.stats.relayed += 1
-        self._trace("tx", frame, f"{client.address} → {fallback.c.name}")
 
         def answer(reply: bytes) -> None:
             self._trace("rx", reply, f"{fallback.c.name} → {client.address}")
             self._send(client, reply)
 
-        fallback.relay(client, frame, answer)
+        if not fallback.relay(client, frame, answer):
+            self.stats.dropped += 1  # B has more waiting than it can send
+            return
+        self.stats.relayed += 1
+        self._trace("tx", frame, f"{client.address} → {fallback.c.name}")
 
-    def relay(self, origin: _Client, frame: bytes, deliver: Callable[[bytes], None]) -> None:
-        """B: a frame of the gateway it stands in for, queued in turn; its answer to deliver."""
+    def relay(self, origin: _Client, frame: bytes, deliver: Callable[[bytes], None]) -> bool:
+        """B: a frame of the gateway it stands in for, queued in turn; its answer to deliver.
+        False when RELAY_QUEUE_MAX frames wait already: A's clients are not held back by B
+        (A has taken their frames from its own queue), so B bounds what it keeps."""
+        if self._outgoing.qsize() >= RELAY_QUEUE_MAX:
+            return False
         address = f"{origin.address} ({self.serves})" if self.serves else origin.address
         client = _Client(
             address, origin.host, time.time(), None, esp.Splitter(self.protocol), sink=deliver
         )
         client.queued += 1
         self._outgoing.put_nowait((client, frame))
+        return True
 
     def _from_fallback(self, frame: bytes) -> None:
         """A: a frame from B that is not an answer for one of A's clients."""
