@@ -1008,3 +1008,60 @@ async def test_a_second_capture_in_the_same_second_gets_its_own_file(
     captures.stop()
     assert first.path != second.path and second.path.name.endswith("-2.jsonl")
     assert first.path.read_text() == "kept\n"
+
+
+async def test_one_answered_command_at_a_time_and_late_answers_stay_with_their_command(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gateway, proxy = setup.gateway, setup.proxy
+    monkeypatch.setattr(enocean, "LATE_GRACE", 0.1)
+    (r1, w1), (r2, w2) = await _connect(proxy), await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 2)
+    w1.write(BASE_ID_READ)
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ)
+    w2.write(BASE_ID_READ)
+    await asyncio.sleep(0.1)
+    assert bytes(gateway.received) == BASE_ID_READ  # the second waits for the first's answer
+    gateway.send(BASE_ID_ANSWER)
+    assert await r1.readexactly(14) == BASE_ID_ANSWER
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ * 2)  # now its turn
+    gateway.send(BASE_ID_ANSWER)
+    assert await r2.readexactly(14) == BASE_ID_ANSWER
+
+    # the asker is gone before the answer comes: the answer is its, not the next one's
+    gateway.received.clear()
+    w1.write(BASE_ID_READ)
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ)
+    w1.close()
+    await _until(lambda: len(proxy.clients) == 1)
+    w2.write(BASE_ID_READ)
+    gateway.send(BASE_ID_ANSWER)  # the answer to the first read
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ * 2)
+    gateway.send(BASE_ID_ANSWER)
+    assert await r2.readexactly(14) == BASE_ID_ANSWER
+    await asyncio.sleep(0.1)
+    assert not r2._buffer  # type: ignore[attr-defined]  # only its own answer, not both
+    w2.close()
+
+
+async def test_the_apps_request_waits_for_its_answer_from_the_sending_on(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gateway, proxy = setup.gateway, setup.proxy
+    monkeypatch.setattr(enocean, "LATE_GRACE", 0.0)
+    _r, w = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    next(iter(proxy.clients.values())).answer_within = 0.3
+    w.write(BASE_ID_READ)  # never answered: holds the gateway for 0.3 s
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ)
+    asked = asyncio.create_task(proxy.request(BASE_ID_READ, timeout=0.2))
+    await _until(lambda: bytes(gateway.received) == BASE_ID_READ * 2, timeout=1)
+    await asyncio.sleep(0.1)  # 0.4 s after asking, 0.1 s after sending
+    gateway.send(BASE_ID_ANSWER)
+    assert await asked == BASE_ID_ANSWER
+    w.close()
+
+    proxy.exclusive_peer = "192.0.2.1"  # reserved: the request comes back at once
+    async with asyncio.timeout(0.5):
+        assert await proxy.request(BASE_ID_READ) is None
+    proxy.exclusive_peer = None
