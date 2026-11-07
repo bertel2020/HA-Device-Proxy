@@ -176,13 +176,15 @@ def signal(protocol: str, frame: bytes) -> tuple[int | None, int]:
 
 def radio_key(protocol: str, frame: bytes) -> bytes | None:
     """What two gateways that heard the same radio telegram have in common: ESP3 its data
-    without the optional data (signal strength, subtelegrams), ESP2 ORG, data and sender
-    without the status (repeater count). None for anything else."""
+    without the status (its last byte: repeater count) and the optional data (signal
+    strength, subtelegrams), ESP2 ORG, data and sender without the status. None for
+    anything else."""
     if not is_radio(protocol, frame):
         return None
     if protocol == "esp3":
         length = int.from_bytes(frame[1:3], "big")
-        return bytes(frame[4:5]) + frame[6 : 6 + length]
+        status = 1 if frame[4] in (0x01, 0x03) else 0  # RADIO_MESSAGE has none
+        return bytes(frame[4:5]) + frame[6 : 6 + length - status]
     return frame[3:12] if len(frame) >= 14 else None
 
 
