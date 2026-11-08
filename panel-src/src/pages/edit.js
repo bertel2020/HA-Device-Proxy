@@ -79,7 +79,7 @@ export class EditPage extends Page {
     .flow li { position: relative; }
     .flow li + li::before { content: "→"; color: var(--muted); position: absolute; left: -19px; top: 50%; transform: translateY(-50%); }
     @media (max-width: 700px) { .flow { row-gap: 24px; } .flow li + li::before { content: "↓"; left: 50%; top: -17px; transform: translateX(-50%); } }
-    .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; bottom: 0; z-index: 5;
+    .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; bottom: var(--nav-b, 0px); z-index: 5;
       background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; box-shadow: 0 -6px 16px -8px var(--shadow-c); }
   `];
 
