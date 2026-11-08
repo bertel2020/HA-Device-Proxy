@@ -466,6 +466,23 @@ async def test_allowed_clients_and_slow_clients(
     writer.close()
 
 
+async def test_blocked_host_is_refused_and_dropped(setup: Setup) -> None:
+    proxy = setup.proxy
+    _reader, connected = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    assert proxy.disconnect_host("192.0.2.7") == 0  # another host stays
+    assert proxy.disconnect_host("127.0.0.1") == 1
+    await _until(lambda: not proxy.clients)
+    connected.close()
+
+    proxy.blocked = {"127.0.0.1"}
+    refused = proxy.stats.refused
+    reader, writer = await _connect(proxy)
+    assert await reader.read() == b""
+    assert proxy.stats.refused == refused + 1 and not proxy.clients
+    writer.close()
+
+
 async def test_places_and_the_lock_of_a_capture(setup: Setup) -> None:
     gateway, proxy = setup.gateway, setup.proxy
     proxy.c = replace(proxy.c, max_clients=1)

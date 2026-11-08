@@ -8,9 +8,11 @@ a Unix socket readable by the container's root only.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import time
 import unicodedata
+from collections.abc import Iterable
 
 from .model import (
     ADMIN_SOCKET,
@@ -21,6 +23,10 @@ from .model import (
 )
 from .trace import trace_path
 
+ANYONE = [
+    ipaddress.ip_network(n)
+    for n in ("0.0.0.0/1", "128.0.0.0/1", "::1/128", "2000::/3", "fc00::/7", "fe80::/10")
+]
 HEADER = "# Written by the Device Proxy app. Changes here are overwritten on the next save."
 
 
@@ -79,6 +85,36 @@ def remaddr(c: Connection, listen: str) -> str:
     else:
         return ""  # "local" is limited by the bind address, "all" has no limit
     return ";".join(f"{n},0" for n in networks)
+
+
+def remaddr_without(c: Connection, listen: str, hosts: Iterable[str]) -> str:
+    """The connection's own remaddr with these hosts kept out. ser2net can only list who may
+    connect, so a host is cut out of the networks the connection lets in; unchanged when they
+    are not in there. "Anyone" is spelled without /0 and without the IPv4-mapped IPv6 range, in
+    which an IPv4 client could count as allowed."""
+    if c.remaddr:
+        networks = parse_networks(c.remaddr)
+    elif listen == "apps" or listen.startswith("lan"):
+        networks = listen_networks(listen)
+    elif listen == "local":
+        return c.remaddr  # this host only, nobody to keep out
+    else:
+        networks = list(ANYONE)
+    cut = False
+    for host in hosts:
+        out = ipaddress.ip_network(host)
+        kept: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+        for network in networks:
+            if network.version == out.version and out.subnet_of(network):  # type: ignore[arg-type]
+                kept += network.address_exclude(out)  # type: ignore[arg-type]
+                cut = True
+            else:
+                kept.append(network)
+        networks = kept
+    if not cut:
+        return c.remaddr
+    # empty would mean "as the global setting": there the host may be allowed
+    return " ".join(str(n) for n in networks) or "127.0.0.1/32"
 
 
 def block(c: Connection, listen: str, *, trace: bool = True) -> str:

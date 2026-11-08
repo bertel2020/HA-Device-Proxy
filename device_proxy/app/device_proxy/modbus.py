@@ -30,11 +30,11 @@ import struct
 import termios
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from .clients import host_of
+from .clients import host_of, plain_host
 from .detect import configure
 from .model import (
     Connection,
@@ -865,6 +865,7 @@ class ModbusProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
+        self.blocked: Container[str] = ()  # hosts kept out of every connection
         self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)  # the clients' writes
         # the proxy of another connection, for units routed there (set by the controller)
         self.router: Callable[[str], ModbusProxy | None] = lambda connection_id: None
@@ -1195,6 +1196,10 @@ class ModbusProxy:
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
         sock = writer.get_extra_info("sockname")
+        if plain_host(host) in self.blocked:
+            _LOGGER.info("%s: client %s refused (blocked)", self.c.name, address)
+            writer.close()
+            return
         if not peer_allowed(self.c.remaddr, self.listen, peer, sock):
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
             writer.close()
@@ -1353,6 +1358,13 @@ class ModbusProxy:
         """Close every client's connection (they may connect again); keep: a host whose
         clients stay."""
         clients = [c for c in self.clients.values() if not keep or host_of(c.info.address) != keep]
+        for client in clients:
+            client.writer.close()
+        return len(clients)
+
+    def disconnect_host(self, host: str) -> int:
+        """Close the connections of this host's clients."""
+        clients = [c for c in self.clients.values() if plain_host(host_of(c.info.address)) == host]
         for client in clients:
             client.writer.close()
         return len(clients)

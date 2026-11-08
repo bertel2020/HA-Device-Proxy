@@ -37,8 +37,8 @@ from typing import Any
 from . import custom, esp, health, model, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
-from .clients import KnownClients, parse_names
-from .config import blocks, changed, readable_alias, render
+from .clients import KnownClients, is_local, parse_names, plain_host
+from .config import blocks, changed, readable_alias, remaddr_without, render
 from .detect import detect
 from .devices import (
     Device,
@@ -72,7 +72,7 @@ from .modbus import (
     sunspec_common,
     write_pdu,
 )
-from .model import AppConfig, Connection, ValidationError, new_id
+from .model import AppConfig, Connection, ValidationError, new_id, own_address
 from .notify import SHOWN_FILE, Notifier
 from .process import Ser2Net
 from .store import PASSWORD_KEPT, Change, Store, hidden, summary
@@ -357,7 +357,7 @@ class Controller:
 
     def _runtime(self) -> tuple[str, dict[str, str]]:
         if not self.uses_custom:
-            config = self._with_exclusive(self.config)
+            config = self._for_ser2net(self.config)
             return render(config), blocks(config)
         try:
             text = self.custom_file.read_text(encoding="utf-8")
@@ -512,7 +512,7 @@ class Controller:
         that have to connect again. Connections that only start are left out."""
         found: list[dict[str, object]] = []
         if not self.uses_custom and new.settings.source != "custom":  # the own file: its page
-            after = blocks(self._with_exclusive(new))
+            after = blocks(self._for_ser2net(new))
             for alias in sorted(changed(self._written, after)):
                 if alias not in self._written:
                     continue
@@ -714,6 +714,32 @@ class Controller:
     def acknowledge_client(self, host: str) -> bool:
         return self.known_clients.acknowledge(host)
 
+    async def block_client(self, host: str) -> None:
+        """Keep this host out of every connection; its clients are disconnected at once. With
+        ser2net all clients of a connection reconnect: it cannot drop a single one."""
+        host = plain_host(host)
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            raise ValueError("an IP address") from None
+        if is_local(host, self.lan_ip) or own_address(host):
+            raise ValueError("Home Assistant, its apps and this host cannot be blocked")
+        if any(host == only for only, _ in self.exclusive.values()):
+            raise ValueError("this host is in maintenance")
+        if not self.known_clients.block(host):
+            return
+        for proxy in self.proxies.values():
+            proxy.disconnect_host(host)
+        await self._apply_ser2net()
+        self.events.emit("warning", "client_blocked", address=host)
+
+    async def unblock_client(self, host: str) -> bool:
+        if not self.known_clients.unblock(host):
+            return False
+        await self._apply_ser2net()
+        self.events.emit("info", "client_unblocked", address=host)
+        return True
+
     def _ser2net_ended(self, code: int | None, delay: float) -> None:
         self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
         now = time.time()
@@ -781,6 +807,7 @@ class Controller:
             proxy.only = (
                 self.exclusive[connection_id][0] if connection_id in self.exclusive else None
             )
+            proxy.blocked = self.known_clients.blocked
             if isinstance(proxy, ModbusProxy):
                 proxy.router = self._modbus_proxy
             if isinstance(proxy, EnOceanProxy):
@@ -1501,8 +1528,14 @@ class Controller:
 
     # maintenance: one host alone
 
-    def _with_exclusive(self, config: AppConfig) -> AppConfig:
-        """ser2net's connections in maintenance accept their one host only."""
+    def _for_ser2net(self, config: AppConfig) -> AppConfig:
+        """ser2net's connections keep the blocked hosts out, and those in maintenance accept
+        their one host only."""
+        if blocked := list(self.known_clients.blocked):
+            for port in config.connections:
+                if port.kind == "serial":
+                    limit = remaddr_without(port, config.settings.access, blocked)
+                    config = config.with_connection(replace(port, remaddr=limit))
         for connection_id, (host, _) in self.exclusive.items():
             c = config.connection(connection_id)
             if c is not None and c.kind == "serial":
@@ -1526,6 +1559,8 @@ class Controller:
             host = str(ipaddress.ip_address(host))
         except ValueError:
             raise ValueError("an IP address") from None
+        if host in self.known_clients.blocked:
+            raise ValueError("this host is blocked")
         if not 1 <= minutes <= EXCLUSIVE_MAX:
             raise ValueError(f"1 to {EXCLUSIVE_MAX} minutes")
         if c.kind == "serial" and self.uses_custom:
@@ -1558,7 +1593,10 @@ class Controller:
             if host:
                 proxy.disconnect_clients(keep=host)
             return
-        async with self._lock:  # ser2net: its remaddr changes, the clients reconnect
+        await self._apply_ser2net()
+
+    async def _apply_ser2net(self) -> None:
+        async with self._lock:  # a remaddr changes, the clients of that connection reconnect
             before = self._written
             self.write_config()
             touched = changed(before, self._written)
@@ -1786,6 +1824,7 @@ class Controller:
     def snapshot(self) -> dict[str, object]:
         """Everything the status pages show, in one JSON-ready structure."""
         settings = self.config.settings
+        client_names = parse_names(settings.client_names)
         connections = []
         for c in self.config.connections:
             if c.kind in PROXIED:
@@ -1841,6 +1880,10 @@ class Controller:
             "lan_ip": self.lan_ip,
             "lan_net": self.lan_net,
             "new_clients": [{"host": h, **entry} for h, entry in self.known_clients.new.items()],
+            "blocked_clients": [
+                {"host": h, "since": since, "name": client_names.get(h)}
+                for h, since in self.known_clients.blocked.items()
+            ],
             "connections": connections,
             "custom_ports": [
                 {"alias": p.alias, "clients": [cl.address for cl in p.clients]}

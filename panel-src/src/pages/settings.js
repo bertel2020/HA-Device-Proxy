@@ -181,6 +181,24 @@ export class SettingsPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  async _blockClient(host) {
+    host = host.trim();
+    if (!host || !(await confirmDialog(this, t("blockAsk", { h: host }), t("newClientBlock")))) return;
+    try {
+      await api("api/clients/block", { method: "POST", body: { host } });
+      const field = this.renderRoot.getElementById("block-host");
+      if (field) field.value = "";
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  async _unblockClient(host) {
+    try {
+      await api("api/clients/unblock", { method: "POST", body: { host } });
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   /** The Save button of a card: active once one of the card's settings differs from the saved one. */
   _saveRow(keys) {
     const dirty = keys.some((k) => this.draft[k] !== this.state.settings[k]);
@@ -431,10 +449,23 @@ export class SettingsPage extends Page {
             ${s.new_clients.map((n) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
               <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${n.address}</span>
                 <span class="hint">${t("newClientAt", { c: n.connection, t: fmtTime(n.first) })}</span></div>
-              <div style="display:flex;gap:8px;margin-left:auto">
+              <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+                <button class="btn btn-d" @click=${() => this._blockClient(n.host)}>${t("newClientBlock")}</button>
                 <button class="btn btn-g" @click=${() => { this.draft = { ...d, client_names: `${(d.client_names || "").trimEnd()}${d.client_names ? "\n" : ""}${n.host} ` }; this.renderRoot.getElementById("client-names")?.focus(); }}>${t("newClientName")}</button>
                 <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button></div>
             </div>`)}</div>` : ""}
+          <div class="grp" style="gap:8px">
+            <h3>${t("blockedClients")}</h3>
+            ${(s.blocked_clients || []).map((b) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${b.host}${b.name ? html` <span class="hint">${b.name}</span>` : ""}</span>
+                <span class="hint">${t("blockedSince", { t: fmtTime(b.since) })}</span></div>
+              <button class="btn btn-s" style="margin-left:auto" @click=${() => this._unblockClient(b.host)}>${t("blockRelease")}</button>
+            </div>`)}
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input id="block-host" class="inp mono" style="flex:1 1 200px;width:auto" placeholder="192.168.1.50" aria-label=${t("blockAddress")} @keydown=${(e) => { if (e.key === "Enter") this._blockClient(e.target.value); }}>
+              <button class="btn btn-s" @click=${() => this._blockClient(this.renderRoot.getElementById("block-host").value)}>${t("newClientBlock")}</button></div>
+            <span class="hint">${t("blockHint")}${s.source === "custom" ? ` ${t("blockCustom")}` : ""}</span>
+          </div>
           <label class="fld"><span class="lbl">${t("clientNames")}</span>
             <textarea id="client-names" class="inp mono" rows="4" placeholder="192.168.1.20 evcc&#10;192.168.1.35 Laptop" .value=${d.client_names || ""}
               @input=${(e) => { this.draft = { ...this.draft, client_names: e.target.value }; }}></textarea>
