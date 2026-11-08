@@ -310,7 +310,7 @@ export class EnOceanSenders extends LitElement {
       ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
           <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString()}</td><td>${fmtAgo(r.last)}</td>
           ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>

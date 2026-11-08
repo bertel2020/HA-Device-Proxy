@@ -105,4 +105,9 @@ export const base = css`
     outline: 3px solid var(--focus); outline-offset: 2px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
+  /* touch: links, chips and the small buttons take taps in a taller area than they show; an invisible extension, so nothing moves */
+  @media (max-width: 600px), (pointer: coarse) {
+    a:where(:not(.btn, .iconbtn, .act, nav a)), button.chip, button.tap { position: relative; }
+    a:where(:not(.btn, .iconbtn, .act, nav a))::after, button.chip::after, button.tap::after { content: ""; position: absolute; inset: -10px 0; }
+  }
 `;
