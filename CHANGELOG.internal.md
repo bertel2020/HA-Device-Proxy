@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-08
+
 ### Neue Felder
 
 Alle haben einen Standardwert, gespeicherte Konfigurationen laden ohne Migration, `SCHEMA` bleibt 1.
