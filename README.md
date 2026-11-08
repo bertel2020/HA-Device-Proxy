@@ -28,8 +28,6 @@ Device Proxy is a Home Assistant app (formerly add-on) that makes a device usabl
 
 Everything is set up in a web interface in the sidebar: no YAML, no command line. The app's **Configuration** tab in the Supervisor stays empty on purpose; everything is in the sidebar entry **Device Proxy**. Status, live data, traces and events show what is happening on the line.
 
-> Tested on Home Assistant OS with EnOcean gateways (FAM-USB, MGW-ETH, replay after a restart, PCT14). Serial and USB devices, Modbus and the EnOcean fallback gateway are not yet tested there with real devices: feedback is welcome; [tests/HARDWARE.md](tests/HARDWARE.md) lists what to try. Needs Home Assistant OS or Supervised (apps run under the Supervisor).
-
 ## Screenshots
 
 <p align="center">

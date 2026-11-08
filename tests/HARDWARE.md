@@ -7,10 +7,6 @@ Die Spalte **Automatisch** sagt, was davon schon ohne Hardware abgedeckt ist; ge
 hier, was dort nicht nachgestellt werden kann: echte Treiber, USB, der Supervisor, Ingress
 und die Geräte selbst.
 
-Laut README ist auf HA OS bisher getestet: EnOcean mit FAM-USB, MGW-ETH, Nachliefern nach
-einem Neustart und PCT14. Noch nicht mit echten Geräten: serielle und USB-Geräte, Modbus
-und das EnOcean-Ersatz-Gateway.
-
 ## Vor dem Durchgang festhalten
 
 | | |
