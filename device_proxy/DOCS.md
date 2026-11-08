@@ -508,8 +508,8 @@ the version before** – the configuration as it was before the change, in one s
 
 **Settings → Clients** shows new, known and blocked computers in one list. The dot in front gives
 the state: green connected, grey not connected, yellow new, red blocked. A click on a known
-computer opens the field for the name, saved when you leave it; in the lists of clients of a
-connection the pencil does the same. The name shows next to the address in the lists of clients and
+computer opens the field for the name, saved when you leave it; in the details of a connection the
+pencil next to a client does the same. The name shows next to the address in the lists of clients and
 in the events. This host is called Home Assistant by itself, addresses in the Supervisor network
 App; a name of your own goes first.
 

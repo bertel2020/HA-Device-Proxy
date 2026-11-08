@@ -540,7 +540,7 @@ wiederherstellen** – die Konfiguration von vor der Änderung, in einem Schritt
 **Einstellungen → Clients** zeigt neue, bekannte und blockierte Rechner in einer Liste. Der Punkt
 vorne sagt den Zustand: grün verbunden, grau nicht verbunden, gelb neu, rot blockiert. Ein Klick
 auf einen bekannten Rechner öffnet das Feld für den Namen, das beim Verlassen speichert; in den
-Client-Listen der Verbindungen geht das über den Stift. Der Name steht neben der Adresse in den
+Details einer Verbindung geht das über den Stift beim Client. Der Name steht neben der Adresse in den
 Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home Assistant, Adressen aus dem
 Supervisor-Netz App; ein eigener Name geht vor.
 

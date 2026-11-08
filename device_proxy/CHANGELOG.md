@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Übersicht**: In der Kachel einer Verbindung steht bei den Clients kein Stift mehr, die Zeile
+  bricht nicht mehr um. Umbenennen geht weiter in den Details der Verbindung und unter Clients.
+
+### English
+
+- **Overview**: The clients on a connection's card no longer have a pencil, so the line stays in one
+  piece. Renaming is still available in the connection's details and under Clients.
+
 ## 1.5.0 - 2026-11-08
 
 Modbus-Register direkt als Entitäten in Home Assistant, Schreibrechte je Client, Geräteprofile,
