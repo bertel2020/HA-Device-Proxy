@@ -53,6 +53,8 @@ Keines startet einen Proxy neu (`restart_key` in `modbus.py` und `enocean.py`).
   - Proxies fragen `refuse(host, name)` statt `blocked`; Versuche zählt `KnownClients.refused` im
     Speicher, Protokollzeile höchstens alle `LOG_SECONDS`. ser2net meldet Abweisungen nicht.
   - `POST api/clients/forget` entfernt Eintrag und Namen.
+  - Karte Clients: eine Liste (`_clientList`, `_clientRow` in `settings.js`), `client_names` ist
+    kein Textfeld mehr.
 
 ### Repository und CI
 

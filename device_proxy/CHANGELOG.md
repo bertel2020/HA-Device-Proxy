@@ -19,8 +19,8 @@ ein Stromzyklus für hängende Geräte, Clients sperren und benennen, EnOcean-Se
   nicht geholfen haben.
 - **Clients sperren**: Ein Rechner lässt sich von allen Verbindungen aussperren und wieder
   freigeben. Bei Modbus und EnOcean steht in seiner Zeile, wie oft er abgewiesen wurde.
-- **Clients benennen**: Die bekannten Rechner stehen in einer Liste mit Namensfeld und „zuletzt
-  gesehen“, in den Client-Listen einer Verbindung geht das mit dem Stift. Dieser Rechner heißt von
+- **Clients benennen**: Neue, bekannte und blockierte Rechner stehen in einer Liste mit Status und
+  „zuletzt gesehen“; ein Klick öffnet den Namen. In den Client-Listen einer Verbindung geht das mit dem Stift. Dieser Rechner heißt von
   selbst Home Assistant, Adressen im Supervisor-Netz App. Nicht verbundene Rechner lassen sich aus
   der Liste entfernen. Viele neue Rechner auf einmal ergeben eine gemeinsame Benachrichtigung.
 - **EnOcean-Sender**: eigene Namen für alle Gateways, gemeinsam gespeichert und nicht in der
@@ -44,8 +44,8 @@ a power cycle for devices that hang, blocking and naming clients, EnOcean sender
   by hand, as a button in Home Assistant and once when three automatic restarts did not help.
 - **Blocking clients**: A computer can be kept out of every connection and released again. With
   Modbus and EnOcean its line shows how often it was refused.
-- **Naming clients**: The known computers are in a list with a name field and "last seen"; in the
-  lists of clients of a connection the pencil does the same. This host is called Home Assistant by
+- **Naming clients**: New, known and blocked computers are in one list with their state and "last
+  seen"; a click opens the name. In the lists of clients of a connection the pencil does the same. This host is called Home Assistant by
   itself, addresses in the Supervisor network App. Computers that are not connected can be removed
   from the list. Many new computers at once get one notification together.
 - **EnOcean senders**: names of your own for all gateways, saved together and left out of the
