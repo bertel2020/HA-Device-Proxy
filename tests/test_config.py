@@ -136,6 +136,26 @@ def test_a_damaged_config_file_falls_back_to_the_latest_version(tmp_path: Path) 
     assert Store(None, tmp_path / "none.json").load() == AppConfig()
 
 
+def test_an_invalid_config_without_a_valid_version_keeps_what_is_valid(tmp_path: Path) -> None:
+    """Stricter checks of a new version: not everything lost (and with it the HA entities)."""
+    from device_proxy.store import Store
+
+    good = Connection("a", "/dev/null", 3335, id="0000000a")
+    data = AppConfig(Settings(mqtt_interval=30), (good,)).to_dict()
+    data["settings"]["mqtt_port"] = 0  # invalid: back to the default
+    data["connections"].append({**good.to_dict(), "id": "0000000b", "name": "b", "port": 1})
+    data["connections"].append({**good.to_dict(), "id": "0000000c", "name": "c", "port": 3336})
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    store = Store(None, path)
+    config = store.load()
+    assert [c.name for c in config.connections] == ["a"]  # b: bad port, c: same device as a
+    assert config.settings.mqtt_interval == 30
+    assert config.settings.mqtt_port == Settings().mqtt_port
+    assert list(tmp_path.glob("c.invalid-*"))  # the original is kept aside
+    assert store.load() == config  # and written back: the next start finds it
+
+
 def test_listen_apps_limits_clients_to_home_assistant_and_the_apps() -> None:
     from device_proxy.model import client_allowed
 
