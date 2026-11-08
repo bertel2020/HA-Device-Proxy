@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-08
+
 Modbus-Register direkt als Entitäten in Home Assistant, Schreibrechte je Client, Geräteprofile,
 ein Stromzyklus für hängende Geräte, Clients sperren und benennen, EnOcean-Sender mit Namen.
 
