@@ -37,7 +37,7 @@ from typing import Any
 from . import custom, esp, health, model, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
-from .clients import KnownClients, is_local, parse_names, plain_host
+from .clients import KnownClients, host_of, is_local, local_kind, parse_names, plain_host
 from .config import blocks, changed, readable_alias, remaddr_without, render
 from .detect import detect
 from .devices import (
@@ -699,6 +699,7 @@ class Controller:
             self.client_since[(alias, address)] = time.time()
         else:
             self.client_since.pop((alias, address), None)
+            self.known_clients.touch(address, name)
         event = "client_connected" if kind == "new connection" else "client_disconnected"
         self.events.emit("info", event, connection=connection_id, name=name, address=address)
         if event == "client_connected":
@@ -864,8 +865,11 @@ class Controller:
             c = self.config.connection(connection_id)
             name = c.name if c else connection_id
             self.events.emit(level, kind, connection=connection_id, name=name, **params)
+            address = str(params.get("address", ""))
             if kind == "client_connected":
-                self._client_seen(connection_id, name, str(params.get("address", "")))
+                self._client_seen(connection_id, name, address)
+            elif kind == "client_disconnected":
+                self.known_clients.touch(address, name)
 
         return emit
 
@@ -1821,6 +1825,37 @@ class Controller:
 
     # the state for the web interface
 
+    def _client_rows(
+        self, connections: list[dict[str, Any]], names: dict[str, str]
+    ) -> list[dict[str, object]]:
+        """The known hosts for the settings; Home Assistant and the apps only while connected."""
+        live: dict[str, str] = {}
+        for c in connections:
+            for client in c["clients"]:
+                live.setdefault(plain_host(host_of(str(client["address"]))), str(c["name"]))
+        known = self.known_clients
+        rows: list[tuple[tuple[bool, int, int], dict[str, object]]] = []
+        for host in {*known.known, *names, *live} - known.blocked.keys() - known.new.keys():
+            auto = local_kind(host, self.lan_ip)
+            if auto and host not in live:
+                continue
+            try:
+                ip = ipaddress.ip_address(host)
+            except ValueError:
+                continue  # the app's own clients have no address
+            last = known.last.get(host, {})
+            row = {
+                "host": host,
+                "name": names.get(host, ""),
+                "auto": auto,
+                "connected": host in live,
+                "connection": live.get(host) or last.get("connection", ""),
+                "last": last.get("time"),
+                "first": known.known.get(host),
+            }
+            rows.append(((auto is not None, ip.version, int(ip)), row))
+        return [row for _, row in sorted(rows, key=lambda item: item[0])]
+
     def snapshot(self) -> dict[str, object]:
         """Everything the status pages show, in one JSON-ready structure."""
         settings = self.config.settings
@@ -1880,6 +1915,7 @@ class Controller:
             "lan_ip": self.lan_ip,
             "lan_net": self.lan_net,
             "new_clients": [{"host": h, **entry} for h, entry in self.known_clients.new.items()],
+            "known_clients": self._client_rows(connections, client_names),
             "blocked_clients": [
                 {"host": h, "since": since, "name": client_names.get(h)}
                 for h, since in self.known_clients.blocked.items()

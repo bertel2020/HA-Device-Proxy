@@ -45,12 +45,12 @@ const TEXT = {
     restartAsk: "„{n}“ neu starten? Die {c} verbundenen Clients werden getrennt und können sich gleich wieder verbinden.",
     usbResetAsk: "Den USB-Adapter von „{n}“ zurücksetzen? Die Verbindung startet neu, die {c} verbundenen Clients werden getrennt; das dauert ein paar Sekunden.",
     restartDone: "Verbindung neu gestartet.", usbResetDone: "USB-Reset erledigt, Verbindung neu gestartet.", usbResetFailed: "Verbindung neu gestartet, USB-Reset fehlgeschlagen",
-    sClients: "Clients", sClientsSub: "Namen für die Adressen deiner Clients; sie stehen dann neben der Adresse, auch in den Ereignissen. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.",
-    newClients: "Neue Clients", newClientAt: "zuerst an {c}, {t}", newClientKnown: "Bekannt", newClientName: "Benennen",
+    sClients: "Clients", sClientsSub: "Namen und Sperren für die Rechner an deinen Ports; die Namen stehen dann neben der Adresse, auch in den Ereignissen. Änderungen gelten sofort. Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet: die Ports haben keine Anmeldung.", 
+    newClients: "Neue Clients", newClientAt: "zuerst an {c}, {t}", newClientKnown: "Bekannt", 
+    knownClients: "Bekannte Clients", clientNamePlaceholder: "Name", clientNameFor: "Name für {h}", clientAutomatic: "automatisch", clientAutoName_home_assistant: "Home Assistant", clientAutoName_app: "App", clientAuto_home_assistant: "dieser Rechner, gerade verbunden", clientAuto_app: "App im Supervisor-Netz, gerade verbunden", clientNow: "gerade nicht verbunden", clientConnected: "an {c}, gerade verbunden", clientLast: "zuletzt an {c}, {a}", clientFirst: "bekannt seit {t}", clientNeverSeen: "noch nicht verbunden", clientRename: "Name für {h}", clientRenameShort: "Name ändern",
     blockedClients: "Blockiert", newClientBlock: "Blockieren", blockRelease: "Freigeben", blockedSince: "blockiert seit {t}", blockAddress: "IP-Adresse, die blockiert werden soll",
     blockAsk: "{h} blockieren? Dieser Rechner wird sofort getrennt und an allen Verbindungen abgewiesen, bis du ihn freigibst. An seriellen Verbindungen werden dabei alle Clients kurz getrennt.",
     blockHint: "Gilt für alle Verbindungen. Home Assistant, die Apps und dieser Rechner lassen sich nicht blockieren.", blockCustom: "Nicht für die Ports aus deiner eigenen ser2net.yaml: dort trägst du die erlaubten Adressen selbst ein.",
-    clientNames: "Namen", clientNamesHint: "Eine Zeile je Rechner: IP-Adresse, Leerzeichen, Name. Ein Name macht den Rechner bekannt. Home Assistant, die Apps und dieser Rechner gelten immer als bekannt.",
     notifyNewClients: "Benachrichtigen, wenn sich ein neuer Rechner verbindet",
     connectionsTitle: "Verbindungen", connectionsSub: "Serielle Geräte, Modbus-Geräte und EnOcean-Gateways, geteilt über das Netzwerk.", addConnection: "Verbindung hinzufügen",
     clientsLine: "{n} von {m} Clients", missingHint: "{d} ist nicht angeschlossen. USB-Stick und Kabel prüfen.", lastDataAgo: "Letzte Daten {ago}", noDataYet: "Noch keine Daten", bandOf: "von {n} aktiv", bandProblems: "brauchen Aufmerksamkeit", bandFine: "Alles in Ordnung", bandClients: "Clients verbunden", filterProblems: "Probleme {n}", netLanOneShort: "Heimnetz (1 Netz)", netLanNShort: "Heimnetz ({n} Netze)",
@@ -583,12 +583,12 @@ const TEXT = {
     restartAsk: "Restart “{n}”? The {c} connected clients are disconnected and can connect again right away.",
     usbResetAsk: "Reset the USB adapter of “{n}”? The connection restarts and the {c} connected clients are disconnected; it takes a few seconds.",
     restartDone: "Connection restarted.", usbResetDone: "USB reset done, connection restarted.", usbResetFailed: "Connection restarted, USB reset failed",
-    sClients: "Clients", sClientsSub: "Names for your clients' addresses; they show next to the address, also in the events. A computer that connects for the first time is reported: the ports have no login.",
-    newClients: "New clients", newClientAt: "first at {c}, {t}", newClientKnown: "Known", newClientName: "Name it",
+    sClients: "Clients", sClientsSub: "Names and blocks for the computers at your ports; a name shows next to the address, also in the events. Changes apply at once. A computer that connects for the first time is reported: the ports have no login.", 
+    newClients: "New clients", newClientAt: "first at {c}, {t}", newClientKnown: "Known", 
+    knownClients: "Known clients", clientNamePlaceholder: "Name", clientNameFor: "Name for {h}", clientAutomatic: "automatic", clientAutoName_home_assistant: "Home Assistant", clientAutoName_app: "App", clientAuto_home_assistant: "this host, connected now", clientAuto_app: "app in the Supervisor network, connected now", clientNow: "not connected now", clientConnected: "at {c}, connected now", clientLast: "last at {c}, {a}", clientFirst: "known since {t}", clientNeverSeen: "not connected yet", clientRename: "Name for {h}", clientRenameShort: "Change name",
     blockedClients: "Blocked", newClientBlock: "Block", blockRelease: "Release", blockedSince: "blocked since {t}", blockAddress: "IP address to block",
     blockAsk: "Block {h}? This computer is disconnected at once and refused by every connection until you release it. On serial connections all clients are briefly disconnected.",
     blockHint: "Applies to all connections. Home Assistant, the apps and this host cannot be blocked.", blockCustom: "Not for the ports of your own ser2net.yaml: there you list the allowed addresses yourself.",
-    clientNames: "Names", clientNamesHint: "One line per computer: IP address, a space, the name. A name makes the computer known. Home Assistant, the apps and this host always count as known.",
     notifyNewClients: "Notify when a new computer connects",
     connectionsTitle: "Connections", connectionsSub: "Serial and Modbus devices and EnOcean gateways, shared over the network.", addConnection: "Add connection",
     clientsLine: "{n} of {m} clients", missingHint: "{d} is not plugged in. Check the USB stick and cable.", lastDataAgo: "Last data {ago}", noDataYet: "No data yet", bandOf: "of {n} active", bandProblems: "need attention", bandFine: "All fine", bandClients: "clients connected", filterProblems: "Problems {n}", netLanOneShort: "Home network (1 network)", netLanNShort: "Home network ({n} networks)",
@@ -1326,16 +1326,32 @@ export function eventText(event) {
 
 // the names given to client addresses (Settings → Clients): "192.168.1.20 evcc" per line
 let clientNames = new Map();
+let ownClient = "";
 
-export function setClientNames(text = "") {
+export function setClientNames(text = "", own = "") {
+  ownClient = own || "";
   clientNames = new Map(text.split("\n").map((l) => l.split("#")[0].trim()).filter(Boolean)
     .map((l) => { const i = l.indexOf(" "); return [l.slice(0, i), l.slice(i + 1).trim()]; }).filter(([h, n]) => h && n));
 }
 
+/** The host of a client "192.168.1.20:50114" or "[fe80::1]:50114". */
+export function clientHost(address = "") {
+  return address.startsWith("[") ? address.slice(1).split("]")[0] : (address.match(/:/g) || []).length === 1 ? address.split(":")[0] : address;
+}
+
+/** The name Home Assistant and the apps have without being named, else "". */
+export function autoClientName(address = "") {
+  const host = clientHost(address);
+  if (host === ownClient || host === "::1" || host.startsWith("127.")) return "Home Assistant";
+  return /^172\.30\.3[23]\./.test(host) || host.startsWith("fd0c:ac1e:2100:") ? "App" : "";
+}
+
+/** The name given to a client, "" when it has none of its own. */
+export const ownClientName = (address = "") => clientNames.get(clientHost(address)) || "";
+
 /** The name of a client "192.168.1.20:50114" or "[fe80::1]:50114", "" when it has none. */
 export function clientName(address = "") {
-  const host = address.startsWith("[") ? address.slice(1).split("]")[0] : (address.match(/:/g) || []).length === 1 ? address.split(":")[0] : address;
-  return clientNames.get(host) || "";
+  return ownClientName(address) || autoClientName(address);
 }
 
 function rawEventText(event) {

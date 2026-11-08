@@ -469,9 +469,10 @@ the version before** – the configuration as it was before the change, in one s
 
 ## Clients
 
-**Settings → Clients** gives the addresses of your clients names, one line each:
-`192.168.1.20 evcc`. The name shows next to the address in the lists of clients and in the
-events. The ports have no login, so a computer that connects for the first time is reported:
+**Settings → Clients** lists the known computers with a field for the name, saved when you
+leave it; in the lists of clients of a connection the pencil does the same. The name shows next
+to the address in the lists of clients and in the events. This host is called Home Assistant by
+itself, addresses in the Supervisor network App; a name of your own goes first. The ports have no login, so a computer that connects for the first time is reported:
 an event and, unless switched off there, a notification in Home Assistant. It stays under
 **New clients** until you mark it as **Known** or give it a name. Home Assistant, its apps and
 this host always count as known; after the first start (or the update that brought this) the

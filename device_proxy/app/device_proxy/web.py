@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import diagnostics
-from .clients import plain_host
+from .clients import plain_host, with_name
 from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
@@ -196,6 +196,7 @@ class WebServer:
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("POST", r"api/clients/known", self.known_client)
+        self._route("POST", r"api/clients/name", self.client_name)
         self._route("POST", r"api/clients/block", self.block_client)
         self._route("POST", r"api/clients/unblock", self.unblock_client)
         self._route("GET", r"api/diagnostics", self.diagnostics)
@@ -812,6 +813,27 @@ class WebServer:
         if not isinstance(host, str) or not self.c.acknowledge_client(host):
             raise HttpError(404, "no such new client")
         return ok()
+
+    async def client_name(self, request: Request) -> Response:
+        data = request.json()
+        host, name = (data.get("host"), data.get("name")) if isinstance(data, dict) else (0, 0)
+        if not isinstance(host, str) or not isinstance(name, str):
+            raise HttpError(400, "an IP address and a name are needed")
+        host = plain_host(host.strip())
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            raise HttpError(400, "an IP address is needed") from None
+
+        def build(config: AppConfig) -> AppConfig:
+            try:
+                names = with_name(config.settings.client_names, host, name)
+            except ValueError as err:
+                raise HttpError(400, str(err)) from None
+            values = {**config.settings.to_dict(), "client_names": names}
+            return replace(config, settings=Settings.from_dict(values))
+
+        return await self._save(build)
 
     async def block_client(self, request: Request) -> Response:
         data = request.json()
