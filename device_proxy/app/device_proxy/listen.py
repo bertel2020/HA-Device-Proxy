@@ -31,6 +31,7 @@ from .modbus import (
     exception,
     is_write,
 )
+from .modbus_entities import RegisterEntity
 from .trace import Chunk
 
 SILENT_AFTER = 30.0  # s without a valid frame: the bus counts as silent
@@ -176,7 +177,10 @@ class ListenProxy(ModbusProxy):
     async def run(self) -> None:
         try:
             await self._listen_for_clients()
-            self._workers = [asyncio.create_task(self._sniff())]
+            self._workers = [
+                asyncio.create_task(self._sniff()),
+                asyncio.create_task(self._entity_loop()),
+            ]
             await asyncio.gather(*self._workers)
         finally:
             for worker in self._workers:
@@ -260,6 +264,17 @@ class ListenProxy(ModbusProxy):
         self, unit: int, pdu: bytes, *, timeout: float | None = None, retries: int | None = None
     ) -> bytes | None:
         return await self.request(unit, pdu, self.tool)
+
+    async def _entity_registers(self, entity: RegisterEntity) -> list[int] | None:
+        """From what was heard: nothing goes to the bus, and it is no client's read."""
+        return self.sniffer.read(
+            entity.unit,
+            entity.function,
+            entity.address,
+            entity.count,
+            self.c.listen_max_age_s,
+            time.time(),
+        )
 
     def state(self) -> dict[str, Any]:
         return {

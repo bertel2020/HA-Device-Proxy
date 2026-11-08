@@ -247,6 +247,17 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 Tool requests are not counted as the clients'. Only "write registers" changes the device.
 
+**Registers as entities**: for a device without an integration the app can read registers itself
+and offer them as sensors over MQTT, without any YAML. Under **Read registers → Decode values**
+find the right type, swap and scale, give the value a name, a unit and a device class and press
+**Add as an entity**. The list is under **Advanced → Registers as entities** with one line per
+entity (`unit function address type swap scale unit class name`, e.g.
+`1 3 40083 int16 none 0.1 W power AC power`, `-` for no unit or class), at most 50, read every
+30 seconds by default. Each read goes to the device in turn with the clients and is not counted
+as theirs; on a connection that listens on RS485 the values come from what was heard, and nothing
+is sent. While the device is not reachable the entities are unknown. A unit that does not fit the
+device class is refused by Home Assistant; it then says so in its log.
+
 **Use in Home Assistant**: most devices have an integration of their own (e.g. SolarEdge
 Modbus). Add it under **Settings → Devices & services → Add integration**, choose the network
 connection (Modbus TCP) and enter the host and port the details page shows (`127.0.0.1` and the
@@ -531,7 +542,7 @@ MQTT entities**, where the entities can also be switched off.
 | USB reset (button) | only with a device of this host: resets the USB adapter and restarts |
 | Power cycle (button) | only with a power switch set: cuts the power for 5 seconds and restarts |
 
-A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
+A Modbus connection has: its registers as entities (see above), device reachable, clients, requests, unanswered requests, answer
 time, the switch and the buttons. An EnOcean gateway has: gateway reachable, clients, telegrams
 from the gateway, air time (share of the 1 % limit), the switch and the buttons; with a fallback
 also "Fallback gateway active" (a problem while it stands in), "Active gateway" (the name of the

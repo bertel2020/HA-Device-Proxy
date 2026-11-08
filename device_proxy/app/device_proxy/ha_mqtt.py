@@ -205,7 +205,7 @@ class HaBridge:
                 **extra: Any,
             ) -> dict[str, Any]:
                 return {
-                    "name": names[key],
+                    "name": names.get(key, key),  # a register's name comes with extra
                     "unique_id": f"device_proxy_{c_id}_{key}",
                     "state_topic": state,
                     "availability": availability,

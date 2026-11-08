@@ -14,7 +14,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", power_switch: "", kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
@@ -40,7 +40,7 @@ const TEMPLATES = {
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Erweitert" and counts when it differs from the default
-const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
+const MODBUS_TUNING = ["register_entities", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const BUS_GATEWAYS = ["fam14", "fgw14_usb"]; // on the RS485 bus of the series 14, not radio only
@@ -454,6 +454,11 @@ export class EditPage extends Page {
             <div class="opts">${this._check("kickolduser", true)}</div>
             ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
             ${this._routes(d)}</div>
+          <div class="grp"><h3>${t("mbEntities")}</h3><p class="hint">${t("mbEntitiesSub")}</p>
+            <label class="fld"><span class="lbl">${t("mbEntitiesField")}</span>
+              <textarea class="inp mono" rows="4" spellcheck="false" aria-invalid=${this._shown().register_entities ? "true" : "false"} placeholder="1 3 40083 int16 none 0.1 W power AC" .value=${d.register_entities || ""} @input=${(e) => this._set({ register_entities: e.target.value })}></textarea>
+              ${this._err("register_entities")}<span class="hint">${t("mbEntitiesHint")}</span></label>
+            <div class="grid2">${this._input("entity_seconds", t("mbEntitySeconds"), { number: true, hint: t("mbEntitySecondsHint") })}</div></div>
           <div class="grp"><h3>${t("mbProbe")}</h3><p class="hint">${t("mbProbeSub")}</p>
             <div class="grid2">
               ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}

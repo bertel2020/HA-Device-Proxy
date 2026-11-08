@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
 
 from .clients import parse_names
+from .modbus_entities import parse_entities
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -242,6 +243,9 @@ class Connection:
     # app and its unit ("2=0000beef:1 3=0000cafe")
     unit_routes: str = ""
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
+    # registers the app reads itself and offers as entities over MQTT (modbus_entities.py)
+    register_entities: str = ""
+    entity_seconds: int = 30
     unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
     probe_unit: int = 1
@@ -509,6 +513,12 @@ class Connection:
             parse_ranges(self.write_registers)
         except ValueError as err:
             e["write_registers"] = str(err)
+        try:
+            parse_entities(self.register_entities)
+        except ValueError as err:
+            e["register_entities"] = str(err)
+        if not 5 <= self.entity_seconds <= 3600:
+            e["entity_seconds"] = "5 to 3600 seconds"
         try:
             routes = parse_routes(self.unit_routes)
         except ValueError as err:
