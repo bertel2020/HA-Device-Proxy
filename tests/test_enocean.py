@@ -475,11 +475,10 @@ async def test_blocked_host_is_refused_and_dropped(setup: Setup) -> None:
     await _until(lambda: not proxy.clients)
     connected.close()
 
-    proxy.blocked = {"127.0.0.1"}
-    refused = proxy.stats.refused
+    proxy.refuse = lambda host, _name: host == "127.0.0.1"
     reader, writer = await _connect(proxy)
     assert await reader.read() == b""
-    assert proxy.stats.refused == refused + 1 and not proxy.clients
+    assert not proxy.clients
     writer.close()
 
 

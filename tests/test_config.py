@@ -352,6 +352,38 @@ async def test_a_change_keeps_the_version_before_and_what_worked(tmp_path: Path)
     assert restored is not None and restored.connection("0000000a") == meter
 
 
+async def test_a_name_is_no_change_to_go_back_from(tmp_path: Path) -> None:
+    from device_proxy.controller import NOTES, Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    start = AppConfig(connections=(Connection("Meter", "/dev/null", 3335, id="0000000a"),))
+    store.save(AppConfig(), start, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = start
+    changed = start.with_connection(replace(start.connections[0], baud=19200))
+    await controller.apply(changed, "test")
+    last_change, versions = controller.last_change, len(store.versions())
+    assert last_change is not None
+
+    named = replace(
+        changed,
+        settings=replace(changed.settings, client_names="192.168.1.20 Symcon"),
+    )
+    await controller.apply(named, "test")
+    assert controller.last_change == last_change and len(store.versions()) == versions
+    assert store.load().settings.client_names == "192.168.1.20 Symcon"  # saved all the same
+
+    for language in ("de", "en"):
+        assert "6" in NOTES[language]["new_clients"][0].format(count=6)
+
+
 def test_scalars_read_back_as_written() -> None:
     """A banner or option that begins with a YAML indicator is quoted, so ser2net.yaml stays
     readable."""

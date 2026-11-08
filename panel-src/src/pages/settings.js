@@ -208,6 +208,14 @@ export class SettingsPage extends Page {
     return c.first ? t("clientFirst", { t: fmtTime(c.first) }) : t("clientNeverSeen");
   }
 
+  async _forgetClient(host) {
+    if (!(await confirmDialog(this, t("clientForgetAsk", { h: host }), t("clientForget")))) return;
+    try {
+      await api("api/clients/forget", { method: "POST", body: { host } });
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   async _blockClient(host) {
     host = host.trim();
     if (!host || !(await confirmDialog(this, t("blockAsk", { h: host }), t("newClientBlock")))) return;
@@ -479,19 +487,19 @@ export class SettingsPage extends Page {
               ${this._nameField(n.host, "", t("clientNamePlaceholder"))}
               <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button>
               <button class="btn btn-d" @click=${() => this._blockClient(n.host)}>${t("newClientBlock")}</button>
-            </div>`)}</div>` : ""}
+            </div>`)}${s.new_clients_full ? html`<span class="hint">${t("newClientsFull")}</span>` : ""}</div>` : ""}
           ${(s.known_clients || []).length ? html`<div class="grp" style="gap:8px">
             <h3>${t("knownClients")}</h3>
             ${repeat(s.known_clients, (c) => c.host, (c) => html`<div class="client-row well">
               <div class="client-who"><span class="mono">${c.host}</span><span class="hint">${this._clientWhere(c)}</span></div>
               ${this._nameField(c.host, c.name, c.auto ? t(`clientAutoName_${c.auto}`) : t("clientNamePlaceholder"))}
-              ${c.auto ? (c.name ? "" : html`<span class="chip info">${t("clientAutomatic")}</span>`) : html`<button class="btn btn-d" @click=${() => this._blockClient(c.host)}>${t("newClientBlock")}</button>`}
+              ${c.auto ? (c.name ? "" : html`<span class="chip info">${t("clientAutomatic")}</span>`) : html`<button class="btn btn-d" @click=${() => this._blockClient(c.host)}>${t("newClientBlock")}</button>${c.connected ? "" : html`<button class="btn btn-g" @click=${() => this._forgetClient(c.host)}>${t("clientForget")}</button>`}`}
             </div>`)}</div>` : ""}
           <div class="grp" style="gap:8px">
             <h3>${t("blockedClients")}</h3>
             ${(s.blocked_clients || []).map((b) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
               <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${b.host}${b.name ? html` <span class="hint">${b.name}</span>` : ""}</span>
-                <span class="hint">${t("blockedSince", { t: fmtTime(b.since) })}</span></div>
+                <span class="hint">${t("blockedSince", { t: fmtTime(b.since) })}${b.refused ? ` · ${t("blockedRefused", { n: b.refused, a: fmtAgo(b.refused_last) })}` : ""}</span></div>
               <button class="btn btn-s" style="margin-left:auto" @click=${() => this._unblockClient(b.host)}>${t("blockRelease")}</button>
             </div>`)}
             <div style="display:flex;gap:8px;flex-wrap:wrap">

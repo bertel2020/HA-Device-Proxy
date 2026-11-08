@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,8 @@ import pytest
 from device_proxy.clients import (
     LAST_SECONDS,
     LEARN_SECONDS,
+    LOG_SECONDS,
+    MAX_NEW,
     KnownClients,
     host_of,
     is_local,
@@ -166,3 +169,63 @@ def test_last_seen(tmp_path: Path) -> None:
     assert not known.seen("192.168.1.30:1", "Zähler", {"192.168.1.30": "evcc"})
     assert "192.168.1.30" in known.known
     assert not known.seen("192.168.1.30:2", "Zähler", {})
+
+
+def test_new_clients_are_limited(tmp_path: Path) -> None:
+    now = [1000.0 + LEARN_SECONDS]
+    path = tmp_path / "known.json"
+    path.write_text("{}")
+    known = KnownClients(path, clock=lambda: now[0])
+    for i in range(MAX_NEW):
+        assert known.seen(f"10.0.{i // 250}.{i % 250 + 1}:1", "Zähler", {})
+    assert known.new_full and len(known.new) == MAX_NEW
+    assert not known.seen("192.168.1.1:1", "Zähler", {})  # no room: not reported, not kept
+    assert "192.168.1.1" not in known.new and "192.168.1.1" not in known.last
+    assert known.seen("192.168.1.1:1", "Zähler", {}) is False
+    assert known.acknowledge("10.0.0.1")
+    assert known.seen("192.168.1.1:2", "Zähler", {})  # room again
+
+
+def test_blocks_survive_a_damaged_list(tmp_path: Path) -> None:
+    path = tmp_path / "known.json"
+    known = KnownClients(path)
+    assert known.block("192.168.1.40")
+    assert json.loads(known.blocked_path.read_text()).keys() == {"192.168.1.40"}
+    path.write_text("{ half a fi")
+    again = KnownClients(path)
+    assert "192.168.1.40" in again.blocked
+
+    again.blocked_path.write_text("{ half a fi")
+    broken = KnownClients(path)
+    assert not broken.blocked  # none, and the file set aside for a look
+    assert len(list(tmp_path.glob("blocked_clients.invalid-*"))) == 1
+
+
+def test_refused_attempts_are_counted(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="device_proxy.clients")
+    now = [1000.0]
+    known = KnownClients(tmp_path / "known.json", clock=lambda: now[0])
+    assert not known.refused("192.168.1.40", "Zähler")
+    known.block("192.168.1.40")
+    assert known.refused("::ffff:192.168.1.40", "Zähler")
+    now[0] += 1
+    assert known.refused("192.168.1.40", "Zähler")
+    assert (known.attempts["192.168.1.40"].count, known.attempts["192.168.1.40"].last) == (2, 1001)
+    assert len(caplog.records) == 1  # one line, not one per attempt
+    now[0] += LOG_SECONDS
+    known.refused("192.168.1.40", "Zähler")
+    assert len(caplog.records) == 2
+    known.unblock("192.168.1.40")
+    assert not known.attempts
+
+
+def test_forget(tmp_path: Path) -> None:
+    now = [1000.0 + LEARN_SECONDS]
+    path = tmp_path / "known.json"
+    path.write_text(json.dumps({"known": {"192.168.1.20": 1.0}}))
+    known = KnownClients(path, clock=lambda: now[0])
+    known.touch("192.168.1.20:1", "Zähler")
+    assert known.forget("192.168.1.20") and not known.forget("192.168.1.20")
+    assert "192.168.1.20" not in known.last
+    assert known.seen("192.168.1.20:2", "Zähler", {})  # new again
+    assert KnownClients(path).known == {}

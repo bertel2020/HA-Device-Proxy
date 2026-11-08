@@ -515,7 +515,10 @@ names out.
 it works on a new client or with an IP address typed in. It is disconnected at once. ser2net
 cannot drop a single client, so on serial connections all clients reconnect once. Home
 Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml` are not
-covered.
+covered. With Modbus and EnOcean the line shows how often the computer was refused since the
+start; ser2net does not report that. **Remove** takes a computer that is not connected off the
+list, with its name. **New clients** holds at most 50 computers, from six on one notification
+covers them.
 
 ## Notifications
 

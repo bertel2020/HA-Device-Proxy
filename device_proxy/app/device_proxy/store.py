@@ -18,6 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 PATH = Path("/data/config.json")
 KEEP_VERSIONS = 25
 SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, never the value
+# changes that touch no connection: no version in the history, no "last change" to go back from
+QUIET_SETTINGS = frozenset({"client_names", "notify_new_clients"})
 PASSWORD_KEPT = "••••••••"  # the browser gets this for a set password; sent back: unchanged
 
 
@@ -56,6 +58,14 @@ def changes(old: AppConfig, new: AppConfig) -> list[Change]:
         values = {k: new_s[k] for k in keys if k not in SECRET_SETTINGS}
         items.append({"connection": None, "change": "settings", "fields": keys, "values": values})
     return sorted(items, key=lambda item: (item["connection"] or "", item["change"]))
+
+
+def quiet(items: list[Change]) -> bool:
+    """Only settings that are not worth a version changed."""
+    return bool(items) and all(
+        item["connection"] is None and QUIET_SETTINGS.issuperset(item.get("fields", []))
+        for item in items
+    )
 
 
 def summary(items: list[Change]) -> str:
@@ -138,7 +148,7 @@ class Store:
         """Write the configuration and keep it as a version; returns what changed."""
         text = self._write(new)
         items = changes(old, new)
-        if self.db is not None and items:  # saving without a change is no new version
+        if self.db is not None and items and not quiet(items):  # no change: no new version
             try:
                 self.db.execute(
                     "INSERT INTO config_versions (ts, source, summary, changes, config)"
