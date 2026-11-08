@@ -22,6 +22,8 @@ _LOGGER = logging.getLogger(__name__)
 
 PATH = Path("/data/known_clients.json")
 LEARN_SECONDS = 600  # quiet learning after a start without the file
+LAST_SECONDS = 600  # "last seen" moves on (and is written) at most this often per host
+NAME_LENGTH = 40
 # the Supervisor's network, IPv4 and IPv6: the apps
 APPS_NETWORKS = (
     ipaddress.ip_network("172.30.32.0/23"),
@@ -66,19 +68,36 @@ def parse_names(text: str) -> dict[str, str]:
     return names
 
 
-def is_local(host: str, own: str | None = None) -> bool:
-    """Home Assistant, its apps or this host itself."""
+def with_name(text: str, host: str, name: str) -> str:
+    """The names (client_names) with this host's name set, or removed when name is empty."""
+    name = " ".join(name.split())
+    if "#" in name:
+        raise ValueError("a name without #")
+    if len(name) > NAME_LENGTH:
+        raise ValueError(f"a name of at most {NAME_LENGTH} characters")
+    names = parse_names(text)
+    names.pop(host, None)
+    if name:
+        names[host] = name
+    return "\n".join(f"{h} {n}" for h, n in names.items())
+
+
+def local_kind(host: str, own: str | None = None) -> str | None:
+    """ "home_assistant" for this host itself, "app" for the Supervisor's network, else None."""
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        return False
+        return None
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
         ip = ip.ipv4_mapped
-    return (
-        ip.is_loopback
-        or any(ip in n for n in APPS_NETWORKS if n.version == ip.version)
-        or host == own
-    )
+    if ip.is_loopback or host == own:
+        return "home_assistant"
+    return "app" if any(ip in n for n in APPS_NETWORKS if n.version == ip.version) else None
+
+
+def is_local(host: str, own: str | None = None) -> bool:
+    """Home Assistant, its apps or this host itself."""
+    return local_kind(host, own) is not None
 
 
 class KnownClients:
@@ -88,12 +107,14 @@ class KnownClients:
         self.known: dict[str, float] = {}  # host → first seen
         self.new: dict[str, dict[str, object]] = {}  # host → first seen, connection, address
         self.blocked: dict[str, float] = {}  # host → since when; the proxies read this one
+        self.last: dict[str, dict[str, object]] = {}  # host → last seen: time, connection
         self.learn_until = 0.0
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             self.known = {str(k): float(v) for k, v in data.get("known", {}).items()}
             self.new = {str(k): dict(v) for k, v in data.get("new", {}).items()}
             self.blocked = {str(k): float(v) for k, v in data.get("blocked", {}).items()}
+            self.last = {str(k): dict(v) for k, v in data.get("last", {}).items()}
         except FileNotFoundError:
             self.learn_until = self._now() + LEARN_SECONDS
         except (OSError, ValueError, AttributeError, TypeError) as err:
@@ -107,22 +128,33 @@ class KnownClients:
         self, address: str, connection: str, names: dict[str, str], own: str | None = None
     ) -> bool:
         """A client connected: True when its host is new (and was not new before)."""
-        host = host_of(address)
-        if (
-            host in self.known
-            or host in self.new
-            or host in self.blocked
-            or host in names
-            or is_local(host, own)
-        ):
+        host = plain_host(host_of(address))
+        if host in self.blocked or is_local(host, own):
             return False
         now = self._now()
-        if now < self.learn_until:
+        if host in self.known or host in self.new:
+            self.touch(address, connection)
+            return False
+        self._note(host, connection, now)
+        if host in names or now < self.learn_until:
             self.known[host] = now
             self._save()
             return False
         self.new[host] = {"first": now, "connection": connection, "address": address}
         self._save()
+        return True
+
+    def touch(self, address: str, connection: str) -> None:
+        """A client of a host that is on the lists connected or left: its "last seen"."""
+        host = plain_host(host_of(address))
+        if (host in self.known or host in self.new) and self._note(host, connection, self._now()):
+            self._save()
+
+    def _note(self, host: str, connection: str, now: float) -> bool:
+        before = self.last.get(host)
+        if before is not None and now - float(before.get("time", 0)) < LAST_SECONDS:  # type: ignore[arg-type]
+            return False
+        self.last[host] = {"time": now, "connection": connection}
         return True
 
     def acknowledge(self, host: str) -> bool:
@@ -145,6 +177,7 @@ class KnownClients:
             return False
         self.new.pop(host, None)
         self.known.pop(host, None)
+        self.last.pop(host, None)
         self.blocked[host] = self._now()
         self._save()
         return True
@@ -161,7 +194,12 @@ class KnownClients:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".tmp")
-            data = {"known": self.known, "new": self.new, "blocked": self.blocked}
+            data = {
+                "known": self.known,
+                "new": self.new,
+                "blocked": self.blocked,
+                "last": self.last,
+            }
             tmp.write_text(json.dumps(data), encoding="utf-8")
             tmp.replace(self.path)
         except OSError as err:

@@ -160,7 +160,7 @@ export class DeviceProxyApp extends LitElement {
         this._loadHistory();
       }
       this._boot = state.boot;
-      setClientNames(state.settings.client_names);
+      setClientNames(state.settings.client_names, state.lan_ip);
       this.state = state;
       if (events.length) {
         this._seq = events[events.length - 1].seq;
@@ -241,7 +241,7 @@ export class Page extends LitElement {
 }
 
 export class DeviceProxyConfirm extends LitElement {
-  static properties = { message: {}, confirmLabel: {} };
+  static properties = { message: {}, confirmLabel: {}, text: {}, hintText: {} };
 
   static styles = [tokens, base, css`
     .back { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
@@ -251,7 +251,7 @@ export class DeviceProxyConfirm extends LitElement {
 
   firstUpdated() {
     this._before = focused();  // gets the focus back when the dialog closes
-    this.renderRoot.querySelector(".btn-g").focus();
+    (this.renderRoot.querySelector("input") || this.renderRoot.querySelector(".btn-g")).focus();
   }
 
   _done(value) {
@@ -263,8 +263,10 @@ export class DeviceProxyConfirm extends LitElement {
     return html`<div class="back" @keydown=${(e) => { if (e.key === "Escape") this._done(false); else trapTab(e, this.renderRoot.querySelector(".box")); }}>
       <div class="box" role="alertdialog" aria-modal="true" aria-label=${t("confirm")}>
         <p>${this.message}</p>
+        ${this.text === undefined ? "" : html`<input class="inp" maxlength="40" aria-label=${this.message} .value=${this.text} placeholder=${this.hintText || ""}
+          @keydown=${(e) => { if (e.key === "Enter") this._done(e.target.value); }}>`}
         <div class="actions"><button class="btn btn-g" @click=${() => this._done(false)}>${t("cancel")}</button>
-          <button class="btn btn-p" @click=${() => this._done(true)}>${this.confirmLabel}</button></div>
+          <button class="btn btn-p" @click=${() => this._done(this.text === undefined ? true : this.renderRoot.querySelector("input").value)}>${this.confirmLabel}</button></div>
       </div></div>`;
   }
 }

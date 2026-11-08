@@ -5,12 +5,15 @@ from pathlib import Path
 import pytest
 
 from device_proxy.clients import (
+    LAST_SECONDS,
     LEARN_SECONDS,
     KnownClients,
     host_of,
     is_local,
+    local_kind,
     parse_names,
     plain_host,
+    with_name,
 )
 from device_proxy.config import block, remaddr, remaddr_without
 from device_proxy.model import Connection, client_allowed
@@ -120,3 +123,46 @@ def test_blocked_v6_host_leaves_v4_open() -> None:
     assert not client_allowed(limit, "all", "2001:db8::1")
     assert client_allowed(limit, "all", "2001:db8::2")
     assert client_allowed(limit, "all", "192.168.79.144")
+
+
+def test_with_name() -> None:
+    text = with_name("", "192.168.1.20", "  Symcon   Server ")
+    assert text == "192.168.1.20 Symcon Server"
+    text = with_name(text, "192.168.1.21", "Laptop")
+    assert parse_names(text) == {"192.168.1.20": "Symcon Server", "192.168.1.21": "Laptop"}
+    assert parse_names(with_name(text, "192.168.1.20", "")) == {"192.168.1.21": "Laptop"}
+    with pytest.raises(ValueError, match="#"):
+        with_name("", "192.168.1.20", "a # b")
+    with pytest.raises(ValueError, match="at most"):
+        with_name("", "192.168.1.20", "x" * 41)
+
+
+def test_local_kind() -> None:
+    assert local_kind("192.168.79.22", "192.168.79.22") == "home_assistant"
+    assert local_kind("127.0.0.1") == "home_assistant"
+    assert local_kind("172.30.32.6") == "app"
+    assert local_kind("192.168.79.20", "192.168.79.22") is None
+
+
+def test_last_seen(tmp_path: Path) -> None:
+    now = [1000.0 + LEARN_SECONDS]
+    path = tmp_path / "known.json"
+    path.write_text(json.dumps({"known": {"192.168.1.20": 1.0}}))
+    known = KnownClients(path, clock=lambda: now[0])
+    assert not known.seen("192.168.1.20:1", "Zähler", {})
+    assert known.last["192.168.1.20"] == {"time": now[0], "connection": "Zähler"}
+    first = now[0]
+    now[0] += LAST_SECONDS - 1
+    known.touch("192.168.1.20:1", "Zähler")  # not written again so soon
+    assert known.last["192.168.1.20"]["time"] == first
+    now[0] += 1
+    known.touch("192.168.1.20:1", "Wechselrichter")
+    assert known.last["192.168.1.20"] == {"time": now[0], "connection": "Wechselrichter"}
+    assert KnownClients(path).last == known.last
+
+    known.touch("192.168.1.99:1", "Zähler")  # on no list
+    assert "192.168.1.99" not in known.last
+    # a name makes it known by itself: taking the name away later does not make it new
+    assert not known.seen("192.168.1.30:1", "Zähler", {"192.168.1.30": "evcc"})
+    assert "192.168.1.30" in known.known
+    assert not known.seen("192.168.1.30:2", "Zähler", {})

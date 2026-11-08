@@ -1,7 +1,7 @@
 // Small helpers shared by the pages: formats, icons, the switch, copying, confirming.
 import { html, nothing, svg } from "lit";
 import { api } from "./api.js";
-import { lang, t } from "./i18n.js";
+import { autoClientName, clientHost, clientName, lang, ownClientName, t } from "./i18n.js";
 
 export const logo = (size = 36) => html`<svg width=${size} height=${size} viewBox="0 0 128 128" aria-hidden="true" style="flex:none">
   <rect width="128" height="128" rx="28" fill="#0A6AA8"></rect>
@@ -241,7 +241,34 @@ export function trapTab(e, box) {
   else if (!e.shiftKey && (now === last || !box.contains(now))) { e.preventDefault(); first.focus(); }
 }
 
+/** Asks for a text in the page: the text, or false when cancelled. */
+export function textDialog(host, message, confirmLabel, text, hintText = "") {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dp-confirm");
+    Object.assign(dialog, { message, confirmLabel, text, hintText });
+    dialog.addEventListener("done", (e) => { dialog.remove(); resolve(e.detail); });
+    (host.shadowRoot || document.body).appendChild(dialog);
+  });
+}
+
 /** A confirm dialog in the page (window.confirm is blocked in some frames). */
+/** The name of a client in a list and the pencil that changes it. */
+export function clientLabel(page, address) {
+  const name = clientName(address);
+  const rename = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const host = clientHost(address);
+    const text = await textDialog(page, t("clientRename", { h: host }), t("save"), ownClientName(address), autoClientName(address));
+    if (text === false) return;
+    try {
+      await api("api/clients/name", { method: "POST", body: { host, name: text } });
+      page.refresh();
+    } catch (err) { page.toast(`${t("error")}: ${err.message}`); }
+  };
+  return html` <span style="white-space:nowrap">${name ? html`<b style="font-family:inherit;font-weight:500">${name}</b>` : ""}<button class="iconbtn tap" style="width:26px;height:26px;margin-left:4px;vertical-align:middle" aria-label=${t("clientRename", { h: clientHost(address) })} title=${t("clientRenameShort")} @click=${rename}>${icon("pencil", 14)}</button></span>`;
+}
+
 /** A missing device's adapter plugged in elsewhere: one button per adapter it may be. */
 export function movedNote(c, use) {
   const found = c.moved_to || [];

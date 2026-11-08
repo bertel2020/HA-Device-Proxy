@@ -497,9 +497,10 @@ wiederherstellen** – die Konfiguration von vor der Änderung, in einem Schritt
 
 ## Clients
 
-**Einstellungen → Clients** gibt den Adressen deiner Clients Namen, eine Zeile je Client:
-`192.168.1.20 evcc`. Der Name steht neben der Adresse in den Client-Listen und in den
-Ereignissen. Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten
+**Einstellungen → Clients** listet die bekannten Rechner mit einem Feld für den Namen, das beim
+Verlassen speichert; in den Client-Listen der Verbindungen geht das über den Stift. Der Name steht
+neben der Adresse in den Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home
+Assistant, Adressen aus dem Supervisor-Netz App; ein eigener Name geht vor. Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten
 Mal verbindet: ein Ereignis und, sofern dort nicht ausgeschaltet, eine Benachrichtigung in Home
 Assistant. Er bleibt unter **Neue Clients**, bis du ihn als **Bekannt** markierst oder ihm einen
 Namen gibst. Home Assistant, seine Apps und dieser Host gelten immer als bekannt; nach dem ersten

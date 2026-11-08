@@ -1,14 +1,14 @@
 import { css, html } from "lit";
+import { repeat } from "lit/directives/repeat.js";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
-import { confirmDialog, copyText, effectsOf, effectsText, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
+import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
 
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 // the settings saved with a section's button; the others take effect when chosen
 const ROWS = {
-  clients: ["client_names", "notify_new_clients"],
   notify: ["notify_grace", "no_client_minutes", "notify_service", "notify_language", "notify_dismiss", "notify_resolved", "notify_stuck", "notify_line_errors", "notify_ser2net"],
   mqtt: ["mqtt_enabled", "mqtt_prefix", "mqtt_base", "mqtt_interval", "mqtt_host", "mqtt_port", "mqtt_user", "mqtt_password", "mqtt_tls"],
   enocean: ["enocean_discovery", "enocean_status_port"],
@@ -32,6 +32,9 @@ export class SettingsPage extends Page {
   };
 
   static styles = [...Page.styles, css`
+    .client-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .client-who { flex: 1 1 170px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .client-name { flex: 1 1 140px; max-width: 200px; width: auto; }
     .layout { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
     .side { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; }
     /* beside the content (not wrapped above it) the menu stays in view while scrolling */
@@ -179,6 +182,30 @@ export class SettingsPage extends Page {
       await api("api/clients/known", { method: "POST", body: { host } });
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  /** A name field: saved when it is left. */
+  async _nameClient(host, field, before) {
+    try {
+      await api("api/clients/name", { method: "POST", body: { host, name: field.value } });
+      this.toast(t("saved"));
+      this.refresh();
+    } catch (err) {
+      field.value = before;
+      this.toast(`${t("error")}: ${err.message}`);
+    }
+  }
+
+  _nameField(host, name, placeholder) {
+    return html`<input class="inp client-name" maxlength="40" .value=${name} placeholder=${placeholder} aria-label=${t("clientNameFor", { h: host })} @change=${(e) => this._nameClient(host, e.target, name)} @keydown=${(e) => { if (e.key === "Enter") e.target.blur(); }}>`;
+  }
+
+  /** Where a known client was last. */
+  _clientWhere(c) {
+    if (c.auto) return t(c.connected ? `clientAuto_${c.auto}` : "clientNow");
+    if (c.connected) return t("clientConnected", { c: c.connection });
+    if (c.last) return t("clientLast", { c: c.connection, a: fmtAgo(c.last) });
+    return c.first ? t("clientFirst", { t: fmtTime(c.first) }) : t("clientNeverSeen");
   }
 
   async _blockClient(host) {
@@ -446,13 +473,19 @@ export class SettingsPage extends Page {
           <div><h2 id="t-clients">${t("sClients")}</h2><p class="hint" style="margin-top:4px">${t("sClientsSub")}</p></div>
           ${(s.new_clients || []).length ? html`<div class="grp" style="gap:8px">
             <h3>${t("newClients")}</h3>
-            ${s.new_clients.map((n) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
-              <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${n.address}</span>
+            ${repeat(s.new_clients, (n) => n.host, (n) => html`<div class="client-row well">
+              <div class="client-who"><span class="mono">${n.host}</span>
                 <span class="hint">${t("newClientAt", { c: n.connection, t: fmtTime(n.first) })}</span></div>
-              <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
-                <button class="btn btn-d" @click=${() => this._blockClient(n.host)}>${t("newClientBlock")}</button>
-                <button class="btn btn-g" @click=${() => { this.draft = { ...d, client_names: `${(d.client_names || "").trimEnd()}${d.client_names ? "\n" : ""}${n.host} ` }; this.renderRoot.getElementById("client-names")?.focus(); }}>${t("newClientName")}</button>
-                <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button></div>
+              ${this._nameField(n.host, "", t("clientNamePlaceholder"))}
+              <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button>
+              <button class="btn btn-d" @click=${() => this._blockClient(n.host)}>${t("newClientBlock")}</button>
+            </div>`)}</div>` : ""}
+          ${(s.known_clients || []).length ? html`<div class="grp" style="gap:8px">
+            <h3>${t("knownClients")}</h3>
+            ${repeat(s.known_clients, (c) => c.host, (c) => html`<div class="client-row well">
+              <div class="client-who"><span class="mono">${c.host}</span><span class="hint">${this._clientWhere(c)}</span></div>
+              ${this._nameField(c.host, c.name, c.auto ? t(`clientAutoName_${c.auto}`) : t("clientNamePlaceholder"))}
+              ${c.auto ? (c.name ? "" : html`<span class="chip info">${t("clientAutomatic")}</span>`) : html`<button class="btn btn-d" @click=${() => this._blockClient(c.host)}>${t("newClientBlock")}</button>`}
             </div>`)}</div>` : ""}
           <div class="grp" style="gap:8px">
             <h3>${t("blockedClients")}</h3>
@@ -466,12 +499,7 @@ export class SettingsPage extends Page {
               <button class="btn btn-s" @click=${() => this._blockClient(this.renderRoot.getElementById("block-host").value)}>${t("newClientBlock")}</button></div>
             <span class="hint">${t("blockHint")}${s.source === "custom" ? ` ${t("blockCustom")}` : ""}</span>
           </div>
-          <label class="fld"><span class="lbl">${t("clientNames")}</span>
-            <textarea id="client-names" class="inp mono" rows="4" placeholder="192.168.1.20 evcc&#10;192.168.1.35 Laptop" .value=${d.client_names || ""}
-              @input=${(e) => { this.draft = { ...this.draft, client_names: e.target.value }; }}></textarea>
-            <span class="hint">${t("clientNamesHint")}</span></label>
-          <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; }}><span>${t("notifyNewClients")}</span></label>
-          ${this._saveRow(ROWS.clients)}
+          <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; this._saveSettings({ notify_new_clients: e.target.checked }); }}><span>${t("notifyNewClients")}</span></label>
         </section>
 
         <section id="backup" class="card" aria-labelledby="t-backup">

@@ -4,7 +4,7 @@ import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
-import { changeNote, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -694,17 +694,17 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               ${c.clients.length ? html`<button class="btn btn-g" style="min-height:32px" @click=${() => this._disconnect(c)}>${t("disconnectClients")}</button>` : ""}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>`
             : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
                 <td>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
             : c.clients.length ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
-                <td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
+                <td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientLabel(this, cl.address)} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
                 <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
                 <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noClients")}</p>`}
