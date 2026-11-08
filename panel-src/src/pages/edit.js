@@ -81,6 +81,18 @@ export class EditPage extends Page {
     @media (max-width: 700px) { .flow { row-gap: 24px; } .flow li + li::before { content: "↓"; left: 50%; top: -17px; transform: translateX(-50%); } }
     .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; bottom: var(--nav-b, 0px); z-index: 5;
       background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; box-shadow: 0 -6px 16px -8px var(--shadow-c); }
+    .actions .hint { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; justify-content: flex-end; }
+    /* phones: the buttons in one row, so the form keeps the screen; above them text only where it tells something
+       (not saved, what saving does), not the general hint; what saving does already says that it is not saved */
+    @media (max-width: 600px) {
+      .actions { gap: 6px 4px; padding: 8px 10px; }
+      .actions .btn { padding: 0 6px; }
+      .actions .btn-p { padding: 0 12px; }
+      .actions .hint.quiet { display: none; }
+      .actions .hint, .actions .chip { order: -1; flex: 1 1 100%; justify-content: flex-start; }
+      .actions .chip { min-height: 0; padding: 0; background: none; }
+      .actions:has(.hint:not(.quiet)) .chip { display: none; }
+    }
   `];
 
   connectedCallback() {
@@ -230,7 +242,7 @@ export class EditPage extends Page {
     const text = list.length ? effectsText(list)
       : isNew ? t("saveHintNew") : this.effects && this._dirty() ? t("effNone") : t("saveHint");
     const clients = list.some((e) => e.clients);
-    return html`<span class="hint" role="status" style="display:flex;align-items:center;gap:8px;flex:1 1 240px;justify-content:flex-end;${clients ? "color:var(--warn)" : ""}">${icon(clients ? "warn" : "info", 16)}${text}</span>`;
+    return html`<span class="hint ${list.length ? "" : "quiet"}" role="status" style=${clients ? "color:var(--warn)" : ""}>${icon(clients ? "warn" : "info", 16)}${text}</span>`;
   }
 
   updated() {
