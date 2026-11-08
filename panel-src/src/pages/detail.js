@@ -520,7 +520,7 @@ export class DetailPage extends Page {
     }
     return html`<section class="card" aria-labelledby="t-live">
       <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}${only ? ` ${t("liveClientOnly", { a: only })}` : ""}</p></div>
-        <div style="display:flex;gap:4px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
           ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
           <a class="btn btn-g" href=${url(`api/tools/${this.connectionId}/testcase`)} download title=${t(enocean ? "testcaseTipEo" : modbus ? "testcaseTipMb" : "testcaseTipSerial")}>${t("testcase")}</a>
