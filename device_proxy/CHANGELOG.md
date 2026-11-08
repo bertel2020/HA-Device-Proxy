@@ -4,11 +4,13 @@
 
 - **Übersicht**: In der Kachel einer Verbindung steht bei den Clients kein Stift mehr, die Zeile
   bricht nicht mehr um. Umbenennen geht weiter in den Details der Verbindung und unter Clients.
+- **README**: Die Voraussetzung steht wieder im Schnellstart: Home Assistant OS.
 
 ### English
 
 - **Overview**: The clients on a connection's card no longer have a pencil, so the line stays in one
   piece. Renaming is still available in the connection's details and under Clients.
+- **README**: The quick start names the requirement again: Home Assistant OS.
 
 ## 1.5.0 - 2026-11-08
 

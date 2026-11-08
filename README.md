@@ -69,6 +69,8 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 
 ## Quick start
 
+**Requirement:** Home Assistant OS. Device Proxy is an app and needs the Supervisor, it does not run on Home Assistant Container.
+
 1. Add this repository to Home Assistant with the button below, or under **Settings → Apps → App store → ⋮ → Repositories** with `https://github.com/bertel2020/HA-Device-Proxy`.
 
    [![Add the repository to My Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbertel2020%2FHA-Device-Proxy)
