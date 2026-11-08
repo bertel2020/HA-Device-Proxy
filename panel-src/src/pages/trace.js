@@ -23,9 +23,22 @@ export class TracePage extends Page {
     .view td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .view td.hex, .view td.asc { white-space: pre; }
     .view td.fit { width: 1%; }
-    .view td.hex.frame { white-space: normal; overflow-wrap: anywhere; }
+    /* a minimum width: "anywhere" lets an auto table squeeze the column down to one character */
+    .view td.hex.frame { white-space: normal; overflow-wrap: anywhere; min-width: 24ch; }
     .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
+    /* phones: frames with decoded info in two lines (time, direction, info; below them the bytes), no scrolling sideways */
+    @media (max-width: 600px) {
+      .ctl .seg button { padding: 0 8px; }
+      .ctl .btn { padding: 0 6px; }
+      .modes .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      .view table.frames, .view table.frames tbody { display: block; }
+      .view table.frames tr { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
+      .view table.frames td { padding: 0; width: auto; }
+      .view table.frames td.info { white-space: normal; overflow-wrap: anywhere; }
+      .view table.frames td.hex, .view table.frames td.asc, .view table.frames td.long { grid-column: 1 / -1; min-width: 0; }
+      .view table.frames .dir { min-width: 0; }
+    }
   `];
 
   constructor() {
@@ -105,8 +118,8 @@ export class TracePage extends Page {
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
               <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
                 <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}${this.chunks.length ? ` · ${t("linesShown", { n: rows.length })}` : ""}${this.paused ? ` · ${t("paused")}` : ""}</p></div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <div class="seg" role="group" aria-label=${t("liveView")}>${[[false, "hexOnly"], [true, "hexAscii"]].map(([v, k]) => html`<button type="button" aria-pressed=${this.ascii === v ? "true" : "false"} @click=${() => { this.ascii = v; }}>${t(k)}</button>`)}</div>
+              <div class="ctl" style="display:flex;gap:4px;flex-wrap:wrap">
+                ${current && current.kind !== "serial" ? "" : html`<div class="seg" role="group" aria-label=${t("liveView")}>${[[false, "hexOnly"], [true, "hexAscii"]].map(([v, k]) => html`<button type="button" aria-pressed=${this.ascii === v ? "true" : "false"} @click=${() => { this.ascii = v; }}>${t(k)}</button>`)}</div>`}
                 <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
                 <button class="btn btn-g" ?disabled=${!this.chunks.length} @click=${() => { this.chunks = []; }}>${t("clearView")}</button></div></div>
             ${current ? html`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
@@ -115,10 +128,10 @@ export class TracePage extends Page {
               <span class="hint">${t("recNote")}</span>
               ${file ? html`<span class="hint" style="flex-basis:100%">${t("recFile")}: <span class="mono">${file.name}</span> · ${fmtBytes(file.size)}
                 <a href=${url(`api/trace/${encodeURIComponent(file.name)}`)} download aria-label="${file.name} ${t("download")}">${t("download")}</a></span>` : ""}</div>` : ""}
-            ${rows.length ? html`<div class="code view" style="border-radius:0"><table><tbody>${rows.slice().reverse().map((ch) => html`<tr>
+            ${rows.length ? html`<div class="code view" style="border-radius:0"><table class=${rows.some((ch) => ch.info) ? "frames" : ""}><tbody>${rows.slice().reverse().map((ch) => html`<tr>
               <td class="fit" style="color:#8f9ba8">${this._time(ch.ts)}</td>
               <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
-              ${ch.info ? html`<td class="fit" style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex ${ch.info ? "frame" : ""}">${ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
+              ${ch.info ? html`<td class="fit info ${ch.info.length > 21 ? "long" : ""}" style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex ${ch.info ? "frame" : ""}">${ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
