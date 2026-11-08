@@ -99,8 +99,10 @@ jobs:
     # Prebuilt images, so the Supervisor pulls instead of building on the device. Runs on
     # main for a version not published yet; config.yaml's "image" points here once the
     # packages are public (GitHub → Packages → Package settings → Change visibility).
+    # Also when another job failed: a version in config.yaml without its image cannot be
+    # installed. The run stays red then, and needs only keeps the order.
     name: Publish image (${{ matrix.arch }})
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
     needs: [tests, panel, lint, build, integration]
     runs-on: ${{ matrix.runner }}
     permissions:

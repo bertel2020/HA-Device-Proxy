@@ -894,7 +894,7 @@ async def test_a_taken_status_port_is_tried_again() -> None:
     await blocker.wait_closed()
     await ha.retry()  # too early
     assert ha._server is None
-    ha._failed_at = 0.0
+    ha._failed_at = float("-inf")  # long ago, also on a machine that has only just started
     await ha.retry()
     assert ha._server is not None and ha.port == port and events == ["listen_failed"]
     assert ha.state() == {"port": port, "listening": True, "error": None}
