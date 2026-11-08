@@ -122,6 +122,11 @@ to a request that timed out never reaches the next client. Waiting clients take 
 client that asks without a pause cannot hold up the others.
 
 
+**Device profiles** fill in the port and the timing for devices of a vendor (SolarEdge, Huawei
+SUN2000, Fronius, SMA, Kostal Plenticore, Sungrow, Victron GX). They are starting values and stay
+editable; the unit id is set in the client, and the profile shows the usual one. When **Scan the
+bus** recognizes a vendor, it offers its timing; the port stays as it is there.
+
 **Connection to the device**
 
 | Kind | For | Settings |

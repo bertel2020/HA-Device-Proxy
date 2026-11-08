@@ -3,6 +3,7 @@ import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
+import { PROFILES } from "../modbus.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
 import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle } from "../ui.js";
@@ -511,6 +512,10 @@ export class EditPage extends Page {
     </section>`;
   }
 
+  _mbProfiles() {
+    return this._tplCard("t-mbtpl", t("mbProfile"), t("mbProfileSub"), Object.keys(PROFILES), (k) => this._set({ template: k, link: "tcp", device_connections: 1, ...PROFILES[k] }));
+  }
+
   _eoTemplates() {
     return this._tplCard("t-eotpl", t("eoTemplate"), t("eoTemplateSub"), Object.keys(EO_TEMPLATES), (k) => this._eoTemplate(k));
   }
@@ -685,7 +690,7 @@ export class EditPage extends Page {
           <div class="choices">${["serial", "modbus", "enocean"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
             @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
         </section>` : ""}
-        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : ""}<section class="card" aria-labelledby="t-base">
+        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : this._mbProfiles()}<section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
         </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
