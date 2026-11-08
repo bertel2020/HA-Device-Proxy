@@ -501,23 +501,23 @@ the version before** – the configuration as it was before the change, in one s
 
 ## Clients
 
-**Settings → Clients** lists the known computers with a field for the name, saved when you
-leave it; in the lists of clients of a connection the pencil does the same. The name shows next
+**Settings → Clients** shows new, known and blocked computers in one list. A click on a known
+computer opens the field for the name, saved when you leave it; in the lists of clients of a connection the pencil does the same. The name shows next
 to the address in the lists of clients and in the events. This host is called Home Assistant by
 itself, addresses in the Supervisor network App; a name of your own goes first. The ports have no login, so a computer that connects for the first time is reported:
-an event and, unless switched off there, a notification in Home Assistant. It stays under
-**New clients** until you mark it as **Known** or give it a name. Home Assistant, its apps and
+an event and, unless switched off there, a notification in Home Assistant. It stays at the
+top of the list as **New** until you mark it as **Known** or give it a name. Home Assistant, its apps and
 this host always count as known; after the first start (or the update that brought this) the
 app takes the clients of the first ten minutes as known without a word. Diagnostics leave the
 names out.
 
-**Block** keeps a computer away from every connection until you release it under **Blocked**;
+**Block** keeps a computer away from every connection until you release it;
 it works on a new client or with an IP address typed in. It is disconnected at once. ser2net
 cannot drop a single client, so on serial connections all clients reconnect once. Home
 Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml` are not
 covered. With Modbus and EnOcean the line shows how often the computer was refused since the
 start; ser2net does not report that. **Remove** takes a computer that is not connected off the
-list, with its name. **New clients** holds at most 50 computers, from six on one notification
+list, with its name. The list holds at most 50 new computers, from six on one notification
 covers them.
 
 ## Notifications

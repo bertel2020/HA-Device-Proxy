@@ -531,24 +531,24 @@ wiederherstellen** – die Konfiguration von vor der Änderung, in einem Schritt
 
 ## Clients
 
-**Einstellungen → Clients** listet die bekannten Rechner mit einem Feld für den Namen, das beim
-Verlassen speichert; in den Client-Listen der Verbindungen geht das über den Stift. Der Name steht
+**Einstellungen → Clients** zeigt neue, bekannte und blockierte Rechner in einer Liste. Ein Klick
+auf einen bekannten Rechner öffnet das Feld für den Namen, das beim Verlassen speichert; in den Client-Listen der Verbindungen geht das über den Stift. Der Name steht
 neben der Adresse in den Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home
 Assistant, Adressen aus dem Supervisor-Netz App; ein eigener Name geht vor. Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten
 Mal verbindet: ein Ereignis und, sofern dort nicht ausgeschaltet, eine Benachrichtigung in Home
-Assistant. Er bleibt unter **Neue Clients**, bis du ihn als **Bekannt** markierst oder ihm einen
+Assistant. Er steht als **Neu** oben in der Liste, bis du ihn als **Bekannt** markierst oder ihm einen
 Namen gibst. Home Assistant, seine Apps und dieser Host gelten immer als bekannt; nach dem ersten
 Start (oder dem Update, das diese Funktion brachte) übernimmt die App die Clients der ersten zehn
 Minuten stillschweigend als bekannt. Die Diagnose lässt die Namen weg.
 
-**Blockieren** hält einen Rechner von allen Verbindungen fern, bis du ihn unter **Blockiert**
+**Blockieren** hält einen Rechner von allen Verbindungen fern, bis du ihn wieder
 freigibst; das geht bei einem neuen Client oder mit der IP-Adresse von Hand. Er wird sofort
 getrennt. ser2net kann keinen einzelnen Client trennen, an seriellen Verbindungen verbinden sich
 deshalb alle Clients einmal neu. Home Assistant, seine Apps und dieser Host lassen sich nicht
 blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre nicht. Bei Modbus und
 EnOcean zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde; ser2net meldet das
-nicht. **Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste. Unter
-**Neue Clients** stehen höchstens 50 Rechner, ab sechs kommt eine gemeinsame Benachrichtigung.
+nicht. **Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste. Als neu
+stehen höchstens 50 Rechner in der Liste, ab sechs kommt eine gemeinsame Benachrichtigung.
 
 ## Benachrichtigungen
 

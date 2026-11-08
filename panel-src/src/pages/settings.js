@@ -27,14 +27,28 @@ function lineDiff(before, after) {
 
 export class SettingsPage extends Page {
   static properties = {
-    state: { attribute: false }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
+    state: { attribute: false }, clientOpen: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
     versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true }, active: { state: true },
   };
 
   static styles = [...Page.styles, css`
-    .client-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-    .client-who { flex: 1 1 170px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .client-name { flex: 1 1 140px; max-width: 200px; width: auto; }
+    .cl-list { border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden; }
+    .cl-item + .cl-item { border-top: 1px solid var(--line-2); }
+    .cl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: 100%; min-height: 60px; padding: 10px 14px; background: none; border: 0; color: inherit; font: inherit; text-align: left; }
+    button.cl-head { cursor: pointer; }
+    button.cl-head:hover { background: var(--surface-2); }
+    .cl-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+    .cl-dot.on { background: var(--ok); } .cl-dot.new { background: var(--warn); } .cl-dot.blocked { background: var(--bad); }
+    .cl-who { flex: 1 1 170px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cl-title { font-weight: 500; overflow-wrap: anywhere; }
+    .cl-sub { font-size: calc(13px * var(--fs, 1)); color: var(--muted); overflow-wrap: anywhere; }
+    .cl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+    .cl-chev { flex: none; display: flex; color: var(--muted); transition: transform .15s; }
+    .cl-chev.open { transform: rotate(180deg); }
+    .cl-more { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 2px 14px 14px 36px; }
+    .cl-more .fld { flex: 1 1 200px; max-width: 320px; }
+    .cl-add { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cl-add .inp { flex: 1 1 200px; width: auto; }
     .layout { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
     .side { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; }
     /* beside the content (not wrapped above it) the menu stays in view while scrolling */
@@ -180,6 +194,8 @@ export class SettingsPage extends Page {
   async _knownClient(host) {
     try {
       await api("api/clients/known", { method: "POST", body: { host } });
+      this.clientOpen = host;  // known now: it can be named right away
+      this._focusName = host;
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -197,7 +213,66 @@ export class SettingsPage extends Page {
   }
 
   _nameField(host, name, placeholder) {
-    return html`<input class="inp client-name" maxlength="40" .value=${name} placeholder=${placeholder} aria-label=${t("clientNameFor", { h: host })} @change=${(e) => this._nameClient(host, e.target, name)} @keydown=${(e) => { if (e.key === "Enter") e.target.blur(); }}>`;
+    return html`<label class="fld"><span class="lbl">${t("clientNamePlaceholder")}</span><input class="inp" data-name=${host} maxlength="40" .value=${name} placeholder=${placeholder} aria-label=${t("clientNameFor", { h: host })} @change=${(e) => this._nameClient(host, e.target, name)} @keydown=${(e) => { if (e.key === "Enter") e.target.blur(); }}></label>`;
+  }
+
+  updated() {
+    if (!this._focusName) return;
+    const field = this.renderRoot.querySelector(`[data-name="${this._focusName}"]`);
+    if (field) { field.focus(); this._focusName = null; }
+  }
+
+  /** The first line of a row (the name) and the address and state below it. */
+  _clientWho(title, host, state) {
+    const named = title && title !== host;
+    return html`<span class="cl-who"><span class="cl-title ${named ? "" : "mono"}">${named ? title : host}</span>
+      <span class="cl-sub">${named ? html`<span class="mono">${host}</span> · ` : ""}${state}</span></span>`;
+  }
+
+  /** New, known and blocked computers in one list; a known one opens to be named. */
+  _clientList(s) {
+    const rows = [
+      ...(s.new_clients || []).map((n) => ({ ...n, kind: "new" })),
+      ...(s.known_clients || []).map((c) => ({ ...c, kind: "known" })),
+      ...(s.blocked_clients || []).map((b) => ({ ...b, kind: "blocked" })),
+    ];
+    return html`${rows.length ? html`<div class="cl-list">${repeat(rows, (r) => r.host, (r) => html`<div class="cl-item">${this._clientRow(r)}</div>`)}</div>` : ""}
+      ${s.new_clients_full ? html`<span class="hint">${t("newClientsFull")}</span>` : ""}
+      ${this.blockAdd ? html`<div class="grp" style="gap:8px"><div class="cl-add">
+          <input id="block-host" class="inp mono" placeholder="192.168.1.50" aria-label=${t("blockAddress")} @keydown=${(e) => { if (e.key === "Enter") this._blockClient(e.target.value); }}>
+          <button class="btn btn-d" @click=${() => this._blockClient(this.renderRoot.getElementById("block-host").value)}>${t("newClientBlock")}</button>
+          <button class="btn btn-g" @click=${() => { this.blockAdd = false; }}>${t("cancel")}</button></div>
+        <span class="hint">${t("blockHint")}${s.source === "custom" ? ` ${t("blockCustom")}` : ""}</span></div>`
+    : html`<div><button class="btn btn-g" style="padding-left:0" @click=${() => { this.blockAdd = true; }}>${icon("plus", 16)}${t("blockManual")}</button></div>`}`;
+  }
+
+  _clientRow(r) {
+    if (r.kind === "new") {
+      return html`<div class="cl-head"><span class="cl-dot new"></span>
+        ${this._clientWho("", r.host, t("newClientAt", { c: r.connection, t: fmtTime(r.first) }))}
+        <span class="chip warn">${t("clientNew")}</span>
+        <span class="cl-acts"><button class="btn btn-s" @click=${() => this._knownClient(r.host)}>${t("newClientKnown")}</button>
+          <button class="btn btn-d" @click=${() => this._blockClient(r.host)}>${t("newClientBlock")}</button></span></div>`;
+    }
+    if (r.kind === "blocked") {
+      const state = `${t("blockedSince", { t: fmtTime(r.since) })}${r.refused ? ` · ${t("blockedRefused", { n: r.refused, a: fmtAgo(r.refused_last) })}` : ""}`;
+      return html`<div class="cl-head"><span class="cl-dot blocked"></span>
+        ${this._clientWho(r.name, r.host, state)}
+        <span class="chip bad">${t("blockedClients")}</span>
+        <span class="cl-acts"><button class="btn btn-s" @click=${() => this._unblockClient(r.host)}>${t("blockRelease")}</button></span></div>`;
+    }
+    const open = this.clientOpen === r.host;
+    const auto = r.auto ? t(`clientAutoName_${r.auto}`) : "";
+    return html`<button class="cl-head" aria-expanded=${open ? "true" : "false"} @click=${() => { this.clientOpen = open ? null : r.host; }}>
+        <span class="cl-dot ${r.connected ? "on" : ""}"></span>
+        ${this._clientWho(r.name || auto, r.host, this._clientWhere(r))}
+        <span class="cl-chev ${open ? "open" : ""}">${icon("chevron", 18)}</span></button>
+      ${open ? html`<div class="cl-more">
+        ${this._nameField(r.host, r.name, auto || t("clientNamePlaceholder"))}
+        ${r.auto ? html`<span class="hint" style="align-self:center">${t("clientAutoHint")}</span>` : html`<span class="cl-acts">
+          <button class="btn btn-d" @click=${() => this._blockClient(r.host)}>${t("newClientBlock")}</button>
+          ${r.connected ? "" : html`<button class="btn btn-g" @click=${() => this._forgetClient(r.host)}>${t("clientForget")}</button>`}</span>`}
+      </div>` : ""}`;
   }
 
   /** Where a known client was last. */
@@ -221,8 +296,8 @@ export class SettingsPage extends Page {
     if (!host || !(await confirmDialog(this, t("blockAsk", { h: host }), t("newClientBlock")))) return;
     try {
       await api("api/clients/block", { method: "POST", body: { host } });
-      const field = this.renderRoot.getElementById("block-host");
-      if (field) field.value = "";
+      this.blockAdd = false;
+      this.clientOpen = null;
       this.refresh();
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -479,34 +554,7 @@ export class SettingsPage extends Page {
 
         <section id="clients" class="card" aria-labelledby="t-clients">
           <div><h2 id="t-clients">${t("sClients")}</h2><p class="hint" style="margin-top:4px">${t("sClientsSub")}</p></div>
-          ${(s.new_clients || []).length ? html`<div class="grp" style="gap:8px">
-            <h3>${t("newClients")}</h3>
-            ${repeat(s.new_clients, (n) => n.host, (n) => html`<div class="client-row well">
-              <div class="client-who"><span class="mono">${n.host}</span>
-                <span class="hint">${t("newClientAt", { c: n.connection, t: fmtTime(n.first) })}</span></div>
-              ${this._nameField(n.host, "", t("clientNamePlaceholder"))}
-              <button class="btn btn-s" @click=${() => this._knownClient(n.host)}>${t("newClientKnown")}</button>
-              <button class="btn btn-d" @click=${() => this._blockClient(n.host)}>${t("newClientBlock")}</button>
-            </div>`)}${s.new_clients_full ? html`<span class="hint">${t("newClientsFull")}</span>` : ""}</div>` : ""}
-          ${(s.known_clients || []).length ? html`<div class="grp" style="gap:8px">
-            <h3>${t("knownClients")}</h3>
-            ${repeat(s.known_clients, (c) => c.host, (c) => html`<div class="client-row well">
-              <div class="client-who"><span class="mono">${c.host}</span><span class="hint">${this._clientWhere(c)}</span></div>
-              ${this._nameField(c.host, c.name, c.auto ? t(`clientAutoName_${c.auto}`) : t("clientNamePlaceholder"))}
-              ${c.auto ? (c.name ? "" : html`<span class="chip info">${t("clientAutomatic")}</span>`) : html`<button class="btn btn-d" @click=${() => this._blockClient(c.host)}>${t("newClientBlock")}</button>${c.connected ? "" : html`<button class="btn btn-g" @click=${() => this._forgetClient(c.host)}>${t("clientForget")}</button>`}`}
-            </div>`)}</div>` : ""}
-          <div class="grp" style="gap:8px">
-            <h3>${t("blockedClients")}</h3>
-            ${(s.blocked_clients || []).map((b) => html`<div class="row well" style="gap:12px;flex-wrap:wrap">
-              <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono">${b.host}${b.name ? html` <span class="hint">${b.name}</span>` : ""}</span>
-                <span class="hint">${t("blockedSince", { t: fmtTime(b.since) })}${b.refused ? ` · ${t("blockedRefused", { n: b.refused, a: fmtAgo(b.refused_last) })}` : ""}</span></div>
-              <button class="btn btn-s" style="margin-left:auto" @click=${() => this._unblockClient(b.host)}>${t("blockRelease")}</button>
-            </div>`)}
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <input id="block-host" class="inp mono" style="flex:1 1 200px;width:auto" placeholder="192.168.1.50" aria-label=${t("blockAddress")} @keydown=${(e) => { if (e.key === "Enter") this._blockClient(e.target.value); }}>
-              <button class="btn btn-s" @click=${() => this._blockClient(this.renderRoot.getElementById("block-host").value)}>${t("newClientBlock")}</button></div>
-            <span class="hint">${t("blockHint")}${s.source === "custom" ? ` ${t("blockCustom")}` : ""}</span>
-          </div>
+          ${this._clientList(s)}
           <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; this._saveSettings({ notify_new_clients: e.target.checked }); }}><span>${t("notifyNewClients")}</span></label>
         </section>
 
