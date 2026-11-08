@@ -127,6 +127,11 @@ Clients kommen abwechselnd dran: ein Client, der ohne Pause fragt, kann die ande
 aufhalten.
 
 
+**Geräteprofile** tragen Port und Zeiten für Geräte eines Herstellers ein (SolarEdge, Huawei
+SUN2000, Fronius, SMA, Kostal Plenticore, Sungrow, Victron GX). Es sind Startwerte, die änderbar
+bleiben; die Unit-ID stellt der Client ein, das Profil nennt die übliche. Erkennt **Bus scannen**
+einen Hersteller, bietet es dessen Zeiten an; der Port bleibt dabei, wie er ist.
+
 **Verbindung zum Gerät**
 
 | Art | Für | Einstellungen |

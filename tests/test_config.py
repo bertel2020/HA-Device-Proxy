@@ -358,3 +358,15 @@ def test_scalars_read_back_as_written() -> None:
     for value in ("- Welcome", "-", "@home", ",x", "a: b", "a #b", "x", "/dev/ttyUSB0", "-x"):
         assert yaml.safe_load(f"k: {scalar(value)}")["k"] == value, value
     assert scalar("/dev/ttyUSB0") == "/dev/ttyUSB0"  # plain where it is safe
+
+
+def test_the_modbus_profiles_are_templates_with_a_name_in_the_panel() -> None:
+    from device_proxy.model import MODBUS_PROFILES
+
+    src = Path(__file__).parents[1] / "panel-src" / "src"
+    modbus, i18n = (src / "modbus.js").read_text(), (src / "i18n.js").read_text()
+    new = {"name": "M", "port": 15020, "kind": "modbus", "host": "192.0.2.5"}
+    for profile in ("modbus", *MODBUS_PROFILES):
+        assert Connection.from_dict({**new, "template": profile}).template == profile
+        assert f"  {profile}: {{ ...TIMING," in modbus
+        assert i18n.count(f"tpl_{profile}:") == 2 and i18n.count(f"tplsub_{profile}:") == 2

@@ -34,7 +34,26 @@ TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
 ENOCEAN_TEMPLATES = ("fam_usb", "fam14", "fgw14_usb", "usb300", "mgw_eth", "symcon_lan", "enocean")
-TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "zigbee", "modbus", *ENOCEAN_TEMPLATES)
+# starting values for the devices of a vendor (PROFILES in panel-src/src/modbus.js)
+MODBUS_PROFILES = (
+    "mb_solaredge",
+    "mb_huawei",
+    "mb_fronius",
+    "mb_sma",
+    "mb_kostal",
+    "mb_sungrow",
+    "mb_victron",
+)
+TEMPLATES = (
+    "generic",
+    "ehz_sml",
+    "ehz_d0",
+    "zwave",
+    "zigbee",
+    "modbus",
+    *MODBUS_PROFILES,
+    *ENOCEAN_TEMPLATES,
+)
 KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
 LINKS = {  # how a proxy reaches its device
     "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),

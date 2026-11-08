@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
-import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
+import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
 import { changeNote, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -362,6 +362,17 @@ export class DetailPage extends Page {
       @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
   }
 
+  /** The timing of the vendor the scan found; the port stays, the device answers on it. */
+  async _useProfile(c, profile) {
+    const timing = profileTiming(profile);
+    if (!(await confirmDialog(this, t("mbProfileAsk", { p: t(`tpl_${profile}`), t: timing.request_timeout_ms, d: timing.connect_delay_ms, g: timing.request_gap_ms }), t("mbProfileApply")))) return;
+    try {
+      await saveConnection(toConnection({ ...c, template: profile, ...timing }));
+      this.toast(t("mbProfileDone"));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   /** The register entities with their last values (the app reads them itself). */
   _registerValues(c) {
     const rows = (c.register_entities || "").split("\n").map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 9);
@@ -478,7 +489,8 @@ export class DetailPage extends Page {
         ${sc.results.map((u) => [u, identity(u)]).filter(([, id]) => id).map(([u, id]) => html`<div class="well" style="display:flex;flex-direction:column;gap:2px">
           <div><b style="font-weight:500">Unit ${u.unit} · ${[id.vendor, id.product].filter(Boolean).join(" ")}</b>${id.revision ? html` <span class="hint">${id.revision}</span>` : ""}</div>
           ${id.sunspec !== null ? html`<span class="hint">${t("mbSunspec", { a: id.sunspec })}</span>` : ""}
-          ${id.integration ? html`<span class="hint">${t("mbIntegration", { i: id.integration })}</span>` : ""}</div>`)}` : ""}
+          ${id.integration ? html`<span class="hint">${t("mbIntegration", { i: id.integration })}</span>` : ""}
+          ${id.profile && c.template !== id.profile ? html`<div style="margin-top:6px"><button class="btn btn-g" @click=${() => this._useProfile(c, id.profile)}>${t("mbProfileUse", { p: t(`tpl_${id.profile}`) })}</button></div>` : ""}</div>`)}` : ""}
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("acTitle")}</b><p class="hint">${t("acSub")}</p></div>
       <div class="grid5">
         <label class="fld"><span class="lbl">${t("acHost")}</span><input class="inp mono" .value=${this.acForm.host} placeholder="192.168.1.50"
