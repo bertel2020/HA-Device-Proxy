@@ -316,3 +316,27 @@ async def test_two_items_on_one_device_in_the_same_file_are_a_conflict(tmp_path:
     merged = merge(AppConfig(), result, replace_all=True, take={"raw", "rfc"}, on_conflict={})
     assert [c.name for c in merged.connections] == ["raw"]  # skipped, as the panel said
     merged.validate()
+
+
+async def test_the_import_event_counts_a_replaced_connection_as_taken_over(
+    tmp_path: Path,
+) -> None:
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"), EventLog(db), tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )  # fmt: skip
+    old = Connection("old", "/dev/ttyS0", 3005, id="0000000a")
+    controller.config = AppConfig(connections=(old,))
+    await controller.run_import(
+        TWO_PORTS, replace_all=False, take={"raw"}, on_conflict={"raw": "replace"}
+    )
+    assert controller.config.connection(old.id).port == 3001  # type: ignore[union-attr]
+    event = next(e for e in controller.events.history() if e.kind == "imported")
+    assert (event.params["taken"], event.params["skipped"]) == (1, 1)

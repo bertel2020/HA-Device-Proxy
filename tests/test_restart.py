@@ -125,6 +125,34 @@ async def test_restart_closes_and_opens_the_port(tmp_path: Path, monkeypatch: An
     assert "usb_reset_failed" in [k for k, _ in _kinds(controller)]
 
 
+async def test_baud_detection_leaves_a_port_off_that_was_switched_off_meanwhile(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from dataclasses import replace
+
+    c = Connection("Meter", "/dev/ttyUSB0", 3333, id="0000000a")
+    controller = _controller(tmp_path, c)
+    admin = _Admin()
+    monkeypatch.setattr(controller, "admin", admin)
+
+    def detect(device: str, progress: Any) -> list[Any]:
+        if state["switch_off"]:  # the user switches the connection off while the detection runs
+            controller.config = controller.config.with_connection(replace(c, enabled=False))
+        return []
+
+    state = {"switch_off": False}
+    monkeypatch.setattr(controller_module, "detect", detect)
+    for switch_off, last in ((False, "on"), (True, "off")):
+        state["switch_off"] = switch_off
+        controller.config = AppConfig(connections=(c,))
+        admin.commands.clear()
+        job_id = controller._new_job(c.id, 0)
+        await controller._detect(job_id, c)
+        assert controller.jobs[job_id]["state"] == "done"
+        assert admin.commands[-1] == f"setportenable c_0000000a {last}"
+        assert c.id not in controller._paused
+
+
 async def test_restart_refuses(tmp_path: Path, monkeypatch: Any) -> None:
     network = Connection("Bridge", "", 3334, id="0000000b", source="tcp", host="192.0.2.5")
     off = Connection("Off", "/dev/ttyUSB1", 3335, id="0000000c", enabled=False)
