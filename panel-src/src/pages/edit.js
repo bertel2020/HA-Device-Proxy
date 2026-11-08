@@ -15,7 +15,7 @@ const DEFAULTS = {
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
   notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", power_switch: "", kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", write_registers: "", write_rules: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
@@ -435,6 +435,9 @@ export class EditPage extends Page {
         <span class="hint">${t(`wasub_${d.write_access}`)}</span>
         ${d.write_access === "listed" ? this._input("write_clients", t("mbWriteClients"), { mono: true, hint: t("mbWriteClientsHint") }) : ""}
         ${d.write_access === "none" ? "" : this._input("write_registers", t("mbWriteRegisters"), { mono: true, hint: t("mbWriteRegistersHint") })}
+        ${d.write_access === "none" ? "" : html`<label class="fld"><span class="lbl">${t("mbWriteRules")}</span>
+          <textarea class="inp mono" rows="3" spellcheck="false" aria-invalid=${this._shown().write_rules ? "true" : "false"} placeholder="192.168.1.20 40100-40120&#10;127.0.0.1 *" .value=${d.write_rules || ""} @input=${(e) => this._set({ write_rules: e.target.value })}></textarea>
+          ${this._err("write_rules")}<span class="hint">${t("mbWriteRulesHint")}</span></label>`}
       </section>`}
 
       <section class="card" aria-labelledby="t-adv">

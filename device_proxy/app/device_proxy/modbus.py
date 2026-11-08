@@ -45,6 +45,7 @@ from .model import (
     parse_ranges,
     parse_routes,
     parse_unit_map,
+    parse_write_rules,
     peer_allowed,
 )
 from .trace import Chunk
@@ -713,12 +714,27 @@ def may_write(c: Connection, host: str, local: bool = False) -> bool:
     return c.write_access == "all"
 
 
+def write_rule(
+    c: Connection, host: str, local: bool = False
+) -> tuple[str, list[tuple[int, int]] | None] | None:
+    """The line of write_rules for this client, the first that fits; it replaces
+    write_registers for that client."""
+    for client, ranges in parse_write_rules(c.write_rules):
+        if client_allowed(client, "all", host) or (
+            local and client_allowed(client, "all", "127.0.0.1")
+        ):
+            return client, ranges
+    return None
+
+
 def write_refusal(c: Connection, host: str, local: bool, pdu: bytes) -> int | None:
     """The exception a client's write gets from this connection's rules, None when it may
     pass."""
     if not may_write(c, host, local):
         return EXC_FUNCTION
-    if c.write_registers and not in_ranges(write_span(pdu), parse_ranges(c.write_registers)):
+    rule = write_rule(c, host, local)
+    ranges = rule[1] if rule else parse_ranges(c.write_registers) if c.write_registers else None
+    if ranges is not None and not in_ranges(write_span(pdu), ranges):
         return EXC_ADDRESS
     return None
 
@@ -752,8 +768,16 @@ def check_access(
         code = write_refusal(rules, host, local, pdu)
         if code is not None:
             why = "write_access" if code == EXC_FUNCTION else "registers"
-            return {**result, "allowed": False, "why": why, "by": rules.name}
-    return {**result, "allowed": True, "why": "write"}
+            rule = write_rule(rules, host, local) if code == EXC_ADDRESS else None
+            return {
+                **result,
+                "allowed": False,
+                "why": why,
+                "by": rules.name,
+                **({"rule": rule[0]} if rule else {}),
+            }
+    rule = write_rule(c, host, local)
+    return {**result, "allowed": True, "why": "write", **({"rule": rule[0]} if rule else {})}
 
 
 def restart_key(c: Connection, listen: str) -> Connection:
@@ -780,6 +804,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_access="all",
         write_clients="",
         write_registers="",
+        write_rules="",
         register_entities="",
         entity_seconds=0,
         listen_max_age_s=0,
@@ -1301,11 +1326,7 @@ class ModbusProxy:
                 self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
                 answer = exception(pdu, EXC_FUNCTION)
                 self._log_write(info, unit, pdu, "blocked")
-            elif (
-                write
-                and self.c.write_registers
-                and not in_ranges(write_span(pdu), parse_ranges(self.c.write_registers))
-            ):
+            elif write and self.write_refusal(host, local, pdu) == EXC_ADDRESS:
                 self.stats.blocked += 1
                 info.blocked += 1
                 span = write_span(pdu)

@@ -257,6 +257,9 @@ class Connection:
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     write_registers: str = ""  # writes only to these addresses ("40100-40120 47000"); "" any
+    # per client, instead of write_registers ("192.168.1.20 40100-40120" per line, "*" any
+    # register, "none" no register); who may write at all stays write_access
+    write_rules: str = ""
     listen_max_age_s: int = 60  # rtu_listen: registers heard longer ago count as unknown
     # several devices behind this port: a client unit → another Modbus connection of the
     # app and its unit ("2=0000beef:1 3=0000cafe")
@@ -533,6 +536,10 @@ class Connection:
         except ValueError as err:
             e["write_registers"] = str(err)
         try:
+            parse_write_rules(self.write_rules)
+        except ValueError as err:
+            e["write_rules"] = str(err)
+        try:
             parse_entities(self.register_entities)
         except ValueError as err:
             e["register_entities"] = str(err)
@@ -562,6 +569,31 @@ def parse_ranges(text: str) -> list[tuple[int, int]]:
             raise ValueError(f"'{item}': addresses 0 to 65535, the first not above the last")
         ranges.append((a, b))
     return ranges
+
+
+def parse_write_rules(text: str) -> list[tuple[str, list[tuple[int, int]] | None]]:
+    """ "192.168.1.20 40100-40120" per line → (client, ranges), None for "*" (any register), an
+    empty list for "none"; raises ValueError."""
+    rules: list[tuple[str, list[tuple[int, int]] | None]] = []
+    for line in text.splitlines():
+        client, _, registers = line.strip().partition(" ")
+        registers = registers.strip()
+        if not client:
+            continue
+        if not registers:
+            raise ValueError(f"'{line.strip()}': a client and its registers, * or none")
+        parse_networks(client)
+        rules.append(
+            (
+                client,
+                None
+                if registers == "*"
+                else []
+                if registers == "none"
+                else parse_ranges(registers),
+            )
+        )
+    return rules
 
 
 _BLANK = Connection(name="", device="", port=0, id="00000000")  # for derived properties

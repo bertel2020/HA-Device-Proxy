@@ -197,6 +197,12 @@ address alike. The card **Writes** on the connection's page lists the clients' l
 writes: when, who, unit, function, address, values and whether they were written, refused
 by the device, not allowed or outside the allowed registers.
 
+**Registers per client**: one line per client under the registers, an address or network and then
+its registers, `*` for any or `none` for no register, e.g. `192.168.1.20 40100-40120` lets evcc set
+the charging registers while `127.0.0.1 *` leaves Home Assistant free. The first line that fits
+applies instead of **Registers that may be written**. A line does not let anyone write: who may
+write at all is still decided by the write access. **Check access** names the line that applies.
+
 **Units of other connections** (under **Advanced**): one port for several devices, as many
 energy managers and evcc expect a single Modbus gateway. Each line names a unit asked here,
 another Modbus connection of the app and the unit there, e.g. unit 2 → "Meter" (unit 1). A
