@@ -86,6 +86,7 @@ Alle Seiten, alle Einstellungen und Hilfe, wenn etwas nicht geht: **[Anleitung](
 - Die Admin-Schnittstelle von ser2net ist nur innerhalb der App erreichbar; die Weboberfläche nur über Home Assistant (Ingress).
 - Ein Rechner, der sich zum ersten Mal verbindet, wird gemeldet (**Einstellungen → Clients**, dort bekommen Clients auch Namen).
 - Die Diagnose lässt IP-Adressen, Hostnamen, die MQTT-Anmeldung und Personennamen weg.
+- Ein Sicherheitsproblem gefunden? Bitte vertraulich melden, siehe [SECURITY.md](SECURITY.md).
 
 ## Änderungen
 
