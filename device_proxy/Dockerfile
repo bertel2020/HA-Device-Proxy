@@ -9,7 +9,10 @@ ARG SER2NET_VERSION=4.6.8
 ARG SER2NET_SHA256=e651adcc4cc0d0ceaa36e5997dab9ea7f8aea732b4c87ba6018d2dcc88fbe8e3
 RUN apk add --no-cache build-base linux-headers yaml-dev openssl-dev
 WORKDIR /src
-RUN wget -q "https://github.com/cminyard/gensio/releases/download/v${GENSIO_VERSION}/gensio-${GENSIO_VERSION}.tar.gz" \
+# GitHub's release downloads answer 504 now and then: up to 10 tries, 30 s apart
+RUN try=1 && until wget -q -O "gensio-${GENSIO_VERSION}.tar.gz" "https://github.com/cminyard/gensio/releases/download/v${GENSIO_VERSION}/gensio-${GENSIO_VERSION}.tar.gz"; do \
+        [ "$try" -lt 10 ] || exit 1; try=$((try + 1)); echo "gensio download failed, try $try in 30 s"; sleep 30; \
+    done \
     && echo "${GENSIO_SHA256}  gensio-${GENSIO_VERSION}.tar.gz" | sha256sum -c - \
     && tar xzf "gensio-${GENSIO_VERSION}.tar.gz" \
     && cd "gensio-${GENSIO_VERSION}" \
@@ -21,7 +24,9 @@ RUN wget -q "https://github.com/cminyard/gensio/releases/download/v${GENSIO_VERS
     && make -j"$(nproc)" \
     && make install \
     && make install DESTDIR=/out
-RUN wget -q "https://github.com/cminyard/ser2net/releases/download/v${SER2NET_VERSION}/ser2net-${SER2NET_VERSION}.tar.gz" \
+RUN try=1 && until wget -q -O "ser2net-${SER2NET_VERSION}.tar.gz" "https://github.com/cminyard/ser2net/releases/download/v${SER2NET_VERSION}/ser2net-${SER2NET_VERSION}.tar.gz"; do \
+        [ "$try" -lt 10 ] || exit 1; try=$((try + 1)); echo "ser2net download failed, try $try in 30 s"; sleep 30; \
+    done \
     && echo "${SER2NET_SHA256}  ser2net-${SER2NET_VERSION}.tar.gz" | sha256sum -c - \
     && tar xzf "ser2net-${SER2NET_VERSION}.tar.gz" \
     && cd "ser2net-${SER2NET_VERSION}" \
