@@ -1170,6 +1170,14 @@ const NOTES = {
 
 // The app checks fields in English; these are its messages in German.
 const FIELD_ERRORS_DE = [
+  [/^a switch entity like switch\.usb_hub$/, "eine Schalter-Entität wie switch.usb_hub"], [/^the connection has no power switch$/, "die Verbindung hat keinen Schalter für die Stromversorgung"],
+  [/^line (\d+): unit function address type swap scale unit class name$/, "Zeile $1: Unit Funktion Adresse Typ Swap Faktor Einheit Klasse Name"], [/^line (\d+): this register is listed already$/, "Zeile $1: dieses Register steht schon in der Liste"],
+  [/^line (\d+): '(.+)' is not a data type$/, "Zeile $1: „$2“ ist kein Datentyp"], [/^line (\d+): '(.+)' does not fit (.+)$/, "Zeile $1: „$2“ passt nicht zu $3"], [/^line (\d+): '(.+)' is not a factor$/, "Zeile $1: „$2“ ist kein Faktor"],
+  [/^line (\d+): '(.+)' is not a unit$/, "Zeile $1: „$2“ ist keine Einheit"], [/^line (\d+): '(.+)' is not a device class$/, "Zeile $1: „$2“ ist keine Geräteklasse"], [/^line (\d+): a name of at most 64 characters$/, "Zeile $1: ein Name mit höchstens 64 Zeichen"],
+  [/^line (\d+): unit (\d+) to (\d+)$/, "Zeile $1: Unit $2 bis $3"], [/^line (\d+): function (\d+) to (\d+)$/, "Zeile $1: Funktion $2 bis $3"], [/^line (\d+): address (\d+) to (\d+)$/, "Zeile $1: Adresse $2 bis $3"], [/^line (\d+): registers of a text (\d+) to (\d+)$/, "Zeile $1: Register eines Texts $2 bis $3"],
+  [/^line (\d+): (unit|function|address|registers of a text) must be a number$/, "Zeile $1: hier muss eine Zahl stehen"], [/^at most 50 entities$/, "höchstens 50 Entitäten"], [/^5 to 3600 seconds$/, "5 bis 3600 Sekunden"],
+  [/^'(.+)': a client and its registers, \* or none$/, "„$1“: ein Client und seine Register, * oder none"],
+  [/^'(.+)' is not a sender ID like FE-E9-12-34$/, "„$1“ ist keine Sender-ID wie FE-E9-12-34"], [/^'(.+)': a name of 1 to 40 characters$/, "„$1“: ein Name mit 1 bis 40 Zeichen"],
   [/^'(.+)' is not unit=connection or unit=connection:unit$/, "„$1“ ist nicht Unit=Verbindung oder Unit=Verbindung:Unit"], [/^'(.+)': units 1 to 247$/, "„$1“: Units 1 bis 247"],
   [/^(\S+) is not a Modbus connection of this app$/, "$1 ist keine Modbus-Verbindung dieser App"], [/^(.+) routes units of its own$/, "$1 leitet selbst Units weiter"],
   [/^'(.+)' is not an address or a range like 40100-40120$/, "„$1“ ist keine Adresse und kein Bereich wie 40100-40120"], [/^'(.+)': addresses 0 to 65535, the first not above the last$/, "„$1“: Adressen 0 bis 65535, die erste nicht über der letzten"],
