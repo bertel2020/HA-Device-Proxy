@@ -571,6 +571,26 @@ def parse_ranges(text: str) -> list[tuple[int, int]]:
     return ranges
 
 
+SENDER_ID = re.compile(r"[0-9A-Fa-f]{2}(-[0-9A-Fa-f]{2}){3}")
+SENDER_NAME_LENGTH = 40
+
+
+def parse_sender_names(text: str) -> dict[str, str]:
+    """ "FE-E9-12-34 Kitchen switch" per line → {id in capitals: name}; raises ValueError."""
+    names: dict[str, str] = {}
+    for line in text.splitlines():
+        sender, _, name = line.strip().partition(" ")
+        if not sender:
+            continue
+        name = " ".join(name.split())
+        if not SENDER_ID.fullmatch(sender):
+            raise ValueError(f"'{sender}' is not a sender ID like FE-E9-12-34")
+        if not 1 <= len(name) <= SENDER_NAME_LENGTH:
+            raise ValueError(f"'{sender}': a name of 1 to {SENDER_NAME_LENGTH} characters")
+        names[sender.upper()] = name
+    return names
+
+
 def parse_write_rules(text: str) -> list[tuple[str, list[tuple[int, int]] | None]]:
     """ "192.168.1.20 40100-40120" per line → (client, ranges), None for "*" (any register), an
     empty list for "none"; raises ValueError."""
@@ -624,6 +644,8 @@ class Settings:
     # host connects that was never seen before
     client_names: str = ""
     notify_new_clients: bool = True
+    # names for EnOcean sender IDs ("FE-E9-12-34 Kitchen switch" per line), for all gateways
+    sender_names: str = ""
     # entities in Home Assistant over MQTT discovery
     mqtt_enabled: bool = True  # only with a broker in Home Assistant
     mqtt_prefix: str = "homeassistant"
@@ -697,6 +719,10 @@ class Settings:
             parse_names(settings.client_names)
         except ValueError as err:
             e["client_names"] = str(err)
+        try:
+            parse_sender_names(settings.sender_names)
+        except ValueError as err:
+            e["sender_names"] = str(err)
         for key in ("mqtt_prefix", "mqtt_base"):
             if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
                 e[key] = "an MQTT topic without wildcards"

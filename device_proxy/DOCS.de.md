@@ -375,6 +375,9 @@ und die Base-ID, sobald das Gateway sie genannt hat. Werkzeuge:
   welches Gateway sie gehört hat. „Neu“ markiert Sender, die erst mehr als 5 Minuten nach dem
   Start zu hören waren, sodass sich die ID eines neuen Tasters durch einmaliges Drücken findet;
   „eigen“ markiert den Base-ID-Bereich des Gateways.
+  Mit **Namen bearbeiten** bekommt jeder Sender einen Namen, für alle Gateways, gemeinsam in
+  einem Schritt gespeichert; **Als CSV herunterladen** gibt die Liste als Datei. Die Diagnose lässt
+  die Namen weg.
 - **Gateway-Test**: liest die Base-ID zehnmal; nichts geht über Funk.
 - **Base-ID ändern**: setzt die Base-ID des Gateways (FF-80-00-00 bis FF-FF-FF-80, letztes Byte
   00 oder 80). Das Gateway speichert sie im Flash und erlaubt nur wenige Änderungen (10 bei

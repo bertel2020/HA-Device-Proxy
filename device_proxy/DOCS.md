@@ -355,6 +355,8 @@ told it. Tools:
   gateway, the reception in dBm (above −75 good, below −88 weak); with a fallback also which
   gateway heard it. "New" marks senders first heard more than 5 minutes after the start, so a
   new switch's ID is found by pressing it once; "own" marks the gateway's base ID range.
+  With **Edit names** each sender gets a name, for all gateways, saved together in one step;
+  **Download as CSV** gives the list as a file. Diagnostics leave the names out.
 - **Gateway test**: reads the base ID ten times; nothing goes over the air.
 - **Change base ID**: sets the gateway's base ID (FF-80-00-00 to FF-FF-FF-80, last byte 00 or 80).
   The gateway keeps it in flash and allows only a few changes (10 for TCM 300 modules such as the

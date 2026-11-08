@@ -85,6 +85,8 @@ def build(
     for settings in (config["settings"], snapshot["settings"]):
         if settings.get("client_names"):
             settings["client_names"] = "***"  # addresses and personal names
+        if settings.get("sender_names"):
+            settings["sender_names"] = "***"  # the rooms of a home
     shm = shutil.disk_usage("/dev/shm") if os.path.isdir("/dev/shm") else None
     about = {
         "created": time.strftime("%Y-%m-%d %H:%M:%S"),
