@@ -416,6 +416,14 @@ restart. It only counts while the device is open (a client connected or **Keep t
 open**). If there is still no data after three restarts in a row, only the warning stays until
 data comes again. Every restart is in the history.
 
+**Power cycle**: when a restart and a USB reset are not enough, a switch in Home Assistant can
+cut the power, e.g. a switchable socket on the USB hub. Enter it under **Power** in the
+connection's form (for every kind of connection). A button **Power cycle** then appears next to
+**Restart**: the device is closed, the switch goes off for 5 seconds and on again, and the
+device is opened again. With automatic restarts set up, one power cycle follows the three
+restarts that did not help. Choose a switch that nothing else depends on, and never the one that
+feeds Home Assistant itself.
+
 Both are also buttons in Home Assistant (see below).
 
 ## Status, traces and line errors
@@ -521,6 +529,7 @@ MQTT entities**, where the entities can also be switched off.
 | Disconnect clients (button) | closes the connections of all clients; they may connect again |
 | Restart connection (button) | closes the device and opens it again, the clients connect again |
 | USB reset (button) | only with a device of this host: resets the USB adapter and restarts |
+| Power cycle (button) | only with a power switch set: cuts the power for 5 seconds and restarts |
 
 A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
 time, the switch and the buttons. An EnOcean gateway has: gateway reachable, clients, telegrams

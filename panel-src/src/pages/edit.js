@@ -12,7 +12,7 @@ const DEFAULTS = {
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
-  notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", kind: "serial", source: "device",
+  notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", power_switch: "", kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
@@ -55,7 +55,7 @@ const fieldErrors = (errors) => Object.fromEntries(Object.entries(errors || {}).
 
 export class EditPage extends Page {
   static properties = {
-    state: { attribute: false }, connectionId: {},
+    switches: { state: true }, state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
     otherDevice: { state: true }, replayOpen: { state: true }, fbOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, effects: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
@@ -102,6 +102,7 @@ export class EditPage extends Page {
     super.connectedCallback();
     this._leave = (e) => { if (this._dirty()) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("beforeunload", this._leave);
+    api("api/ha/switches").then((list) => { this.switches = list; }).catch(() => { this.switches = []; });
   }
 
   disconnectedCallback() {
@@ -758,6 +759,14 @@ export class EditPage extends Page {
               ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} ?selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
               ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
         </section>`}
+
+        <section class="card" aria-labelledby="t-power">
+          <div><h2 id="t-power">${t("powerTitle")}</h2><p class="hint" style="margin-top:4px">${t("powerSub")}</p></div>
+          <label class="fld"><span class="lbl">${t("powerSwitch")}</span>
+            <input class="inp mono" list="dp-switches" placeholder="switch.usb_hub" aria-invalid=${this._shown().power_switch ? "true" : "false"} .value=${d.power_switch || ""} @input=${(e) => this._set({ power_switch: e.target.value.trim() })}>
+            <datalist id="dp-switches">${(this.switches || []).map((s) => html`<option value=${s}></option>`)}</datalist>
+            ${this._err("power_switch")}<span class="hint">${t("powerSwitchHint")}</span></label>
+        </section>
 
         <section class="card" aria-labelledby="t-on">
           <div class="fold"><div><h2 id="t-on">${isNew ? t("startNow") : t("enabled")}</h2><p class="hint" style="margin-top:4px">${isNew ? t("startNowSub") : t("enabledSub")}</p></div>

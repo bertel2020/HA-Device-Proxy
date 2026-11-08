@@ -148,6 +148,7 @@ EXTRA_OPTIONS = {
     "mdns-txt",
 }
 FILE_REFERENCE = re.compile(r"[*=]\{|\*\(")  # ser2net puts a file's content or a define here
+POWER_SWITCH = re.compile(r"switch\.[a-z0-9_]{1,200}")
 RS485 = re.compile(r"off|\d+:\d+(:(rts_on_send|rts_after_send|rx_during_tx|terminate_bus))*")
 
 
@@ -218,6 +219,9 @@ class Connection:
     # after silence_minutes without data: "" only warn, "restart" the connection, "usb" reset
     # its USB adapter as well (controller.py, at most AUTO_RESTART_MAX times in a row)
     silence_restart: str = ""
+    # a switch in Home Assistant that cuts the device's power, for a power cycle by hand and
+    # as the last step of the automatic restarts ("switch.usb_hub", "" for none)
+    power_switch: str = ""
     # a serial connection's data: a device of this host, or a serial bridge in the network
     # (ESPHome stream server, Tasmota reading head, USR-TCP232) at host and host_port
     source: str = "device"
@@ -409,6 +413,8 @@ class Connection:
             e["silence_restart"] = "needs the minutes without data"
         elif self.silence_restart == "usb" and not self.uses_device:
             e["silence_restart"] = "a USB reset needs a device of this host"
+        if self.power_switch and not POWER_SWITCH.fullmatch(self.power_switch):
+            e["power_switch"] = "a switch entity like switch.usb_hub"
         if self.kind != "serial":
             self._validate_link(e)
         elif self.source not in ("device", "tcp"):

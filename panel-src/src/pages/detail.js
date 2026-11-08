@@ -287,7 +287,19 @@ export class DetailPage extends Page {
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button class="btn btn-s" ?disabled=${busy} @click=${() => this._doRestart(c, false)}>${t("restartBtn")}</button>
         ${usb ? html`<button class="btn btn-g" ?disabled=${busy} @click=${() => this._doRestart(c, true)}>${t("usbResetBtn")}</button>` : ""}
+        ${c.power_switch ? html`<button class="btn btn-g" ?disabled=${busy} @click=${() => this._doPower(c)}>${t("powerBtn")}</button>` : ""}
       </div>`);
+  }
+
+  async _doPower(c) {
+    if (!(await confirmDialog(this, t("powerAsk", { n: c.name, s: c.power_switch, c: c.clients.length }), t("powerBtn")))) return;
+    this.restarting = c.id;
+    try {
+      const r = await api(`api/connections/${c.id}/restart`, { method: "POST", body: { power: true } });
+      this.toast(r.power_error ? `${t("powerFailed")}: ${r.power_error}` : t("powerDone"));
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+    this.restarting = null;
   }
 
   async _doRestart(c, usb) {
