@@ -764,6 +764,7 @@ def restart_key(c: Connection, listen: str) -> Connection:
         notify_no_client=False,
         silence_minutes=0,
         silence_restart="",
+        power_switch="",
         template="generic",
         low_latency=False,
         remaddr=f"{c.remaddr}|{listen}",

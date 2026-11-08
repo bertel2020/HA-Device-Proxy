@@ -39,7 +39,7 @@ from .model import (
     new_id,
 )
 from .mqtt import Broker, check_broker, supervisor_broker
-from .notify import notify_services
+from .notify import notify_services, switch_entities
 from .store import PASSWORD_KEPT, SaveError, hidden
 
 _LOGGER = logging.getLogger(__name__)
@@ -195,6 +195,7 @@ class WebServer:
         self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
+        self._route("GET", r"api/ha/switches", self.ha_switches)
         self._route("POST", r"api/clients/known", self.known_client)
         self._route("POST", r"api/clients/block", self.block_client)
         self._route("POST", r"api/clients/unblock", self.unblock_client)
@@ -420,11 +421,13 @@ class WebServer:
             raise HttpError(409, str(err)) from None
 
     async def restart(self, request: Request) -> Response:
-        usb = request.json().get("usb", False)
-        if not isinstance(usb, bool):
-            raise HttpError(400, "usb: true or false")
+        usb, power = request.json().get("usb", False), request.json().get("power", False)
+        if not isinstance(usb, bool) or not isinstance(power, bool):
+            raise HttpError(400, "usb and power: true or false")
         try:
-            result = await self.c.restart_connection(request.params["id"], "ui", usb=usb)
+            result = await self.c.restart_connection(
+                request.params["id"], "ui", usb=usb, power=power
+            )
         except ValueError as err:
             raise HttpError(409, str(err)) from None
         return ok(result)
@@ -830,6 +833,9 @@ class WebServer:
         if not isinstance(host, str) or not await self.c.unblock_client(host):
             raise HttpError(404, "no such blocked client")
         return ok()
+
+    async def ha_switches(self, request: Request) -> Response:
+        return ok(await asyncio.to_thread(switch_entities))
 
     async def notify_services(self, request: Request) -> Response:
         return ok(await asyncio.to_thread(notify_services))

@@ -61,6 +61,7 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
 - **Live-Daten und Mitschnitt** ohne Client-Platz, bei Modbus dekodiert; Aufzeichnung in rotierende Dateien, ohne jemanden zu trennen.
 - **Werkzeuge für Zähler**: SML (mit CRC-Prüfung) und D0 auswerten, Baudrate erkennen.
 - **Sichern und Wiederherstellen** der ganzen Konfiguration als eine Datei (**Einstellungen → Sichern und Übertragen**) sowie **Import und Export**: ser2net-4-`ser2net.yaml`, ser2net-3-`ser2net.conf`, die Optionen der App ha-modbusproxy oder eine modbus-proxy-Datei, jeweils mit Vorschau. Oder die eigene `ser2net.yaml` direkt verwenden.
+- **Wenn ein Gerät hängt**: Verbindung neu starten, ihren USB-Adapter zurücksetzen oder den Strom über einen Schalter in Home Assistant trennen; von Hand, aus Home Assistant oder automatisch, wenn keine Daten kommen.
 - **Vor und nach dem Speichern**: Formular und Rückfragen nennen die laufenden Verbindungen, die eine Änderung neu aufbaut oder beendet, und wie viele Clients das trennt; arbeitet nach einer Änderung eine Verbindung nicht mehr, die vorher lief, stellt ein Klick den Stand davor wieder her.
 - **Ereignisse und Historie** (30 Tage, Abbrüche und Verfügbarkeit), Konfig-Historie mit Unterschieden und Wiederherstellen.
 - **Benachrichtigungen** in Home Assistant, optional aufs Handy, und **Entitäten über MQTT-Discovery**: ein Gerät je Verbindung mit Zustand und Schalter.

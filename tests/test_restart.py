@@ -1,6 +1,7 @@
 """Restarting a connection (also with a USB reset of its adapter) by hand, from Home
 Assistant and automatically after the minutes without data."""
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -327,3 +328,142 @@ async def test_clients_ser2net_dropped_without_a_word_are_forgotten(tmp_path: Pa
     controller.admin.showport = showport  # type: ignore[method-assign]
     await controller.read_status()
     assert list(controller.client_since) == [("a", "192.0.2.2:2")]
+
+
+async def test_power_cycle_switches_off_and_on_while_the_device_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    device = tmp_path / "ttyUSB0"
+    device.write_bytes(b"")
+    c = Connection("Stick", str(device), 3333, id="0000000a", power_switch="switch.hub")
+    controller = _controller(tmp_path, c)
+    admin = _Admin()
+    monkeypatch.setattr(controller, "admin", admin)
+    monkeypatch.setattr(controller_module, "POWER_OFF", 0)
+    monkeypatch.setattr(controller_module, "POWER_RETRY", 0)
+    monkeypatch.setattr(controller_module, "scan", list)
+    calls: list[tuple[str, bool]] = []
+
+    def switch(entity: str, on: bool) -> None:
+        assert admin.commands[-1].endswith("off")  # ser2net has let go of the device
+        calls.append((entity, on))
+
+    monkeypatch.setattr(controller_module, "set_switch", switch)
+    result = await controller.restart_connection(c.id, "ui", power=True)
+    assert calls == [("switch.hub", False), ("switch.hub", True)]
+    assert result["power"] == "switch.hub" and "power_error" not in result
+    assert admin.commands[-1].endswith("on")
+    assert "power_cycled" in [k for k, _ in _kinds(controller)]
+
+
+async def test_power_cycle_asks_the_switch_again_to_come_back_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    device = tmp_path / "ttyUSB0"
+    device.write_bytes(b"")
+    c = Connection("Stick", str(device), 3333, id="0000000a", power_switch="switch.hub")
+    controller = _controller(tmp_path, c)
+    monkeypatch.setattr(controller, "admin", _Admin())
+    monkeypatch.setattr(controller_module, "POWER_OFF", 0)
+    monkeypatch.setattr(controller_module, "POWER_RETRY", 0)
+    monkeypatch.setattr(controller_module, "scan", list)
+    calls: list[bool] = []
+
+    def flaky(entity: str, on: bool) -> None:
+        calls.append(on)
+        if on and calls.count(True) < controller_module.POWER_ON_TRIES:
+            raise OSError("busy")
+
+    monkeypatch.setattr(controller_module, "set_switch", flaky)
+    result = await controller.restart_connection(c.id, "ui", power=True)
+    assert calls.count(True) == controller_module.POWER_ON_TRIES and "power_error" not in result
+
+    def broken(entity: str, on: bool) -> None:
+        raise OSError("no Home Assistant")
+
+    monkeypatch.setattr(controller_module, "set_switch", broken)
+    result = await controller.restart_connection(c.id, "ui", power=True)
+    assert result["power_error"] == "no Home Assistant"
+    assert "power_cycle_failed" in [k for k, _ in _kinds(controller)]
+
+
+async def test_power_cycle_needs_a_switch(tmp_path: Path) -> None:
+    c = Connection("Stick", "/dev/ttyUSB0", 3333, id="0000000a")
+    with pytest.raises(ValueError, match="no power switch"):
+        await _controller(tmp_path, c).restart_connection(c.id, "ui", power=True)
+
+
+async def test_power_cycle_follows_the_automatic_restarts_once(tmp_path: Path) -> None:
+    c = Connection(
+        "Meter",
+        "/dev/ttyUSB0",
+        3333,
+        id="0000000a",
+        silence_minutes=1,
+        silence_restart="restart",
+        power_switch="switch.hub",
+    )
+    controller = _controller(tmp_path, c)
+    controller.status[c.alias] = PortStatus(
+        c.alias, True, c.device, clients=[Client("192.0.2.9:4000")]
+    )
+    flow = controller.trace.flow.setdefault(c.alias, Flow())
+    calls: list[bool] = []
+
+    async def restart(
+        connection_id: str, source: str, *, usb: bool = False, power: bool = False
+    ) -> dict[str, object]:
+        calls.append(power)
+        return {}
+
+    controller.restart_connection = restart  # type: ignore[method-assign]
+    now = 1000.0
+    await controller._silence_tick(now)  # the device counts as open from here
+    for _ in range(AUTO_RESTART_MAX + 4):
+        now += 61
+        await controller._silence_tick(now)
+    assert calls == [False] * AUTO_RESTART_MAX + [True]  # once, then only the warning
+    assert [k for k, _ in _kinds(controller)].count("auto_restart_gave_up") == 1
+
+    flow.last_rx = now + 1  # data again: restarts and the power cycle count anew
+    now += 2
+    await controller._silence_tick(now)
+    for _ in range(AUTO_RESTART_MAX + 2):
+        now += 61
+        await controller._silence_tick(now)
+    assert calls == ([False] * AUTO_RESTART_MAX + [True]) * 2
+
+
+def test_power_switch_is_checked_and_needs_no_proxy_restart() -> None:
+    from device_proxy.modbus import restart_key
+
+    new = {"name": "Stick", "port": 3333, "device": "/dev/zero"}
+    assert Connection.from_dict({**new, "power_switch": "switch.usb_hub"}).power_switch
+    for wrong in ("light.hub", "switch.", "switch.a b", "switch.Hub"):
+        with pytest.raises(ValidationError) as err:
+            Connection.from_dict({**new, "power_switch": wrong})
+        assert "power_switch" in err.value.errors
+    proxy = Connection("Inverter", "", 502, id="0000000a", kind="modbus", host="192.0.2.5")
+    assert restart_key(proxy, "lan") == restart_key(
+        replace(proxy, power_switch="switch.hub"), "lan"
+    )
+
+
+async def test_power_cycle_button_only_with_a_switch(tmp_path: Path) -> None:
+    with_switch = Connection("A", "/dev/ttyUSB0", 3333, id="0000000a", power_switch="switch.hub")
+    without = Connection("B", "/dev/ttyUSB1", 3334, id="0000000b")
+    controller = _controller(tmp_path, with_switch, without)
+    configs = ha_mqtt.HaBridge(controller).configs()
+    assert "homeassistant/button/device_proxy_0000000a/power_cycle/config" in configs
+    assert "homeassistant/button/device_proxy_0000000b/power_cycle/config" not in configs
+    calls: list[bool] = []
+
+    async def restart(
+        connection_id: str, source: str, *, usb: bool = False, power: bool = False
+    ) -> dict[str, object]:
+        calls.append(power)
+        return {}
+
+    controller.restart_connection = restart  # type: ignore[method-assign]
+    await controller.press("0000000a", "power_cycle")
+    assert calls == [True]

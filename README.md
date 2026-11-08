@@ -61,6 +61,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 - **Live data and traces** without taking a client place, decoded for Modbus; recording to rotating files without disconnecting anyone.
 - **Smart meter tools**: SML (with CRC check) and D0 decoded, baud rate detection.
 - **Backup and restore** of the whole configuration as one file (**Settings → Back up and transfer**), and **import and export**: ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf`, the options of the ha-modbusproxy app or a modbus-proxy file, with a preview. Or use your own `ser2net.yaml` as it is.
+- **When a device hangs**: restart a connection, reset its USB adapter or cut its power through a switch in Home Assistant; by hand, from Home Assistant or automatically when no data comes.
 - **Before and after saving**: the form and the questions name the running connections a change sets up again or stops and how many clients that disconnects; when a connection that worked stops after a change, one click restores the version before.
 - **Events and history** (30 days, drops and availability), configuration history with differences and restore.
 - **Notifications** in Home Assistant, optionally to a phone, and **entities over MQTT discovery**: one device per connection with its state and a switch.

@@ -73,7 +73,7 @@ from .modbus import (
     write_pdu,
 )
 from .model import AppConfig, Connection, ValidationError, new_id, own_address
-from .notify import SHOWN_FILE, Notifier
+from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
 from .store import PASSWORD_KEPT, Change, Store, hidden, summary
 from .trace import Chunk, TraceHub
@@ -105,6 +105,10 @@ IDENTIFY_MAX = 16  # units the scan asks who they are
 EXCLUSIVE_MAX = 240  # minutes one host may have a connection to itself
 USB_BACK = 10  # seconds a reset USB adapter may take to come back
 AUTO_RESTART_MAX = 3  # restarts in a row without data, then the app only warns
+POWER_OFF = 5  # seconds a power cycle keeps the device off
+POWER_ON_TRIES = 3  # the switch must come back on: asked again when that fails
+POWER_RETRY = 2  # seconds between those attempts
+POWER_BACK = 30  # seconds a device may take to come back after the power was off
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
@@ -1391,10 +1395,11 @@ class Controller:
     # restarting a connection, also with a USB reset of its adapter
 
     async def restart_connection(
-        self, connection_id: str, source: str, *, usb: bool = False
+        self, connection_id: str, source: str, *, usb: bool = False, power: bool = False
     ) -> dict[str, object]:
         """Close the connection's device or proxy and open it again, e.g. for a hanging
-        stick; with usb, the adapter is reset in between, as if unplugged. The clients are
+        stick; with usb, the adapter is reset in between, as if unplugged; with power, the
+        connection's switch in Home Assistant cuts the power for a moment. The clients are
         disconnected and may connect again."""
         c = self.config.connection(connection_id)
         if c is None or not c.enabled:
@@ -1407,11 +1412,13 @@ class Controller:
             if not c.uses_device:
                 raise ValueError("a USB reset needs a device of this host")
             await asyncio.to_thread(usb_node, c.device)  # ValueError: not there, not USB
+        if power and not c.power_switch:
+            raise ValueError("the connection has no power switch")
         result: dict[str, object] = {"usb": None, "usb_error": None}
         if c.kind == "serial":
-            await self._restart_port(c, usb, result)
+            await self._restart_port(c, usb, result, power)
         else:
-            await self._restart_proxy(c, usb, result)
+            await self._restart_proxy(c, usb, result, power)
         self.events.emit(
             "info",
             "connection_restarted",
@@ -1430,7 +1437,9 @@ class Controller:
             )
         return result
 
-    async def _restart_port(self, c: Connection, usb: bool, result: dict[str, object]) -> None:
+    async def _restart_port(
+        self, c: Connection, usb: bool, result: dict[str, object], power: bool = False
+    ) -> None:
         """ser2net closes the device (and drops the clients) and opens it again."""
         self._paused.add(c.id)
         keeper = self._keepers.pop(c.id, None)
@@ -1442,6 +1451,8 @@ class Controller:
             await asyncio.sleep(0.5)  # let ser2net close the device
             if usb:
                 await self._reset_usb(c, result)
+            if power:
+                await self._power_cycle(c, result)
         except AdminError as err:
             raise ValueError(f"ser2net: {err}") from None
         finally:
@@ -1454,7 +1465,9 @@ class Controller:
                     _LOGGER.warning("Could not switch %s on again: %s", c.name, err)
             self._reconcile_keepers()
 
-    async def _restart_proxy(self, c: Connection, usb: bool, result: dict[str, object]) -> None:
+    async def _restart_proxy(
+        self, c: Connection, usb: bool, result: dict[str, object], power: bool = False
+    ) -> None:
         """The app's proxy stops (closing the device and the clients) and starts again."""
         async with self._lock:
             proxy = self.proxies.get(c.id)
@@ -1471,6 +1484,8 @@ class Controller:
                 del self.proxies[c.id]
                 if usb:
                     await self._reset_usb(c, result)
+                if power:
+                    await self._power_cycle(c, result)
             finally:
                 self._paused.discard(c.id)
                 await self._reconcile_proxies()
@@ -1489,9 +1504,55 @@ class Controller:
             await asyncio.sleep(0.5)
         self.devices = await asyncio.to_thread(scan)
 
+    async def _power_cycle(self, c: Connection, result: dict[str, object]) -> None:
+        """The connection's switch in Home Assistant off, a few seconds, on again; then waits
+        for a device of this host. Whatever happens, the switch is asked to come back on."""
+        try:
+            await asyncio.to_thread(set_switch, c.power_switch, False)
+        except (OSError, ValueError) as err:
+            self._power_failed(c, result, err)
+            return
+        result["power"] = c.power_switch
+        try:
+            await asyncio.sleep(POWER_OFF)
+        except asyncio.CancelledError:  # the app stops: the device must not stay off
+            with contextlib.suppress(OSError, ValueError):
+                set_switch(c.power_switch, True)
+            raise
+        for attempt in range(POWER_ON_TRIES):
+            try:
+                await asyncio.to_thread(set_switch, c.power_switch, True)
+                break
+            except (OSError, ValueError) as err:
+                if attempt == POWER_ON_TRIES - 1:
+                    self._power_failed(c, result, err)
+                    return
+                await asyncio.sleep(POWER_RETRY)
+        self.events.emit(
+            "info", "power_cycled", connection=c.id, name=c.name, switch=c.power_switch
+        )
+        if c.uses_device:
+            deadline = time.monotonic() + POWER_BACK
+            while not os.path.exists(c.device) and time.monotonic() < deadline:
+                await asyncio.sleep(0.5)
+            self.devices = await asyncio.to_thread(scan)
+
+    def _power_failed(self, c: Connection, result: dict[str, object], err: Exception) -> None:
+        result["power_error"] = str(err)
+        _LOGGER.warning("Power cycle of %s failed: %s", c.name, err)
+        self.events.emit(
+            "warning",
+            "power_cycle_failed",
+            connection=c.id,
+            name=c.name,
+            switch=c.power_switch,
+            error=str(err),
+        )
+
     async def _silence_tick(self, now: float | None = None) -> None:
         """Restart the connections that want it after their minutes without data; after
-        AUTO_RESTART_MAX restarts in a row without data only the warning stays."""
+        AUTO_RESTART_MAX restarts in a row without data the power is cycled once, if the
+        connection has a switch for that, and then only the warning stays."""
         now = time.time() if now is None else now
         for c in self.active:
             if not (c.enabled and c.silence_minutes and c.silence_restart):
@@ -1501,13 +1562,21 @@ class Controller:
                 continue
             port = self.status.get(c.alias)
             quiet = self._quiet_since(c, bool(port and port.clients), now)
-            state = self._auto.setdefault(c.id, [0.0, 0, False])
+            # the last restart, restarts in a row, gave up, the power was cycled
+            state = self._auto.setdefault(c.id, [0.0, 0, False, False])
             flow = self.trace.flow.get(c.alias)
             if flow and flow.last_rx and flow.last_rx > state[0]:
-                state[1], state[2] = 0, False  # data since the last restart: counts anew
+                state[1], state[2], state[3] = 0, False, False  # data since then: counts anew
             if quiet is None:
                 continue
             if now - max(quiet, state[0]) < c.silence_minutes * 60:
+                continue
+            if state[1] >= AUTO_RESTART_MAX and c.power_switch and not state[3]:
+                state[0], state[3] = now, True
+                try:
+                    await self.restart_connection(c.id, "auto", power=True)
+                except ValueError as err:
+                    _LOGGER.warning("Automatic power cycle of %s failed: %s", c.name, err)
                 continue
             if state[1] >= AUTO_RESTART_MAX:
                 if not state[2]:
@@ -1609,6 +1678,8 @@ class Controller:
             await self.disconnect_clients(connection_id, "mqtt")
         elif action in ("restart", "usb_reset"):
             await self.restart_connection(connection_id, "mqtt", usb=action == "usb_reset")
+        elif action == "power_cycle":
+            await self.restart_connection(connection_id, "mqtt", power=True)
         elif action in ("to_fallback", "to_main"):
             self.enocean_switch(connection_id, action.removeprefix("to_"))
         else:

@@ -441,6 +441,14 @@ oder USB-Reset und neu starten. Gezählt wird nur, solange das Gerät offen ist 
 verbunden oder **Gerät offen halten**). Kommen auch nach drei Neustarts in Folge keine Daten,
 bleibt es bei der Warnung, bis wieder Daten kommen. Jeder Neustart steht in der Historie.
 
+**Stromzyklus**: Reichen Neustart und USB-Reset nicht, kann ein Schalter in Home Assistant den
+Strom trennen, z. B. eine schaltbare Steckdose am USB-Hub. Er wird unter **Stromversorgung** im
+Formular der Verbindung eingetragen (bei jeder Art von Verbindung). Neben **Neu starten**
+erscheint dann der Knopf **Stromzyklus**: Das Gerät wird geschlossen, der Schalter geht für
+5 Sekunden aus und wieder an, und das Gerät wird wieder geöffnet. Sind automatische Neustarts
+eingestellt, folgt nach den drei erfolglosen Neustarts einmal der Stromzyklus. Wähle einen
+Schalter, an dem nichts anderes hängt, und niemals den, der Home Assistant selbst versorgt.
+
 Beides gibt es auch als Buttons in Home Assistant (siehe unten).
 
 ## Status, Mitschnitt und Leitungsfehler
@@ -549,6 +557,7 @@ Supervisor. Ein anderer Broker (Host, Port, Benutzer, Passwort, TLS) lässt sich
 | Clients trennen (Button) | schließt die Verbindungen aller Clients; sie dürfen sich neu verbinden |
 | Verbindung neu starten (Button) | schließt das Gerät und öffnet es neu, die Clients verbinden sich wieder |
 | USB-Reset (Button) | nur mit einem Gerät dieses Rechners: setzt den USB-Adapter zurück und startet neu |
+| Stromzyklus (Button) | nur mit eingetragenem Schalter: trennt 5 Sekunden den Strom und startet neu |
 
 Eine Modbus-Verbindung hat: Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
 Antwortzeit, den Schalter und die Buttons. Ein EnOcean-Gateway hat: Gateway erreichbar, Clients,
