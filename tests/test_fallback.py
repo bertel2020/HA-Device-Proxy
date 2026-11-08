@@ -110,13 +110,13 @@ def test_changing_the_fallback_does_not_restart_the_gateway() -> None:
 # the proxies: A goes on through B
 
 
-BASE_A = bytes.fromhex("A55A8B98FFB7448000000000009D")  # ESP2 base ID answer FF-B7-44-80
+BASE_A = bytes.fromhex("A55A8B98FFABCD8000000000001A")  # ESP2 base ID answer FF-AB-CD-80
 BASE_OTHER = bytes.fromhex("A55A8B98FFA122000000000000E5")  # FF-A1-22-00
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")
 FRAME = bytes.fromhex("A55A0B0570000000002163433077")  # RPS from 00-21-63-43
 FRAME_REPEATED = bytes.fromhex("A55A0B0570000000002163433178")  # the same, status: repeated
-OWN = bytes.fromhex("A55A0B0570000000FFB74481302B")  # RPS from FF-B7-44-81: A's own range
-COMMAND = bytes.fromhex("A55A6B0501000000FFB74481301C")  # TRT RPS: sent over the air
+OWN = bytes.fromhex("A55A0B0570000000FFABCD8130A8")  # RPS from FF-AB-CD-81: A's own range
+COMMAND = bytes.fromhex("A55A6B0501000000FFABCD813099")  # TRT RPS: sent over the air
 
 
 class Gateway:
@@ -311,7 +311,7 @@ async def test_a_fallback_with_another_base_id_does_not_stand_in(
         with pytest.raises(ValueError):
             pair.a.switch("fallback")
         # the base ID of A is kept: the check works while A is away, also after a restart
-        assert json.loads((tmp_path / "base_ids.json").read_text())["0000000a"] == "FF-B7-44-80"
+        assert json.loads((tmp_path / "base_ids.json").read_text())["0000000a"] == "FF-AB-CD-80"
     finally:
         await _end(pair)
 

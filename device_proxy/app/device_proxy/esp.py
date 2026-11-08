@@ -236,7 +236,7 @@ def is_base_id_request(protocol: str, frame: bytes) -> bool:
 
 
 def base_id(protocol: str, frame: bytes, request: bytes | None = None) -> str | None:
-    """The base ID ("FF-B7-44-80") in a gateway's answer, or None. ESP3 answers carry no
+    """The base ID ("FF-AB-CD-80") in a gateway's answer, or None. ESP3 answers carry no
     command, so the request they answer must be given."""
     if protocol == "esp3":
         if request is None or not is_base_id_request(protocol, request) or frame[4] != 0x02:
@@ -262,14 +262,14 @@ BASE_ID_FIRST, BASE_ID_LAST = 0xFF800000, 0xFFFFFF80  # the range a gateway take
 
 
 def parse_base_id(text: str) -> bytes:
-    """ "FF-B7-44-80" (also with ":", spaces or none) → 4 bytes; ValueError if not settable."""
+    """ "FF-AB-CD-80" (also with ":", spaces or none) → 4 bytes; ValueError if not settable."""
     cleaned = "".join(ch for ch in text if ch not in " :-\t")
     try:
         raw = bytes.fromhex(cleaned)
     except ValueError:
-        raise ValueError("base ID: 4 hex bytes like FF-B7-44-80") from None
+        raise ValueError("base ID: 4 hex bytes like FF-AB-CD-80") from None
     if len(raw) != 4:
-        raise ValueError("base ID: 4 hex bytes like FF-B7-44-80")
+        raise ValueError("base ID: 4 hex bytes like FF-AB-CD-80")
     value = int.from_bytes(raw, "big")
     if not BASE_ID_FIRST <= value <= BASE_ID_LAST or value & 0x7F:
         raise ValueError("base ID: FF-80-00-00 to FF-FF-FF-80, the last byte 00 or 80")

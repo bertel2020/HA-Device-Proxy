@@ -987,7 +987,7 @@ class WebServer:
         data = request.json()
         base_id = data.get("base_id") if isinstance(data, dict) else None
         if not isinstance(base_id, str):
-            raise HttpError(400, "base_id: like FF-B7-44-80")
+            raise HttpError(400, "base_id: like FF-AB-CD-80")
         try:
             return ok(await self.c.enocean_base_id(request.params["id"], base_id))
         except ValueError as err:
