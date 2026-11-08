@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.5.1 - 2026-11-08
+
 - Panel: Die Kachel in `connections.js` zeigt nur noch `clientName`, `clientLabel` mit Stift bleibt
   in `detail.js`; der Button brach in der schmalen Kachel in eine eigene Zeile um.
 - READMEs: Voraussetzung Home Assistant OS im Schnellstart; sie war mit dem Teststand-Hinweis
