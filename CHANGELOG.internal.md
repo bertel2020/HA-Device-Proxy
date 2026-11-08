@@ -13,6 +13,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 - Panel: Die Kachel in `connections.js` zeigt nur noch `clientName`, `clientLabel` mit Stift bleibt
   in `detail.js`; der Button brach in der schmalen Kachel in eine eigene Zeile um.
+- READMEs: Voraussetzung Home Assistant OS im Schnellstart; sie war mit dem Teststand-Hinweis
+  verschwunden. Supervised wird nicht mehr genannt, Home Assistant unterstützt es seit 2025.12 nicht mehr.
 - CI: `publish` läuft auch, wenn ein anderer Job fehlschlägt, damit zu einer Version immer ein Image
   entsteht; der Lauf bleibt dann rot.
 - Test `test_a_taken_status_port_is_tried_again` hängt nicht mehr von der Laufzeit des Rechners ab
