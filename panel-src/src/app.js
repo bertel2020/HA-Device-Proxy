@@ -5,7 +5,7 @@ import { api } from "./api.js";
 import { lang, setClientNames, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { applyTheme } from "./theme.js";
-import { confirmDialog, connectionState, focused, logo, recordRates, trapTab } from "./ui.js";
+import { confirmDialog, connectionState, focused, icon, logo, recordRates, trapTab } from "./ui.js";
 
 const POLL_MS = 2000;
 const POLL_TIMEOUT_MS = 10000;
@@ -37,7 +37,28 @@ export class DeviceProxyApp extends LitElement {
     .offline { max-width: 1200px; margin: 12px auto 0; padding: 0 24px; }
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--surface);
       padding: 12px 18px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: min(560px, calc(100vw - 32px)); z-index: 10; }
-    @media (max-width: 600px) { .bar, main, .offline { padding-left: 16px; padding-right: 16px; } nav { flex: 1 1 100%; gap: 0; } nav a { padding: 0 5px; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; } }
+    nav a svg, nav .count { display: none; }
+    /* phones: the sections as a bar at the bottom, in reach of the thumb; --nav-b is its
+       height, for what sticks to the bottom of a page (the save bar of the form) */
+    @media (max-width: 600px) {
+      :host { --nav-b: calc(60px + env(safe-area-inset-bottom, 0px)); }
+      /* a backdrop-filter would hold the fixed bar inside the header */
+      header { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); }
+      .bar, main, .offline { padding-left: 16px; padding-right: 16px; }
+      main { padding-bottom: calc(var(--nav-b) + 32px); }
+      nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; gap: 0; padding: 0 4px env(safe-area-inset-bottom, 0px); overflow: visible;
+        justify-content: space-around; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
+      nav a { position: relative; flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 3px; height: 60px; padding: 0 2px;
+        border-radius: 0; font-size: calc(11px * var(--fs, 1)); white-space: nowrap; border-top: 2px solid transparent; }
+      nav a span.label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+      nav a:hover { background: none; }
+      nav a[aria-current="page"] { background: none; border-top-color: var(--accent); }
+      nav a svg { display: block; }
+      nav .count { display: inline-grid; place-items: center; position: absolute; top: 5px; left: calc(50% + 6px); min-width: 16px; height: 16px;
+        padding: 0 4px; border-radius: 8px; background: var(--warn); color: #fff; font-size: 10px; font-weight: 600; line-height: 1; }
+      .toast { bottom: calc(var(--nav-b) + 16px); }
+    }
   `];
 
   constructor() {
@@ -181,7 +202,8 @@ export class DeviceProxyApp extends LitElement {
     const s = this.state;
     const page = this.route.page;
     const section = ["connection", "edit"].includes(page) ? "connections" : page;
-    const tab = (key, label) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${t(label)}</a>`;
+    const tab = (key, label, symbol, count = 0) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${icon(symbol, 22)}<span
+      class="label">${t(label)}</span>${count ? html`<span class="count" aria-label=${t("problems", { n: count })}>${count}</span>` : ""}</a>`;
     const running = s && s.ser2net_running;
     // ser2net only matters with serial connections (or the own ser2net.yaml)
     const serial = s && (s.source === "custom" || s.connections.some((c) => c.kind === "serial"));
@@ -197,7 +219,7 @@ export class DeviceProxyApp extends LitElement {
         </div>
 
         <nav aria-label=${t("navMain")}>
-          ${tab("connections", "navConnections")}${tab("events", "navEvents")}${tab("trace", "navTrace")}${tab("settings", "navSettings")}
+          ${tab("connections", "navConnections", "plug", problems)}${tab("events", "navEvents", "list")}${tab("trace", "navTrace", "pulse")}${tab("settings", "navSettings", "sliders")}
         </nav>
       </div></header>
       ${this.offline ? html`<div class="offline"><div class="note warn" role="status">${t("connectionLost")}</div></div>` : ""}
