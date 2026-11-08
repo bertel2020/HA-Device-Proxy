@@ -24,6 +24,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import diagnostics
+from .clients import plain_host
 from .config import block, export
 from .controller import Controller, CustomError
 from .importer import ReadError
@@ -195,6 +196,8 @@ class WebServer:
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("POST", r"api/clients/known", self.known_client)
+        self._route("POST", r"api/clients/block", self.block_client)
+        self._route("POST", r"api/clients/unblock", self.unblock_client)
         self._route("GET", r"api/diagnostics", self.diagnostics)
 
     def _route(self, method: str, pattern: str, handler: Handler) -> None:
@@ -770,6 +773,8 @@ class WebServer:
                 raise ValueError("function 1 to 6, 15 or 16")
         except ValueError as err:
             raise HttpError(400, str(err)) from None
+        if plain_host(host) in self.c.known_clients.blocked:
+            return ok({"connect": False, "why": "blocked"})
         others = {x.id: x for x in config.connections if x.kind == "modbus"}
         return ok(check_access(c, config.settings.access, host, unit, pdu, others))
 
@@ -806,6 +811,24 @@ class WebServer:
         host = data.get("host") if isinstance(data, dict) else None
         if not isinstance(host, str) or not self.c.acknowledge_client(host):
             raise HttpError(404, "no such new client")
+        return ok()
+
+    async def block_client(self, request: Request) -> Response:
+        data = request.json()
+        host = data.get("host") if isinstance(data, dict) else None
+        if not isinstance(host, str):
+            raise HttpError(400, "an IP address is needed")
+        try:
+            await self.c.block_client(host.strip())
+        except ValueError as err:
+            raise HttpError(400, str(err)) from None
+        return ok()
+
+    async def unblock_client(self, request: Request) -> Response:
+        data = request.json()
+        host = data.get("host") if isinstance(data, dict) else None
+        if not isinstance(host, str) or not await self.c.unblock_client(host):
+            raise HttpError(404, "no such blocked client")
         return ok()
 
     async def notify_services(self, request: Request) -> Response:

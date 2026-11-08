@@ -81,6 +81,7 @@ def build(
     snapshot.pop("lan_ip", None)
     snapshot.pop("lan_net", None)
     snapshot["new_clients"] = len(snapshot.get("new_clients", []))
+    snapshot["blocked_clients"] = len(snapshot.get("blocked_clients", []))
     for settings in (config["settings"], snapshot["settings"]):
         if settings.get("client_names"):
             settings["client_names"] = "***"  # addresses and personal names

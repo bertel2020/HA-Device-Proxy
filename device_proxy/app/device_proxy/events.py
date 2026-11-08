@@ -112,6 +112,8 @@ MESSAGES = {
     "listen_failed": "Port {port} cannot be opened: {error}",
     "client_refused": "Client refused, all places taken: {address}",
     "client_new": "New client, never seen before: {address}",
+    "client_blocked": "Client blocked, kept out of every connection: {address}",
+    "client_unblocked": "Client released: {address}",
     "clients_disconnected": "{count} client(s) disconnected ({by})",
     "connection_restarted": "Connection restarted ({by})",
     "usb_reset_failed": "USB reset failed: {error}",

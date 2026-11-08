@@ -473,6 +473,12 @@ this host always count as known; after the first start (or the update that broug
 app takes the clients of the first ten minutes as known without a word. Diagnostics leave the
 names out.
 
+**Block** keeps a computer away from every connection until you release it under **Blocked**;
+it works on a new client or with an IP address typed in. It is disconnected at once. ser2net
+cannot drop a single client, so on serial connections all clients reconnect once. Home
+Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml` are not
+covered.
+
 ## Notifications
 
 Problems appear under Home Assistant's bell: one notification per connection and problem,

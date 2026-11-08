@@ -52,12 +52,13 @@ import os
 import socket
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from . import esp
+from .clients import plain_host
 from .modbus import Link, SerialLink, TcpLink
 from .model import Connection, peer_allowed
 from .trace import Chunk
@@ -217,6 +218,7 @@ class EnOceanProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
+        self.blocked: Container[str] = ()  # hosts kept out of every connection
         self.senders: dict[str, Sender] = {}  # sender ID → what it sent
         self.started = time.time()
         self.listening = False
@@ -517,6 +519,11 @@ class EnOceanProxy:
         peer = writer.get_extra_info("peername") or ("?", 0)
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
+        if plain_host(host) in self.blocked:
+            self.stats.refused += 1
+            _LOGGER.info("%s: client %s refused (blocked)", self.c.name, address)
+            writer.close()
+            return
         if not peer_allowed(self.c.remaddr, self.listen, peer, writer.get_extra_info("sockname")):
             self.stats.refused += 1
             _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
@@ -1029,6 +1036,14 @@ class EnOceanProxy:
         """Close every program's connection (they may connect again); the app's own stay,
         and with keep the clients of that host."""
         clients = [c for c in self.clients.values() if c.writer is not None and c.host != keep]
+        for client in clients:
+            assert client.writer is not None
+            client.writer.close()
+        return len(clients)
+
+    def disconnect_host(self, host: str) -> int:
+        """Close the connections of this host's programs."""
+        clients = [c for c in self.clients.values() if c.writer and plain_host(c.host) == host]
         for client in clients:
             assert client.writer is not None
             client.writer.close()

@@ -501,6 +501,12 @@ Namen gibst. Home Assistant, seine Apps und dieser Host gelten immer als bekannt
 Start (oder dem Update, das diese Funktion brachte) übernimmt die App die Clients der ersten zehn
 Minuten stillschweigend als bekannt. Die Diagnose lässt die Namen weg.
 
+**Blockieren** hält einen Rechner von allen Verbindungen fern, bis du ihn unter **Blockiert**
+freigibst; das geht bei einem neuen Client oder mit der IP-Adresse von Hand. Er wird sofort
+getrennt. ser2net kann keinen einzelnen Client trennen, an seriellen Verbindungen verbinden sich
+deshalb alle Clients einmal neu. Home Assistant, seine Apps und dieser Host lassen sich nicht
+blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre nicht.
+
 ## Benachrichtigungen
 
 Probleme erscheinen unter der Glocke von Home Assistant: eine Benachrichtigung je Verbindung und
