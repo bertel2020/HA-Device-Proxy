@@ -21,6 +21,7 @@ Keines startet einen Proxy neu (`restart_key` in `modbus.py` und `enocean.py`).
 | `power_switch` | `Connection` | Entität `switch.*` für den Stromzyklus |
 | `register_entities`, `entity_seconds` | `Connection` | Zeilen für `modbus_entities.py`, 5 bis 3600 s |
 | `write_rules` | `Connection` | Register je Client, ersetzt für ihn `write_registers` |
+| `fallback_probe_s`, `fallback_misses`, `fallback_stable_s` | `Connection` | Ersatz-Gateway, 3 bis 300 s, 1 bis 20, 5 bis 3600 s; stabil mindestens so lang wie das Intervall |
 | `sender_names` | `Settings` | EnOcean-Sender-ID und Name je Zeile, in der Diagnose `***` |
 
 `TEMPLATES` hat dazu `zigbee` und `MODBUS_PROFILES` (`mb_*`, Werte in `panel-src/src/modbus.js`).
@@ -30,6 +31,8 @@ Keines startet einen Proxy neu (`restart_key` in `modbus.py` und `enocean.py`).
 - `GET api/ha/switches`, `POST api/connections/<id>/restart` nimmt auch `power`.
 - `PUT api/enocean/sender-names` speichert alle Namen als eine Konfig-Version.
 - `GET api/tools/<id>/enocean/senders.csv`, mit BOM und gegen Formeln in Tabellen abgesichert.
+- `POST api/clients/{name,block,unblock,forget}`; Ereignisse `client_blocked`, `client_unblocked`;
+  `state` hat `known_clients`, `blocked_clients`, `new_clients_full`.
 - MQTT: Button `power_cycle` nur mit Schalter, Sensoren `reg_<unit>_<funktion>_<adresse>`.
 - Ereignisse `power_cycled` und `power_cycle_failed`.
 
@@ -39,12 +42,14 @@ Keines startet einen Proxy neu (`restart_key` in `modbus.py` und `enocean.py`).
   `DEVICE_CLASSES` muss in beiden gleich sein (Test prüft das).
 - `ModbusProxy` und `ListenProxy` haben einen `_entity_loop`. Die Lesezugriffe laufen über `ask`
   und zählen nicht als Client-Anfragen; `ListenProxy` liest aus dem Gehörten.
+- `MAIN_PROBE`, `FALLBACK_MISSES` und `FALLBACK_STABLE` in `enocean.py` sind jetzt Felder der
+  Verbindung; `FALLBACK_PROBE` (Ersatz prüfen) und `PROBE_TIMEOUT` bleiben fest.
 - `_serve` nutzt für Register jetzt `write_refusal`, die Prüfung steht nicht mehr doppelt da.
 - `_auto` im Controller hat ein viertes Feld: Stromzyklus schon gemacht.
 - `_power_cycle` schaltet auch beim Abbruch (App stoppt) wieder ein. In `_restart_proxy` hält es
   `self._lock` bis zu etwa 35 s, solange blockieren Speichervorgänge.
 - Clients: `bf25b3d` (Sperren, bei ser2net aus den erlaubten Netzen herausgeschnitten), `6a4941d`
-  (Namen in der Liste, „zuletzt gesehen“ in `known_clients.json`). Danach:
+  (Namen in der Liste, „zuletzt gesehen“ in `known_clients.json`). Danach `08ed776` und `a3938c0`:
   - `store.QUIET_SETTINGS` (`client_names`, `notify_new_clients`): keine Konfig-Version, kein
     `last_change`; `restore` einer Version behält diese Werte.
   - Sperren in eigener Datei `blocked_clients.json`, beide Dateien mit `fsync`; eine defekte
@@ -66,7 +71,9 @@ Keines startet einen Proxy neu (`restart_key` in `modbus.py` und `enocean.py`).
 ### Offen
 
 - Nicht mit echtem Home Assistant oder echter Hardware getestet: Stromzyklus über die Core-API,
-  MQTT-Discovery der Register, Zigbee-Vorlage an einem Stick.
+  MQTT-Discovery der Register, Zigbee-Vorlage an einem Stick, die Sperre mit echtem ser2net (die
+  zerlegten `remaddr`-Listen sind nur gegen den Quelltext von gensio geprüft), einstellbare Zeiten
+  des Ersatz-Gateways an echten Gateways.
 - Die Werte der `mb_*`-Profile sind nicht mit den Herstellerhandbüchern abgeglichen, am unsichersten
   Huawei und Sungrow.
 - `tests/HARDWARE.md` hat noch keine Fälle für USB-Reset, Stromzyklus, serielle Bridges, MQTT.

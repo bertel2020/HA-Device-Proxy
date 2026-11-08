@@ -25,6 +25,8 @@ ein Stromzyklus für hängende Geräte, Clients sperren und benennen, EnOcean-Se
   der Liste entfernen. Viele neue Rechner auf einmal ergeben eine gemeinsame Benachrichtigung.
 - **EnOcean-Sender**: eigene Namen für alle Gateways, gemeinsam gespeichert und nicht in der
   Diagnose, dazu die Liste als CSV-Datei.
+- **EnOcean-Ersatz-Gateway**: Prüfintervall, Fehlversuche bis zum Umschalten und die stabile
+  Laufzeit vor der Rückkehr lassen sich je Gateway einstellen.
 - **Zigbee-Stick**: eine eigene Vorlage (115200 Baud, ein Client, nur Home Assistant und Apps).
 
 ### English
@@ -50,6 +52,8 @@ a power cycle for devices that hang, blocking and naming clients, EnOcean sender
   from the list. Many new computers at once get one notification together.
 - **EnOcean senders**: names of your own for all gateways, saved together and left out of the
   diagnostics, and the list as a CSV file.
+- **EnOcean fallback gateway**: the check interval, the failed reads before switching and the
+  steady time before going back can be set per gateway.
 - **Zigbee stick**: a template of its own (115200 baud, one client, Home Assistant and apps only).
 
 ## 1.4.1 - 2026-11-08

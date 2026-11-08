@@ -31,10 +31,10 @@ arrive after the reservation).
 
 Fallback: a second gateway (B) with the same base ID can stand in for this one (A). B is an
 EnOcean connection of its own that the controller attaches here; while it serves A it has no
-port and no clients (serves). A reads its base ID every MAIN_PROBE seconds; when its
-connection is gone, or (fallback_trigger "probe") FALLBACK_MISSES reads stay unanswered, A's
+port and no clients (serves). A reads its base ID every fallback_probe_s seconds; when its
+connection is gone, or (fallback_trigger "probe") fallback_misses reads stay unanswered, A's
 clients go on through B: their frames are queued at B, B's answers and radio telegrams come
-back to them. A goes back once it has run steadily for FALLBACK_STABLE seconds and nothing
+back to them. A goes back once it has run steadily for fallback_stable_s seconds and nothing
 waits at B (fallback_return "auto"), or by hand. B is only used when it is connected, has
 answered lately and reports A's base ID (the actuators know A's sender IDs). With
 fallback_listen the clients get the radio telegrams of both gateways: the second copy of a
@@ -87,10 +87,8 @@ CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
 REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
 BASE_ID_FILE = Path("/data/enocean_base_ids.json")  # last base ID of each gateway, for B's check
 SUPERVISE = 1.0  # seconds between two looks at the fallback
-MAIN_PROBE = 10.0  # seconds between base ID reads of a gateway that has a fallback
 FALLBACK_PROBE = 60.0  # seconds between base ID reads of a fallback gateway
-FALLBACK_MISSES = 3  # unanswered reads in a row: the gateway counts as failed
-FALLBACK_STABLE = 60.0  # seconds a failed gateway must run steadily before it takes over again
+FALLBACK_SILENT_READS = 3  # a fallback that missed this many reads is not ready
 DUPLICATE_WINDOW = 0.2  # seconds: the same telegram from the other gateway is a duplicate
 PROBE_TIMEOUT = 2.0  # seconds for the answer to a base ID read of the fallback check
 
@@ -192,6 +190,9 @@ def restart_key(c: Connection, listen: str) -> Connection:
         fallback_trigger="probe",
         fallback_return="auto",
         fallback_listen=False,
+        fallback_probe_s=0,
+        fallback_misses=0,
+        fallback_stable_s=0,
     )
 
 
@@ -799,7 +800,9 @@ class EnOceanProxy:
             _LOGGER.exception("%s: base ID check failed", self.c.name)
 
     async def _probe(self) -> None:
-        interval = FALLBACK_PROBE if self.serves else MAIN_PROBE if self.c.fallback else 0
+        interval = (
+            FALLBACK_PROBE if self.serves else self.c.fallback_probe_s if self.c.fallback else 0
+        )
         now = self._clock()
         if not interval or not self.link.is_open or now - self._probed < interval:
             return
@@ -835,7 +838,7 @@ class EnOceanProxy:
         if fallback.base_id != mine:
             return False, "base_id_differs"
         answered = fallback.answered_at
-        if answered is None or self._clock() - answered > FALLBACK_PROBE * FALLBACK_MISSES:
+        if answered is None or self._clock() - answered > FALLBACK_PROBE * FALLBACK_SILENT_READS:
             return False, "silent"
         return True, "ok"
 
@@ -843,7 +846,7 @@ class EnOceanProxy:
         """A: why its own gateway counts as failed ("" while it works)."""
         if not self.link.is_open:
             return "disconnected"
-        if self.c.fallback_trigger == "probe" and self._misses >= FALLBACK_MISSES:
+        if self.c.fallback_trigger == "probe" and self._misses >= self.c.fallback_misses:
             return "no_answer"
         return ""
 
@@ -874,7 +877,7 @@ class EnOceanProxy:
             and not self.manual
             and not self._failed()
             and self._ok_since is not None
-            and self._clock() - self._ok_since >= FALLBACK_STABLE
+            and self._clock() - self._ok_since >= self.c.fallback_stable_s
             and fallback._outgoing.empty()
         ):
             self._switch("main", "main_back")

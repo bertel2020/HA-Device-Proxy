@@ -36,6 +36,7 @@ Unerwartetes steht.
 | S8 | Zwei gleiche Adapter | Zwei Adapter ohne Seriennummer | Beide werden unterschieden (by-path), keiner wird verwechselt | | |
 | S9 | Wartung | Detailansicht → Wartung, eigenen Rechner eintragen, mit einem Tool verbinden | Nur dieser Rechner kommt hinein, nach Ablauf wieder alle | pytest | |
 | S10 | Mitschnitt groß | Mitschnitt „beide Richtungen“, Dateigröße 50 MB, ein paar Stunden laufen lassen, dann herunterladen | Download vollständig, Panel bleibt währenddessen bedienbar | Download in Blöcken: pytest | |
+| S11 | Client blockieren | Einstellungen → Clients, einen Rechner blockieren, der an einem seriellen Port hängt, und neu verbinden | Er wird getrennt und kommt nicht mehr hinein, andere Clients verbinden neu; nach „Freigeben“ geht es wieder | Netzlisten: pytest | |
 
 ## Modbus
 

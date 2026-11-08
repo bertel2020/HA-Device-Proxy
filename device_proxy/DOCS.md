@@ -397,7 +397,11 @@ that moment are not repeated (the event says how many); the integration decides.
 is only used when it is connected, has answered lately and reports the same base ID; the app
 keeps the first gateway's base ID, so this is checked while it is away too. Back to the first
 gateway: automatically once it has run steadily for 60 s and nothing waits at the fallback, or
-by hand only. The card **Gateways** on the first gateway's page shows both, which one is in use,
+by hand only. If you switched to the fallback yourself, it goes back by hand only. If the
+fallback fails, it goes back to the first gateway at once, even if that one is not running yet;
+when the fallback returns, it stands in again. The three times (check every 10 s, 3 failed
+reads, 60 s steady) are set per gateway in the form under **Fallback gateway → Change**. The card
+**Gateways** on the first gateway's page shows both, which one is in use,
 and switches by hand.
 
 **Hear both gateways** (optional): the programs get the radio telegrams of both gateways, for
@@ -489,7 +493,8 @@ while a client is connected, so with no other client switch on **Keep the device
 drops and availability per connection over 30 days and a timeline. Repeating events, such as
 a stick that keeps dropping out, are summed up. The history is kept 30 days by default.
 **Settings → Configuration history** keeps the last 25 configurations with their
-differences; each one can be restored.
+differences; each one can be restored. Client names and the notification about new computers
+make no version and stay as they are when a version is restored.
 
 **Before saving** the connection form names the running connections that saving sets up again
 or stops and how many clients have to connect again ("only this connection" is not always
@@ -501,24 +506,30 @@ the version before** – the configuration as it was before the change, in one s
 
 ## Clients
 
-**Settings → Clients** shows new, known and blocked computers in one list. A click on a known
-computer opens the field for the name, saved when you leave it; in the lists of clients of a connection the pencil does the same. The name shows next
-to the address in the lists of clients and in the events. This host is called Home Assistant by
-itself, addresses in the Supervisor network App; a name of your own goes first. The ports have no login, so a computer that connects for the first time is reported:
-an event and, unless switched off there, a notification in Home Assistant. It stays at the
-top of the list as **New** until you mark it as **Known** or give it a name. Home Assistant, its apps and
-this host always count as known; after the first start (or the update that brought this) the
-app takes the clients of the first ten minutes as known without a word. Diagnostics leave the
-names out.
+**Settings → Clients** shows new, known and blocked computers in one list. The dot in front gives
+the state: green connected, grey not connected, yellow new, red blocked. A click on a known
+computer opens the field for the name, saved when you leave it; in the lists of clients of a
+connection the pencil does the same. The name shows next to the address in the lists of clients and
+in the events. This host is called Home Assistant by itself, addresses in the Supervisor network
+App; a name of your own goes first.
 
-**Block** keeps a computer away from every connection until you release it;
-it works on a new client or with an IP address typed in. It is disconnected at once. ser2net
-cannot drop a single client, so on serial connections all clients reconnect once. Home
-Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml` are not
-covered. With Modbus and EnOcean the line shows how often the computer was refused since the
-start; ser2net does not report that. **Remove** takes a computer that is not connected off the
-list, with its name. The list holds at most 50 new computers, from six on one notification
-covers them.
+The ports have no login, so a computer that connects for the first time is reported: an event and,
+unless switched off there, a notification in Home Assistant. It stays at the top of the list as
+**New** until you mark it as **Known** or give it a name. The list holds at most 50 new computers,
+from six on one notification covers them. Home Assistant, its apps and this host always count as
+known and are in the list only while connected; after the first start (or the update that brought
+this) the app takes the clients of the first ten minutes as known without a word.
+
+**Block** keeps a computer away from every connection until you allow it again with **Release**; it
+works from the list or with **Block an IP address**. It is disconnected at once. ser2net cannot drop
+a single client, so on serial connections that would let it in, all clients reconnect once when you
+block or release it. A block applies to the IP address: a device that gets a new one is no longer
+blocked. Home Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml`
+are not covered. With Modbus and EnOcean the line shows how often the computer was refused since
+the start; ser2net does not report that.
+
+**Remove** takes a computer that is not connected off the list, with its name; if it connects again
+it counts as new. Diagnostics leave out the names and addresses of clients.
 
 ## Notifications
 
@@ -618,7 +629,7 @@ ser2net; Modbus and EnOcean connections are not part of it, because the app serv
 connections (serial, Modbus, EnOcean) and the settings – as one JSON file. **Restore from
 backup** shows what the file holds and replaces the current configuration after you confirm;
 the old state stays in the configuration history. The file contains the MQTT login, so do not
-pass it on. The app's data is also part of Home Assistant's own backups, except the recorded
+pass it on. Client names are in it, the list of known and blocked computers is not. The app's data is also part of Home Assistant's own backups, except the recorded
 traces and EnOcean captures (the folder `trace/`), which can be large.
 
 ## Using your own ser2net.yaml
@@ -680,4 +691,4 @@ attach it to a public issue.
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
 | `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`), not in Home Assistant's backups |
-| app data (in the backup) | connections, settings, history, configuration versions |
+| app data (in the backup) | connections, settings, history, configuration versions, known and blocked clients |

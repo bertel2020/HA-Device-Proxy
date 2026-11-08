@@ -40,16 +40,14 @@ CLIENTS = 10
 SLOW_READERS = 2
 SHORTER = {  # the fallback check's waiting times for this run
     "SUPERVISE": 0.2,
-    "MAIN_PROBE": 1.0,
     "FALLBACK_PROBE": 2.0,
-    "FALLBACK_STABLE": 5.0,
     "PROBE_TIMEOUT": 0.5,
     "RECONNECT_DELAYS": (0.5, 1, 2),
 }
 LIMITS = {
     "lost_pct": 5.0,  # telegrams a client did not get, of all sent while it was connected
     "failover_s": 3.0,  # A away → B stands in
-    "failback_s": 15.0,  # A back → A takes over again (FALLBACK_STABLE and a probe)
+    "failback_s": 15.0,  # A back → A takes over again (fallback_stable_s and a probe)
     "memory_mb": 20.0,
 }
 BASE_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000009D")  # ESP2 base ID FF-B7-44-80
@@ -219,7 +217,9 @@ async def main(minutes: float) -> int:
         )  # fmt: skip
         return EnOceanProxy(c, "all", on_event, lambda chunk: None)
 
-    a = proxy(a_gateway, "A", "0000000a", fallback="0000000b")
+    a = proxy(
+        a_gateway, "A", "0000000a", fallback="0000000b", fallback_probe_s=1, fallback_stable_s=5
+    )
     b = proxy(b_gateway, "B", "0000000b")
     b.serves = "A"
     a.attach_fallback(b)
