@@ -24,7 +24,9 @@ function writeRule(c) {
   const listed = c.write_access === "listed", empty = listed && !(c.write_clients || "").trim();
   if (c.write_access === "none" || empty) return t(empty ? "waListedEmpty" : "wa_none");
   const rule = listed ? html`${t("wa_listed")} · <span class="mono">${c.write_clients}</span>` : t("waAllEffective");
-  return c.write_registers ? html`${rule} · ${t("mbWriteRegsShort", { r: c.write_registers })}` : rule;
+  const limited = c.write_registers ? html`${rule} · ${t("mbWriteRegsShort", { r: c.write_registers })}` : rule;
+  const own = (c.write_rules || "").split("\n").filter((l) => l.trim()).length;
+  return own ? html`${limited} · ${t("mbWriteRulesShort", { n: own })}` : limited;
 }
 
 function reach(c, s) {
@@ -353,8 +355,9 @@ export class DetailPage extends Page {
     if (r.error) return html`<div class="note bad">${r.error}</div>`;
     const route = r.route ? ` ${t("acRoute", { r: r.route })}` : "";
     if (!r.connect) return html`<div class="note bad">${t(`ac_${r.why}`, { b: r.bind })}</div>`;
-    if (r.allowed) return html`<div class="note ok">${t(r.write ? "ac_write" : "ac_read")}${route}</div>`;
-    return html`<div class="note warn">${t(`ac_${r.why}`, { by: r.by, r: r.route })}${r.why === "no_route" ? "" : route}</div>`;
+    const own = r.rule ? ` ${t("acByRule", { c: r.rule })}` : "";
+    if (r.allowed) return html`<div class="note ok">${t(r.write ? "ac_write" : "ac_read")}${own}${route}</div>`;
+    return html`<div class="note warn">${t(`ac_${r.why}`, { by: r.by, r: r.route })}${own}${r.why === "no_route" ? "" : route}</div>`;
   }
 
   _num(form, key, label, prop) {

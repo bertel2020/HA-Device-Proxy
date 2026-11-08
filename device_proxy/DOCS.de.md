@@ -207,6 +207,12 @@ sonst nichts. Coils und Register zählen gleichermaßen nach ihrer Adresse. Die 
 Clients: wann, wer, Unit, Funktion, Adresse, Werte und ob sie geschrieben, vom Gerät abgelehnt,
 nicht erlaubt oder außerhalb der erlaubten Register waren.
 
+**Register je Client**: eine Zeile je Client unter den Registern, eine Adresse oder ein Netz und
+dann seine Register, `*` für alle oder `none` für keine; z. B. lässt `192.168.1.20 40100-40120` evcc
+die Laderegister setzen, während `127.0.0.1 *` Home Assistant freie Hand lässt. Die erste passende
+Zeile gilt statt der allgemeinen Register. Eine Zeile erlaubt niemandem das Schreiben: Wer überhaupt
+schreiben darf, regelt weiter der Schreibzugriff. **Zugriff prüfen** nennt die Zeile, die gilt.
+
 **Units anderer Verbindungen** (unter **Erweitert**): ein Port für mehrere Geräte, denn viele
 Energiemanager und evcc erwarten ein einziges Modbus-Gateway. Jede Zeile nennt eine hier
 gefragte Unit, eine andere Modbus-Verbindung der App und die Unit dort, z. B. Unit 2 → „Zähler“
