@@ -8,7 +8,7 @@ go through this table, so a new kind adds an entry here instead of branches ther
 
 from __future__ import annotations
 
-from collections.abc import Callable, Container, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -48,7 +48,7 @@ class AppProxy(Protocol):
     def state(self) -> dict[str, Any]: ...
 
     only: str | None  # the one host that may connect for now (maintenance)
-    blocked: Container[str]  # the hosts kept out of every connection
+    refuse: Callable[[str, str], bool]  # (host, connection name): is this host blocked?
 
     def disconnect_clients(self, keep: str | None = None) -> int: ...
 

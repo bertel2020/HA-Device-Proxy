@@ -52,7 +52,7 @@ import os
 import socket
 import time
 from collections import deque
-from collections.abc import Callable, Container
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -219,7 +219,7 @@ class EnOceanProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
-        self.blocked: Container[str] = ()  # hosts kept out of every connection
+        self.refuse: Callable[[str, str], bool] = lambda _host, _name: False  # (host, name)
         self.senders: dict[str, Sender] = {}  # sender ID → what it sent
         self.started = time.time()
         self.listening = False
@@ -520,9 +520,7 @@ class EnOceanProxy:
         peer = writer.get_extra_info("peername") or ("?", 0)
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
-        if plain_host(host) in self.blocked:
-            self.stats.refused += 1
-            _LOGGER.info("%s: client %s refused (blocked)", self.c.name, address)
+        if self.refuse(host, self.c.name):  # counted and logged there
             writer.close()
             return
         if not peer_allowed(self.c.remaddr, self.listen, peer, writer.get_extra_info("sockname")):

@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import diagnostics
-from .clients import plain_host, with_name
+from .clients import parse_names, plain_host, with_name
 from .config import block, export
 from .controller import Controller, CustomError
 from .enocean_tools import senders_csv
@@ -42,7 +42,7 @@ from .model import (
 )
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services, switch_entities
-from .store import PASSWORD_KEPT, SaveError, hidden
+from .store import PASSWORD_KEPT, QUIET_SETTINGS, SaveError, hidden
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -204,6 +204,7 @@ class WebServer:
         self._route("GET", r"api/ha/switches", self.ha_switches)
         self._route("POST", r"api/clients/known", self.known_client)
         self._route("POST", r"api/clients/name", self.client_name)
+        self._route("POST", r"api/clients/forget", self.forget_client)
         self._route("POST", r"api/clients/block", self.block_client)
         self._route("POST", r"api/clients/unblock", self.unblock_client)
         self._route("GET", r"api/diagnostics", self.diagnostics)
@@ -705,7 +706,12 @@ class WebServer:
         config = self.c.store.version(int(request.params["id"]))
         if config is None:
             raise HttpError(404, "no such version")
-        return await self._save(lambda _: config, "restore")
+
+        def build(current: AppConfig) -> AppConfig:  # what has no versions stays as it is
+            kept = {k: getattr(current.settings, k) for k in QUIET_SETTINGS}
+            return replace(config, settings=replace(config.settings, **kept))
+
+        return await self._save(build, "restore")
 
     def _trace_path(self, name: str) -> Any:
         if (
@@ -839,6 +845,25 @@ class WebServer:
                 names = with_name(config.settings.client_names, host, name)
             except ValueError as err:
                 raise HttpError(400, str(err)) from None
+            values = {**config.settings.to_dict(), "client_names": names}
+            return replace(config, settings=Settings.from_dict(values))
+
+        return await self._save(build)
+
+    async def forget_client(self, request: Request) -> Response:
+        data = request.json()
+        host = data.get("host") if isinstance(data, dict) else None
+        if not isinstance(host, str):
+            raise HttpError(400, "an IP address is needed")
+        host = plain_host(host.strip())
+        known = self.c.known_clients.forget(host)
+        if host not in parse_names(self.c.config.settings.client_names):
+            if not known:
+                raise HttpError(404, "no such client")
+            return ok()
+
+        def build(config: AppConfig) -> AppConfig:
+            names = with_name(config.settings.client_names, host, "")
             values = {**config.settings.to_dict(), "client_names": names}
             return replace(config, settings=Settings.from_dict(values))
 

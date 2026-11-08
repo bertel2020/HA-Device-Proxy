@@ -14,9 +14,12 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import os
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +27,8 @@ PATH = Path("/data/known_clients.json")
 LEARN_SECONDS = 600  # quiet learning after a start without the file
 LAST_SECONDS = 600  # "last seen" moves on (and is written) at most this often per host
 NAME_LENGTH = 40
+MAX_NEW = 50  # a scan of the network or changing IPv6 addresses must not fill file and panel
+LOG_SECONDS = 600  # a blocked client that keeps trying: one line this often
 # the Supervisor's network, IPv4 and IPv6: the apps
 APPS_NETWORKS = (
     ipaddress.ip_network("172.30.32.0/23"),
@@ -100,20 +105,32 @@ def is_local(host: str, own: str | None = None) -> bool:
     return local_kind(host, own) is not None
 
 
+@dataclass
+class _Refused:
+    """A blocked host's attempts since the app started."""
+
+    count: int = 0
+    last: float = 0.0
+    logged: float = float("-inf")
+
+
 class KnownClients:
     def __init__(self, path: Path = PATH, *, clock: Callable[[], float] = time.time) -> None:
         self.path = path
+        # a file of its own: it is written only when something is blocked, so the other one,
+        # written all the time, cannot take it along in a power cut
+        self.blocked_path = path.with_name("blocked_clients.json")
         self.clock = clock
         self.known: dict[str, float] = {}  # host → first seen
         self.new: dict[str, dict[str, object]] = {}  # host → first seen, connection, address
-        self.blocked: dict[str, float] = {}  # host → since when; the proxies read this one
+        self.blocked: dict[str, float] = self._read_blocked()  # host → since when
+        self.attempts: dict[str, _Refused] = {}
         self.last: dict[str, dict[str, object]] = {}  # host → last seen: time, connection
         self.learn_until = 0.0
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             self.known = {str(k): float(v) for k, v in data.get("known", {}).items()}
             self.new = {str(k): dict(v) for k, v in data.get("new", {}).items()}
-            self.blocked = {str(k): float(v) for k, v in data.get("blocked", {}).items()}
             self.last = {str(k): dict(v) for k, v in data.get("last", {}).items()}
         except FileNotFoundError:
             self.learn_until = self._now() + LEARN_SECONDS
@@ -121,8 +138,44 @@ class KnownClients:
             _LOGGER.warning("Known clients not read (%s), learning them again", err)
             self.learn_until = self._now() + LEARN_SECONDS
 
+    def _read_blocked(self) -> dict[str, float]:
+        try:
+            data = json.loads(self.blocked_path.read_text(encoding="utf-8"))
+            return {str(k): float(v) for k, v in data.items()}
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError, AttributeError, TypeError) as err:
+            _LOGGER.error("The blocked clients could not be read, none is blocked now: %s", err)
+            try:
+                self.blocked_path.replace(
+                    self.blocked_path.with_suffix(f".invalid-{int(self.clock())}")
+                )
+            except OSError:
+                pass
+            return {}
+
     def _now(self) -> float:
         return self.clock()
+
+    @property
+    def new_full(self) -> bool:
+        return len(self.new) >= MAX_NEW
+
+    def refused(self, host: str, connection: str) -> bool:
+        """Is this host blocked? Then the attempt is counted."""
+        host = plain_host(host)
+        if host not in self.blocked:
+            return False
+        now = self._now()
+        attempt = self.attempts.setdefault(host, _Refused())
+        attempt.count += 1
+        attempt.last = now
+        if now - attempt.logged >= LOG_SECONDS:
+            attempt.logged = now
+            _LOGGER.info(
+                "%s: blocked client %s refused (%d attempts)", connection, host, attempt.count
+            )
+        return True
 
     def seen(
         self, address: str, connection: str, names: dict[str, str], own: str | None = None
@@ -135,11 +188,14 @@ class KnownClients:
         if host in self.known or host in self.new:
             self.touch(address, connection)
             return False
-        self._note(host, connection, now)
         if host in names or now < self.learn_until:
+            self._note(host, connection, now)
             self.known[host] = now
             self._save()
             return False
+        if self.new_full:
+            return False
+        self._note(host, connection, now)
         self.new[host] = {"first": now, "connection": connection, "address": address}
         self._save()
         return True
@@ -178,7 +234,9 @@ class KnownClients:
         self.new.pop(host, None)
         self.known.pop(host, None)
         self.last.pop(host, None)
+        self.attempts.pop(host, None)
         self.blocked[host] = self._now()
+        self._write(self.blocked_path, self.blocked)
         self._save()
         return True
 
@@ -186,21 +244,32 @@ class KnownClients:
         """Released in the web interface: it counts as known, it was looked at."""
         if self.blocked.pop(host, None) is None:
             return False
+        self.attempts.pop(host, None)
         self.known[host] = self._now()
+        self._write(self.blocked_path, self.blocked)
+        self._save()
+        return True
+
+    def forget(self, host: str) -> bool:
+        """Taken off the list: when it connects again it is new."""
+        if self.known.pop(host, None) is None:
+            return False
+        self.last.pop(host, None)
         self._save()
         return True
 
     def _save(self) -> None:
+        self._write(self.path, {"known": self.known, "new": self.new, "last": self.last})
+
+    @staticmethod
+    def _write(path: Path, data: dict[str, Any]) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(".tmp")
-            data = {
-                "known": self.known,
-                "new": self.new,
-                "blocked": self.blocked,
-                "last": self.last,
-            }
-            tmp.write_text(json.dumps(data), encoding="utf-8")
-            tmp.replace(self.path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as f:
+                json.dump(data, f)
+                f.flush()
+                os.fsync(f.fileno())  # a power cut right after must not leave half a file
+            os.replace(tmp, path)
         except OSError as err:
             _LOGGER.warning("Known clients not saved: %s", err)

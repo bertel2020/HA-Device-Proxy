@@ -30,7 +30,7 @@ import struct
 import termios
 import time
 from collections import deque
-from collections.abc import Callable, Container
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -895,7 +895,7 @@ class ModbusProxy:
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
-        self.blocked: Container[str] = ()  # hosts kept out of every connection
+        self.refuse: Callable[[str, str], bool] = lambda _host, _name: False  # (host, name)
         self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)  # the clients' writes
         # the proxy of another connection, for units routed there (set by the controller)
         self.router: Callable[[str], ModbusProxy | None] = lambda connection_id: None
@@ -1253,8 +1253,7 @@ class ModbusProxy:
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
         sock = writer.get_extra_info("sockname")
-        if plain_host(host) in self.blocked:
-            _LOGGER.info("%s: client %s refused (blocked)", self.c.name, address)
+        if self.refuse(host, self.c.name):  # counted and logged there
             writer.close()
             return
         if not peer_allowed(self.c.remaddr, self.listen, peer, sock):

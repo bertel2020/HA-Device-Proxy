@@ -82,7 +82,7 @@ from .model import (
 )
 from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
-from .store import PASSWORD_KEPT, Change, Store, hidden, summary
+from .store import PASSWORD_KEPT, Change, Store, hidden, quiet, summary
 from .trace import Chunk, TraceHub
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,6 +116,7 @@ POWER_OFF = 5  # seconds a power cycle keeps the device off
 POWER_ON_TRIES = 3  # the switch must come back on: asked again when that fails
 POWER_RETRY = 2  # seconds between those attempts
 POWER_BACK = 30  # seconds a device may take to come back after the power was off
+NOTIFY_EACH_CLIENT = 5  # more new clients than this: one notification for all of them
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
 NOTES = {
     "de": {
@@ -126,6 +127,11 @@ NOTES = {
         "no_client": (
             "Device Proxy: {name} – kein Client",
             "Seit {since} ist kein Client verbunden.",
+        ),
+        "new_clients": (
+            "Device Proxy: {count} neue Clients",
+            "{count} Rechner haben sich zum ersten Mal verbunden. Unter Einstellungen → Clients "
+            "als bekannt markieren, benennen oder blockieren.",
         ),
         "new_client": (
             "Device Proxy: neuer Client {host}",
@@ -181,6 +187,11 @@ NOTES = {
             "{device} is not plugged in (since {since}).",
         ),
         "no_client": ("Device Proxy: {name} – no client", "No client connected since {since}."),
+        "new_clients": (
+            "Device Proxy: {count} new clients",
+            "{count} computers connected for the first time. Mark them as known, name or block "
+            "them under Settings → Clients.",
+        ),
         "new_client": (
             "Device Proxy: new client {host}",
             "{address} connected to {name} on {since}, for the first time. Known? Then mark it as "
@@ -483,7 +494,7 @@ class Controller:
             working = [c.id for c in old.connections if self.working(c)]
             version = self.store.latest_id()
             items = self.store.save(old, new, source)
-            if items:
+            if items and not quiet(items):
                 # the configuration before, while it is the last change: what to go back to
                 # when a connection that worked stops working (the panel offers it)
                 self.last_change = (
@@ -819,7 +830,7 @@ class Controller:
             proxy.only = (
                 self.exclusive[connection_id][0] if connection_id in self.exclusive else None
             )
-            proxy.blocked = self.known_clients.blocked
+            proxy.refuse = self.known_clients.refused
             if isinstance(proxy, ModbusProxy):
                 proxy.router = self._modbus_proxy
             if isinstance(proxy, EnOceanProxy):
@@ -1118,7 +1129,9 @@ class Controller:
         def clock(ts: float) -> str:
             return time.strftime("%d.%m. %H:%M", time.localtime(ts))
 
-        if settings.notify_new_clients:
+        if settings.notify_new_clients and len(self.known_clients.new) > NOTIFY_EACH_CLIENT:
+            add("device_proxy_new_clients", "new_clients", count=len(self.known_clients.new))
+        elif settings.notify_new_clients:
             for host, entry in self.known_clients.new.items():
                 add(
                     f"device_proxy_client_{re.sub(r'[^0-9a-f]', '_', host.lower())}",
@@ -1942,6 +1955,7 @@ class Controller:
         """Everything the status pages show, in one JSON-ready structure."""
         settings = self.config.settings
         client_names = parse_names(settings.client_names)
+        attempts = self.known_clients.attempts
         connections = []
         for c in self.config.connections:
             if c.kind in PROXIED:
@@ -1997,9 +2011,16 @@ class Controller:
             "lan_ip": self.lan_ip,
             "lan_net": self.lan_net,
             "new_clients": [{"host": h, **entry} for h, entry in self.known_clients.new.items()],
+            "new_clients_full": self.known_clients.new_full,
             "known_clients": self._client_rows(connections, client_names),
             "blocked_clients": [
-                {"host": h, "since": since, "name": client_names.get(h)}
+                {
+                    "host": h,
+                    "since": since,
+                    "name": client_names.get(h),
+                    "refused": attempt.count if (attempt := attempts.get(h)) else 0,
+                    "refused_last": attempt.last if attempt else None,
+                }
                 for h, since in self.known_clients.blocked.items()
             ],
             "connections": connections,

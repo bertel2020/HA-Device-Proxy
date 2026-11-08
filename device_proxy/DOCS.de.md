@@ -545,7 +545,10 @@ Minuten stillschweigend als bekannt. Die Diagnose lässt die Namen weg.
 freigibst; das geht bei einem neuen Client oder mit der IP-Adresse von Hand. Er wird sofort
 getrennt. ser2net kann keinen einzelnen Client trennen, an seriellen Verbindungen verbinden sich
 deshalb alle Clients einmal neu. Home Assistant, seine Apps und dieser Host lassen sich nicht
-blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre nicht.
+blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre nicht. Bei Modbus und
+EnOcean zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde; ser2net meldet das
+nicht. **Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste. Unter
+**Neue Clients** stehen höchstens 50 Rechner, ab sechs kommt eine gemeinsame Benachrichtigung.
 
 ## Benachrichtigungen
 

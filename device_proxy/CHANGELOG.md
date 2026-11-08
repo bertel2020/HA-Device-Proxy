@@ -1,5 +1,57 @@
 # Changelog
 
+## Unreleased
+
+Modbus-Register direkt als Entitäten in Home Assistant, Schreibrechte je Client, Geräteprofile,
+ein Stromzyklus für hängende Geräte, Clients sperren und benennen, EnOcean-Sender mit Namen.
+
+- **Modbus, Register als Entitäten**: Die App liest Register selbst und bietet sie über MQTT als
+  Sensoren an, ohne YAML. Anlegen unter Register lesen → Werte dekodieren oder als Zeilen im
+  Formular, höchstens 50, standardmäßig alle 30 Sekunden. Beim Mithören am RS485-Bus kommen die
+  Werte aus dem Gehörten, es wird nichts gesendet.
+- **Modbus, Register je Client**: Eine Zeile je Client legt fest, welche Register er schreiben
+  darf, statt der allgemeinen Register. „Zugriff prüfen“ nennt die Zeile, die gilt.
+- **Modbus, Geräteprofile**: Startwerte für SolarEdge, Huawei SUN2000, Fronius, SMA, Kostal
+  Plenticore, Sungrow und Victron GX; erkennt der Bus-Scan den Hersteller, bietet er dessen Zeiten
+  an.
+- **Stromzyklus**: Ein Schalter in Home Assistant kann ein hängendes Gerät 5 Sekunden vom Strom
+  trennen: von Hand, als Button in Home Assistant und einmal, wenn drei automatische Neustarts
+  nicht geholfen haben.
+- **Clients sperren**: Ein Rechner lässt sich von allen Verbindungen aussperren und wieder
+  freigeben. Bei Modbus und EnOcean steht in seiner Zeile, wie oft er abgewiesen wurde.
+- **Clients benennen**: Die bekannten Rechner stehen in einer Liste mit Namensfeld und „zuletzt
+  gesehen“, in den Client-Listen einer Verbindung geht das mit dem Stift. Dieser Rechner heißt von
+  selbst Home Assistant, Adressen im Supervisor-Netz App. Nicht verbundene Rechner lassen sich aus
+  der Liste entfernen. Viele neue Rechner auf einmal ergeben eine gemeinsame Benachrichtigung.
+- **EnOcean-Sender**: eigene Namen für alle Gateways, gemeinsam gespeichert und nicht in der
+  Diagnose, dazu die Liste als CSV-Datei.
+- **Zigbee-Stick**: eine eigene Vorlage (115200 Baud, ein Client, nur Home Assistant und Apps).
+
+### English
+
+Modbus registers directly as entities in Home Assistant, write rights per client, device profiles,
+a power cycle for devices that hang, blocking and naming clients, EnOcean senders with names.
+
+- **Modbus, registers as entities**: The app reads registers itself and offers them as sensors
+  over MQTT, without YAML. Added under Read registers → Decode values or as lines in the form, at
+  most 50, every 30 seconds by default. When listening on an RS485 bus, the values come from what
+  was heard and nothing is sent.
+- **Modbus, registers per client**: One line per client sets which registers it may write, instead
+  of the general registers. "Check access" names the line that applies.
+- **Modbus, device profiles**: Starting values for SolarEdge, Huawei SUN2000, Fronius, SMA, Kostal
+  Plenticore, Sungrow and Victron GX; when the bus scan recognizes the vendor, it offers its timing.
+- **Power cycle**: A switch in Home Assistant can cut the power of a hanging device for 5 seconds:
+  by hand, as a button in Home Assistant and once when three automatic restarts did not help.
+- **Blocking clients**: A computer can be kept out of every connection and released again. With
+  Modbus and EnOcean its line shows how often it was refused.
+- **Naming clients**: The known computers are in a list with a name field and "last seen"; in the
+  lists of clients of a connection the pencil does the same. This host is called Home Assistant by
+  itself, addresses in the Supervisor network App. Computers that are not connected can be removed
+  from the list. Many new computers at once get one notification together.
+- **EnOcean senders**: names of your own for all gateways, saved together and left out of the
+  diagnostics, and the list as a CSV file.
+- **Zigbee stick**: a template of its own (115200 baud, one client, Home Assistant and apps only).
+
 ## 1.4.1 - 2026-11-08
 
 Das Panel ist auf dem Handy gut bedienbar, dazu viele Korrekturen bei EnOcean, Modbus und MQTT.
