@@ -86,6 +86,7 @@ Every page, every setting and help when something does not work: **[documentatio
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
 - A computer that connects for the first time is reported (**Settings → Clients**, where clients also get names).
 - Diagnostics leave out IP addresses, host names, the MQTT login and personal names.
+- Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
 
 ## Changelog
 

@@ -1,0 +1,72 @@
+name: Bug report / Fehler melden
+description: Something does not work as it should. / Etwas funktioniert nicht wie erwartet.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or German, both are fine. / Deutsch oder Englisch, beides ist in Ordnung.
+
+        **Look at what you attach before you post it**: issues are public. Device paths contain the adapter's serial number, and a smart meter's telegrams contain the meter's number.
+        **Schau dir Anhänge vor dem Absenden an**: Issues sind öffentlich. Gerätepfade enthalten die Seriennummer des Adapters, die Telegramme eines Zählers dessen Nummer.
+  - type: input
+    id: version
+    attributes:
+      label: App version / App-Version
+      description: Shown at the top left of the panel. / Steht im Panel oben links.
+      placeholder: "1.4.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of connection / Art der Verbindung
+      options:
+        - Serial or USB (ser2net) / Seriell oder USB (ser2net)
+        - Modbus TCP
+        - Modbus RTU (RS485)
+        - RTU over TCP / RTU über TCP
+        - Listening on RS485 / RS485 mithören
+        - EnOcean gateway / EnOcean-Gateway
+        - Panel or settings / Panel oder Einstellungen
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and adapter / Gerät und Adapter
+      placeholder: "SolarEdge SE10K over Modbus TCP, FAM-USB, CP2102 reading head"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens? / Was passiert?
+      description: The steps that lead to it, and which programs connect to the device. / Die Schritte dorthin, und welche Programme sich mit dem Gerät verbinden.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect? / Was hast du erwartet?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics / Diagnose
+      description: |
+        **Settings → Help and info → Download diagnostics**, attach the ZIP here. / **Einstellungen → Hilfe und Info → Diagnose-Paket herunterladen**, die ZIP-Datei hier anhängen.
+        IP addresses, host names and the MQTT login are replaced. / IP-Adressen, Hostnamen und die MQTT-Anmeldung werden ersetzt.
+  - type: textarea
+    id: testcase
+    attributes:
+      label: Test case / Testfall
+      description: |
+        For an odd device: **As a test case** in the connection's live data downloads its last frames, so it can be looked at without the hardware. / Bei einem ungewöhnlichen Gerät: **Als Testfall** in den Live-Daten der Verbindung lädt die letzten Telegramme herunter, damit es sich ohne die Hardware ansehen lässt.
+  - type: textarea
+    id: log
+    attributes:
+      label: App log / Protokoll der App
+      description: Settings → Apps → Device Proxy → Log. / Einstellungen → Apps → Device Proxy → Protokoll.
+      render: text
