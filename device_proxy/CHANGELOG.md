@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.4.1 - 2026-11-08
+
+Das Panel ist auf dem Handy gut bedienbar, dazu viele Korrekturen bei EnOcean, Modbus und MQTT.
+
+- **Handy**: die Bereiche als Leiste unten, keine Seite ist mehr breiter als der Bildschirm, die
+  Speichern-Leiste des Formulars ist einzeilig, Links und kleine Knöpfe sind leichter zu treffen.
+- **Mitschnitt**: die Bytes dekodierter Telegramme schrumpfen nicht mehr auf ein Zeichen pro
+  Zeile; die Datei einer laufenden Aufzeichnung lässt sich nicht mehr löschen.
+- **EnOcean**: immer nur ein Befehl mit erwarteter Antwort, eine verspätete Antwort geht an
+  niemanden; ESP2 prüft die Prüfsumme jedes Telegramms; bei einer Aufzeichnung mit Sperre kein
+  falscher Wechsel auf das Ersatz-Gateway.
+- **Modbus**: ein nicht erreichbares Gerät weist Clients sofort ab, verschwundene Clients geben
+  ihren Platz frei, jedes Schreiben leert den Cache, ungültige Lesewünsche beim Mithören am Bus
+  bekommen eine Fehlerantwort.
+- **MQTT und Benachrichtigungen**: ein Fehler eines Buttons beendet MQTT nicht mehr, alte
+  Entitäten verschwinden zuverlässig, erledigte Meldungen werden auch nach einem Neustart entfernt.
+- **App**: eine ungültige Konfiguration startet nicht mehr leer, was gültig ist, bleibt erhalten;
+  fällt ein Hintergrundteil aus, startet die App neu; der Import zeigt Konflikte innerhalb einer
+  Datei in der Vorschau.
+
+### English
+
+The panel works well on phones, plus many fixes for EnOcean, Modbus and MQTT.
+
+- **Phones**: the sections as a bar at the bottom, no page is wider than the screen, the save bar
+  of the form is one row, links and small buttons are easier to hit.
+- **Trace**: the bytes of decoded frames no longer collapse to one character per line; the file
+  of a running capture can no longer be deleted.
+- **EnOcean**: one command expecting an answer at a time, a late answer goes to nobody; ESP2
+  checks the checksum of every frame; a capture with a lock no longer switches to the fallback
+  gateway by mistake.
+- **Modbus**: a device that cannot be reached turns clients away at once, clients that vanished
+  free their place, every write empties the cache, invalid reads when listening on a bus get an
+  error answer.
+- **MQTT and notifications**: an error from a button no longer ends MQTT, old entities go away
+  reliably, notifications that are resolved are dismissed after a restart too.
+- **App**: an invalid configuration no longer starts empty, what is valid is kept; when a
+  background part fails, the app starts again; the import shows conflicts within a file in the
+  preview.
+
 ## 1.4.0 - 2026-11-05
 
 Eine hängende Verbindung lässt sich neu starten, auch mit einem USB-Reset des Adapters, von Hand,
