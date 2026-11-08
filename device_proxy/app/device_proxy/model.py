@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
 
 from .clients import parse_names
+from .modbus_entities import parse_entities
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +34,26 @@ TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
 ENOCEAN_TEMPLATES = ("fam_usb", "fam14", "fgw14_usb", "usb300", "mgw_eth", "symcon_lan", "enocean")
-TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "zigbee", "modbus", *ENOCEAN_TEMPLATES)
+# starting values for the devices of a vendor (PROFILES in panel-src/src/modbus.js)
+MODBUS_PROFILES = (
+    "mb_solaredge",
+    "mb_huawei",
+    "mb_fronius",
+    "mb_sma",
+    "mb_kostal",
+    "mb_sungrow",
+    "mb_victron",
+)
+TEMPLATES = (
+    "generic",
+    "ehz_sml",
+    "ehz_d0",
+    "zwave",
+    "zigbee",
+    "modbus",
+    *MODBUS_PROFILES,
+    *ENOCEAN_TEMPLATES,
+)
 KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
 LINKS = {  # how a proxy reaches its device
     "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),
@@ -148,6 +168,7 @@ EXTRA_OPTIONS = {
     "mdns-txt",
 }
 FILE_REFERENCE = re.compile(r"[*=]\{|\*\(")  # ser2net puts a file's content or a define here
+POWER_SWITCH = re.compile(r"switch\.[a-z0-9_]{1,200}")
 RS485 = re.compile(r"off|\d+:\d+(:(rts_on_send|rts_after_send|rx_during_tx|terminate_bus))*")
 
 
@@ -218,6 +239,9 @@ class Connection:
     # after silence_minutes without data: "" only warn, "restart" the connection, "usb" reset
     # its USB adapter as well (controller.py, at most AUTO_RESTART_MAX times in a row)
     silence_restart: str = ""
+    # a switch in Home Assistant that cuts the device's power, for a power cycle by hand and
+    # as the last step of the automatic restarts ("switch.usb_hub", "" for none)
+    power_switch: str = ""
     # a serial connection's data: a device of this host, or a serial bridge in the network
     # (ESPHome stream server, Tasmota reading head, USR-TCP232) at host and host_port
     source: str = "device"
@@ -233,11 +257,17 @@ class Connection:
     write_access: str = "all"  # which clients may write: "all", "none" or "listed"
     write_clients: str = ""  # for "listed": addresses or networks
     write_registers: str = ""  # writes only to these addresses ("40100-40120 47000"); "" any
+    # per client, instead of write_registers ("192.168.1.20 40100-40120" per line, "*" any
+    # register, "none" no register); who may write at all stays write_access
+    write_rules: str = ""
     listen_max_age_s: int = 60  # rtu_listen: registers heard longer ago count as unknown
     # several devices behind this port: a client unit → another Modbus connection of the
     # app and its unit ("2=0000beef:1 3=0000cafe")
     unit_routes: str = ""
     cache_ms: int = 0  # reads answered from the last answer this long (0: always ask)
+    # registers the app reads itself and offers as entities over MQTT (modbus_entities.py)
+    register_entities: str = ""
+    entity_seconds: int = 30
     unit_map: str = ""  # "1=3, 2=5": a client's unit 1 goes to the device's unit 3
     probe_seconds: int = 0  # read a register after this long without requests (0: off)
     probe_unit: int = 1
@@ -409,6 +439,8 @@ class Connection:
             e["silence_restart"] = "needs the minutes without data"
         elif self.silence_restart == "usb" and not self.uses_device:
             e["silence_restart"] = "a USB reset needs a device of this host"
+        if self.power_switch and not POWER_SWITCH.fullmatch(self.power_switch):
+            e["power_switch"] = "a switch entity like switch.usb_hub"
         if self.kind != "serial":
             self._validate_link(e)
         elif self.source not in ("device", "tcp"):
@@ -504,6 +536,16 @@ class Connection:
         except ValueError as err:
             e["write_registers"] = str(err)
         try:
+            parse_write_rules(self.write_rules)
+        except ValueError as err:
+            e["write_rules"] = str(err)
+        try:
+            parse_entities(self.register_entities)
+        except ValueError as err:
+            e["register_entities"] = str(err)
+        if not 5 <= self.entity_seconds <= 3600:
+            e["entity_seconds"] = "5 to 3600 seconds"
+        try:
             routes = parse_routes(self.unit_routes)
         except ValueError as err:
             e["unit_routes"] = str(err)
@@ -527,6 +569,51 @@ def parse_ranges(text: str) -> list[tuple[int, int]]:
             raise ValueError(f"'{item}': addresses 0 to 65535, the first not above the last")
         ranges.append((a, b))
     return ranges
+
+
+SENDER_ID = re.compile(r"[0-9A-Fa-f]{2}(-[0-9A-Fa-f]{2}){3}")
+SENDER_NAME_LENGTH = 40
+
+
+def parse_sender_names(text: str) -> dict[str, str]:
+    """ "FE-E9-12-34 Kitchen switch" per line → {id in capitals: name}; raises ValueError."""
+    names: dict[str, str] = {}
+    for line in text.splitlines():
+        sender, _, name = line.strip().partition(" ")
+        if not sender:
+            continue
+        name = " ".join(name.split())
+        if not SENDER_ID.fullmatch(sender):
+            raise ValueError(f"'{sender}' is not a sender ID like FE-E9-12-34")
+        if not 1 <= len(name) <= SENDER_NAME_LENGTH:
+            raise ValueError(f"'{sender}': a name of 1 to {SENDER_NAME_LENGTH} characters")
+        names[sender.upper()] = name
+    return names
+
+
+def parse_write_rules(text: str) -> list[tuple[str, list[tuple[int, int]] | None]]:
+    """ "192.168.1.20 40100-40120" per line → (client, ranges), None for "*" (any register), an
+    empty list for "none"; raises ValueError."""
+    rules: list[tuple[str, list[tuple[int, int]] | None]] = []
+    for line in text.splitlines():
+        client, _, registers = line.strip().partition(" ")
+        registers = registers.strip()
+        if not client:
+            continue
+        if not registers:
+            raise ValueError(f"'{line.strip()}': a client and its registers, * or none")
+        parse_networks(client)
+        rules.append(
+            (
+                client,
+                None
+                if registers == "*"
+                else []
+                if registers == "none"
+                else parse_ranges(registers),
+            )
+        )
+    return rules
 
 
 _BLANK = Connection(name="", device="", port=0, id="00000000")  # for derived properties
@@ -557,6 +644,8 @@ class Settings:
     # host connects that was never seen before
     client_names: str = ""
     notify_new_clients: bool = True
+    # names for EnOcean sender IDs ("FE-E9-12-34 Kitchen switch" per line), for all gateways
+    sender_names: str = ""
     # entities in Home Assistant over MQTT discovery
     mqtt_enabled: bool = True  # only with a broker in Home Assistant
     mqtt_prefix: str = "homeassistant"
@@ -630,6 +719,10 @@ class Settings:
             parse_names(settings.client_names)
         except ValueError as err:
             e["client_names"] = str(err)
+        try:
+            parse_sender_names(settings.sender_names)
+        except ValueError as err:
+            e["sender_names"] = str(err)
         for key in ("mqtt_prefix", "mqtt_base"):
             if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
                 e[key] = "an MQTT topic without wildcards"

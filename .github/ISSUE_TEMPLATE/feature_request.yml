@@ -1,0 +1,20 @@
+name: Idea or request / Idee oder Wunsch
+description: Something that is missing, or a device that should work. / Etwas fehlt, oder ein Gerät sollte funktionieren.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do? / Was möchtest du erreichen?
+      description: The situation and the device, not only the solution. / Die Situation und das Gerät, nicht nur die Lösung.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it today? / Wie machst du es heute?
+  - type: input
+    id: version
+    attributes:
+      label: App version / App-Version
+      placeholder: "1.4.1"

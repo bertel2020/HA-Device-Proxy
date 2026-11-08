@@ -45,6 +45,25 @@ def _call(path: str, data: dict[str, Any] | None = None) -> Any:
     return json.loads(body) if body else None
 
 
+def switch_entities() -> list[str]:
+    """The switches of Home Assistant, for a connection's power switch."""
+    try:
+        states = _call("states")
+    except (OSError, ValueError) as err:
+        _LOGGER.debug("Switches not read: %s", err)
+        return []
+    return sorted(
+        str(state["entity_id"])
+        for state in states or []
+        if str(state.get("entity_id", "")).startswith("switch.")
+    )
+
+
+def set_switch(entity_id: str, on: bool) -> None:
+    """Turn a switch of Home Assistant on or off; OSError or ValueError when that fails."""
+    _call(f"services/switch/turn_{'on' if on else 'off'}", {"entity_id": entity_id})
+
+
 def notify_services() -> list[str]:
     """The notify services Home Assistant offers (e.g. mobile_app_phone)."""
     try:

@@ -1,8 +1,8 @@
 // EnOcean gateways: the frame check, the issues in plain words, the status card and the tools
 // (send one frame, test the gateway, capture with the lock for PCT14).
 import { LitElement, css, html } from "lit";
-import { api } from "./api.js";
-import { lang, t } from "./i18n.js";
+import { api, url } from "./api.js";
+import { fieldError, lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { confirmDialog, fmtAgo, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
 
@@ -259,7 +259,7 @@ export function issuesCard(list) {
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */
 /** The sender IDs the gateway heard: for placing repeaters and finding a new switch's ID. */
 export class EnOceanSenders extends LitElement {
-  static properties = { connection: { attribute: false }, rows: { state: true }, copied: { state: true }, onlyNew: { state: true } };
+  static properties = { connection: { attribute: false }, rows: { state: true }, copied: { state: true }, onlyNew: { state: true }, names: { state: true }, nameError: { state: true } };
 
   static styles = [tokens, base, css`
     :host { display: block; }
@@ -296,6 +296,16 @@ export class EnOceanSenders extends LitElement {
     } catch { /* the gateway restarts */ }
   }
 
+  /** All names in one save, so a whole list costs one version in the configuration history. */
+  async _saveNames() {
+    try {
+      await api("api/enocean/sender-names", { method: "PUT", body: { names: this.names } });
+      this.names = undefined;
+      this.nameError = "";
+      await this._load();
+    } catch (err) { this.nameError = fieldError((err.data.errors || {}).sender_names || err.message); }
+  }
+
   async _copy(id) {
     try { await navigator.clipboard.writeText(id); this.copied = id; setTimeout(() => { if (this.copied === id) this.copied = ""; }, 2000); } catch { /* no clipboard */ }
   }
@@ -307,11 +317,18 @@ export class EnOceanSenders extends LitElement {
     return foldCard("device_proxy.eo.senders", "t-senders", t("eoSenders"), t("eoSendersSub"), html`
       <p class="hint" style="margin:0">${t(esp3 ? "eoSendersText3" : "eoSendersText2")}</p>
       <label class="chk"><input type="checkbox" .checked=${!!this.onlyNew} @change=${(e) => { this.onlyNew = e.target.checked; }}><span>${t("eoSendersNew")}</span></label>
-      ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
+      ${rows.length ? html`<div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${this.names ? html`<button class="btn btn-s" @click=${() => this._saveNames()}>${t("eoSendersSave")}</button>
+          <button class="btn btn-g" @click=${() => { this.names = undefined; this.nameError = ""; }}>${t("cancel")}</button>`
+        : html`<button class="btn btn-g" @click=${() => { this.names = {}; }}>${t("eoSendersEdit")}</button>
+          <a class="btn btn-g" style="text-decoration:none" download href=${url(`api/tools/${c.id}/enocean/senders.csv`)}>${t("eoSendersCsv")}</a>`}</div>
+        ${this.nameError ? html`<div class="note bad" role="alert">${this.nameError}</div>` : ""}` : ""}
+      ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
             <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
+          <td>${this.names ? html`<input class="inp" style="min-width:140px" maxlength="40" aria-label=${t("eoSendersName")} .value=${this.names[r.id] ?? r.name ?? ""} @input=${(e) => { this.names = { ...this.names, [r.id]: e.target.value }; }}>` : r.name || ""}</td>
           <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString()}</td><td>${fmtAgo(r.last)}</td>
           ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>
           ${both ? html`<td>${[...r.heard].sort().reverse().map((h) => t(h === "main" ? "eoHeardMain" : "eoHeardFallback")).join(" + ")}</td>` : ""}</tr>`)}</tbody></table></div>`

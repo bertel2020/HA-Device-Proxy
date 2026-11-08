@@ -2,9 +2,9 @@
 
 Per connection: device present, clients, data rate, bytes from the device, last data, line
 errors, a switch to turn the connection on and off, buttons that disconnect its clients and
-restart the connection (and one for a USB reset of a local adapter); for a Modbus connection
-the device reachable, clients, requests, unanswered requests, answer time, the switch and the
-buttons; an EnOcean gateway with a fallback has buttons to switch.
+restart the connection (and for a USB reset of a local adapter or a power cycle); for a Modbus
+connection the device reachable, clients, requests, unanswered requests, answer time, the switch
+and the buttons; an EnOcean gateway with a fallback has buttons to switch.
 States go as one JSON per connection to <base>/<id>/state, the switch listens on
 <base>/<id>/enabled/set. <base>/status is the availability (the broker sets it to offline
 when the app goes away). Removed connections get an empty retained config, so Home
@@ -52,6 +52,7 @@ NAMES = {
         "disconnect": "Clients trennen",
         "restart": "Verbindung neu starten",
         "usb_reset": "USB-Reset",
+        "power_cycle": "Stromzyklus",
         "meter_import": "Zählerstand Bezug",
         "meter_export": "Zählerstand Einspeisung",
         "meter_power": "Leistung",
@@ -79,6 +80,7 @@ NAMES = {
         "disconnect": "Disconnect clients",
         "restart": "Restart connection",
         "usb_reset": "USB reset",
+        "power_cycle": "Power cycle",
         "meter_import": "Meter reading import",
         "meter_export": "Meter reading export",
         "meter_power": "Power",
@@ -203,7 +205,7 @@ class HaBridge:
                 **extra: Any,
             ) -> dict[str, Any]:
                 return {
-                    "name": names[key],
+                    "name": names.get(key, key),  # a register's name comes with extra
                     "unique_id": f"device_proxy_{c_id}_{key}",
                     "state_topic": state,
                     "availability": availability,
@@ -221,6 +223,8 @@ class HaBridge:
             buttons = [("disconnect", "mdi:lan-disconnect"), ("restart", "mdi:restart")]
             if c.uses_device:
                 buttons.append(("usb_reset", "mdi:usb-port"))
+            if c.power_switch:
+                buttons.append(("power_cycle", "mdi:power-cycle"))
             if c.kind == "enocean" and c.fallback:
                 buttons += [
                     ("to_fallback", "mdi:swap-horizontal"),

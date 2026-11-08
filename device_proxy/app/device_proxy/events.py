@@ -117,6 +117,8 @@ MESSAGES = {
     "clients_disconnected": "{count} client(s) disconnected ({by})",
     "connection_restarted": "Connection restarted ({by})",
     "usb_reset_failed": "USB reset failed: {error}",
+    "power_cycled": "Power cycled with {switch}",
+    "power_cycle_failed": "Power cycle with {switch} failed: {error}",
     "auto_restart_gave_up": (
         "Still no data after {count} automatic restarts: no further restarts until data comes"
     ),

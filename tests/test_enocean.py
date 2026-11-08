@@ -1182,3 +1182,43 @@ async def test_a_frame_that_could_not_be_written_does_not_hold_the_next(
     await _until(lambda: bytes(gateway.received) == BASE_ID_READ, timeout=1)  # not after 5 s
     assert failed and proxy.stats.dropped == 1
     w.close()
+
+
+def test_sender_names_are_checked() -> None:
+    from device_proxy.model import Settings, ValidationError, parse_sender_names
+
+    assert parse_sender_names("fe-e9-12-34  Kitchen   switch\n\nFF-00-00-01 B") == {
+        "FE-E9-12-34": "Kitchen switch",
+        "FF-00-00-01": "B",
+    }
+    for wrong in ("FE-E9-12 Name", "FE-E9-12-34", f"FE-E9-12-34 {'x' * 41}", "name FE-E9-12-34"):
+        with pytest.raises(ValueError):
+            parse_sender_names(wrong)
+    with pytest.raises(ValidationError) as err:
+        Settings.from_dict({"sender_names": "kaputt"})
+    assert "sender_names" in err.value.errors
+
+
+def test_the_senders_as_a_file() -> None:
+    import csv
+    import io
+
+    from device_proxy.enocean_tools import senders_csv
+
+    row = {
+        "id": "FE-E9-12-34",
+        "name": "Küche",
+        "rorg": "RPS",
+        "count": 2,
+        "last": 1700000000.0,
+        "dbm": None,
+        "hops": 1,
+        "own": False,
+        "new": True,
+    }
+    data = senders_csv([row, {**row, "name": "=1+1", "dbm": -74}])
+    assert data.startswith(b"\xef\xbb\xbf")  # for the umlauts in a spreadsheet
+    head, first, second = list(csv.reader(io.StringIO(data.decode("utf-8-sig"))))
+    assert head[:3] == ["id", "name", "kind"]
+    assert first[:4] == ["FE-E9-12-34", "Küche", "RPS", "2"] and first[5:] == ["", "1", "0", "1"]
+    assert second[1] == "'=1+1" and second[5] == "-74"  # a name cannot be a formula

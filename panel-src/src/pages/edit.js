@@ -3,6 +3,7 @@ import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t } from "../i18n.js";
+import { PROFILES } from "../modbus.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
 import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle } from "../ui.js";
@@ -12,9 +13,9 @@ const DEFAULTS = {
   mode: "raw", max_clients: 1, local: true, rtscts: false, xonxoff: false, hangup_when_done: false, nobreak: false, dtr: "", rts: "",
   rs485: "", low_latency: false, timeout: 0, kickolduser: false, chardelay: true, remaddr: "", banner: "", openstr: "", closestr: "",
   connector_retry_time: 0, nodelay: false, bind: "", extra: [], keep_open: false, stuck_disconnect: false, meter_entities: false, trace: "off",
-  notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", kind: "serial", source: "device",
+  notify_missing: true, notify_no_client: false, silence_minutes: 0, silence_restart: "", power_switch: "", kind: "serial", source: "device",
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
-  write_access: "all", write_clients: "", write_registers: "", listen_max_age_s: 60, cache_ms: 0, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
+  write_access: "all", write_clients: "", write_registers: "", write_rules: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
 };
@@ -40,7 +41,7 @@ const TEMPLATES = {
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Erweitert" and counts when it differs from the default
-const MODBUS_TUNING = ["connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
+const MODBUS_TUNING = ["register_entities", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const BUS_GATEWAYS = ["fam14", "fgw14_usb"]; // on the RS485 bus of the series 14, not radio only
@@ -55,7 +56,7 @@ const fieldErrors = (errors) => Object.fromEntries(Object.entries(errors || {}).
 
 export class EditPage extends Page {
   static properties = {
-    state: { attribute: false }, connectionId: {},
+    switches: { state: true }, state: { attribute: false }, connectionId: {},
     draft: { state: true }, errors: { state: true }, yaml: { state: true }, advanced: { state: true },
     otherDevice: { state: true }, replayOpen: { state: true }, fbOpen: { state: true }, yamlOpen: { state: true }, tplOpen: { state: true }, saving: { state: true }, effects: { state: true }, extraRaw: { state: true }, touched: { state: true }, warnings: { state: true },
 
@@ -102,6 +103,7 @@ export class EditPage extends Page {
     super.connectedCallback();
     this._leave = (e) => { if (this._dirty()) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("beforeunload", this._leave);
+    api("api/ha/switches").then((list) => { this.switches = list; }).catch(() => { this.switches = []; });
   }
 
   disconnectedCallback() {
@@ -433,6 +435,9 @@ export class EditPage extends Page {
         <span class="hint">${t(`wasub_${d.write_access}`)}</span>
         ${d.write_access === "listed" ? this._input("write_clients", t("mbWriteClients"), { mono: true, hint: t("mbWriteClientsHint") }) : ""}
         ${d.write_access === "none" ? "" : this._input("write_registers", t("mbWriteRegisters"), { mono: true, hint: t("mbWriteRegistersHint") })}
+        ${d.write_access === "none" ? "" : html`<label class="fld"><span class="lbl">${t("mbWriteRules")}</span>
+          <textarea class="inp mono" rows="3" spellcheck="false" aria-invalid=${this._shown().write_rules ? "true" : "false"} placeholder="192.168.1.20 40100-40120&#10;127.0.0.1 *" .value=${d.write_rules || ""} @input=${(e) => this._set({ write_rules: e.target.value })}></textarea>
+          ${this._err("write_rules")}<span class="hint">${t("mbWriteRulesHint")}</span></label>`}
       </section>`}
 
       <section class="card" aria-labelledby="t-adv">
@@ -453,6 +458,11 @@ export class EditPage extends Page {
             <div class="opts">${this._check("kickolduser", true)}</div>
             ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
             ${this._routes(d)}</div>
+          <div class="grp"><h3>${t("mbEntities")}</h3><p class="hint">${t("mbEntitiesSub")}</p>
+            <label class="fld"><span class="lbl">${t("mbEntitiesField")}</span>
+              <textarea class="inp mono" rows="4" spellcheck="false" aria-invalid=${this._shown().register_entities ? "true" : "false"} placeholder="1 3 40083 int16 none 0.1 W power AC" .value=${d.register_entities || ""} @input=${(e) => this._set({ register_entities: e.target.value })}></textarea>
+              ${this._err("register_entities")}<span class="hint">${t("mbEntitiesHint")}</span></label>
+            <div class="grid2">${this._input("entity_seconds", t("mbEntitySeconds"), { number: true, hint: t("mbEntitySecondsHint") })}</div></div>
           <div class="grp"><h3>${t("mbProbe")}</h3><p class="hint">${t("mbProbeSub")}</p>
             <div class="grid2">
               ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}
@@ -503,6 +513,10 @@ export class EditPage extends Page {
       <div class="choices">${keys.map((k) => html`<button type="button" class="choice" aria-pressed=${d.template === k ? "true" : "false"}
         @click=${() => pick(k)}><b style="font-weight:500">${t(`tpl_${k}`)}</b><span class="hint">${t(`tplsub_${k}`)}</span></button>`)}</div>
     </section>`;
+  }
+
+  _mbProfiles() {
+    return this._tplCard("t-mbtpl", t("mbProfile"), t("mbProfileSub"), Object.keys(PROFILES), (k) => this._set({ template: k, link: "tcp", device_connections: 1, ...PROFILES[k] }));
   }
 
   _eoTemplates() {
@@ -679,7 +693,7 @@ export class EditPage extends Page {
           <div class="choices">${["serial", "modbus", "enocean"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
             @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
         </section>` : ""}
-        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : ""}<section class="card" aria-labelledby="t-base">
+        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : this._mbProfiles()}<section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
         </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
@@ -758,6 +772,14 @@ export class EditPage extends Page {
               ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} ?selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
               ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
         </section>`}
+
+        <section class="card" aria-labelledby="t-power">
+          <div><h2 id="t-power">${t("powerTitle")}</h2><p class="hint" style="margin-top:4px">${t("powerSub")}</p></div>
+          <label class="fld"><span class="lbl">${t("powerSwitch")}</span>
+            <input class="inp mono" list="dp-switches" placeholder="switch.usb_hub" aria-invalid=${this._shown().power_switch ? "true" : "false"} .value=${d.power_switch || ""} @input=${(e) => this._set({ power_switch: e.target.value.trim() })}>
+            <datalist id="dp-switches">${(this.switches || []).map((s) => html`<option value=${s}></option>`)}</datalist>
+            ${this._err("power_switch")}<span class="hint">${t("powerSwitchHint")}</span></label>
+        </section>
 
         <section class="card" aria-labelledby="t-on">
           <div class="fold"><div><h2 id="t-on">${isNew ? t("startNow") : t("enabled")}</h2><p class="hint" style="margin-top:4px">${isNew ? t("startNowSub") : t("enabledSub")}</p></div>
