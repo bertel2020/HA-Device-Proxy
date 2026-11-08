@@ -263,6 +263,18 @@ Anfrage und Antwort als Hex mit Unit, Funktion, Register und Anzahl (z. B.
 Anfragen der Werkzeuge zählen nicht als die der Clients. Nur „Register schreiben“ ändert das
 Gerät.
 
+**Register als Entitäten**: Für ein Gerät ohne Integration kann die App Register selbst lesen
+und als Sensoren über MQTT anbieten, ganz ohne YAML. Unter **Register lesen → Werte dekodieren**
+den richtigen Typ, Swap und Faktor finden, dem Wert Name, Einheit und Geräteklasse geben und
+**Als Entität anlegen** drücken. Die Liste steht unter **Erweitert → Register als Entitäten**, eine
+Zeile je Entität (`Unit Funktion Adresse Typ Swap Faktor Einheit Klasse Name`, z. B.
+`1 3 40083 int16 none 0.1 W power AC-Leistung`, `-` für keine Einheit oder Klasse), höchstens 50,
+standardmäßig alle 30 Sekunden gelesen. Jedes Lesen geht der Reihe nach mit den Clients ans Gerät
+und zählt nicht als deren Anfrage; bei einer Verbindung, die am RS485-Bus mithört, kommen die Werte
+aus dem Gehörten, und es wird nichts gesendet. Solange das Gerät nicht erreichbar ist, sind die
+Entitäten unbekannt. Eine Einheit, die nicht zur Geräteklasse passt, lehnt Home Assistant ab und
+meldet das in seinem Log.
+
 **Verwendung in Home Assistant**: die meisten Geräte haben eine eigene Integration (z. B.
 SolarEdge Modbus). Sie unter **Einstellungen → Geräte & Dienste → Integration hinzufügen**
 hinzufügen, die Netzwerkverbindung (Modbus TCP) wählen und Host und Port eintragen, die die
@@ -559,7 +571,7 @@ Supervisor. Ein anderer Broker (Host, Port, Benutzer, Passwort, TLS) lässt sich
 | USB-Reset (Button) | nur mit einem Gerät dieses Rechners: setzt den USB-Adapter zurück und startet neu |
 | Stromzyklus (Button) | nur mit eingetragenem Schalter: trennt 5 Sekunden den Strom und startet neu |
 
-Eine Modbus-Verbindung hat: Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
+Eine Modbus-Verbindung hat: ihre Register als Entitäten (siehe oben), Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
 Antwortzeit, den Schalter und die Buttons. Ein EnOcean-Gateway hat: Gateway erreichbar, Clients,
 Telegramme vom Gateway, Funkzeit (Anteil am 1-%-Limit), den Schalter und die Buttons; mit
 Ersatz-Gateway außerdem „Ersatz-Gateway aktiv“ (ein Problem, solange es einspringt), „Aktives

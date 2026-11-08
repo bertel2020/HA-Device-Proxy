@@ -66,6 +66,15 @@ export function fmtValue(v) {
   return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+// the same as DEVICE_CLASSES in modbus_entities.py: Home Assistant refuses an unknown one
+export const DEVICE_CLASSES = ["apparent_power", "battery", "current", "energy", "frequency", "gas", "humidity", "power", "power_factor", "pressure", "reactive_power", "temperature", "voltage", "volume", "water"];
+
+/** The line of a register in a connection's register_entities (modbus_entities.py). */
+export function entityLine({ unit, fc, address, type, swap, scale, count, uom, deviceClass, name }) {
+  const kind = type === "string" ? `string:${count}` : type;
+  return `${unit} ${fc} ${address} ${kind} ${swap} ${scale} ${uom.trim() || "-"} ${deviceClass || "-"} ${name.trim().replace(/\s+/g, " ")}`;
+}
+
 /** A sensor for Home Assistant's modbus: integration (under the hub's sensors:). */
 export function sensorYaml({ unit, fc, address, type, swap, scale, count }) {
   const lines = [

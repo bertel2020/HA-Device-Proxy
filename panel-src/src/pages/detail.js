@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
-import { TYPES, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
+import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, retriesText, t } from "../i18n.js";
 import { changeNote, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
 
@@ -39,7 +39,7 @@ export class DetailPage extends Page {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
     chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true },
     meter: { state: true }, job: { state: true }, search: { state: true }, dir: { state: true },
-    mbForm: { state: true }, mbResult: { state: true }, acForm: { state: true }, acResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, maint: { state: true }, restarting: { state: true },
+    mbForm: { state: true }, mbResult: { state: true }, acForm: { state: true }, acResult: { state: true }, wrForm: { state: true }, wrResult: { state: true }, scan: { state: true }, scanForm: { state: true }, mbDecode: { state: true }, mbEntity: { state: true }, maint: { state: true }, restarting: { state: true },
   };
 
   static styles = [...Page.styles, css`
@@ -84,6 +84,7 @@ export class DetailPage extends Page {
     this.mbForm = { unit: 1, function: 3, address: 0, count: 10 };
     this.acForm = { host: "", unit: 1, function: 6, address: 0, count: 1 };
     this.mbDecode = { type: "float32", swap: "none", scale: 1 };
+    this.mbEntity = { name: "", uom: "", deviceClass: "", address: null };
     this.maint = { host: "", minutes: 30 };
     this.wrForm = { unit: 1, function: 6, address: 0, values: "0" };
     this.scanForm = { first: 1, last: 247, timeout_ms: 200 };
@@ -361,8 +362,35 @@ export class DetailPage extends Page {
       @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
   }
 
+  /** The register entities with their last values (the app reads them itself). */
+  _registerValues(c) {
+    const rows = (c.register_entities || "").split("\n").map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 9);
+    if (!rows.length) return "";
+    const values = (c.modbus || {}).entity_values || {};
+    return foldCard("device_proxy.mbentities", "t-mbent", t("mbEntities"), t("mbEntitiesCard", { n: rows.length, s: c.entity_seconds }), html`
+      <div class="scroll"><table><thead><tr><th>Name</th><th>Unit</th><th>${t("mbAddress")}</th><th style="text-align:right">${t("mbValue")}</th></tr></thead>
+        <tbody>${rows.map((p) => { const v = values[`reg_${p[0]}_${p[1]}_${p[2]}`]; return html`<tr><td>${p.slice(8).join(" ")}</td><td class="mono">${p[0]}</td><td class="mono">${p[2]}</td>
+          <td style="text-align:right">${v === null || v === undefined ? "–" : html`${fmtValue(v)}${p[6] !== "-" ? ` ${p[6]}` : ""}`}</td></tr>`; })}</tbody></table></div>`);
+  }
+
+  /** The decoded register as an entity: one more line in the connection's register_entities. */
+  async _mbAddEntity(c, r, list, swap) {
+    const d = this.mbDecode, e = this.mbEntity;
+    if (!e.name.trim()) { this.toast(t("mbEntityNoName")); return; }
+    const address = e.address !== null && list.some((row) => row.address === e.address) ? e.address : list[0].address;
+    const type = d.type, count = type === "string" ? r.values.length : width(type, r.values.length);
+    const line = entityLine({ unit: r.form.unit, fc: r.form.function, address, type, swap, scale: d.scale, count, uom: e.uom, deviceClass: e.deviceClass, name: e.name });
+    const lines = (c.register_entities || "").trimEnd();
+    try {
+      await saveConnection(toConnection({ ...c, register_entities: lines ? `${lines}\n${line}` : line }));
+      this.toast(t("mbEntityAdded"));
+      this.mbEntity = { name: "", uom: "", deviceClass: "", address: null };
+      this.refresh();
+    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
   /** The registers read as one data type, with a sensor for Home Assistant to copy. */
-  _mbDecoded(r) {
+  _mbDecoded(r, c) {
     const d = this.mbDecode, swaps = swapsFor(d.type);
     const swap = swaps.includes(d.swap) ? d.swap : "none";
     const n = width(d.type, r.values.length), list = decodeRows(r.values, r.form.address, d.type, swap, d.scale);
@@ -382,6 +410,16 @@ export class DetailPage extends Page {
       ${list.length ? html`<div class="scroll"><table style="min-width:360px"><thead><tr><th>${t("mbAddress")}</th><th>${t("mbRegisters")}</th><th style="text-align:right">${t("mbValue")}</th></tr></thead>
         <tbody>${list.map((row) => html`<tr><td class="mono">${row.address}</td><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${row.regs.map(hex4).join(" ")}</td><td style="text-align:right">${fmtValue(row.value)}</td></tr>`)}</tbody></table></div>`
         : html`<p class="hint">${t("mbDecodeShort", { n })}</p>`}
+      ${list.length ? html`<div class="grp" style="margin-top:10px"><h3>${t("mbEntityAdd")}</h3><p class="hint">${t("mbEntityAddSub")}</p>
+        <div class="grid4" style="margin-top:8px">
+          <label class="fld"><span class="lbl">Name</span><input class="inp" maxlength="64" .value=${this.mbEntity.name} @input=${(e) => { this.mbEntity = { ...this.mbEntity, name: e.target.value }; }}></label>
+          ${list.length > 1 ? html`<label class="fld"><span class="lbl">${t("mbAddress")}</span><select class="inp" @change=${(e) => { this.mbEntity = { ...this.mbEntity, address: Number(e.target.value) }; }}>
+            ${list.map((row) => html`<option value=${row.address} ?selected=${this.mbEntity.address === row.address}>${row.address}</option>`)}</select></label>` : ""}
+          <label class="fld"><span class="lbl">${t("mbEntityUom")}</span><input class="inp" maxlength="16" placeholder="W" .value=${this.mbEntity.uom} @input=${(e) => { this.mbEntity = { ...this.mbEntity, uom: e.target.value }; }}></label>
+          <label class="fld"><span class="lbl">${t("mbEntityClass")}</span><select class="inp" @change=${(e) => { this.mbEntity = { ...this.mbEntity, deviceClass: e.target.value }; }}>
+            <option value="" ?selected=${!this.mbEntity.deviceClass}>–</option>${DEVICE_CLASSES.map((v) => html`<option value=${v} ?selected=${this.mbEntity.deviceClass === v}>${v}</option>`)}</select></label>
+        </div>
+        <div style="margin-top:8px"><button class="btn btn-s" @click=${() => this._mbAddEntity(c, r, list, swap)}>${t("mbEntityAdd")}</button></div></div>` : ""}
       <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("mbSensorYaml", { a: r.form.address })}</p>${this._copyBtn("mb-sensor", yaml)}</div>
       <div class="code">${yaml}</div>
     </details>`;
@@ -409,7 +447,7 @@ export class DetailPage extends Page {
           <tbody>${r.values.map((v, i) => html`<tr><td class="mono">${r.form.address + i}</td>
             ${r.form.function >= 3 ? html`<td style="text-align:right">${v}</td><td style="text-align:right">${signed(v)}</td><td class="mono" style="text-align:right">${hex4(v)}</td>` : html`<td style="text-align:right">${v}</td>`}</tr>`)}</tbody></table></div>
           <p class="hint">${t("mbReadTime", { ms: r.time_ms })}</p>
-          ${r.form.function >= 3 ? this._mbDecoded(r) : ""}`
+          ${r.form.function >= 3 ? this._mbDecoded(r, c) : ""}`
         : html`<div class="note warn">${exText(r.exception)}</div>` : ""}
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("mbWriteTitle")}</b><p class="hint">${t("mbWriteToolSub")}</p></div>
       <div class="grid5">
@@ -766,7 +804,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${pair(stateCard, conf)}
       ${clientsCard}
       ${this._live(c.kind)}
-      ${this._modbusTools(c)}
+      ${this._registerValues(c)}${this._modbusTools(c)}
       ${this._writeLog(c)}
       ${this._addresses(c)}
       ${this._haSnippet(c)}

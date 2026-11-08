@@ -36,6 +36,8 @@ from typing import Any
 
 from .clients import host_of, plain_host
 from .detect import configure
+from .modbus_entities import RegisterEntity, parse_entities, registers_of
+from .modbus_entities import decode as decode_entity
 from .model import (
     Connection,
     client_allowed,
@@ -778,6 +780,8 @@ def restart_key(c: Connection, listen: str) -> Connection:
         write_access="all",
         write_clients="",
         write_registers="",
+        register_entities="",
+        entity_seconds=0,
         listen_max_age_s=0,
         unit_routes="",
         cache_ms=0,
@@ -887,6 +891,7 @@ class ModbusProxy:
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
         self._writes = 0  # writes so far: a read answered across a write is not cached
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
+        self.entity_values: dict[str, float | int | str | None] = {}  # register_entities
 
     # running
 
@@ -905,6 +910,7 @@ class ModbusProxy:
                     await asyncio.sleep(LISTEN_RETRY)
             self._workers = [asyncio.create_task(self._work(path)) for path in self.paths]
             self._workers.append(asyncio.create_task(self._probe_loop()))
+            self._workers.append(asyncio.create_task(self._entity_loop()))
             await asyncio.gather(*self._workers)
         finally:
             for worker in self._workers:
@@ -956,6 +962,31 @@ class ModbusProxy:
             pdu = struct.pack(">BHH", self.c.probe_function, self.c.probe_address, 1)
             await self._queued(self.c.probe_unit, pdu, self._probe)
             self._last_exchange = asyncio.get_running_loop().time()  # also when it failed
+
+    async def _entity_loop(self) -> None:
+        """Read the registers that are entities in Home Assistant, every entity_seconds."""
+        while True:
+            await self._entity_round()
+            await asyncio.sleep(self.c.entity_seconds if self.c.register_entities else SERIAL_RETRY)
+
+    async def _entity_round(self) -> None:
+        entities = parse_entities(self.c.register_entities)
+        values: dict[str, float | int | str | None] = {}
+        for entity in entities:
+            if self.reachable is False:  # the clients come first while it is away
+                values[entity.key] = None
+                continue
+            try:
+                registers = await self._entity_registers(entity)
+            except Exception:  # a bug in one must not stop the others or the proxy
+                _LOGGER.exception("%s: reading %s failed", self.c.name, entity.name)
+                registers = None
+            values[entity.key] = None if registers is None else decode_entity(registers, entity)
+        self.entity_values = values
+
+    async def _entity_registers(self, entity: RegisterEntity) -> list[int] | None:
+        pdu = struct.pack(">BHH", entity.function, entity.address, entity.count)
+        return registers_of(await self.ask(entity.unit, pdu), entity)
 
     async def _keep_link(self, path: _Path) -> None:
         """Connect when the device is not known to be reachable (a serial device: always)."""
@@ -1394,6 +1425,7 @@ class ModbusProxy:
             "queue": self.scheduler.size,
             "queue_max": s.queue_max,
             "writes": list(self.writes)[-WRITES_SHOWN:],
+            "entity_values": dict(self.entity_values),
             "last_answer": s.last_answer or None,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
@@ -1434,11 +1466,31 @@ def client_row(client: _Client) -> dict[str, Any]:
     }
 
 
+def _register_entity(entity: Callable[..., dict[str, Any]], e: RegisterEntity) -> dict[str, Any]:
+    """A register's sensor; a text has no unit or class."""
+    extra = {
+        "unit_of_measurement": e.unit_of_measurement,
+        "device_class": e.device_class,
+        "state_class": None if e.is_text else e.state_class,
+    }
+    return entity(
+        e.key,
+        name=e.name,
+        value_template=f"{{{{ value_json.{e.key} }}}}",
+        **{k: v for k, v in extra.items() if v},
+    )
+
+
 def mqtt_entities(
     prefix: str, c: Connection, entity: Callable[..., dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
     key = f"device_proxy_{c.id}"
+    registers = {
+        f"{prefix}/sensor/{key}/{e.key}/config": _register_entity(entity, e)
+        for e in parse_entities(c.register_entities)
+    }
     return {
+        **registers,
         f"{prefix}/binary_sensor/{key}/reachable/config": entity(
             "reachable",
             value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
@@ -1475,4 +1527,5 @@ def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
         "requests": state["requests"],
         "failed": state["failed"],
         "answer_time": state["time_avg_ms"] if state["answered"] else None,
+        **state.get("entity_values", {}),
     }
