@@ -50,7 +50,7 @@ LIMITS = {
     "failback_s": 15.0,  # A back → A takes over again (fallback_stable_s and a probe)
     "memory_mb": 20.0,
 }
-BASE_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000009D")  # ESP2 base ID FF-B7-44-80
+BASE_ANSWER = bytes.fromhex("A55A8B98FFABCD8000000000001A")  # ESP2 base ID FF-AB-CD-80
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")
 
 
@@ -66,7 +66,7 @@ def telegram(n: int) -> bytes:
 
 def command(n: int) -> bytes:
     """A client's TRT telegram sent over the air from the base ID range."""
-    return esp2(0x6B, 0x07, n.to_bytes(4, "big"), bytes.fromhex("FFB74481"))
+    return esp2(0x6B, 0x07, n.to_bytes(4, "big"), bytes.fromhex("FFABCD81"))
 
 
 def rss_mb() -> float:

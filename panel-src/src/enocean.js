@@ -445,7 +445,7 @@ export class EnOceanTools extends LitElement {
         <span class="hint">${t("eoBaseLeft")}</span><span style=${e.base_id_writes_left === 0 ? "color:var(--warn)" : ""}>${e.base_id_writes_left ?? t(c.esp_protocol === "esp2" ? "eoBaseLeftEsp2" : "eoBaseLeftUnknown")}</span>
       </div>
       <div class="grid"><label class="fld"><span class="lbl">${t("eoBaseNew")}</span>
-        <input class="inp mono" spellcheck="false" placeholder="FF-B7-44-80" .value=${this.baseId} @input=${(ev) => { this.baseId = ev.target.value; }}>
+        <input class="inp mono" spellcheck="false" placeholder="FF-AB-CD-80" .value=${this.baseId} @input=${(ev) => { this.baseId = ev.target.value; }}>
         <span class="hint" style=${baseCheck && !baseCheck.ok ? "color:var(--bad)" : ""}>${baseCheck ? baseCheck.msg : t("eoBaseRange")}</span></label></div>
       <div><button class="btn btn-s" ?disabled=${!!blocked || !baseCheck?.ok || e.base_id_writes_left === 0 || this.busy === "base"} @click=${this._setBaseId}>${this.busy === "base" ? t("eoBaseSetting") : t("eoBaseSet")}</button></div>
       ${this.baseResult ? html`<div class="note ${this.baseResult.result === "ok" ? "ok" : "bad"}" role="status">${t(`eoBaseR_${this.baseResult.result}`)}${this.baseResult.writes_left != null ? ` · ${t("eoBaseLeftN", { n: this.baseResult.writes_left })}` : ""}</div>` : ""}

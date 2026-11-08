@@ -134,7 +134,7 @@ ESP2_RADIO = [  # rocker presses, a window contact, a meter (4BS)
 
 async def esp2_gateway(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     """A FAM-USB: radio telegrams every few seconds, the base ID on request (and to change)."""
-    base = "FFB74480"
+    base = "FFABCD80"
 
     async def talk() -> None:
         n = 0
@@ -177,7 +177,7 @@ async def enocean_client(port: int, stop: asyncio.Event) -> None:
     while not stop.is_set():
         await asyncio.sleep(7)
         n += 1
-        writer.write(_esp2("6B05", "30000000" if n % 2 else "00000000", "FFB74481"))
+        writer.write(_esp2("6B05", "30000000" if n % 2 else "00000000", "FFABCD81"))
         await reader.read(4096)
 
 

@@ -18,9 +18,9 @@ from device_proxy.model import Connection, ValidationError
 
 FRAME_A = bytes.fromhex("A55A0B0570000000002163433077")
 FRAME_B = bytes.fromhex("A55A0B0550000000002163433057")
-COMMAND = bytes.fromhex("A55A6B0501000000FFB74481301C")  # TRT RPS: sent over the air
+COMMAND = bytes.fromhex("A55A6B0501000000FFABCD813099")  # TRT RPS: sent over the air
 BASE_ID_READ = bytes.fromhex("A55AAB5800000000000000000003")  # TCT, ORG 0x58
-BASE_ID_ANSWER = bytes.fromhex("A55A8B98FFB7448000000000009D")  # RMT, ORG 0x98
+BASE_ID_ANSWER = bytes.fromhex("A55A8B98FFABCD8000000000001A")  # RMT, ORG 0x98
 BUS_POLL_ANSWER = bytes.fromhex("A55A8BF800000000000000000083")  # RMT, ORG 0xF8: FAM14 bus
 
 
@@ -108,11 +108,11 @@ def test_radio_info() -> None:
 
 
 def test_base_id_in_answers() -> None:
-    assert esp.base_id("esp2", BASE_ID_ANSWER) == "FF-B7-44-80"
+    assert esp.base_id("esp2", BASE_ID_ANSWER) == "FF-AB-CD-80"
     assert esp.base_id("esp2", FRAME_A) is None
     request = esp.base_id_request("esp3")
-    answer = esp3(bytes.fromhex("00FFB74480"), b"\x0a", packet_type=2)
-    assert esp.base_id("esp3", answer, request) == "FF-B7-44-80"
+    answer = esp3(bytes.fromhex("00FFABCD80"), b"\x0a", packet_type=2)
+    assert esp.base_id("esp3", answer, request) == "FF-AB-CD-80"
     assert esp.base_id("esp3", answer, None) is None  # an ESP3 answer names no command
     assert esp.base_id("esp3", esp3(b"\x02", packet_type=2), request) is None  # not RET_OK
     assert esp.is_base_id_request("esp2", BASE_ID_READ)
@@ -120,22 +120,22 @@ def test_base_id_in_answers() -> None:
 
 def test_base_id_changes() -> None:
     request = esp.base_id_request("esp3")
-    answer = esp3(bytes.fromhex("00FFB74480"), b"\x0a", packet_type=2)
+    answer = esp3(bytes.fromhex("00FFABCD80"), b"\x0a", packet_type=2)
     assert esp.base_id_writes_left("esp3", answer, request) == 10
     assert (
-        esp.base_id_writes_left("esp3", esp3(bytes.fromhex("00FFB74480"), packet_type=2), request)
+        esp.base_id_writes_left("esp3", esp3(bytes.fromhex("00FFABCD80"), packet_type=2), request)
         is None
     )
     assert esp.base_id_writes_left("esp2", BASE_ID_ANSWER, None) is None  # ESP2 does not tell
-    raw = esp.parse_base_id("ff-b7-44-80")
-    assert raw == bytes.fromhex("FFB74480")
-    for bad in ("FF-B7-44-81", "FF-7F-FF-80", "FF-B7-44", "zz-00-00-00", "00-00-00-00"):
+    raw = esp.parse_base_id("ff-ab-cd-80")
+    assert raw == bytes.fromhex("FFABCD80")
+    for bad in ("FF-AB-CD-81", "FF-7F-FF-80", "FF-AB-CD", "zz-00-00-00", "00-00-00-00"):
         with pytest.raises(ValueError):
             esp.parse_base_id(bad)
     write = esp.base_id_write_request("esp3", raw)
-    assert write == esp3(bytes.fromhex("07FFB74480"), packet_type=5)
+    assert write == esp3(bytes.fromhex("07FFABCD80"), packet_type=5)
     write2 = esp.base_id_write_request("esp2", raw)
-    assert Splitter("esp2").feed(write2) == [write2] and write2[2:8].hex() == "ab18ffb74480"
+    assert Splitter("esp2").feed(write2) == [write2] and write2[2:8].hex() == "ab18ffabcd80"
     assert esp.base_id_write_result("esp3", esp3(b"\x00", packet_type=2)) == "ok"
     assert esp.base_id_write_result("esp3", esp3(b"\x91", packet_type=2)) == "no_writes_left"
     assert esp.base_id_write_result("esp3", None) == "no_answer"
@@ -145,7 +145,7 @@ def test_base_id_changes() -> None:
 
 async def test_the_base_id_is_set_and_read_back() -> None:
     class Esp3Gateway(FakeGateway):
-        base = bytes.fromhex("FFB74480")
+        base = bytes.fromhex("FFABCD80")
         left = 3
 
         async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -438,7 +438,7 @@ async def test_answers_go_to_the_asking_client(setup: Setup) -> None:
     gateway.send(FRAME_A)
     assert await r1.readexactly(28) == BASE_ID_ANSWER + FRAME_A
     assert await r2.readexactly(14) == FRAME_A  # the other client only sees the telegram
-    assert proxy.base_id == "FF-B7-44-80"
+    assert proxy.base_id == "FF-AB-CD-80"
     gateway.send(BASE_ID_ANSWER)  # nobody asked: everyone gets it
     assert await r2.readexactly(14) == BASE_ID_ANSWER
     w1.close()
@@ -931,8 +931,8 @@ def test_a_test_case_hides_sender_and_base_ids() -> None:
     from device_proxy.trace import Chunk
 
     frame = esp3(bytes.fromhex("F630FEE9123431"), bytes.fromhex("03FFFFFFFF4A00"))
-    own = esp3(bytes.fromhex("F630FFB7448130"))  # from the gateway's own range
-    (anon, anon_own) = testcase.anonymise("esp3", [frame, own], "FF-B7-44-80")
+    own = esp3(bytes.fromhex("F630FFABCD8130"))  # from the gateway's own range
+    (anon, anon_own) = testcase.anonymise("esp3", [frame, own], "FF-AB-CD-80")
     assert esp.radio_info("esp3", anon) == ("RPS", "A0-00-00-01")
     assert esp.radio_info("esp3", anon_own) == ("RPS", "FF-AA-00-01")  # offset kept
     assert anon == esp3(bytes.fromhex("F630A000000131"), bytes.fromhex("03FFFFFFFF4A00"))
