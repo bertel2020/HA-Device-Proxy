@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.1 - 2026-11-08
+
 - **Übersicht**: In der Kachel einer Verbindung steht bei den Clients kein Stift mehr, die Zeile
   bricht nicht mehr um. Umbenennen geht weiter in den Details der Verbindung und unter Clients.
 - **README**: Die Voraussetzung steht wieder im Schnellstart: Home Assistant OS.
