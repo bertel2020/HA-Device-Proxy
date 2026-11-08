@@ -415,15 +415,19 @@ Live-Telegramme, Gateway-Test und Funkzeit bleiben. Wird wieder „Kein Ersatz�
 ein normales Gateway mit eigenem Port.
 
 **Umschalten**: das erste Gateway liest alle 10 s seine Base-ID. Ist seine Verbindung weg oder
-bleiben drei Lesezugriffe unbeantwortet („weg oder stumm“; „nur weg“ wartet, bis die Verbindung
-abbricht), laufen seine Programme über das Ersatz-Gateway weiter: sie bleiben mit demselben Port
-verbunden, ihre Telegramme sendet das Ersatz-Gateway, dessen Antworten und Funktelegramme kommen
+bleiben drei Lesezugriffe in Folge unbeantwortet („weg oder stumm“; „nur weg“ wartet, bis die
+Verbindung abbricht), laufen seine Programme über das Ersatz-Gateway weiter: sie bleiben mit
+demselben Port verbunden, ihre Telegramme sendet das Ersatz-Gateway, dessen Antworten und Funktelegramme kommen
 zu ihnen zurück. Befehle, die in diesem Moment unbeantwortet sind, werden nicht wiederholt (das
 Ereignis sagt, wie viele); das entscheidet die Integration. Das Ersatz-Gateway wird nur genutzt,
 wenn es verbunden ist, zuletzt geantwortet hat und dieselbe Base-ID meldet; die App merkt sich
 die Base-ID des ersten Gateways, sodass das auch geprüft wird, während es weg ist. Zurück zum
 ersten Gateway: automatisch, sobald es 60 s stabil gelaufen ist und beim Ersatz nichts wartet,
-oder nur von Hand. Die Karte **Gateways** auf der Seite des ersten Gateways zeigt beide, welches
+oder nur von Hand. Hast du selbst auf den Ersatz geschaltet, geht es nur von Hand zurück. Fällt der
+Ersatz aus, geht es sofort zurück zum ersten Gateway, auch wenn es noch nicht läuft; kommt der
+Ersatz wieder, springt er erneut ein. Die drei Zeiten (prüfen alle 10 s, 3 Fehlversuche, 60 s
+stabil) stellst du je Gateway im Formular unter **Ersatz-Gateway → Ändern** ein. Die Karte
+**Gateways** auf der Seite des ersten Gateways zeigt beide, welches
 in Benutzung ist, und schaltet von Hand um.
 
 **Beide Gateways hören** (optional): die Programme bekommen die Funktelegramme beider Gateways,
@@ -518,7 +522,9 @@ anderen Client **Gerät offen halten** einschalten.
 Historie: Abbrüche und Verfügbarkeit je Verbindung über 30 Tage und eine Zeitleiste. Sich
 wiederholende Ereignisse, etwa ein Stick, der immer wieder wegfällt, werden zusammengefasst. Die
 Historie wird standardmäßig 30 Tage aufbewahrt. **Einstellungen → Konfig-Historie** hält die
-letzten 25 Konfigurationen mit ihren Unterschieden; jede lässt sich wiederherstellen.
+letzten 25 Konfigurationen mit ihren Unterschieden; jede lässt sich wiederherstellen. Namen von
+Clients und die Benachrichtigung über neue Rechner legen keinen Stand an und bleiben beim
+Wiederherstellen eines Stands, wie sie sind.
 
 **Vor dem Speichern** nennt das Formular einer Verbindung die laufenden Verbindungen, die beim
 Speichern neu aufgebaut oder beendet werden, und wie viele Clients sich neu verbinden müssen
@@ -531,24 +537,32 @@ wiederherstellen** – die Konfiguration von vor der Änderung, in einem Schritt
 
 ## Clients
 
-**Einstellungen → Clients** zeigt neue, bekannte und blockierte Rechner in einer Liste. Ein Klick
-auf einen bekannten Rechner öffnet das Feld für den Namen, das beim Verlassen speichert; in den Client-Listen der Verbindungen geht das über den Stift. Der Name steht
-neben der Adresse in den Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home
-Assistant, Adressen aus dem Supervisor-Netz App; ein eigener Name geht vor. Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten
-Mal verbindet: ein Ereignis und, sofern dort nicht ausgeschaltet, eine Benachrichtigung in Home
-Assistant. Er steht als **Neu** oben in der Liste, bis du ihn als **Bekannt** markierst oder ihm einen
-Namen gibst. Home Assistant, seine Apps und dieser Host gelten immer als bekannt; nach dem ersten
-Start (oder dem Update, das diese Funktion brachte) übernimmt die App die Clients der ersten zehn
-Minuten stillschweigend als bekannt. Die Diagnose lässt die Namen weg.
+**Einstellungen → Clients** zeigt neue, bekannte und blockierte Rechner in einer Liste. Der Punkt
+vorne sagt den Zustand: grün verbunden, grau nicht verbunden, gelb neu, rot blockiert. Ein Klick
+auf einen bekannten Rechner öffnet das Feld für den Namen, das beim Verlassen speichert; in den
+Client-Listen der Verbindungen geht das über den Stift. Der Name steht neben der Adresse in den
+Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home Assistant, Adressen aus dem
+Supervisor-Netz App; ein eigener Name geht vor.
 
-**Blockieren** hält einen Rechner von allen Verbindungen fern, bis du ihn wieder
-freigibst; das geht bei einem neuen Client oder mit der IP-Adresse von Hand. Er wird sofort
-getrennt. ser2net kann keinen einzelnen Client trennen, an seriellen Verbindungen verbinden sich
-deshalb alle Clients einmal neu. Home Assistant, seine Apps und dieser Host lassen sich nicht
-blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre nicht. Bei Modbus und
-EnOcean zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde; ser2net meldet das
-nicht. **Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste. Als neu
-stehen höchstens 50 Rechner in der Liste, ab sechs kommt eine gemeinsame Benachrichtigung.
+Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten Mal verbindet:
+ein Ereignis und, sofern dort nicht ausgeschaltet, eine Benachrichtigung in Home Assistant. Er steht
+als **Neu** oben in der Liste, bis du ihn als **Bekannt** markierst oder ihm einen Namen gibst. Als
+neu stehen höchstens 50 Rechner in der Liste, ab sechs kommt eine gemeinsame Benachrichtigung. Home
+Assistant, seine Apps und dieser Host gelten immer als bekannt und stehen nur in der Liste, solange
+sie verbunden sind; nach dem ersten Start (oder dem Update, das diese Funktion brachte) übernimmt
+die App die Clients der ersten zehn Minuten stillschweigend als bekannt.
+
+**Blockieren** hält einen Rechner von allen Verbindungen fern, bis du ihn mit **Freigeben** wieder
+zulässt; das geht aus der Liste oder mit **IP-Adresse blockieren**. Er wird sofort getrennt. ser2net
+kann keinen einzelnen Client trennen, an seriellen Verbindungen, die ihn zulassen würden, verbinden
+sich deshalb beim Blockieren und Freigeben alle Clients einmal neu. Die Sperre gilt für die
+IP-Adresse: bekommt das Gerät eine neue, ist es nicht mehr gesperrt. Home Assistant, seine Apps und
+dieser Host lassen sich nicht blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre
+nicht. Bei Modbus und EnOcean zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde;
+ser2net meldet das nicht.
+
+**Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste; verbindet er sich
+wieder, gilt er als neu. Die Diagnose lässt Namen und Adressen der Clients weg.
 
 ## Benachrichtigungen
 
@@ -651,7 +665,8 @@ bedient.
 alle Verbindungen (seriell, Modbus, EnOcean) und die Einstellungen – als eine JSON-Datei. **Aus
 Sicherung wiederherstellen** zeigt, was die Datei enthält, und ersetzt nach einer Bestätigung die
 aktuelle Konfiguration; der alte Stand bleibt in der Konfig-Historie. Die Datei enthält die
-MQTT-Anmeldung, also nicht weitergeben. Die Daten der App sind auch Teil der eigenen Sicherungen
+MQTT-Anmeldung, also nicht weitergeben. Die Namen der Clients sind dabei, die Liste der bekannten
+und blockierten Rechner nicht. Die Daten der App sind auch Teil der eigenen Sicherungen
 von Home Assistant, außer den aufgezeichneten Mitschnitten und EnOcean-Aufzeichnungen (der Ordner
 `trace/`), die groß werden können.
 
@@ -717,4 +732,4 @@ bevor du es an ein öffentliches Issue hängst.
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | deine eigene Konfiguration (optional) |
 | `/addon_configs/<…>_device_proxy/import/` | eine Datei zum Übernehmen beim Start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | aufgezeichnete Mitschnitte und EnOcean-Aufzeichnungen (`.jsonl`), nicht in den Sicherungen von Home Assistant |
-| App-Daten (in der Sicherung) | Verbindungen, Einstellungen, Historie, Konfigurationsstände |
+| App-Daten (in der Sicherung) | Verbindungen, Einstellungen, Historie, Konfigurationsstände, bekannte und blockierte Clients |

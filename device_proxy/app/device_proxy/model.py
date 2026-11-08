@@ -286,6 +286,9 @@ class Connection:
     fallback_trigger: str = "probe"
     fallback_return: str = "auto"  # back to this gateway once it runs steadily again
     fallback_listen: bool = False  # radio telegrams of both gateways, duplicates dropped
+    fallback_probe_s: int = 10  # seconds between base ID reads of this gateway
+    fallback_misses: int = 3  # unanswered reads in a row: it counts as failed ("probe")
+    fallback_stable_s: int = 60  # seconds it must run steadily before it takes over again
 
     @property
     def uses_device(self) -> bool:
@@ -492,6 +495,18 @@ class Connection:
             e["fallback_trigger"] = f"one of {', '.join(FALLBACK_TRIGGERS)}"
         if self.fallback_return not in FALLBACK_RETURNS:
             e["fallback_return"] = f"one of {', '.join(FALLBACK_RETURNS)}"
+        if not 3 <= self.fallback_probe_s <= 300:
+            e["fallback_probe_s"] = "3 to 300 seconds"
+        if not 1 <= self.fallback_misses <= 20:
+            e["fallback_misses"] = "between 1 and 20"
+        if not 5 <= self.fallback_stable_s <= 3600:
+            e["fallback_stable_s"] = "5 to 3600 seconds"
+        elif (
+            self.fallback_trigger == "probe"
+            and self.fallback_return == "auto"
+            and self.fallback_stable_s < self.fallback_probe_s
+        ):  # steady needs at least two reads, or one answer would do
+            e["fallback_stable_s"] = "at least the time between two reads"
 
     def _validate_modbus(self, e: dict[str, str]) -> None:
         if not 100 <= self.request_timeout_ms <= 60000:

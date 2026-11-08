@@ -84,7 +84,7 @@ Every page, every setting and help when something does not work: **[documentatio
 - The ports are plain TCP without a login. By default clients are accepted from Home Assistant, its apps and the host's own network ("My network"); the Z-Wave and Zigbee templates limit them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed to Home Assistant (and apps) only, and further home networks can be listed.
 - Modbus connections let only Home Assistant and the apps write by default; other clients can only read. The connection's page shows who may really write, and **Tools → Check access** tells it for any address. The allowed clients of every kind follow the network setting unless a connection names its own.
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
-- A computer that connects for the first time is reported (**Settings → Clients**, where clients also get names).
+- A computer that connects for the first time is reported. Under **Settings → Clients** it gets a name or is blocked from every connection.
 - Diagnostics leave out IP addresses, host names, the MQTT login and personal names.
 - Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
 

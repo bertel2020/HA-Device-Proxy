@@ -39,6 +39,19 @@ def errors(*connections: Connection) -> dict[str, str]:
     return err.value.errors
 
 
+def test_the_times_of_the_fallback_are_checked() -> None:
+    replace(A, fallback_probe_s=3, fallback_misses=1, fallback_stable_s=5).validate()
+    with pytest.raises(ValidationError) as err:
+        replace(A, fallback_probe_s=2, fallback_misses=0, fallback_stable_s=4).validate()
+    assert set(err.value.errors) == {"fallback_probe_s", "fallback_misses", "fallback_stable_s"}
+    slow = replace(A, fallback_probe_s=120, fallback_stable_s=60)
+    with pytest.raises(ValidationError) as err:
+        slow.validate()
+    assert err.value.errors == {"fallback_stable_s": "at least the time between two reads"}
+    replace(slow, fallback_return="manual").validate()  # the field is not shown then
+    replace(slow, fallback_trigger="disconnect").validate()
+
+
 def test_a_fallback_is_another_enocean_gateway_with_the_same_protocol() -> None:
     config = AppConfig(connections=(A, B, C))
     config.validate()
@@ -90,6 +103,8 @@ def test_the_fallback_is_not_offered_to_the_integration() -> None:
 def test_changing_the_fallback_does_not_restart_the_gateway() -> None:
     other = replace(A, fallback=C.id, fallback_return="manual", fallback_listen=True)
     assert restart_key(A, "all") == restart_key(other, "all")
+    timed = replace(A, fallback_probe_s=5, fallback_misses=2, fallback_stable_s=30)
+    assert restart_key(A, "all") == restart_key(timed, "all")  # read live, no restart
 
 
 # the proxies: A goes on through B
@@ -170,9 +185,7 @@ async def _pair(
 ) -> Pair:
     monkeypatch.setattr(enocean, "BASE_ID_FILE", tmp_path / "base_ids.json")
     monkeypatch.setattr(enocean, "SUPERVISE", 0.02)
-    monkeypatch.setattr(enocean, "MAIN_PROBE", 0.05)
     monkeypatch.setattr(enocean, "FALLBACK_PROBE", 0.05)
-    monkeypatch.setattr(enocean, "FALLBACK_STABLE", 0.3)
     monkeypatch.setattr(enocean, "PROBE_TIMEOUT", 0.1)
     gateway_a, gateway_b = await Gateway().start(), await Gateway(answer_b).start()
     events: list[tuple[str, dict[str, object]]] = []
@@ -187,7 +200,8 @@ async def _pair(
         )  # fmt: skip
         return EnOceanProxy(c, "all", on_event, lambda chunk: None)
 
-    a = proxy(gateway_a, "A", "0000000a", fallback="0000000b", **values)
+    times = {"fallback_probe_s": 0.05, "fallback_stable_s": 0.3, **values}
+    a = proxy(gateway_a, "A", "0000000a", fallback="0000000b", **times)
     b = proxy(gateway_b, "B", "0000000b")
     b.serves = "A"
     a.attach_fallback(b)
@@ -252,6 +266,21 @@ async def test_a_gateway_that_stops_answering_counts_as_failed(
         pair.gateway_a.silent = True  # connected, but no answers
         await _until(lambda: pair.a.active == "fallback")
         assert pair.a.switch_reason == "no_answer"
+    finally:
+        await _end(pair)
+
+
+async def test_the_number_of_misses_decides(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    pair = await _pair(monkeypatch, tmp_path, fallback_misses=1000)
+    try:
+        await _until(lambda: pair.a.fallback_ready)
+        pair.gateway_a.silent = True
+        await asyncio.sleep(0.5)
+        assert pair.a.active == "main"  # far from 1000 unanswered reads
+        pair.a.c = replace(pair.a.c, fallback_misses=1)  # as after saving: read live
+        await _until(lambda: pair.a.active == "fallback")
     finally:
         await _end(pair)
 

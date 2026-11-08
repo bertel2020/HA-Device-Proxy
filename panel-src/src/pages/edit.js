@@ -17,7 +17,7 @@ const DEFAULTS = {
   link: "tcp", host: "", host_port: 502, request_timeout_ms: 3000, connect_delay_ms: 0, retries: 1, request_gap_ms: 0,
   write_access: "all", write_clients: "", write_registers: "", write_rules: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
-  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
+  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false, fallback_probe_s: 10, fallback_misses: 3, fallback_stable_s: 60,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write,
 // as the app does for one that names nobody (MODBUS_WRITE_CLIENTS in model.py)
@@ -144,7 +144,7 @@ export class EditPage extends Page {
     this.advanced = this.draft.kind === "modbus" ? MODBUS_TUNING.concat("trace").some((k) => this.draft[k] !== (DEFAULTS[k] ?? "off"))
       : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
-    this.fbOpen = this.draft.fallback_trigger !== DEFAULTS.fallback_trigger || this.draft.fallback_return !== DEFAULTS.fallback_return || this.draft.fallback_listen;
+    this.fbOpen = this.draft.fallback_trigger !== DEFAULTS.fallback_trigger || this.draft.fallback_return !== DEFAULTS.fallback_return || this.draft.fallback_listen || ["fallback_probe_s", "fallback_misses", "fallback_stable_s"].some((k) => this.draft[k] !== DEFAULTS[k]);
     this._jump = location.hash.endsWith("/fallback");
     if (!existing) this._suggestName();
     this.tplOpen = false;
@@ -631,8 +631,12 @@ export class EditPage extends Page {
       ${d.fallback ? html`<div class="fold"><div><b style="font-weight:500">${t("fbSwitching")}</b><p class="hint" style="margin-top:4px">${t("fbSwitchingSub")}</p></div>
           <button type="button" class="btn btn-g" aria-expanded=${this.fbOpen ? "true" : "false"} @click=${() => { this.fbOpen = !this.fbOpen; }}>${this.fbOpen ? t("closeA") : t("changeBtn")}</button></div>
         ${this.fbOpen ? html`<div class="grid2">
-          <div class="fld"><span class="lbl" id="l-fallback_trigger">${t("fbTrigger")}</span>${seg("fallback_trigger", ["probe", "disconnect"])}<span class="hint">${t(`fbtrigsub_${d.fallback_trigger}`)}</span></div>
-          <div class="fld"><span class="lbl" id="l-fallback_return">${t("fbReturn")}</span>${seg("fallback_return", ["auto", "manual"])}<span class="hint">${t(`fbretsub_${d.fallback_return}`)}</span></div></div>
+          <div class="fld"><span class="lbl" id="l-fallback_trigger">${t("fbTrigger")}</span>${seg("fallback_trigger", ["probe", "disconnect"])}<span class="hint">${t(`fbtrigsub_${d.fallback_trigger}`, { s: d.fallback_probe_s, n: d.fallback_misses })}</span></div>
+          <div class="fld"><span class="lbl" id="l-fallback_return">${t("fbReturn")}</span>${seg("fallback_return", ["auto", "manual"])}<span class="hint">${t(`fbretsub_${d.fallback_return}`, { s: d.fallback_stable_s })}</span></div></div>
+          ${d.fallback_trigger === "probe" || d.fallback_return === "auto" ? html`<div class="grid2">
+            ${d.fallback_trigger === "probe" ? html`${this._input("fallback_probe_s", t("fbProbe"), { number: true, hint: t("fbProbeHint") })}
+              ${this._input("fallback_misses", t("fbMisses"), { number: true, hint: t("fbMissesHint", { t: d.fallback_probe_s * d.fallback_misses }) })}` : ""}
+            ${d.fallback_return === "auto" ? this._input("fallback_stable_s", t("fbStable"), { number: true, hint: t("fbStableHint") }) : ""}</div>` : ""}
           <label class="chk"><input type="checkbox" .checked=${!!d.fallback_listen} @change=${(e) => this._set({ fallback_listen: e.target.checked })}>
             <span>${t("fbListen")}<br><span class="hint">${t("fbListenHint")}</span></span></label>` : ""}` : ""}
     </section>`;

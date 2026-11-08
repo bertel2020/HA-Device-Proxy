@@ -23,7 +23,7 @@ export const DEFAULTS = {
   kind: "enocean", template: "fam_usb", ...TEMPLATES.fam_usb, data_bits: 8, parity: "n", stop_bits: 1, mode: "raw",
   max_clients: 4, remaddr: "", keep_open: false, stuck_disconnect: false, silence_minutes: 0, silence_restart: "",
   send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
-  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false,
+  fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false, fallback_probe_s: 10, fallback_misses: 3, fallback_stable_s: 60,
 };
 
 const hx = (n) => n.toString(16).toUpperCase().padStart(2, "0");
@@ -191,7 +191,7 @@ export class EnOceanGateways extends LitElement {
     const fbState = !other?.enabled ? [t("fbNotReady"), "bad"] : onFallback ? [t("fbActive"), "warn"] : fb.ready ? [fb.listen ? t("fbStandbyListen") : t("fbStandby"), "ok"] : [t("fbNotReady"), "bad"];
     const h = fb.heard || {};
     return html`<section class="card" aria-labelledby="t-gws"><div class="stack">
-      <div class="row"><h2 id="t-gws">${t("fbCardTitle")}</h2><span class="hint">${c.fallback_return === "manual" ? t("fbReturnManual") : t("fbReturnAuto")}</span></div>
+      <div class="row"><h2 id="t-gws">${t("fbCardTitle")}</h2><span class="hint">${c.fallback_return === "manual" ? t("fbReturnManual") : t("fbReturnAuto", { s: c.fallback_stable_s })}</span></div>
       ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback, e.frames)}
       ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback, fb.frames)}
       ${!fb.ready && fb.not_ready ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
