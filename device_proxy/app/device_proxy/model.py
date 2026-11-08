@@ -33,7 +33,7 @@ TRACE_MODES = ("off", "rx", "tx", "both")
 LISTEN = ("local", "apps", "lan", "all")
 SOURCES = ("forms", "custom")
 ENOCEAN_TEMPLATES = ("fam_usb", "fam14", "fgw14_usb", "usb300", "mgw_eth", "symcon_lan", "enocean")
-TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "modbus", *ENOCEAN_TEMPLATES)
+TEMPLATES = ("generic", "ehz_sml", "ehz_d0", "zwave", "zigbee", "modbus", *ENOCEAN_TEMPLATES)
 KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
 LINKS = {  # how a proxy reaches its device
     "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),
@@ -102,7 +102,7 @@ APPS_NETWORKS = ("127.0.0.0/8", "::1/128", "172.30.32.0/23", "fd0c:ac1e:2100::/4
 # who may write to a new Modbus connection that names nobody: Home Assistant and the other
 # apps (the panel's form starts with the same, panel-src/src/pages/edit.js)
 MODBUS_WRITE_CLIENTS = "127.0.0.1, 172.30.32.0/23"
-# who may connect to a new Z-Wave stick that names nobody: it has no login and takes
+# who may connect to a new Z-Wave or Zigbee stick that names nobody: it has no login and takes
 # commands, so Home Assistant and the other apps only (as the panel's template)
 ZWAVE_CLIENTS = MODBUS_WRITE_CLIENTS
 OWN_NETWORK = "own"  # in Settings.lan_networks: the network of this host
@@ -321,7 +321,7 @@ class Connection:
             # from before the field keep "all", migrate)
             values["write_access"] = "listed"
             values.setdefault("write_clients", MODBUS_WRITE_CLIENTS)
-        if values.get("template") == "zwave" and "remaddr" not in data:
+        if values.get("template") in ("zwave", "zigbee") and "remaddr" not in data:
             values["remaddr"] = ZWAVE_CLIENTS  # saved ones always have the field
         if "model" not in data and values.get("kind") == "enocean":
             # saved before there was the field: the model of its template, if it fits

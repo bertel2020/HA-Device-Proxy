@@ -25,13 +25,16 @@ const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 1
 
 const LINKS = ["tcp", "rtu", "rtu_tcp", "rtu_listen"];
 const onBus = (d) => d.link === "rtu" || d.link === "rtu_listen"; // a serial adapter of this host
-// the Z-Wave stick has no login and takes commands: by default only Home Assistant and the other apps
+// Z-Wave and Zigbee sticks have no login and take commands: by default only Home Assistant and the other apps
 // (ZWAVE_CLIENTS in model.py, for one that names nobody)
 const ZWAVE_CLIENTS = "127.0.0.1, 172.30.32.0/23";
+const STICKS = ["zwave", "zigbee"]; // templates with an adapter kind of their own (usb.js)
 const TEMPLATES = {
   ehz_sml: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false, meter_entities: true },
   ehz_d0: { baud: 9600, data_bits: 7, parity: "e", stop_bits: 1, max_clients: 5, chardelay: true, nodelay: false, meter_entities: true },
   zwave: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 2, chardelay: false, nodelay: true, remaddr: ZWAVE_CLIENTS, meter_entities: false },
+  // one client: a Zigbee network has one coordinator program, a second one would disturb it
+  zigbee: { baud: 115200, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: false, nodelay: true, remaddr: ZWAVE_CLIENTS, meter_entities: false },
   generic: { baud: 9600, data_bits: 8, parity: "n", stop_bits: 1, max_clients: 1, chardelay: true, nodelay: false, meter_entities: false },
 };
 const BAUDS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
@@ -477,7 +480,7 @@ export class EditPage extends Page {
 
   _serialTemplate(k) {
     const d = this.draft, patch = { template: k, ...TEMPLATES[k], remaddr: TEMPLATES[k].remaddr ?? (d.remaddr === ZWAVE_CLIENTS ? "" : d.remaddr) };
-    if (d.source === "device") patch.device = this._fitDevice(k === "zwave" ? "zwave" : "");
+    if (d.source === "device") patch.device = this._fitDevice(STICKS.includes(k) ? k : "");
     this._set(patch);
     if (!d.id) this._suggestName();
   }
@@ -691,7 +694,7 @@ export class EditPage extends Page {
           <h2 id="t-dev">${t("devicePick")}</h2>
           <div class="fld"><span class="lbl" id="l-source">${t("dataSource")}</span>
             <div class="seg" role="group" aria-labelledby="l-source">${["device", "tcp"].map((v) => html`<button type="button" aria-pressed=${d.source === v ? "true" : "false"}
-              @click=${() => this._set(v === "device" ? { source: v, device: d.device || this._autoPick(d.template === "zwave" ? "zwave" : "") } : { source: v, host_port: d.host_port === 502 ? 8888 : d.host_port })}>${t(`source_${v}`)}</button>`)}</div>
+              @click=${() => this._set(v === "device" ? { source: v, device: d.device || this._autoPick(STICKS.includes(d.template) ? d.template : "") } : { source: v, host_port: d.host_port === 502 ? 8888 : d.host_port })}>${t(`source_${v}`)}</button>`)}</div>
             <span class="hint">${t(`sourcesub_${d.source}`)}</span>${this._err("source")}</div>
           ${d.source === "tcp" ? html`<div class="grid2">${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`
             : this._devicePicker(chosen)}
@@ -711,7 +714,7 @@ export class EditPage extends Page {
           <div class="fld"><span class="lbl" id="l-mode">${t("mode")}</span>
             <div class="seg" role="group" aria-labelledby="l-mode">${["raw", "rfc2217", "telnet"].map((m) => html`<button type="button" aria-pressed=${d.mode === m ? "true" : "false"} @click=${() => this._set({ mode: m })}>${m === "rfc2217" ? "RFC2217" : m}</button>`)}</div>
             <span class="hint">${t(`mode_${d.mode}`)}</span></div>
-          ${this._input("remaddr", t("allowed"), { mono: true, hint: d.template === "zwave" ? `${t("remaddrHint")} ${t("remaddrZwave")}` : t("remaddrHint") })}
+          ${this._input("remaddr", t("allowed"), { mono: true, hint: STICKS.includes(d.template) ? `${t("remaddrHint")} ${t("remaddrZwave")}` : t("remaddrHint") })}
           ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
           <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
         </section>

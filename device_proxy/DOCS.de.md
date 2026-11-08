@@ -30,7 +30,7 @@ Reiter „Dokumentation“ der App die englische Fassung an.
 2. Entweder die vorhandene Konfiguration **importieren** (**Einstellungen → Sichern und
    Übertragen → Importieren**: ser2net-4-`ser2net.yaml`, ser2net-3-`ser2net.conf` oder die
    Optionen von ha-modbusproxy), oder **eine Verbindung hinzufügen**: serielles Gerät oder
-   Modbus-Gerät wählen; bei einem seriellen Gerät eine Vorlage (Zähler SML oder D0, Z-Wave-Stick,
+   Modbus-Gerät wählen; bei einem seriellen Gerät eine Vorlage (Zähler SML oder D0, Z-Wave- oder Zigbee-Stick,
    allgemein), das Gerät aus der Liste und einen TCP-Port; bei einem Modbus-Gerät seine Adresse
    (oder den RS485-Adapter) und den Port für die Clients.
 3. Die Clients auf die Adresse einstellen, die die Verbindung zeigt (**Details → Adressen**):
@@ -89,9 +89,14 @@ zeigt beim Tippen den entstehenden Teil der `ser2net.yaml`.
 - **Jeder** – keine Grenze. ser2net hat keine Anmeldung: wer den Port erreicht, kann das Gerät
   lesen und steuern.
 
-Ein **Z-Wave-Stick** beginnt mit einer eigenen Vorgabe, weil er ohne Anmeldung Befehle annimmt:
+Ein **Z-Wave- oder Zigbee-Stick** beginnt mit einer eigenen Vorgabe, weil er ohne Anmeldung Befehle annimmt:
 nur Home Assistant und die Apps (`127.0.0.1, 172.30.32.0/23` unter **Erweitert → Erlaubte
 Clients**). Ist das Feld leer, entscheidet die Netzwerk-Einstellung.
+
+Die Vorlage **Zigbee** erlaubt einen Client, denn ein Zigbee-Netz hat genau ein Programm, das den
+Koordinator führt. ZHA verbindet sich mit `socket://host:port`, Zigbee2MQTT mit `tcp://host:port`.
+Sie stellt 115200 Baud ein, das passt für die meisten Sticks; ein Stick, der Hardware-Flusskontrolle
+braucht, bekommt RTS/CTS unter **Erweitert**.
 
 ### Mehrere Clients an einem Gerät
 
