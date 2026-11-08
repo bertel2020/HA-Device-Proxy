@@ -67,10 +67,10 @@ export const base = css`
   .inp.mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .chk { display: flex; align-items: flex-start; gap: 10px; min-height: 32px; cursor: pointer; }
   .chk input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
-  .seg { display: inline-flex; border: 1px solid var(--input-line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
-  .seg button { min-height: 38px; padding: 0 14px; border: none; cursor: pointer; font-family: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500;
+  /* where the options do not fit they go on a second line; the gap shows the background as the dividing lines, in both directions */
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 1px; max-width: 100%; background: var(--input-line); border: 1px solid var(--input-line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
+  .seg button { flex: 1 1 auto; min-height: 38px; padding: 0 14px; border: none; cursor: pointer; font-family: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500;
     background: var(--surface); color: var(--text); }
-  .seg button + button { border-left: 1px solid var(--input-line); }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
   .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 60px; padding: 12px 14px;
     border-radius: 12px; cursor: pointer; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--input-line); }
@@ -79,7 +79,7 @@ export const base = css`
   table { width: 100%; border-collapse: collapse; }
   th { font-weight: 500; font-size: calc(13px * var(--fs, 1)); color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
-  .scroll { overflow-x: auto; }
+  .scroll { overflow-x: auto; position: relative; } /* relative: else an absolute .sr in a wide table escapes and widens the page */
   .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
   .addrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; }
   .meter { --level: var(--accent); }

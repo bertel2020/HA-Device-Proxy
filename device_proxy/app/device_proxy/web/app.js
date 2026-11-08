@@ -68,10 +68,10 @@ var Wn=Object.defineProperty;var Vn=(r,e,n)=>e in r?Wn(r,e,{enumerable:!0,config
   .inp.mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .chk { display: flex; align-items: flex-start; gap: 10px; min-height: 32px; cursor: pointer; }
   .chk input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
-  .seg { display: inline-flex; border: 1px solid var(--input-line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
-  .seg button { min-height: 38px; padding: 0 14px; border: none; cursor: pointer; font-family: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500;
+  /* where the options do not fit they go on a second line; the gap shows the background as the dividing lines, in both directions */
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 1px; max-width: 100%; background: var(--input-line); border: 1px solid var(--input-line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
+  .seg button { flex: 1 1 auto; min-height: 38px; padding: 0 14px; border: none; cursor: pointer; font-family: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500;
     background: var(--surface); color: var(--text); }
-  .seg button + button { border-left: 1px solid var(--input-line); }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
   .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 60px; padding: 12px 14px;
     border-radius: 12px; cursor: pointer; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--input-line); }
@@ -80,7 +80,7 @@ var Wn=Object.defineProperty;var Vn=(r,e,n)=>e in r?Wn(r,e,{enumerable:!0,config
   table { width: 100%; border-collapse: collapse; }
   th { font-weight: 500; font-size: calc(13px * var(--fs, 1)); color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
-  .scroll { overflow-x: auto; }
+  .scroll { overflow-x: auto; position: relative; } /* relative: else an absolute .sr in a wide table escapes and widens the page */
   .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
   .addrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; }
   .meter { --level: var(--accent); }
@@ -541,7 +541,7 @@ html, body { background: var(--bg); }`}function Xe(){let r={};try{r=JSON.parse(l
         ${h?a`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(h.ts*1e3).toLocaleTimeString(void 0,{hour12:!1})} · ${qe(h.direction,e)} · ${S}</div>`:a`<p class="hint" style="margin:0">${t(s?"liveEmptyEo":n?"liveEmptyMb":"liveEmpty")} ${t("liveAutoOpen")}</p>`}
       </section>`}return a`<section class="card" aria-labelledby="t-live">
       <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(s?"liveSubEo":n?"liveSubMb":"liveSub")}${u?` ${t("liveClientOnly",{a:u})}`:""}</p></div>
-        <div style="display:flex;gap:4px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
           ${n||s?"":a`<button class="btn btn-g" aria-pressed=${this.ascii?"true":"false"} @click=${()=>{this.ascii=!this.ascii}}>${this.ascii?t("hexOnly"):t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${()=>{this.paused=!this.paused}}>${this.paused?t("resume"):t("pause")}</button>
           <a class="btn btn-g" href=${I(`api/tools/${this.connectionId}/testcase`)} download title=${t(s?"testcaseTipEo":n?"testcaseTipMb":"testcaseTipSerial")}>${t("testcase")}</a>
@@ -1526,7 +1526,7 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
                   @click=${()=>{an({[A]:F}),this.requestUpdate()}}>${t(`${A}_${F}`)}</button>`)}</span>
                   ${A==="size"?a`<span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span>`:""}</span>`)}
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">ser2net</span><span>${n.ser2net_version||"?"} · GPL-2.0</span>
-              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener" style="overflow-wrap:anywhere">github.com/bertel2020/HA-Device-Proxy</a>
             </div>
           </div>
         </section>

@@ -649,7 +649,7 @@ export class SettingsPage extends Page {
                   @click=${() => { setLook({ [key]: v }); this.requestUpdate(); }}>${t(`${key}_${v}`)}</button>`)}</span>
                   ${key === "size" ? html`<span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span>` : ""}</span>`)}
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
-              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener">github.com/bertel2020/HA-Device-Proxy</a>
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener" style="overflow-wrap:anywhere">github.com/bertel2020/HA-Device-Proxy</a>
             </div>
           </div>
         </section>
