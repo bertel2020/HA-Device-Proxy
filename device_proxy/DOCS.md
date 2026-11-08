@@ -122,6 +122,11 @@ to a request that timed out never reaches the next client. Waiting clients take 
 client that asks without a pause cannot hold up the others.
 
 
+**Device profiles** fill in the port and the timing for devices of a vendor (SolarEdge, Huawei
+SUN2000, Fronius, SMA, Kostal Plenticore, Sungrow, Victron GX). They are starting values and stay
+editable; the unit id is set in the client, and the profile shows the usual one. When **Scan the
+bus** recognizes a vendor, it offers its timing; the port stays as it is there.
+
 **Connection to the device**
 
 | Kind | For | Settings |
@@ -192,6 +197,12 @@ address alike. The card **Writes** on the connection's page lists the clients' l
 writes: when, who, unit, function, address, values and whether they were written, refused
 by the device, not allowed or outside the allowed registers.
 
+**Registers per client**: one line per client under the registers, an address or network and then
+its registers, `*` for any or `none` for no register, e.g. `192.168.1.20 40100-40120` lets evcc set
+the charging registers while `127.0.0.1 *` leaves Home Assistant free. The first line that fits
+applies instead of **Registers that may be written**. A line does not let anyone write: who may
+write at all is still decided by the write access. **Check access** names the line that applies.
+
 **Units of other connections** (under **Advanced**): one port for several devices, as many
 energy managers and evcc expect a single Modbus gateway. Each line names a unit asked here,
 another Modbus connection of the app and the unit there, e.g. unit 2 → "Meter" (unit 1). A
@@ -246,6 +257,17 @@ register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
   127.0.0.1. It checks the saved rules, the same the proxy applies.
 
 Tool requests are not counted as the clients'. Only "write registers" changes the device.
+
+**Registers as entities**: for a device without an integration the app can read registers itself
+and offer them as sensors over MQTT, without any YAML. Under **Read registers → Decode values**
+find the right type, swap and scale, give the value a name, a unit and a device class and press
+**Add as an entity**. The list is under **Advanced → Registers as entities** with one line per
+entity (`unit function address type swap scale unit class name`, e.g.
+`1 3 40083 int16 none 0.1 W power AC power`, `-` for no unit or class), at most 50, read every
+30 seconds by default. Each read goes to the device in turn with the clients and is not counted
+as theirs; on a connection that listens on RS485 the values come from what was heard, and nothing
+is sent. While the device is not reachable the entities are unknown. A unit that does not fit the
+device class is refused by Home Assistant; it then says so in its log.
 
 **Use in Home Assistant**: most devices have an integration of their own (e.g. SolarEdge
 Modbus). Add it under **Settings → Devices & services → Add integration**, choose the network
@@ -333,6 +355,8 @@ told it. Tools:
   gateway, the reception in dBm (above −75 good, below −88 weak); with a fallback also which
   gateway heard it. "New" marks senders first heard more than 5 minutes after the start, so a
   new switch's ID is found by pressing it once; "own" marks the gateway's base ID range.
+  With **Edit names** each sender gets a name, for all gateways, saved together in one step;
+  **Download as CSV** gives the list as a file. Diagnostics leave the names out.
 - **Gateway test**: reads the base ID ten times; nothing goes over the air.
 - **Change base ID**: sets the gateway's base ID (FF-80-00-00 to FF-FF-FF-80, last byte 00 or 80).
   The gateway keeps it in flash and allows only a few changes (10 for TCM 300 modules such as the
@@ -415,6 +439,14 @@ without data ("Warn when no data for"): only warn, restart the connection, or US
 restart. It only counts while the device is open (a client connected or **Keep the device
 open**). If there is still no data after three restarts in a row, only the warning stays until
 data comes again. Every restart is in the history.
+
+**Power cycle**: when a restart and a USB reset are not enough, a switch in Home Assistant can
+cut the power, e.g. a switchable socket on the USB hub. Enter it under **Power** in the
+connection's form (for every kind of connection). A button **Power cycle** then appears next to
+**Restart**: the device is closed, the switch goes off for 5 seconds and on again, and the
+device is opened again. With automatic restarts set up, one power cycle follows the three
+restarts that did not help. Choose a switch that nothing else depends on, and never the one that
+feeds Home Assistant itself.
 
 Both are also buttons in Home Assistant (see below).
 
@@ -522,8 +554,9 @@ MQTT entities**, where the entities can also be switched off.
 | Disconnect clients (button) | closes the connections of all clients; they may connect again |
 | Restart connection (button) | closes the device and opens it again, the clients connect again |
 | USB reset (button) | only with a device of this host: resets the USB adapter and restarts |
+| Power cycle (button) | only with a power switch set: cuts the power for 5 seconds and restarts |
 
-A Modbus connection has: device reachable, clients, requests, unanswered requests, answer
+A Modbus connection has: its registers as entities (see above), device reachable, clients, requests, unanswered requests, answer
 time, the switch and the buttons. An EnOcean gateway has: gateway reachable, clients, telegrams
 from the gateway, air time (share of the 1 % limit), the switch and the buttons; with a fallback
 also "Fallback gateway active" (a problem while it stands in), "Active gateway" (the name of the

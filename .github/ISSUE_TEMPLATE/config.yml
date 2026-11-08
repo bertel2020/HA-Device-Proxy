@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem / Sicherheitsproblem
+    url: https://github.com/bertel2020/HA-Device-Proxy/blob/main/SECURITY.md
+    about: Please do not report these in a public issue. / Bitte nicht in einem öffentlichen Issue melden.
+  - name: Documentation / Anleitung
+    url: https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/DOCS.md
+    about: Every page, every setting and help when something does not work.

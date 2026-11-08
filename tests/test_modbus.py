@@ -819,3 +819,107 @@ async def test_a_client_waiting_for_the_same_read_stops_with_the_proxy() -> None
     b.cancel()
     await asyncio.wait([a, b], timeout=1)
     assert a.done() and b.done()
+
+
+def test_registers_per_client() -> None:
+    from dataclasses import replace
+
+    from device_proxy.modbus import (
+        EXC_ADDRESS,
+        EXC_FUNCTION,
+        check_access,
+        write_pdu,
+        write_refusal,
+    )
+
+    base = Connection(
+        "PV",
+        "",
+        1502,
+        id="0000000a",
+        kind="modbus",
+        host="10.0.0.9",
+        write_access="all",
+        write_registers="100-110",
+        write_rules="192.168.1.20 200-210\n192.168.1.30 none\n192.168.1.0/24 *\n127.0.0.1 300",
+    )
+    inside, charging, other = write_pdu(6, 105, [1]), write_pdu(6, 205, [1]), write_pdu(6, 999, [1])
+    evcc = "192.168.1.20"
+    assert write_refusal(base, evcc, False, charging) is None
+    assert write_refusal(base, evcc, False, inside) == EXC_ADDRESS  # its line replaces the rest
+    assert write_refusal(base, "192.168.1.30", False, charging) == EXC_ADDRESS  # none
+    assert write_refusal(base, "192.168.1.99", False, other) is None  # the network: any
+    assert write_refusal(base, "10.1.1.1", False, inside) is None  # no line: the registers
+    assert write_refusal(base, "10.1.1.1", False, charging) == EXC_ADDRESS
+    assert write_refusal(base, "10.1.1.2", True, write_pdu(6, 300, [1])) is None  # on this host
+    # a line does not let anyone write
+    listed = replace(base, write_access="listed", write_clients="10.1.1.1")
+    assert write_refusal(listed, evcc, False, charging) == EXC_FUNCTION
+    assert write_refusal(replace(base, write_access="none"), evcc, False, charging) == EXC_FUNCTION
+
+    done = check_access(base, "all", evcc, 1, charging, {})
+    assert (done["allowed"], done["rule"]) == (True, evcc)
+    refused = check_access(base, "all", evcc, 1, inside, {})
+    assert (refused["why"], refused["rule"]) == ("registers", evcc)
+    assert "rule" not in check_access(base, "all", "10.1.1.1", 1, inside, {})
+
+
+async def test_the_proxy_keeps_to_the_registers_of_each_client() -> None:
+    from dataclasses import replace
+
+    from device_proxy.modbus import EXC_ADDRESS, write_pdu
+
+    c = Connection(
+        "PV",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=9,
+        bind="127.0.0.1",
+        write_access="all",
+        write_rules="127.0.0.1 200-210",
+    )
+    proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda chunk: None)
+    asked: list[bytes] = []
+
+    async def request(unit: int, pdu: bytes, client: ClientInfo) -> bytes:
+        asked.append(pdu)
+        return pdu
+
+    proxy.request = request  # type: ignore[method-assign]
+    await proxy._start_server()
+    port = proxy._server.sockets[0].getsockname()[1]  # type: ignore[union-attr]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    for tid, pdu in enumerate((write_pdu(6, 205, [1]), write_pdu(6, 105, [1])), 1):
+        writer.write(struct.pack(">HHHB", tid, 0, len(pdu) + 1, 1) + pdu)
+        head = await asyncio.wait_for(reader.readexactly(7), 2)
+        answer = await reader.readexactly(head[5] - 1)
+        if tid == 2:
+            assert answer == bytes([0x86, EXC_ADDRESS])
+    assert asked == [write_pdu(6, 205, [1])]
+    assert [w["result"] for w in proxy.writes] == ["written", "outside"]
+    writer.close()
+    await proxy._shutdown()
+    assert replace(c, write_rules="") != c
+
+
+def test_write_rules_are_checked_and_need_no_restart() -> None:
+    from dataclasses import replace
+
+    from device_proxy.model import ValidationError, parse_write_rules
+
+    assert parse_write_rules("10.0.0.1 1-5 9\n\n10.0.0.0/8 *\n::1 none") == [
+        ("10.0.0.1", [(1, 5), (9, 9)]),
+        ("10.0.0.0/8", None),
+        ("::1", []),
+    ]
+    new = {"name": "M", "port": 1502, "kind": "modbus", "host": "10.0.0.9"}
+    for wrong in ("10.0.0.1", "nohost 1-5", "10.0.0.1 abc", "10.0.0.1 5-1"):
+        with pytest.raises(ValidationError) as err:
+            Connection.from_dict({**new, "write_rules": wrong})
+        assert "write_rules" in err.value.errors
+    c = Connection.from_dict(new)
+    assert modbus.restart_key(c, "lan") == modbus.restart_key(
+        replace(c, write_rules="10.0.0.1 *"), "lan"
+    )

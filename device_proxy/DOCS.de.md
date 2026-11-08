@@ -127,6 +127,11 @@ Clients kommen abwechselnd dran: ein Client, der ohne Pause fragt, kann die ande
 aufhalten.
 
 
+**Geräteprofile** tragen Port und Zeiten für Geräte eines Herstellers ein (SolarEdge, Huawei
+SUN2000, Fronius, SMA, Kostal Plenticore, Sungrow, Victron GX). Es sind Startwerte, die änderbar
+bleiben; die Unit-ID stellt der Client ein, das Profil nennt die übliche. Erkennt **Bus scannen**
+einen Hersteller, bietet es dessen Zeiten an; der Port bleibt dabei, wie er ist.
+
 **Verbindung zum Gerät**
 
 | Art | Für | Einstellungen |
@@ -202,6 +207,12 @@ sonst nichts. Coils und Register zählen gleichermaßen nach ihrer Adresse. Die 
 Clients: wann, wer, Unit, Funktion, Adresse, Werte und ob sie geschrieben, vom Gerät abgelehnt,
 nicht erlaubt oder außerhalb der erlaubten Register waren.
 
+**Register je Client**: eine Zeile je Client unter den Registern, eine Adresse oder ein Netz und
+dann seine Register, `*` für alle oder `none` für keine; z. B. lässt `192.168.1.20 40100-40120` evcc
+die Laderegister setzen, während `127.0.0.1 *` Home Assistant freie Hand lässt. Die erste passende
+Zeile gilt statt der allgemeinen Register. Eine Zeile erlaubt niemandem das Schreiben: Wer überhaupt
+schreiben darf, regelt weiter der Schreibzugriff. **Zugriff prüfen** nennt die Zeile, die gilt.
+
 **Units anderer Verbindungen** (unter **Erweitert**): ein Port für mehrere Geräte, denn viele
 Energiemanager und evcc erwarten ein einziges Modbus-Gateway. Jede Zeile nennt eine hier
 gefragte Unit, eine andere Modbus-Verbindung der App und die Unit dort, z. B. Unit 2 → „Zähler“
@@ -262,6 +273,18 @@ Anfrage und Antwort als Hex mit Unit, Funktion, Register und Anzahl (z. B.
 
 Anfragen der Werkzeuge zählen nicht als die der Clients. Nur „Register schreiben“ ändert das
 Gerät.
+
+**Register als Entitäten**: Für ein Gerät ohne Integration kann die App Register selbst lesen
+und als Sensoren über MQTT anbieten, ganz ohne YAML. Unter **Register lesen → Werte dekodieren**
+den richtigen Typ, Swap und Faktor finden, dem Wert Name, Einheit und Geräteklasse geben und
+**Als Entität anlegen** drücken. Die Liste steht unter **Erweitert → Register als Entitäten**, eine
+Zeile je Entität (`Unit Funktion Adresse Typ Swap Faktor Einheit Klasse Name`, z. B.
+`1 3 40083 int16 none 0.1 W power AC-Leistung`, `-` für keine Einheit oder Klasse), höchstens 50,
+standardmäßig alle 30 Sekunden gelesen. Jedes Lesen geht der Reihe nach mit den Clients ans Gerät
+und zählt nicht als deren Anfrage; bei einer Verbindung, die am RS485-Bus mithört, kommen die Werte
+aus dem Gehörten, und es wird nichts gesendet. Solange das Gerät nicht erreichbar ist, sind die
+Entitäten unbekannt. Eine Einheit, die nicht zur Geräteklasse passt, lehnt Home Assistant ab und
+meldet das in seinem Log.
 
 **Verwendung in Home Assistant**: die meisten Geräte haben eine eigene Integration (z. B.
 SolarEdge Modbus). Sie unter **Einstellungen → Geräte & Dienste → Integration hinzufügen**
@@ -352,6 +375,9 @@ und die Base-ID, sobald das Gateway sie genannt hat. Werkzeuge:
   welches Gateway sie gehört hat. „Neu“ markiert Sender, die erst mehr als 5 Minuten nach dem
   Start zu hören waren, sodass sich die ID eines neuen Tasters durch einmaliges Drücken findet;
   „eigen“ markiert den Base-ID-Bereich des Gateways.
+  Mit **Namen bearbeiten** bekommt jeder Sender einen Namen, für alle Gateways, gemeinsam in
+  einem Schritt gespeichert; **Als CSV herunterladen** gibt die Liste als Datei. Die Diagnose lässt
+  die Namen weg.
 - **Gateway-Test**: liest die Base-ID zehnmal; nichts geht über Funk.
 - **Base-ID ändern**: setzt die Base-ID des Gateways (FF-80-00-00 bis FF-FF-FF-80, letztes Byte
   00 oder 80). Das Gateway speichert sie im Flash und erlaubt nur wenige Änderungen (10 bei
@@ -440,6 +466,14 @@ ohne Daten („Warnen, wenn keine Daten seit“) geschieht: nur warnen, die Verb
 oder USB-Reset und neu starten. Gezählt wird nur, solange das Gerät offen ist (ein Client
 verbunden oder **Gerät offen halten**). Kommen auch nach drei Neustarts in Folge keine Daten,
 bleibt es bei der Warnung, bis wieder Daten kommen. Jeder Neustart steht in der Historie.
+
+**Stromzyklus**: Reichen Neustart und USB-Reset nicht, kann ein Schalter in Home Assistant den
+Strom trennen, z. B. eine schaltbare Steckdose am USB-Hub. Er wird unter **Stromversorgung** im
+Formular der Verbindung eingetragen (bei jeder Art von Verbindung). Neben **Neu starten**
+erscheint dann der Knopf **Stromzyklus**: Das Gerät wird geschlossen, der Schalter geht für
+5 Sekunden aus und wieder an, und das Gerät wird wieder geöffnet. Sind automatische Neustarts
+eingestellt, folgt nach den drei erfolglosen Neustarts einmal der Stromzyklus. Wähle einen
+Schalter, an dem nichts anderes hängt, und niemals den, der Home Assistant selbst versorgt.
 
 Beides gibt es auch als Buttons in Home Assistant (siehe unten).
 
@@ -550,8 +584,9 @@ Supervisor. Ein anderer Broker (Host, Port, Benutzer, Passwort, TLS) lässt sich
 | Clients trennen (Button) | schließt die Verbindungen aller Clients; sie dürfen sich neu verbinden |
 | Verbindung neu starten (Button) | schließt das Gerät und öffnet es neu, die Clients verbinden sich wieder |
 | USB-Reset (Button) | nur mit einem Gerät dieses Rechners: setzt den USB-Adapter zurück und startet neu |
+| Stromzyklus (Button) | nur mit eingetragenem Schalter: trennt 5 Sekunden den Strom und startet neu |
 
-Eine Modbus-Verbindung hat: Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
+Eine Modbus-Verbindung hat: ihre Register als Entitäten (siehe oben), Gerät erreichbar, Clients, Anfragen, unbeantwortete Anfragen,
 Antwortzeit, den Schalter und die Buttons. Ein EnOcean-Gateway hat: Gateway erreichbar, Clients,
 Telegramme vom Gateway, Funkzeit (Anteil am 1-%-Limit), den Schalter und die Buttons; mit
 Ersatz-Gateway außerdem „Ersatz-Gateway aktiv“ (ein Problem, solange es einspringt), „Aktives

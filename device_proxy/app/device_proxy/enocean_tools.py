@@ -9,6 +9,8 @@ of the others are dropped (not sent later), and the app's own tools do not send 
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import time
@@ -155,3 +157,27 @@ def sendable(proxy: EnOceanProxy) -> EnOceanProxy:
     if not proxy.link.is_open:
         raise ToolError("the gateway is not connected")
     return proxy
+
+
+def senders_csv(rows: list[dict[str, Any]]) -> bytes:
+    """The list of senders as a file for a spreadsheet (with a BOM, for its umlauts). A name
+    that looks like a formula is quoted, so opening the file cannot run it."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["id", "name", "kind", "telegrams", "last_seen", "dbm", "hops", "own", "new"])
+    for row in rows:
+        name = str(row.get("name", ""))
+        writer.writerow(
+            [
+                row["id"],
+                f"'{name}" if name[:1] in ("=", "+", "-", "@") else name,
+                row["rorg"],
+                row["count"],
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(row["last"])),
+                "" if row["dbm"] is None else row["dbm"],
+                row["hops"],
+                int(row["own"]),
+                int(row["new"]),
+            ]
+        )
+    return out.getvalue().encode("utf-8-sig")

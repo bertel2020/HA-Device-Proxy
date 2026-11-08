@@ -66,6 +66,15 @@ export function fmtValue(v) {
   return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+// the same as DEVICE_CLASSES in modbus_entities.py: Home Assistant refuses an unknown one
+export const DEVICE_CLASSES = ["apparent_power", "battery", "current", "energy", "frequency", "gas", "humidity", "power", "power_factor", "pressure", "reactive_power", "temperature", "voltage", "volume", "water"];
+
+/** The line of a register in a connection's register_entities (modbus_entities.py). */
+export function entityLine({ unit, fc, address, type, swap, scale, count, uom, deviceClass, name }) {
+  const kind = type === "string" ? `string:${count}` : type;
+  return `${unit} ${fc} ${address} ${kind} ${swap} ${scale} ${uom.trim() || "-"} ${deviceClass || "-"} ${name.trim().replace(/\s+/g, " ")}`;
+}
+
 /** A sensor for Home Assistant's modbus: integration (under the hub's sensors:). */
 export function sensorYaml({ unit, fc, address, type, swap, scale, count }) {
   const lines = [
@@ -83,11 +92,35 @@ export function sensorYaml({ unit, fc, address, type, swap, scale, count }) {
   return lines.join("\n");
 }
 
+// Starting values per vendor (MODBUS_PROFILES in model.py). The timing goes with the device; the
+// port only where a new connection is made, a device the scan found has its port already.
+const TIMING = { request_timeout_ms: 3000, connect_delay_ms: 0, request_gap_ms: 0, retries: 1 };
+export const PROFILES = {
+  modbus: { ...TIMING, host_port: 502 },
+  mb_solaredge: { ...TIMING, host_port: 1502, request_timeout_ms: 5000 },
+  mb_huawei: { ...TIMING, host_port: 502, request_timeout_ms: 10000, connect_delay_ms: 1000, request_gap_ms: 50 },
+  mb_fronius: { ...TIMING, host_port: 502 },
+  mb_sma: { ...TIMING, host_port: 502 },
+  mb_kostal: { ...TIMING, host_port: 1502 },
+  mb_sungrow: { ...TIMING, host_port: 502, request_timeout_ms: 10000, connect_delay_ms: 5000, request_gap_ms: 50 },
+  mb_victron: { ...TIMING, host_port: 502 },
+};
+
+/** A profile's timing, without the port. */
+export function profileTiming(key) {
+  const { host_port: _port, ...timing } = PROFILES[key];
+  return timing;
+}
+
 // integrations that fit a device the scan identified, by its vendor; any other SunSpec device
 // works with the SunSpec integration
 const INTEGRATIONS = [
   [/solaredge/i, "SolarEdge Modbus Multi (HACS)"],
   [/huawei/i, "Huawei Solar (HACS)"],
+];
+const VENDORS = [
+  [/solaredge/i, "mb_solaredge"], [/huawei/i, "mb_huawei"], [/fronius/i, "mb_fronius"], [/\bsma\b/i, "mb_sma"],
+  [/kostal/i, "mb_kostal"], [/sungrow/i, "mb_sungrow"], [/victron/i, "mb_victron"],
 ];
 
 /** Who a unit is, from the scan's identification: vendor, product, revision, a fitting integration. */
@@ -95,7 +128,8 @@ export function identity(u) {
   const id = { ...(u.sunspec || {}), ...(u.ident || {}) };
   if (!id.vendor && !id.product) return null;
   const hit = INTEGRATIONS.find(([re]) => re.test(id.vendor || ""));
-  return { ...id, sunspec: u.sunspec ? u.sunspec.base : null, integration: hit ? hit[1] : u.sunspec ? "SunSpec (HACS)" : null };
+  const profile = VENDORS.find(([re]) => re.test(id.vendor || ""));
+  return { ...id, sunspec: u.sunspec ? u.sunspec.base : null, integration: hit ? hit[1] : u.sunspec ? "SunSpec (HACS)" : null, profile: profile ? profile[1] : null };
 }
 
 const MIN_REQUESTS = 50; // what the tips need before they say anything

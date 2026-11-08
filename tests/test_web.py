@@ -322,3 +322,34 @@ async def test_a_full_disk_saves_nothing_and_says_so(tmp_path: Path) -> None:
     assert status == 200 and len(controller.config.connections) == 2
     assert "Z-Wave" in (tmp_path / "config.json").read_text()
     await web.stop()
+
+
+async def test_sender_names_are_saved_together_and_kept(tmp_path: Path) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    path = "api/enocean/sender-names"
+    names = {"fe-e9-12-34": "Kitchen\n switch", "FF-00-00-01": "Door"}
+    status, _ = await request(port, "PUT", path, {"names": names})
+    assert status == 200
+    assert controller.config.settings.sender_names == (
+        "FE-E9-12-34 Kitchen switch\nFF-00-00-01 Door"
+    )
+    status, _ = await request(port, "PUT", path, {"names": {"FF-00-00-01": " "}})
+    assert status == 200  # an empty name takes it away, the others stay
+    assert controller.config.settings.sender_names == "FE-E9-12-34 Kitchen switch"
+    status, _ = await request(port, "PUT", path, {"names": {"nope": "x"}})
+    assert status in (400, 422)
+    assert controller.config.settings.sender_names == "FE-E9-12-34 Kitchen switch"
+    status, _ = await request(port, "PUT", path, {"names": "x"})
+    assert status == 400
+    await web.stop()
