@@ -94,7 +94,18 @@ class Store:
         except ValidationError as err:
             _LOGGER.error("Configuration %s invalid (%s)", self.path, err)
             self.path.replace(self.path.with_suffix(f".invalid-{int(time.time())}"))
-            return self._latest_version() or AppConfig()
+        latest = self._latest_version()
+        if latest is not None:
+            return latest
+        # the saved versions are invalid as well (checks became stricter): keep what is valid
+        config, dropped = AppConfig.salvage(data)
+        for item in dropped:
+            _LOGGER.error("Configuration: left out %s", item)
+        try:
+            self._write(config)  # the next start finds it (the invalid file is set aside)
+        except SaveError as err:
+            _LOGGER.error("%s", err)
+        return config
 
     def latest_id(self) -> int | None:
         """The id of the last saved version: the configuration as it is now."""
@@ -125,17 +136,7 @@ class Store:
 
     def save(self, old: AppConfig, new: AppConfig, source: str) -> list[Change]:
         """Write the configuration and keep it as a version; returns what changed."""
-        text = json.dumps(new.to_dict(), ensure_ascii=False, indent=1)
-        tmp = self.path.with_suffix(".tmp")
-        try:
-            with tmp.open("w", encoding="utf-8") as f:
-                f.write(text)
-                f.flush()
-                os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
-            os.replace(tmp, self.path)
-        except OSError as err:
-            tmp.unlink(missing_ok=True)
-            raise SaveError(err.errno, f"configuration not saved: {err.strerror or err}") from err
+        text = self._write(new)
         items = changes(old, new)
         if self.db is not None and items:  # saving without a change is no new version
             try:
@@ -158,6 +159,20 @@ class Store:
             except sqlite3.Error as err:  # the file is saved: the change counts, without history
                 _LOGGER.warning("Configuration saved, but not kept in the history: %s", err)
         return items
+
+    def _write(self, config: AppConfig) -> str:
+        text = json.dumps(config.to_dict(), ensure_ascii=False, indent=1)
+        tmp = self.path.with_suffix(".tmp")
+        try:
+            with tmp.open("w", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())  # a power cut right after saving must not leave half a file
+            os.replace(tmp, self.path)
+        except OSError as err:
+            tmp.unlink(missing_ok=True)
+            raise SaveError(err.errno, f"configuration not saved: {err.strerror or err}") from err
+        return text
 
     def versions(self) -> list[dict[str, Any]]:
         if self.db is None:

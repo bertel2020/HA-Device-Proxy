@@ -159,6 +159,12 @@ class ValidationError(ValueError):
         self.errors = errors
 
 
+def _first(err: ValidationError) -> str:
+    """The first wrong field of an error, for a short log line."""
+    key, message = next(iter(err.errors.items()), ("", "invalid"))
+    return f"{key.rsplit('.', 1)[-1]} {message}" if key else message
+
+
 def new_id() -> str:
     return secrets.token_hex(4)
 
@@ -680,6 +686,65 @@ class AppConfig:
         config = cls(settings, tuple(connections)).with_known_fallbacks()
         config.validate()
         return config
+
+    @classmethod
+    def salvage(cls, data: Any) -> tuple[AppConfig, list[str]]:
+        """What of an invalid configuration is still valid (stricter checks of a new version,
+        a hand-edited file): settings that fail go back to their default, connections that
+        fail are left out. Not everything lost at once, so the HA entities of the others stay.
+        Returns the configuration and what was left out, for the log."""
+        if not isinstance(data, dict):
+            return cls(), ["the whole configuration (not an object)"]
+        data = migrate(data)
+        dropped: list[str] = []
+        raw = data.get("settings", {})
+        raw = dict(raw) if isinstance(raw, dict) else {}
+        while True:
+            try:
+                settings = Settings.from_dict(raw)
+                break
+            except ValidationError as err:
+                bad = [k for k in err.errors if k in raw]
+                if not bad:
+                    settings = Settings()
+                    dropped.append("all settings")
+                    break
+                for key in bad:
+                    dropped.append(f"setting {key} ({err.errors[key]})")
+                    del raw[key]
+        items = data.get("connections", [])
+        candidates: list[Connection] = []
+        for index, item in enumerate(items if isinstance(items, list) else []):
+            try:
+                candidates.append(Connection.from_dict(item))
+            except ValidationError as err:
+                name = item.get("name") if isinstance(item, dict) else None
+                dropped.append(f"connection {name or index + 1} ({_first(err)})")
+        kept: list[Connection] = []
+        for _ in range(2):  # twice: a fallback or a route may name one that comes later
+            waiting = [c for c in candidates if c not in kept]
+            for c in waiting:
+                try:
+                    cls(settings, (*kept, c)).with_known_fallbacks().validate()
+                except ValidationError:
+                    continue
+                kept.append(c)
+        order = {id(c): i for i, c in enumerate(candidates)}
+        kept.sort(key=lambda c: order[id(c)])
+        for c in candidates:
+            if c not in kept:
+                try:
+                    cls(settings, (*kept, c)).with_known_fallbacks().validate()
+                    reason = "conflict"
+                except ValidationError as err:
+                    reason = _first(err)
+                dropped.append(f"connection {c.name} ({reason})")
+        config = cls(settings, tuple(kept)).with_known_fallbacks()
+        try:
+            config.validate()
+        except ValidationError:  # in another order the kept ones may clash after all
+            return cls(settings), [*dropped, "all connections"]
+        return config, dropped
 
     def validate(self) -> None:
         e: dict[str, str] = {}
