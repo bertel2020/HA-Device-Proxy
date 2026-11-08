@@ -27,7 +27,7 @@ in the sidebar instead.
 2. Either **import** your existing configuration (**Settings → Back up and transfer → Import**:
    ser2net 4 `ser2net.yaml`, ser2net 3 `ser2net.conf` or the options of ha-modbusproxy), or
    **add a connection**: choose serial device or Modbus device; for a serial device pick a
-   template (smart meter SML or D0, Z-Wave stick, generic), the device from the list and a
+   template (smart meter SML or D0, Z-Wave or Zigbee stick, generic), the device from the list and a
    TCP port; for a Modbus device its address (or RS485 adapter) and the port for the
    clients.
 3. Point the clients at the address the connection shows (**Details → Addresses**):
@@ -85,9 +85,14 @@ type.
 - **Anyone** – no limit. ser2net has no login: whoever reaches the port can read and control
   the device.
 
-A **Z-Wave stick** starts with a rule of its own, because it takes commands without a login:
+A **Z-Wave or Zigbee stick** starts with a rule of its own, because it takes commands without a login:
 Home Assistant and the apps only (`127.0.0.1, 172.30.32.0/23` under **Advanced → Allowed
 clients**). Empty the field to let the network setting decide.
+
+The **Zigbee** template allows one client, because a Zigbee network has one program in charge of
+the coordinator. ZHA connects with `socket://host:port`, Zigbee2MQTT with `tcp://host:port`. It
+sets 115200 baud, which fits most sticks; a stick that needs hardware flow control gets RTS/CTS
+under **Advanced**.
 
 ### Several clients on one device
 

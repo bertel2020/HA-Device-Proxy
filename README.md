@@ -54,7 +54,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 
 ## Highlights
 
-- **Connections in a web interface**: device from a list with stable names, templates (smart meter SML or D0, Z-Wave stick, Modbus), all important ser2net options and a live `ser2net.yaml` preview. Saving rebuilds only that connection; the others keep their clients.
+- **Connections in a web interface**: device from a list with stable names, templates (smart meter SML or D0, Z-Wave or Zigbee stick, Modbus), all important ser2net options and a live `ser2net.yaml` preview. Saving rebuilds only that connection; the others keep their clients.
 - **Modbus proxy**: one Modbus device or RS485 bus for several Modbus TCP clients. Requests go to the device one after another and each answer back to the client that asked; timeouts, retries and pauses are adjustable. Writes only from Home Assistant and apps by default, a cache for reads, a bus scan, a register reader and an access check that tells whether a client may read or write and which rule decides. It can also only listen on an RS485 bus that has a master already and serve what it hears.
 - **EnOcean gateways**: one FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH or Symcon LAN for the EnOcean Eltako integration, eo_man and PCT14 at once. Whole frames in turn, answers to the program that asked, telegrams missed during a Home Assistant restart replayed with their reception time, discovery by the integration with the gateway's model. Live frames with sender and kind, air time against the 1 % limit, gateway test, changing the base ID (with the changes left), sending a checked frame, captures with a lock for PCT14. A second gateway with the same base ID can stand in when one fails, without the programs reconnecting. Replaces the EnOcean Proxy app.
 - **Status at a glance**: device present, clients with address and bytes, data rate, last data, line errors from the driver, Modbus requests and answer times; clients that stop reading are spotted.
@@ -80,7 +80,7 @@ Every page, every setting and help when something does not work: **[documentatio
 
 ## Safety in short
 
-- The ports are plain TCP without a login. By default clients are accepted from Home Assistant, its apps and the host's own network ("My network"); the Z-Wave template limits them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed to Home Assistant (and apps) only, and further home networks can be listed.
+- The ports are plain TCP without a login. By default clients are accepted from Home Assistant, its apps and the host's own network ("My network"); the Z-Wave and Zigbee templates limit them to Home Assistant and its apps. Under **Settings → Network** this can be narrowed to Home Assistant (and apps) only, and further home networks can be listed.
 - Modbus connections let only Home Assistant and the apps write by default; other clients can only read. The connection's page shows who may really write, and **Tools → Check access** tells it for any address. The allowed clients of every kind follow the network setting unless a connection names its own.
 - ser2net's admin interface is reachable from inside the app only; the web interface is reached through Home Assistant (Ingress).
 - A computer that connects for the first time is reported (**Settings → Clients**, where clients also get names).
