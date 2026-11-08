@@ -106,6 +106,11 @@ var Wn=Object.defineProperty;var Vn=(r,e,n)=>e in r?Wn(r,e,{enumerable:!0,config
     outline: 3px solid var(--focus); outline-offset: 2px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
+  /* touch: links, chips and the small buttons take taps in a taller area than they show; an invisible extension, so nothing moves */
+  @media (max-width: 600px), (pointer: coarse) {
+    a:where(:not(.btn, .iconbtn, .act, nav a)), button.chip, button.tap { position: relative; }
+    a:where(:not(.btn, .iconbtn, .act, nav a))::after, button.chip::after, button.tap::after { content: ""; position: absolute; inset: -10px 0; }
+  }
 `;var sn="device_proxy.look",At=["ozean","wald","graphit"],Ct=["auto","light","dark"],Oe={small:12,normal:14,large:16},ws={ozean:{bg:["#f4f6f9","#0f1216"],surface:["#ffffff","#1b1f24"],"surface-2":["#f5f7f9","#22272e"],line:["#e1e5ea","#2d333b"],"line-2":["#eef0f3","#262c33"],"input-line":["#c3cbd5","#3a424c"],text:["#1b1f24","#e6e9ed"],muted:["#5b6270","#9aa4b1"],accent:["#0a6aa8","#5bb2ea"],"accent-hover":["#07507f","#8ccaf2"],"accent-soft":["#eaf3fa","#16324a"],"on-accent":["#ffffff","#0b1a26"],"neutral-soft":["#eef1f4","#2a3038"],neutral:["#3a414c","#c5ccd5"]},wald:{bg:["#f3f7f5","#0e1513"],surface:["#ffffff","#1a2220"],"surface-2":["#f4f8f6","#202a27"],line:["#dce5e1","#2b3733"],"line-2":["#eaf0ed","#24302c"],"input-line":["#bccac4","#394845"],text:["#1a201e","#e4ebe8"],muted:["#566360","#98a8a2"],accent:["#0f7a6b","#5fd0be"],"accent-hover":["#0a5a4f","#8fe0d2"],"accent-soft":["#e4f3f0","#123430"],"on-accent":["#ffffff","#08201c"],"neutral-soft":["#ecf1ef","#26312e"],neutral:["#36423e","#c3d0cb"]},graphit:{bg:["#f5f4f2","#141414"],surface:["#ffffff","#1f1f1e"],"surface-2":["#f6f5f3","#262625"],line:["#e4e2de","#33322f"],"line-2":["#eeedea","#2a2a28"],"input-line":["#cbc8c2","#45433f"],text:["#1c1b19","#ebeae7"],muted:["#5c5853","#a9a59f"],accent:["#2f3a48","#d4dae2"],"accent-hover":["#1b232d","#f0f3f6"],"accent-soft":["#eceff3","#2c3139"],"on-accent":["#ffffff","#141820"],"neutral-soft":["#efeeeb","#2c2c2a"],neutral:["#3d3a36","#cfccc6"]}};function ys(){let r=e=>Object.entries(e).map(([n,[s,i]])=>`--${n}: light-dark(${s}, ${i});`).join(" ");return Object.entries(ws).map(([e,n])=>`html[data-scheme="${e}"] { ${r(n)} }`).join(`
 `)+`
 html { --fs: 1;
@@ -270,7 +275,7 @@ html, body { background: var(--bg); }`}function Xe(){let r={};try{r=JSON.parse(l
       ${n.length?a`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${i?a`<th style="text-align:right">${t("eoSendersSignal")}</th>`:""}<th style="text-align:right">${t("eoSendersHops")}</th>${s?a`<th>${t("eoSendersHeard")}</th>`:""}</tr></thead>
         <tbody>${n.map(o=>a`<tr><td><span class="id">${o.id}</span>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${()=>this._copy(o.id)}>${this.copied===o.id?t("copied"):t("copy")}</button>
+            <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${()=>this._copy(o.id)}>${this.copied===o.id?t("copied"):t("copy")}</button>
             ${o.own?a`<span class="chip">${t("eoSendersOwn")}</span>`:o.new?a`<span class="chip info">${t("eoSendersNewChip")}</span>`:""}</td>
           <td>${o.rorg}</td><td style="text-align:right">${o.count.toLocaleString()}</td><td>${z(o.last)}</td>
           ${i?a`<td style="text-align:right">${l(o.dbm)}</td>`:""}<td style="text-align:right">${o.hops}</td>
@@ -557,7 +562,7 @@ html, body { background: var(--bg); }`}function Xe(){let r={};try{r=JSON.parse(l
           <td class="fit"><span class="dir ${h.direction==="rx"?"rx":h.direction==="tx"?"tx":"mark"}">${qe(h.direction,n?"modbus":e)}</span></td>
           <td class=${h.info?"frame":""}>${h.info?a`<div class="info" style="color:#9fb3c8">${s&&o(h.info)?a`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
             @click=${b=>{b.preventDefault(),this.search=o(h.info)}}>${h.info}</a>`:Ls(m(h))}</div>`:""}${h.direction==="open"||h.direction==="close"?h.text:h.hex?h.info?h.hex:le(h.hex.split(" ")," "):""}${s?a`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${()=>this._copy(`f${h.seq}`,h.hex)}>${this.copied===`f${h.seq}`?t("copied"):t("copy")}</button>
-            <button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${()=>this._take(h.hex)}>${t("eoTake")}</button></div>`:""}</td>
+            <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${()=>this._take(h.hex)}>${t("eoTake")}</button></div>`:""}</td>
           ${!h.info&&!s&&this.ascii&&h.hex?a`<td style="color:#9fb3c8">${le(h.text.replace(/[^\x20-\x7e]/g,".").split(""),"")}</td>`:""}
         </tr>`)}</tbody></table></div>`:a`<div class="well hint" style="font-size: calc(14px * var(--fs, 1))">${t(s?i.length?"eoNoMatch":"liveEmptyEo":n?"liveEmptyMb":"liveEmpty")}</div>`}
     </section>`}_haSnippet(e){let n=e.addresses.find(i=>i.target==="ha");if(!n||!n.reachable)return"";let s=`modbus:
