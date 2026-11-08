@@ -27,6 +27,7 @@ from . import diagnostics
 from .clients import plain_host
 from .config import block, export
 from .controller import Controller, CustomError
+from .enocean_tools import senders_csv
 from .importer import ReadError
 from .modbus import check_access, write_pdu
 from .model import (
@@ -37,6 +38,7 @@ from .model import (
     Settings,
     ValidationError,
     new_id,
+    parse_sender_names,
 )
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services, switch_entities
@@ -184,6 +186,10 @@ class WebServer:
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/modbus/scan", self.modbus_scan)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/send", self.enocean_send)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/senders", self.enocean_senders)
+        self._route(
+            "GET", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/senders\.csv", self.enocean_senders_csv
+        )
+        self._route("PUT", r"api/enocean/sender-names", self.enocean_sender_names)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/testcase", self.testcase)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
@@ -875,6 +881,38 @@ class WebServer:
             "application/json; charset=utf-8",
             {"Content-Disposition": f'attachment; filename="testcase-{kind}-{stamp}.json"'},
         )
+
+    async def enocean_senders_csv(self, request: Request) -> Response:
+        try:
+            rows = self.c.enocean_senders(request.params["id"])
+        except ValueError as err:
+            raise HttpError(404, str(err)) from None
+        stamp = time.strftime("%Y%m%d-%H%M")
+        return Response(
+            200,
+            senders_csv(rows),
+            "text/csv; charset=utf-8",
+            {"Content-Disposition": f'attachment; filename="enocean-senders-{stamp}.csv"'},
+        )
+
+    async def enocean_sender_names(self, request: Request) -> Response:
+        """Names for sender IDs, all in one saved version of the configuration; an empty name
+        takes it away, the IDs not named here stay."""
+        names = request.json().get("names")
+        if not isinstance(names, dict) or not all(isinstance(v, str) for v in names.values()):
+            raise HttpError(400, "names: sender IDs and their names")
+
+        def build(config: AppConfig) -> AppConfig:
+            merged = parse_sender_names(config.settings.sender_names)
+            for sender, name in names.items():
+                merged.pop(sender.upper(), None)
+                if name.strip():
+                    merged[sender.upper()] = " ".join(name.split())
+            text = "\n".join(f"{sender} {name}" for sender, name in merged.items())
+            settings = Settings.from_dict({**config.settings.to_dict(), "sender_names": text})
+            return replace(config, settings=settings)
+
+        return await self._save(build)
 
     async def enocean_senders(self, request: Request) -> Response:
         try:

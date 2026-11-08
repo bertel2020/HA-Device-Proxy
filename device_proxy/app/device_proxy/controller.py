@@ -72,7 +72,14 @@ from .modbus import (
     sunspec_common,
     write_pdu,
 )
-from .model import AppConfig, Connection, ValidationError, new_id, own_address
+from .model import (
+    AppConfig,
+    Connection,
+    ValidationError,
+    new_id,
+    own_address,
+    parse_sender_names,
+)
 from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
 from .store import PASSWORD_KEPT, Change, Store, hidden, summary
@@ -1337,7 +1344,11 @@ class Controller:
         return testcase.build(c, chunks, base_id=base_id, anonymised=anonymised)
 
     def enocean_senders(self, connection_id: str) -> list[dict[str, Any]]:
-        return self._enocean(connection_id).senders_list()
+        names = parse_sender_names(self.config.settings.sender_names)
+        return [
+            {**row, "name": names.get(row["id"], "")}
+            for row in self._enocean(connection_id).senders_list()
+        ]
 
     async def enocean_send(self, connection_id: str, text: str) -> dict[str, object]:
         """Send one frame as the app; the gateway's answer, if the frame expects one."""
