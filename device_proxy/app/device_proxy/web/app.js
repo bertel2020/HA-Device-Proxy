@@ -1605,8 +1605,8 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
               <div><h2 id="t-view">${t("liveView")}${n?a` · ${n.name}`:""}</h2>
                 <p class="hint" style="margin:2px 0 0">${t("liveCap",{n:In})}${this.chunks.length?` \xB7 ${t("linesShown",{n:i.length})}`:""}${this.paused?` \xB7 ${t("paused")}`:""}</p></div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <div class="seg" role="group" aria-label=${t("liveView")}>${[[!1,"hexOnly"],[!0,"hexAscii"]].map(([c,u])=>a`<button type="button" aria-pressed=${this.ascii===c?"true":"false"} @click=${()=>{this.ascii=c}}>${t(u)}</button>`)}</div>
+              <div class="ctl" style="display:flex;gap:4px;flex-wrap:wrap">
+                ${n&&n.kind!=="serial"?"":a`<div class="seg" role="group" aria-label=${t("liveView")}>${[[!1,"hexOnly"],[!0,"hexAscii"]].map(([c,u])=>a`<button type="button" aria-pressed=${this.ascii===c?"true":"false"} @click=${()=>{this.ascii=c}}>${t(u)}</button>`)}</div>`}
                 <button class="btn btn-g" @click=${()=>{this.paused=!this.paused}}>${this.paused?t("resume"):t("pause")}</button>
                 <button class="btn btn-g" ?disabled=${!this.chunks.length} @click=${()=>{this.chunks=[]}}>${t("clearView")}</button></div></div>
             ${n?a`<div class="modes"><span style="font-weight:500">${t("recMode")}</span>
@@ -1615,10 +1615,10 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
               <span class="hint">${t("recNote")}</span>
               ${l?a`<span class="hint" style="flex-basis:100%">${t("recFile")}: <span class="mono">${l.name}</span> · ${B(l.size)}
                 <a href=${I(`api/trace/${encodeURIComponent(l.name)}`)} download aria-label="${l.name} ${t("download")}">${t("download")}</a></span>`:""}</div>`:""}
-            ${i.length?a`<div class="code view" style="border-radius:0"><table><tbody>${i.slice().reverse().map(c=>a`<tr>
+            ${i.length?a`<div class="code view" style="border-radius:0"><table class=${i.some(c=>c.info)?"frames":""}><tbody>${i.slice().reverse().map(c=>a`<tr>
               <td class="fit" style="color:#8f9ba8">${this._time(c.ts)}</td>
               <td class="fit"><span class="dir ${c.direction==="rx"?"rx":c.direction==="tx"?"tx":"mark"}">${qe(c.direction,n&&n.kind)}</span></td>
-              ${c.info?a`<td class="fit" style="color:#9fb3c8">${c.info}</td>`:""}<td class="hex ${c.info?"frame":""}">${c.hex?c.info?c.hex:le(c.hex.split(" ")," "):c.text}</td>${!c.info&&this.ascii&&c.hex?a`<td class="asc" style="color:#9fb3c8">${le(c.text.replace(/[^\x20-\x7e]/g,".").split(""),"")}</td>`:""}</tr>`)}</tbody></table></div>`:a`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(n&&n.kind==="modbus"?"liveEmptyMb":n&&n.kind==="enocean"?"liveEmptyEo":"liveEmpty")}</p>`}
+              ${c.info?a`<td class="fit info ${c.info.length>21?"long":""}" style="color:#9fb3c8">${c.info}</td>`:""}<td class="hex ${c.info?"frame":""}">${c.hex?c.info?c.hex:le(c.hex.split(" ")," "):c.text}</td>${!c.info&&this.ascii&&c.hex?a`<td class="asc" style="color:#9fb3c8">${le(c.text.replace(/[^\x20-\x7e]/g,".").split(""),"")}</td>`:""}</tr>`)}</tbody></table></div>`:a`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(n&&n.kind==="modbus"?"liveEmptyMb":n&&n.kind==="enocean"?"liveEmptyEo":"liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
@@ -1645,9 +1645,22 @@ ${n.request_gap_ms?` \xB7 ${t("mbGapShort",{ms:n.request_gap_ms})}`:""}</span>
     .view td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .view td.hex, .view td.asc { white-space: pre; }
     .view td.fit { width: 1%; }
-    .view td.hex.frame { white-space: normal; overflow-wrap: anywhere; }
+    /* a minimum width: "anywhere" lets an auto table squeeze the column down to one character */
+    .view td.hex.frame { white-space: normal; overflow-wrap: anywhere; min-width: 24ch; }
     .dir { display: inline-block; min-width: 78px; white-space: nowrap; text-align: center; border-radius: 6px; padding: 0 6px; }
     .rx { background: #1f3a52; color: #9ccbf0; } .tx { background: #4a3a1c; color: #f4c77d; } .mark { background: #2a3038; color: #c5ccd5; }
+    /* phones: frames with decoded info in two lines (time, direction, info; below them the bytes), no scrolling sideways */
+    @media (max-width: 600px) {
+      .ctl .seg button { padding: 0 8px; }
+      .ctl .btn { padding: 0 6px; }
+      .modes .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      .view table.frames, .view table.frames tbody { display: block; }
+      .view table.frames tr { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
+      .view table.frames td { padding: 0; width: auto; }
+      .view table.frames td.info { white-space: normal; overflow-wrap: anywhere; }
+      .view table.frames td.hex, .view table.frames td.asc, .view table.frames td.long { grid-column: 1 / -1; min-width: 0; }
+      .view table.frames .dir { min-width: 0; }
+    }
   `]);var si={"device-proxy":ue,"dp-confirm":be,"dp-connections":$e,"dp-detail":we,"dp-edit":_e,"dp-enocean-tools":ge,"dp-eo-senders":fe,"dp-eo-gateways":me,"dp-events":xe,"dp-import":ke,"dp-settings":Ae,"dp-trace":Ce};for(let[r,e]of Object.entries(si))customElements.get(r)||customElements.define(r,e);
 /*! Bundled license information:
 
