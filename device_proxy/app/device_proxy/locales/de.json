@@ -773,6 +773,7 @@
     "mqttWhat": "Was entsteht genau?",
     "mqttWhatSerial": "Seriell: angeschlossen, Clients, Datenrate, letzte Daten, Leitungsfehler, Schalter",
     "mqttWhatModbus": "Modbus: erreichbar, Anfragen, ohne Antwort, Antwortzeit, Schalter",
+    "mqttWhatEvents": "Alle: Ereignisse als Auslöser für Automationen, z. B. Gerät weg oder neuer Client",
     "mqttWhatEnocean": "EnOcean: erreichbar, Telegramme, Funkzeit",
     "mqttBrokerTitle": "Broker",
     "mqttAuto": "Automatisch",
@@ -1749,6 +1750,7 @@
     "resolved": "Wieder in Ordnung"
   },
   "entities": {
+    "events": "Ereignisse",
     "kind_serial": "Seriell",
     "kind_modbus": "Modbus",
     "kind_enocean": "EnOcean",

@@ -601,6 +601,11 @@ hardware.
 The buttons are meant for automations, e.g. restarting a stick that hangs.
 **Disconnect clients** is also on a connection's page, next to its clients.
 
+**Events as triggers**: Each connection has an entity "Events". Its attribute `event_type` says what
+happened, such as `modbus_down`, `device_missing`, `client_new` or `write_blocked`, along with details
+like `address` and `message`. Repeats the app sums up are not sent one by one. A trigger is a state
+change of this entity with the condition `trigger.to_state.attributes.event_type == 'modbus_down'`.
+
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes, the Connections page only says so and the note can be hidden. A
 broker of your own such as EMQX is not found by itself and has to be entered. Prefix
 (`homeassistant`), base topic (`device_proxy`) and the update interval are in **Settings → MQTT

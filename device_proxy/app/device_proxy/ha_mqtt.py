@@ -23,6 +23,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from . import i18n
+from .events import Event
 from .kinds import PROXIED
 from .meter import ENTITIES, entity_values
 from .model import AppConfig
@@ -53,6 +54,56 @@ def panel_url() -> str:
     return f"homeassistant://hassio/ingress/{slug}" if slug else ""
 
 
+# What can start an automation in Home Assistant; everything else stays in the app's events.
+_REFUSED = (
+    "client_refused",
+    "client_refused_network",
+    "client_refused_exclusive",
+    "client_refused_blocked",
+)
+_RESTARTS = (
+    "connection_restarted",
+    "auto_restart_gave_up",
+    "auto_restart_failed",
+    "usb_reset_failed",
+    "power_cycle_failed",
+)
+EVENT_TYPES = {
+    "serial": (
+        "device_missing",
+        "device_back",
+        "client_new",
+        "client_stuck",
+        "stuck_disconnected",
+        "line_errors",
+        "keep_open_failed",
+        *_RESTARTS,
+    ),
+    "modbus": (
+        "modbus_down",
+        "modbus_back",
+        "client_new",
+        *_REFUSED,
+        "write_blocked",
+        "write_blocked_register",
+        *_RESTARTS,
+    ),
+    "enocean": (
+        "enocean_down",
+        "enocean_back",
+        "enocean_failover",
+        "enocean_failback",
+        "enocean_fallback_unready",
+        "duty_cycle_high",
+        "client_new",
+        "client_dropped",
+        *_REFUSED,
+        *_RESTARTS,
+    ),
+}
+APP_EVENT_TYPES: tuple[str, ...] = ("ser2net_restart", "ser2net_start_failed")
+
+
 class HaBridge:
     def __init__(self, controller: Controller) -> None:
         self.c = controller
@@ -68,6 +119,7 @@ class HaBridge:
         self.broker: Broker | None = None
         self._announced: set[str] = set()
         self._last: dict[str, str] = {}
+        self._sending: set[asyncio.Task[None]] = set()
 
     @property
     def state(self) -> dict[str, Any]:
@@ -153,6 +205,12 @@ class HaBridge:
         names = NAMES[settings.notify_language]
         prefix, base = settings.mqtt_prefix, self.base
         availability = [{"topic": f"{base}/status"}]
+        hub = {
+            "identifiers": ["device_proxy"],
+            "name": "Device Proxy",
+            "manufacturer": "Device Proxy app",
+            **self._links(),
+        }
         result: dict[str, dict[str, Any]] = {
             f"{prefix}/binary_sensor/device_proxy/running/config": {
                 "name": names["running"],
@@ -161,13 +219,18 @@ class HaBridge:
                 "value_template": "{{ 'ON' if value_json.running else 'OFF' }}",
                 "device_class": "running",
                 "availability": availability,
-                "device": {
-                    "identifiers": ["device_proxy"],
-                    "name": "Device Proxy",
-                    "manufacturer": "Device Proxy app",
-                    **self._links(),
-                },
-            }
+                "device": hub,
+            },
+            f"{prefix}/event/device_proxy/events/config": {
+                "name": names["events"],
+                "unique_id": "device_proxy_events",
+                "state_topic": f"{base}/app/event",
+                "event_types": list(APP_EVENT_TYPES),
+                "icon": "mdi:bell-outline",
+                "availability": availability,
+                "device": hub,
+                "has_entity_name": True,
+            },
         }
         for c in self.c.active + self.c.config.proxied:
             state = f"{base}/{c.id}/state"
@@ -212,6 +275,12 @@ class HaBridge:
                 button = entity(action, command_topic=f"{base}/{c.id}/{action}/press", icon=icon)
                 button.pop("state_topic")  # a button has no state
                 result[f"{prefix}/button/device_proxy_{c.id}/{action}/config"] = button
+            result[f"{prefix}/event/device_proxy_{c.id}/events/config"] = entity(
+                "events",
+                state=f"{base}/{c.id}/event",
+                event_types=list(EVENT_TYPES[c.kind]),
+                icon="mdi:bell-outline",
+            )
             result[f"{prefix}/sensor/device_proxy_{c.id}/clients/config"] = entity(
                 "clients",
                 value_template="{{ value_json.clients }}",
@@ -262,6 +331,33 @@ class HaBridge:
                 entity_category="diagnostic",
             )
         return result
+
+    def send_event(self, event: Event) -> None:
+        """Pass an event on to its event entity; a repeat that is summed up stays out."""
+        if event.count > 1 or not self.client.connected.is_set():
+            return
+        if event.connection is None:
+            allowed, topic = APP_EVENT_TYPES, f"{self.base}/app/event"
+        elif (c := self.c.config.connection(event.connection)) is not None:
+            allowed, topic = EVENT_TYPES[c.kind], f"{self.base}/{c.id}/event"
+        else:
+            return
+        if event.kind not in allowed:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # raised outside the app's loop: no way to send it from here
+            return
+        payload = {**event.params, "message": event.message, "event_type": event.kind}
+        task = loop.create_task(self._publish_event(topic, payload))
+        self._sending.add(task)
+        task.add_done_callback(self._sending.discard)
+
+    async def _publish_event(self, topic: str, payload: dict[str, Any]) -> None:
+        try:
+            await self.client.publish(topic, payload)
+        except (OSError, ConnectionError) as err:
+            _LOGGER.debug("MQTT: event not sent: %s", err)
 
     async def announce(self) -> None:
         configs = self.configs()

@@ -633,6 +633,12 @@ erreichbar“ bleibt die eigene Hardware des Gateways.
 
 Die Buttons sind für Automationen gedacht, z. B. um einen hängenden Stick neu zu starten. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
 
+**Ereignisse als Auslöser**: Jede Verbindung hat eine Entität „Ereignisse“. Ihr Attribut `event_type`
+nennt, was passiert ist, etwa `modbus_down`, `device_missing`, `client_new` oder `write_blocked`, dazu
+die Details wie `address` und `message`. Wiederholungen, die die App zusammenfasst, werden nicht
+einzeln gesendet. Ein Auslöser ist ein Zustandswechsel dieser Entität mit der Bedingung
+`trigger.to_state.attributes.event_type == 'modbus_down'`.
+
 Dazu ein Gerät **Device Proxy** mit „ser2net läuft“. Ohne Broker ändert sich nichts, die Seite Verbindungen weist nur darauf hin, und der Hinweis lässt
 sich ausblenden. Ein eigener Broker wie EMQX wird nicht von selbst gefunden und muss eingetragen
 werden. Präfix

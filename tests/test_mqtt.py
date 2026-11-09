@@ -329,3 +329,37 @@ def test_every_device_names_the_version_of_the_app(
     monkeypatch.setenv("APP_VERSION", "9.9.9")
     configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
     assert {config["device"]["sw_version"] for config in configs.values()} == {"9.9.9"}
+
+
+def test_every_connection_has_an_event_entity(tmp_path: Path) -> None:
+    configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
+    entity = configs["homeassistant/event/device_proxy_0000000a/events/config"]
+    assert entity["state_topic"] == "device_proxy/0000000a/event"
+    assert "device_missing" in entity["event_types"]
+    assert "modbus_down" not in entity["event_types"]  # a serial connection
+    assert "homeassistant/event/device_proxy/events/config" in configs
+
+
+async def test_events_reach_their_entity_once(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+    sent: list[tuple[str, object]] = []
+
+    async def publish(topic: str, payload: object, **_: object) -> None:
+        sent.append((topic, payload))
+
+    bridge = controller.mqtt
+    bridge.client.connected.set()
+    bridge.client.publish = publish  # type: ignore[method-assign]
+    for _ in range(5):  # the fourth and fifth are summed up
+        controller.events.emit(
+            "warning", "device_missing", connection="0000000a", name="eHZ", device="/dev/x"
+        )
+    controller.events.emit("info", "client_connected", connection="0000000a", name="eHZ")  # no type
+    controller.events.emit("warning", "ser2net_start_failed", error="gone", delay=1)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    topics = [topic for topic, _ in sent]
+    assert topics == ["device_proxy/0000000a/event"] * 3 + ["device_proxy/app/event"]
+    payload = sent[0][1]
+    assert isinstance(payload, dict)
+    assert (payload["event_type"], payload["device"]) == ("device_missing", "/dev/x")
