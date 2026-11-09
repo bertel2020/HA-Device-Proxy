@@ -11,6 +11,7 @@ import re
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ CREATE INDEX IF NOT EXISTS client_sessions_host ON client_sessions (host, start)
 class Database:
     def __init__(self, path: Path = PATH) -> None:
         self.path = path
+        self.problems: list[tuple[str, dict[str, Any]]] = []  # for the events (they live here)
         self.conn = self._open()
 
     def _open(self) -> sqlite3.Connection:
@@ -77,6 +79,7 @@ class Database:
     def _recreate(self, err: Exception) -> sqlite3.Connection:
         aside = self.path.with_name(f"{self.path.name}.damaged-{int(time.time())}")
         _LOGGER.error("History database damaged (%s), moved to %s, starting a new one", err, aside)
+        self.problems.append(("history_damaged", {"file": aside.name}))
         for suffix in ("", "-wal", "-shm"):
             source = Path(f"{self.path}{suffix}")
             if source.exists():

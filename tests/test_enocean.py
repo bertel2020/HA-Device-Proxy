@@ -1230,3 +1230,17 @@ def test_the_senders_as_a_file() -> None:
     assert head[:3] == ["id", "name", "kind"]
     assert first[:4] == ["FE-E9-12-34", "Küche", "RPS", "2"] and first[5:] == ["", "1", "0", "1"]
     assert second[1] == "'=1+1" and second[5] == "-74"  # a name cannot be a formula
+
+
+async def test_a_capture_at_its_limit_tells_that_it_ended(
+    setup: Setup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from device_proxy import enocean_tools
+
+    monkeypatch.setattr(enocean_tools, "MAX_BYTES", 1)
+    captures = enocean_tools.Captures(tmp_path)
+    ended: list[enocean_tools.Capture] = []
+    captures.on_full = ended.append
+    capture = captures.start(setup.proxy, None)
+    captures._write("rx", b"\x55\x00\x01\x00\x05\x70\x08\x38", "")
+    assert captures.current is None and ended == [capture]

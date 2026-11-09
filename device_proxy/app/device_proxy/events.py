@@ -3,8 +3,8 @@
 An event is a kind plus values (`client_connected`, {"address": "192.168.1.20:50114"}); the
 web interface words it in its own language, MESSAGES gives the English line for the app
 log. The same event repeating quickly (a stick that keeps dropping out) is summed up: after
-debounce_count of one kind for one connection within debounce_minutes, further ones only
-raise the count of the last entry and are logged once more when the burst is over.
+debounce_count of one kind for one connection and one client within debounce_minutes, further
+ones only raise the count of the last entry and are logged once more when the burst is over.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from typing import Any
 
+from .clients import host_of
 from .db import Database
 
 _LOGGER = logging.getLogger("device_proxy")
@@ -47,13 +48,38 @@ SUMMED = {
     "client_refused_blocked",
     "write_blocked",
     "write_blocked_register",
+    "mqtt_connected",
+    "mqtt_lost",
+    "ser2net_start_failed",
+    "proxy_failed",
+    "proxy_restarted",
+    "auto_restart_failed",
 }
 GONE = {"device_missing", "modbus_down", "enocean_down"}  # the device is away (for the history) ...
 BACK = {"device_back", "device", "modbus_back", "enocean_back"}  # ... and there again
+LIFE = {"app_started", "app_stopped"}  # nobody watches in between; a device still away says so
 APP = "App"  # the name of events that belong to no connection
+# values that entries written by an older version do not have
+DEFAULTS: dict[str, dict[str, Any]] = {"app_started": {"version": "–"}}
 
 MESSAGES = {
-    "app_started": "Started with {connections} connections, {active} active",
+    "app_started": "Started version {version} with {connections} connections, {active} active",
+    "app_stopped": "Stopped",
+    "config_restored": "The configuration could not be used, running on the latest saved version",
+    "config_lost": (
+        "The configuration could not be read and no version is saved: started without connections"
+    ),
+    "config_salvaged": "The configuration could not be used, {dropped} part(s) left out",
+    "history_damaged": "The history was damaged and started anew, the old file: {file}",
+    "blocked_unreadable": "The blocked clients could not be read: no client is blocked now",
+    "mqtt_connected": "MQTT connected to {broker}",
+    "mqtt_lost": "MQTT not connected to {broker}: {error}",
+    "mqtt_no_broker": "MQTT is on, but Home Assistant names no broker: the entities are off",
+    "ser2net_start_failed": "ser2net cannot be started: {error}, trying again in {delay} s",
+    "proxy_failed": "Connection stopped by an internal error: {error}, starting again in {delay} s",
+    "proxy_restarted": "Connection started again after an internal error",
+    "auto_restart_failed": "Automatic restart failed: {error}",
+    "capture_full": "Recording ended, the file is full: {file}, {frames} frames",
     "connection_loaded": (
         "{state}: {device} · {format} · {mode} · port {port} · up to {max_clients} clients"
     ),
@@ -156,6 +182,7 @@ class Event:
     count: int = 1
     id: int | None = None
     seq: int = 0  # increases with every emit (also when a summed-up entry is counted on)
+    last_ts: float = 0.0  # when a summed-up entry last repeated
 
     @property
     def message(self) -> str:
@@ -173,6 +200,7 @@ class Event:
             "message": self.message,
             "count": self.count,
             "seq": self.seq,
+            "last_ts": self.last_ts or self.ts,
         }
 
 
@@ -199,7 +227,7 @@ class EventLog:
         self.clock = clock
         self.live: deque[Event] = deque(maxlen=LIVE_SIZE)
         self.listeners: list[Callable[[Event], None]] = []
-        self._bursts: dict[tuple[str | None, str], _Burst] = {}
+        self._bursts: dict[tuple[str | None, str, str], _Burst] = {}
         self.seq = 0
 
     def emit(
@@ -214,7 +242,8 @@ class EventLog:
         now = self.clock()
         self.seq += 1
         event = Event(now, level, connection, name, kind, params, seq=self.seq)
-        burst = self._burst(connection, kind, now) if kind in SUMMED else None
+        client = host_of(str(params.get("address", "")))  # each port is a new one: the host counts
+        burst = self._burst((connection, kind, client), now) if kind in SUMMED else None
         if burst is not None:
             burst.last = event
         if burst is not None and len(burst.times) > self.debounce_count and burst.row:
@@ -232,8 +261,8 @@ class EventLog:
             listener(event)
         return event
 
-    def _burst(self, connection: str | None, kind: str, now: float) -> _Burst:
-        burst = self._bursts.setdefault((connection, kind), _Burst())
+    def _burst(self, key: tuple[str | None, str, str], now: float) -> _Burst:
+        burst = self._bursts.setdefault(key, _Burst())
         while burst.times and now - burst.times[0] > self.window:
             burst.times.popleft()
         if not burst.times:
@@ -244,17 +273,17 @@ class EventLog:
     def flush_bursts(self) -> None:
         """Log bursts that are over with their total; called now and then."""
         now = self.clock()
-        for burst in self._bursts.values():
-            if burst.times and now - burst.times[-1] > self.window and burst.summed > 1:
-                if burst.last is not None:
-                    _LOGGER.info(
-                        "[%s] %s (%s× in a row, summed up)",
-                        burst.last.name,
-                        burst.last.message,
-                        burst.summed,
-                    )
-                burst.summed = 0
-                burst.times.clear()
+        for key, burst in list(self._bursts.items()):
+            if burst.times and now - burst.times[-1] <= self.window:
+                continue
+            if burst.summed > 1 and burst.last is not None:
+                _LOGGER.info(
+                    "[%s] %s (%s× in a row, summed up)",
+                    burst.last.name,
+                    burst.last.message,
+                    burst.summed,
+                )
+            del self._bursts[key]  # a scan of the network must not stay in memory
 
     def _store(self, event: Event) -> int | None:
         if self.db is None:
@@ -296,11 +325,13 @@ class EventLog:
         since: float = 0,
         limit: int = 500,
         kinds: Collection[str] | None = None,
+        contains: str | None = None,
     ) -> list[Event]:
         if self.db is None:
             return []
         sql = (
-            "SELECT id, ts, level, connection, name, kind, params, count FROM events WHERE ts >= ?"
+            "SELECT id, ts, level, connection, name, kind, params, count, last_ts"
+            " FROM events WHERE ts >= ?"
         )
         args: list[object] = [since]
         if connection is not None:
@@ -309,15 +340,21 @@ class EventLog:
         if kinds is not None:
             sql += f" AND kind IN ({', '.join('?' * len(kinds))})"
             args.extend(kinds)
+        if contains:  # in the values, e.g. everything of one client
+            escaped = contains.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            sql += " AND params LIKE ? ESCAPE '\\'"
+            args.append(f"%{escaped}%")
         sql += " ORDER BY ts DESC, id DESC LIMIT ?"
         args.append(limit)
         events = []
-        for row_id, ts, level, conn, name, kind, params, count in self.db.execute(sql, tuple(args)):
+        rows = self.db.execute(sql, tuple(args))
+        for row_id, ts, level, conn, name, kind, params, count, last_ts in rows:
             try:
                 values = json.loads(params)
             except ValueError:
                 values = {}
-            events.append(Event(ts, level, conn, name, kind, values, count, row_id))
+            values = {**DEFAULTS.get(kind, {}), **values}
+            events.append(Event(ts, level, conn, name, kind, values, count, row_id, 0, last_ts))
         return events
 
     def since(self, seq: int) -> list[Event]:
@@ -330,8 +367,14 @@ class EventLog:
         start = now - days * 86400
         result: dict[str, dict[str, Any]] = {}
         missing_since: dict[str, float] = {}
-        for e in reversed(self.history(since=start - 86400 * 365, limit=100000, kinds=GONE | BACK)):
-            if e.connection is None or e.kind not in GONE | BACK:
+        kinds = GONE | BACK | LIFE
+        for e in reversed(self.history(since=start - 86400 * 365, limit=100000, kinds=kinds)):
+            if e.kind in LIFE:  # a proxy reports no return after a restart, only a new loss
+                for connection, began in missing_since.items():
+                    result[connection]["missing_seconds"] += max(0.0, e.ts - max(began, start))
+                missing_since.clear()
+                continue
+            if e.connection is None:
                 continue
             entry = result.setdefault(
                 e.connection, {"drops": 0, "missing_seconds": 0.0, "per_day": [0] * days}

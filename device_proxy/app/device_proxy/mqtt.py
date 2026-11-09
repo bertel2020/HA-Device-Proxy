@@ -138,11 +138,14 @@ class MqttClient:
         on_connect: Callable[[], Awaitable[None]],
         *,
         will: tuple[str, bytes] | None = None,
+        on_state: Callable[[bool, str], None] | None = None,
     ) -> None:
         self.client_id = client_id
         self.on_message = on_message
         self.on_connect = on_connect
         self.will = will
+        self.on_state = on_state  # (connected, why not): only when that changes
+        self._up: bool | None = None
         self.connected = asyncio.Event()
         self.error = ""
         self._writer: asyncio.StreamWriter | None = None
@@ -163,11 +166,19 @@ class MqttClient:
             finally:
                 self.connected.clear()
                 self._writer = None
+            if self.error and not stop.is_set():
+                self._report(False)
             try:
                 await asyncio.wait_for(stop.wait(), delay)
             except TimeoutError:
                 pass
             delay = min(delay * 2, 60)
+
+    def _report(self, up: bool) -> None:
+        if up is not self._up:
+            self._up = up
+            if self.on_state is not None:
+                self.on_state(up, self.error)
 
     async def _session(self, broker: Broker, stop: asyncio.Event) -> None:
         context = ssl.create_default_context() if broker.ssl else None
@@ -186,6 +197,7 @@ class MqttClient:
         self.error = ""
         self.connected.set()
         _LOGGER.info("MQTT connected to %s:%s", broker.host, broker.port)
+        self._report(True)
         await self.on_connect()
         pinger = asyncio.create_task(self._ping(stop))
         try:

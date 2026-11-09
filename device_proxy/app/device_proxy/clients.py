@@ -121,6 +121,7 @@ class KnownClients:
         # written all the time, cannot take it along in a power cut
         self.blocked_path = path.with_name("blocked_clients.json")
         self.clock = clock
+        self.problems: list[tuple[str, dict[str, Any]]] = []  # for the events
         self.known: dict[str, float] = {}  # host → first seen
         self.new: dict[str, dict[str, object]] = {}  # host → first seen, connection, address
         self.blocked: dict[str, float] = self._read_blocked()  # host → since when
@@ -146,6 +147,7 @@ class KnownClients:
             return {}
         except (OSError, ValueError, AttributeError, TypeError) as err:
             _LOGGER.error("The blocked clients could not be read, none is blocked now: %s", err)
+            self.problems.append(("blocked_unreadable", {}))
             try:
                 self.blocked_path.replace(
                     self.blocked_path.with_suffix(f".invalid-{int(self.clock())}")

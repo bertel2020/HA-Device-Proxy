@@ -25,6 +25,7 @@ class Ser2Net:
         self.binary = binary
         self.on_exit = on_exit  # (exit code, seconds until the next start)
         self.restarts = 0
+        self.start_error = ""  # why the last start failed, "" when it started
         self._proc: asyncio.subprocess.Process | None = None
 
     @property
@@ -55,6 +56,7 @@ class Ser2Net:
 
     async def _run_once(self, stop: asyncio.Event) -> int | None:
         # -d: stay in the foreground and write the log to stdout instead of syslog
+        self.start_error = ""
         try:
             self._proc = await asyncio.create_subprocess_exec(
                 self.binary,
@@ -66,6 +68,7 @@ class Ser2Net:
             )
         except OSError as err:
             _LOGGER.error("ser2net cannot be started: %s", err)
+            self.start_error = str(err)
             return None
         _LOGGER.info("ser2net started (pid %s)", self._proc.pid)
         logs = asyncio.create_task(self._forward_log())

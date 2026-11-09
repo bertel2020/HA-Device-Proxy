@@ -11,6 +11,14 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Ereignisse: `_bursts` nach (Verbindung, Art, Host), `flush_bursts` räumt abgelaufene Einträge weg.
+  Eine Sammelzeile bleibt wie geschrieben, `last_ts` kommt aus der Datenbank und im Panel aus den
+  Wiederholungen (`app.js`). `stats` schließt offene Ausfälle bei `app_started`/`app_stopped`, weil ein
+  Proxy nach dem Neustart bei `reachable is None` kein `*_back` meldet. `Store`, `Database` und
+  `KnownClients` sammeln in `problems`, was vor oder unter dem EventLog passiert, `_report_problems`
+  leert das. `DEFAULTS` ergänzt `version` für alte `app_started`-Zeilen. `history(contains=)` sucht in
+  `params` für den Link von der Client-Karte (`api/history?contains=`). Keine Stufe `debug` mehr im
+  Panel, es gab nie ein solches Ereignis. `MqttClient.on_state`, `Process.start_error`, `Captures.on_full`.
 - Clients: neue Tabelle `client_sessions` und `sessions.py` (`ClientSessions`), weil die `SUMMED`-Events
   pro Verbindung ohne Adresse hochzählen. Eine Zeile je Host und Verbindung; kurze Besuche (< 120 s,
   Pause <= 60 s) laufen in einer Zeile mit `count` weiter, bleibt der Client, trennt `_settled` die Serie

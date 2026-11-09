@@ -168,7 +168,9 @@ export class DeviceProxyApp extends LitElement {
         const list = [...this.events];
         for (const e of events) {
           const key = e.id ?? `s${e.seq}`;
-          if (byId.has(key)) list[byId.get(key)] = e; else { byId.set(key, list.length); list.push(e); }
+          // a repeat only counts on: the row stays as it was written, as in the history
+          if (byId.has(key)) { const old = list[byId.get(key)]; list[byId.get(key)] = { ...old, count: Math.max(old.count, e.count), last_ts: Math.max(old.last_ts, e.ts), seq: e.seq }; }
+          else { byId.set(key, list.length); list.push(e); }
         }
         this.events = list.slice(-EVENTS_KEPT);
       }

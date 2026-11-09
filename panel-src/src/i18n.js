@@ -115,7 +115,8 @@ export function clientName(address = "") {
 }
 
 function rawEventText(event) {
-  return named(templatedText(event), event.params?.address);
+  const p = event.params || {};
+  return [p.address, p.host, p.only, p.peer].reduce((text, who) => named(text, who), templatedText(event));
 }
 
 function templatedText(event) {
@@ -128,6 +129,8 @@ function templatedText(event) {
   if (event.kind.startsWith("enocean_fall") && params.reason) params.reason = t(`fbReason_${params.reason}`);
   if (event.kind === "enocean_fallback_promoted") params.action = t(`fbAction_${params.action}`);
   if (event.kind === "clients_disconnected" || event.kind === "connection_restarted") params.by = t(`by_${params.by}`);
+  if (event.kind === "connection_restarted" && params.usb) params.by = `${params.by}, ${t("byUsb")}`;
+  if (event.kind === "auto_restart_failed") params.error = fieldError(params.error);
   if (event.kind === "exclusive_off") params.reason = t(`exReason_${params.reason}`);
   if (Array.isArray(params.errors)) params.errors = params.errors.map((n) => (n?.code ? noteText(n) : String(n))).join("; ");
   if (params.error?.code) params.error = noteText(params.error);
@@ -135,6 +138,7 @@ function templatedText(event) {
 }
 
 function named(text, address) {
+  if (typeof address !== "string") return text; // a tool's write has a register number here
   const name = clientName(address);
   return name && address ? text.replace(address, `${address} (${name})`) : text;
 }
