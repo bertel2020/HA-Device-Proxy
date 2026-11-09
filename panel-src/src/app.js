@@ -195,7 +195,7 @@ export class DeviceProxyApp extends LitElement {
       case "edit": return html`<dp-edit .state=${s} .connectionId=${id}></dp-edit>`;
       case "events": return html`<dp-events .state=${s} .events=${ev} .preset=${id} .search=${this.route.search}></dp-events>`;
       case "trace": return html`<dp-trace .state=${s} .selected=${id}></dp-trace>`;
-      case "settings": return html`<dp-settings .state=${s}></dp-settings>`;
+      case "settings": return html`<dp-settings .state=${s} .section=${id}></dp-settings>`;
       default: return html`<dp-connections .state=${s}></dp-connections>`;
     }
   }

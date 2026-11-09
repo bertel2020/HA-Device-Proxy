@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **MQTT, Hinweis**: Findet die App keinen Broker, etwa bei EMQX, oder verliert sie ihn, sagt die
+  Seite Verbindungen das jetzt und führt direkt zur Einstellung. Ohne Broker lässt sich der Hinweis
+  ausblenden.
 - **Modbus, Clients nebeneinander**: Die Client-Tabelle zeigt jetzt Anteil an der Gerätezeit,
   Antwortzeit und Wartezeit je Client. Ein Satz darunter sagt, ob sich die Clients ausbremsen.
 - **Clients, Verlauf**: Tippst du auf einen Rechner, siehst du jetzt, wann er an welcher Verbindung
@@ -36,6 +39,8 @@
 
 ### English
 
+- **MQTT, note**: If the app finds no broker, as with EMQX, or loses it, the Connections page now
+  says so and leads straight to the setting. Without a broker the note can be hidden.
 - **Modbus, clients side by side**: The table of clients now shows each client's share of the
   device's time, answer time and waiting time. A sentence below says whether they slow each other
   down.

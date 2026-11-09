@@ -633,7 +633,9 @@ erreichbar“ bleibt die eigene Hardware des Gateways.
 
 Die Buttons sind für Automationen gedacht, z. B. um einen hängenden Stick neu zu starten. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
 
-Dazu ein Gerät **Device Proxy** mit „ser2net läuft“. Ohne Broker ändert sich nichts. Präfix
+Dazu ein Gerät **Device Proxy** mit „ser2net läuft“. Ohne Broker ändert sich nichts, die Seite Verbindungen weist nur darauf hin, und der Hinweis lässt
+sich ausblenden. Ein eigener Broker wie EMQX wird nicht von selbst gefunden und muss eingetragen
+werden. Präfix
 (`homeassistant`), Basis-Topic (`device_proxy`) und das Aktualisierungsintervall stehen unter
 **Einstellungen → MQTT-Entitäten**; die Namen der Entitäten folgen der Sprache der
 Benachrichtigungen.

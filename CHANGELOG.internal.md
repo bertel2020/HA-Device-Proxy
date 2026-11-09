@@ -11,6 +11,9 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- MQTT: `mqttNote` in `ui.js`, ausgeblendet per `localStorage` (nur ohne Broker, je Browser).
+  `#/settings/mqtt` scrollt zur Karte und öffnet ohne gefundenen Broker „Eigener Broker“.
+  `mqtt_no_broker` ist Info, weil MQTT ab Werk an ist und viele keinen Broker haben.
 - Modbus: `ClientInfo` zählt `cached`, `busy`, `time_avg`, `wait_avg`; `_Job.queued_at` misst die
   Wartezeit inklusive Pause zwischen Anfragen. `busy` zählt auch Timeouts, weil das Gerät dann ebenfalls
   belegt ist. Panel: `_share`, `_sharing` in `detail.js`; „ausgelastet“ heißt Wartezeit über

@@ -75,7 +75,7 @@ class HaBridge:
             self.broker = await asyncio.to_thread(supervisor_broker)
         if self.broker is None:
             _LOGGER.info("MQTT: no broker in Home Assistant, entities are off")
-            self.c.events.emit("warning", "mqtt_no_broker")
+            self.c.events.emit("info", "mqtt_no_broker")  # MQTT is on by default
             return
         publisher = asyncio.create_task(self._publish_loop(stop))
         try:
