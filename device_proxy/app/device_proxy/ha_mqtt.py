@@ -146,8 +146,8 @@ class HaBridge:
         for c in self.c.active + self.c.config.proxied:
             state = f"{base}/{c.id}/state"
             kind = PROXIED.get(c.kind)
-            model = kind.model if kind else "Serial connection"
-            device = self._device(c.id, c.name, model)
+            # Home Assistant's list of devices shows name and model: the model says whose it is
+            device = self._device(c.id, c.name, f"Device Proxy · {names[f'kind_{c.kind}']}")
 
             def entity(
                 key: str,

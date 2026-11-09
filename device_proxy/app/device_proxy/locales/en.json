@@ -1555,6 +1555,9 @@
     "resolved": "OK again"
   },
   "entities": {
+    "kind_serial": "Serial",
+    "kind_modbus": "Modbus",
+    "kind_enocean": "EnOcean",
     "present": "Device connected",
     "clients": "Clients",
     "rate": "Data rate",

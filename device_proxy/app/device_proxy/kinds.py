@@ -57,7 +57,6 @@ class AppProxy(Protocol):
 
 @dataclass(frozen=True)
 class Kind:
-    model: str  # the Home Assistant device's model
     icon: str  # of the switch entity
     build: Callable[[Connection, str, EventSink, TraceSink], AppProxy]
     restart_key: Callable[[Connection, str], Connection]
@@ -70,7 +69,6 @@ class Kind:
 # model.KINDS lists "serial" and these
 PROXIED: dict[str, Kind] = {
     "modbus": Kind(
-        model="Modbus proxy",
         icon="mdi:lan",
         build=lambda c, *args: (
             listen.ListenProxy if c.link == "rtu_listen" else modbus.ModbusProxy
@@ -82,7 +80,6 @@ PROXIED: dict[str, Kind] = {
         mqtt_state=modbus.mqtt_state,
     ),
     "enocean": Kind(
-        model="EnOcean gateway",
         icon="mdi:radio-tower",
         build=enocean.EnOceanProxy,
         restart_key=enocean.restart_key,
