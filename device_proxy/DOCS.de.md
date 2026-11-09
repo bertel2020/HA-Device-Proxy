@@ -520,7 +520,9 @@ anderen Client **Gerät offen halten** einschalten.
 
 **Ereignisse** zeigt das Live-Protokoll (Filter nach Verbindung, Stufe und Text) und die
 Historie: Abbrüche und Verfügbarkeit je Verbindung über 30 Tage und eine Zeitleiste. Sich
-wiederholende Ereignisse, etwa ein Stick, der immer wieder wegfällt, werden zusammengefasst. Die
+wiederholende Ereignisse, etwa ein Stick, der immer wieder wegfällt, werden zusammengefasst. Bei
+Modbus und EnOcean erscheinen auch abgewiesene Clients: Plätze belegt, Netz nicht erlaubt, Wartung
+oder blockiert. Bei seriellen Verbindungen entscheidet ser2net selbst und meldet das der App nicht. Die
 Historie wird standardmäßig 30 Tage aufbewahrt. **Einstellungen → Konfig-Historie** hält die
 letzten 25 Konfigurationen mit ihren Unterschieden; jede lässt sich wiederherstellen. Namen von
 Clients und die Benachrichtigung über neue Rechner legen keinen Stand an und bleiben beim

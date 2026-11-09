@@ -521,16 +521,17 @@ class EnOceanProxy:
         peer = writer.get_extra_info("peername") or ("?", 0)
         host = str(peer[0])
         address = f"[{host}]:{peer[1]}" if ":" in host else f"{host}:{peer[1]}"
-        if self.refuse(host, self.c.name):  # counted and logged there
+        if self.refuse(host, self.c.name):  # counted there
+            self.on_event("info", "client_refused_blocked", address=address)
             writer.close()
             return
         if not peer_allowed(self.c.remaddr, self.listen, peer, writer.get_extra_info("sockname")):
             self.stats.refused += 1
-            _LOGGER.info("%s: client %s refused (not an allowed network)", self.c.name, address)
+            self.on_event("warning", "client_refused_network", address=address)
             writer.close()
             return
         if self.only and host != self.only:
-            _LOGGER.info("%s: client %s refused (only %s for now)", self.c.name, address, self.only)
+            self.on_event("info", "client_refused_exclusive", address=address, only=self.only)
             writer.close()
             return
         if len(self.clients) >= self.c.max_clients:

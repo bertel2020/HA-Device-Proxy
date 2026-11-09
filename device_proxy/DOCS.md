@@ -491,7 +491,9 @@ while a client is connected, so with no other client switch on **Keep the device
 
 **Events** shows the live log (filter by connection, level and text) and the history:
 drops and availability per connection over 30 days and a timeline. Repeating events, such as
-a stick that keeps dropping out, are summed up. The history is kept 30 days by default.
+a stick that keeps dropping out, are summed up. With Modbus and EnOcean, refused clients appear
+too: all places taken, network not allowed, maintenance or blocked. With serial connections
+ser2net decides by itself and does not tell the app. The history is kept 30 days by default.
 **Settings → Configuration history** keeps the last 25 configurations with their
 differences; each one can be restored. Client names and the notification about new computers
 make no version and stay as they are when a version is restored.

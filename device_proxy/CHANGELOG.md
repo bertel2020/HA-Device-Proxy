@@ -5,12 +5,21 @@
 - **Sprachen**: Jede Sprache ist jetzt eine eigene Datei, mit Weboberfläche, Meldungen und
   Entitätsnamen. Eine neue Sprache braucht nur noch eine Datei; was darin fehlt, erscheint auf
   Englisch. Die Texte selbst sind unverändert.
+- **Ereignisse**: Abgewiesene Clients erscheinen bei Modbus und EnOcean jetzt auch, wenn ihr Netz
+  nicht erlaubt ist, gerade Wartung läuft oder sie blockiert sind. Wiederholungen werden
+  zusammengefasst.
+- **Mitschnitt**: Die Verbindung wählst du jetzt in einer Liste wie unter Ereignisse, so bleibt
+  auch bei vielen Verbindungen jede erreichbar. Laufende Aufzeichnungen sind darin markiert.
 
 ### English
 
 - **Languages**: Each language is now a file of its own, with the web interface, notifications and
   entity names. A new language needs just one file; whatever it leaves out appears in English. The
   texts themselves have not changed.
+- **Events**: With Modbus and EnOcean, refused clients now also appear when their network is not
+  allowed, maintenance is on or they are blocked. Repeats are summed up.
+- **Trace**: The connection is now chosen from a list as under Events, so every connection stays
+  within reach however many there are. Running recordings are marked in it.
 
 ## 1.5.1 - 2026-11-08
 

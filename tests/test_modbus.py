@@ -1,6 +1,7 @@
 import asyncio
 import socket
 import struct
+from dataclasses import replace
 
 import pytest
 
@@ -472,7 +473,8 @@ async def test_maintenance_lets_one_host_in_only() -> None:
         max_clients=10,
         bind="127.0.0.1",
     )
-    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
     task = asyncio.create_task(proxy.run())
     for _ in range(50):
         if proxy._server is not None:
@@ -487,9 +489,20 @@ async def test_maintenance_lets_one_host_in_only() -> None:
     assert await reader.read() == b""
     with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
         await _read(port, 1, 1, 0)
+    assert events[-1] == "client_refused_exclusive"
     proxy.only = None
     assert (await _read(port, 2, 1, 1))[:2] == bytes([3, 4])
     writer.close()
+
+    proxy.refuse = lambda host, _name: host == "127.0.0.1"
+    with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
+        await _read(port, 1, 1, 0)
+    assert events[-1] == "client_refused_blocked"
+    proxy.refuse = lambda _host, _name: False
+    proxy.c = replace(proxy.c, remaddr="192.0.2.0/24")
+    with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
+        await _read(port, 1, 1, 0)
+    assert events[-1] == "client_refused_network"
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
@@ -822,8 +835,6 @@ async def test_a_client_waiting_for_the_same_read_stops_with_the_proxy() -> None
 
 
 def test_registers_per_client() -> None:
-    from dataclasses import replace
-
     from device_proxy.modbus import (
         EXC_ADDRESS,
         EXC_FUNCTION,
@@ -865,8 +876,6 @@ def test_registers_per_client() -> None:
 
 
 async def test_the_proxy_keeps_to_the_registers_of_each_client() -> None:
-    from dataclasses import replace
-
     from device_proxy.modbus import EXC_ADDRESS, write_pdu
 
     c = Connection(
@@ -905,8 +914,6 @@ async def test_the_proxy_keeps_to_the_registers_of_each_client() -> None:
 
 
 def test_write_rules_are_checked_and_need_no_restart() -> None:
-    from dataclasses import replace
-
     from device_proxy.model import ValidationError, parse_write_rules
 
     assert parse_write_rules("10.0.0.1 1-5 9\n\n10.0.0.0/8 *\n::1 none") == [
