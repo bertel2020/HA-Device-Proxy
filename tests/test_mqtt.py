@@ -2,6 +2,8 @@ import asyncio
 import struct
 from pathlib import Path
 
+import pytest
+
 from device_proxy import ha_mqtt
 from device_proxy.admin import AdminError
 from device_proxy.controller import Controller
@@ -301,3 +303,21 @@ def test_the_device_list_shows_whose_device_it_is(tmp_path: Path) -> None:
     assert device["model"].startswith("Device Proxy · ")
     assert device["identifiers"] == ["device_proxy_0000000a"]  # the same device as before
     assert device["model"].split(" · ")[1] in ("Serial", "Seriell")
+
+
+def test_every_device_links_to_the_app(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+    controller.panel_url = "homeassistant://hassio/ingress/abc_device_proxy"
+    configs = ha_mqtt.HaBridge(controller).configs()
+    assert all(
+        config["device"]["configuration_url"] == controller.panel_url for config in configs.values()
+    )
+
+
+def test_without_the_supervisor_there_is_no_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    assert ha_mqtt.panel_url() == ""
+    configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
+    assert not any("configuration_url" in config["device"] for config in configs.values())

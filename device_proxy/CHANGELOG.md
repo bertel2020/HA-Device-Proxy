@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Home Assistant, Geräteseite**: Jedes Gerät der App hat jetzt einen Link direkt in die Device-Proxy-Oberfläche.
 - **Home Assistant, Geräte**: Die Geräteliste zeigt jetzt „Device Proxy · Seriell“, „· Modbus“ oder
   „· EnOcean“, so sind die Geräte auf den ersten Blick zuzuordnen. Geräte und Entitäten bleiben dieselben.
 - **MQTT, Hinweis**: Findet die App keinen Broker, etwa bei EMQX, oder verliert sie ihn, sagt die
@@ -41,6 +42,7 @@
 
 ### English
 
+- **Home Assistant, device page**: Every device of the app now has a link straight into the Device Proxy interface.
 - **Home Assistant, devices**: The list of devices now shows "Device Proxy · Serial", "· Modbus" or
   "· EnOcean", so the devices can be placed at a glance. Devices and entities stay the same.
 - **MQTT, note**: If the app finds no broker, as with EMQX, or loses it, the Connections page now
