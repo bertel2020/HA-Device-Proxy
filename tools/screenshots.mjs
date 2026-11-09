@@ -52,7 +52,7 @@ const PATCH = `(() => { const orig = window.fetch.bind(window); window.fetch = a
 
 const state = await (await fetch(BASE + "api/state")).json();
 const by = (name) => state.connections.find((c) => c.name === name).id;
-const IDS = { ehz: by("eHZ Stromzähler"), zwave: by("Z-Wave-Gateway"), modbus: by("SolarEdge Wechselrichter"), eo: by("FAM-USB") };
+const IDS = { ehz: by("eHZ SML"), zwave: by("Z-Wave-Gateway"), modbus: by("SolarEdge SE10K"), eo: by("FAM-USB") };
 
 await send("Page.enable");
 await send("Page.addScriptToEvaluateOnNewDocument", { source: PATCH });
