@@ -16,7 +16,7 @@
 - **Mitschnitt**: Die Verbindung wählst du jetzt in einer Liste wie unter Ereignisse, so bleibt
   auch bei vielen Verbindungen jede erreichbar. Laufende Aufzeichnungen sind darin markiert.
 - **Mitschnitt, Dateien**: Jede Datei trägt das Startdatum ihrer Aufzeichnung im Namen und behält
-  ihn, zum Beispiel `pumpe-20261109-104012.log`. Das Einschalten beginnt eine neue Datei. Wird die
+  ihn, zum Beispiel `ehz_sml-20261109-104012.log`. Das Einschalten beginnt eine neue Datei. Wird die
   Zahl der behaltenen Dateien gesenkt, verschwinden die überzähligen jetzt auch. Vorhandene Dateien
   bleiben unter ihrem Namen, bis sie herausrotieren.
 - **Mitschnitt, Tabelle**: Kompakte Zeilen, neueste oben, Herunterladen und Löschen als gleich große
@@ -37,7 +37,7 @@
 - **Trace**: The connection is now chosen from a list as under Events, so every connection stays
   within reach however many there are. Running recordings are marked in it.
 - **Trace, files**: Every file carries the start date of its recording in its name and keeps it,
-  for example `pump-20261109-104012.log`. Switching recording on begins a new file. Lowering the
+  for example `ehz_sml-20261109-104012.log`. Switching recording on begins a new file. Lowering the
   number of files kept now also removes the surplus ones. Existing files keep their names until
   they rotate out.
 - **Trace, table**: Compact rows, newest first, download and delete as icons of the same size, and
