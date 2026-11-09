@@ -317,7 +317,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
             ),
             connections=(
                 Connection(
-                    "eHZ Stromzähler",
+                    "eHZ SML",
                     "/dev/null",
                     3335 + offset,
                     template="ehz_sml",
@@ -342,7 +342,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     id="0000b001",
                 ),
                 Connection(
-                    "SolarEdge Wechselrichter",
+                    "SolarEdge SE10K",
                     "",
                     15020 + offset,
                     kind="modbus",
@@ -371,7 +371,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     fallback="0000fa02",
                 ),
                 Connection(
-                    "FAM-USB Ersatz",
+                    "FAM-USB 2",
                     "",
                     19102 + offset,
                     id="0000fa02",
@@ -401,7 +401,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     bind="127.0.0.1",
                 ),
                 Connection(
-                    "Wärmepumpe",
+                    "NIBE S1155",
                     "",
                     15021 + offset,
                     kind="modbus",
@@ -445,7 +445,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     "new": {
                         "192.168.1.77": {
                             "first": time.time() - 3600,
-                            "connection": "SolarEdge Wechselrichter",
+                            "connection": "SolarEdge SE10K",
                             "address": "192.168.1.77:51234",
                         }
                     },
