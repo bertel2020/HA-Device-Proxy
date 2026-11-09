@@ -363,3 +363,10 @@ async def test_events_reach_their_entity_once(tmp_path: Path) -> None:
     payload = sent[0][1]
     assert isinstance(payload, dict)
     assert (payload["event_type"], payload["device"]) == ("device_missing", "/dev/x")
+
+
+def test_every_entity_gets_the_prefix(tmp_path: Path) -> None:
+    configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
+    for topic, config in configs.items():
+        domain = topic.split("/")[1]
+        assert config["default_entity_id"].startswith(f"{domain}.device_proxy_")

@@ -17,7 +17,9 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
+import unicodedata
 import urllib.request
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
@@ -35,6 +37,19 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 NAMES = i18n.section("entities")
+
+
+def _slug(text: str) -> str:
+    """As Home Assistant makes an entity ID from a name."""
+    plain = unicodedata.normalize("NFKD", text.replace("ß", "ss")).encode("ascii", "ignore")
+    return re.sub(r"[^a-z0-9]+", "_", plain.decode().lower()).strip("_")
+
+
+def default_entity_id(domain: str, config: dict[str, Any]) -> str:
+    """The ID of a new entity: device_proxy_, the connection's name, the entity's name."""
+    device = _slug(config["device"]["name"]).removeprefix("device_proxy").strip("_")
+    name = "_".join(part for part in (device, _slug(config["name"])) if part)
+    return f"{domain}.device_proxy_{name}"
 
 
 def panel_url() -> str:
@@ -330,6 +345,8 @@ class HaBridge:
                 icon="mdi:alert-circle-outline",
                 entity_category="diagnostic",
             )
+        for topic, config in result.items():
+            config["default_entity_id"] = default_entity_id(topic.split("/")[-4], config)
         return result
 
     def send_event(self, event: Event) -> None:
