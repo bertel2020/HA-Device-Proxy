@@ -187,6 +187,7 @@ def test_entities_in_home_assistant() -> None:
         config = AppConfig(connections=(c,))
         active: tuple[Connection, ...] = ()
         ser2net_version = ""
+        panel_url = ""
 
     bridge = HaBridge(Controller())  # type: ignore[arg-type]
     configs = bridge.configs()

@@ -16,7 +16,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
+import urllib.request
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -32,6 +34,23 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 NAMES = i18n.section("entities")
+
+
+def panel_url() -> str:
+    """The link to the app's page inside Home Assistant, "" when not running as an app."""
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if not token:
+        return ""
+    request = urllib.request.Request(
+        "http://supervisor/addons/self/info", headers={"Authorization": f"Bearer {token}"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            slug = (json.load(response).get("data") or {}).get("slug")
+    except (OSError, ValueError) as err:
+        _LOGGER.info("The app's own slug not read: %s", err)
+        return ""
+    return f"homeassistant://hassio/ingress/{slug}" if slug else ""
 
 
 class HaBridge:
@@ -63,6 +82,7 @@ class HaBridge:
         if not self.c.config.settings.mqtt_enabled:
             return
         settings = self.c.config.settings
+        self.c.panel_url = self.c.panel_url or await asyncio.to_thread(panel_url)
         if settings.mqtt_host:
             self.broker = Broker(
                 settings.mqtt_host,
@@ -112,6 +132,10 @@ class HaBridge:
                 except Exception:  # a bug must not stop the states for good
                     _LOGGER.exception("MQTT: publishing the states failed")
 
+    def _links(self) -> dict[str, str]:
+        """What every device of the app shows on its page in Home Assistant."""
+        return {"configuration_url": self.c.panel_url} if self.c.panel_url else {}
+
     def _device(self, connection_id: str, name: str, model: str) -> dict[str, Any]:
         return {
             "identifiers": [f"device_proxy_{connection_id}"],
@@ -119,6 +143,7 @@ class HaBridge:
             "manufacturer": "Device Proxy app",
             "model": model,
             "via_device": "device_proxy",
+            **self._links(),
         }
 
     def configs(self) -> dict[str, dict[str, Any]]:
@@ -140,6 +165,7 @@ class HaBridge:
                     "name": "Device Proxy",
                     "manufacturer": "Device Proxy app",
                     **({"sw_version": self.c.ser2net_version} if self.c.ser2net_version else {}),
+                    **self._links(),
                 },
             }
         }
