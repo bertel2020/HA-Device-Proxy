@@ -11,6 +11,14 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Übersetzungen: `device_proxy/app/device_proxy/locales/<code>.json` je Sprache statt der Tabellen in
+  `i18n.js`, `controller.py`, `ha_mqtt.py` und `notify.py`. Das Panel bekommt seine Abschnitte beim
+  Build (`__LOCALES__`, Fehlendes auf Englisch), die App liest sie über `i18n.py`. Sprachauswahl,
+  Browser-Erkennung und `notify_language` richten sich nach den vorhandenen Dateien. `build.mjs` und
+  `tests/test_locales.py` prüfen Schlüssel und Platzhalter; `de` und `en` müssen vollständig sein.
+- Fehlermeldungen: Die deutschen Muster stehen als `errors` in `de.json`, kompiliert beim ersten
+  Gebrauch. Die Meldung zu `notify_language` lautet jetzt „one of de, en“.
+
 ## 1.5.1 - 2026-11-08
 
 - Panel: Die Kachel in `connections.js` zeigt nur noch `clientName`, `clientLabel` mit Stift bleibt

@@ -34,7 +34,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, esp, health, model, testcase
+from . import custom, esp, health, i18n, model, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, host_of, is_local, local_kind, parse_names, plain_host
@@ -118,149 +118,8 @@ POWER_RETRY = 2  # seconds between those attempts
 POWER_BACK = 30  # seconds a device may take to come back after the power was off
 NOTIFY_EACH_CLIENT = 5  # more new clients than this: one notification for all of them
 DUTY_NOTE = 80  # % of the EnOcean duty cycle limit: notification
-NOTES = {
-    "de": {
-        "missing": (
-            "Device Proxy: {name} – Gerät fehlt",
-            "{device} ist nicht angeschlossen (seit {since}).",
-        ),
-        "no_client": (
-            "Device Proxy: {name} – kein Client",
-            "Seit {since} ist kein Client verbunden.",
-        ),
-        "new_clients": (
-            "Device Proxy: {count} neue Clients",
-            "{count} Rechner haben sich zum ersten Mal verbunden. Unter Einstellungen → Clients "
-            "als bekannt markieren, benennen oder blockieren.",
-        ),
-        "new_client": (
-            "Device Proxy: neuer Client {host}",
-            "{address} hat sich am {since} mit {name} verbunden, zum ersten Mal. Bekannt? Dann "
-            "unter Einstellungen → Clients als bekannt markieren oder ihm einen Namen geben.",
-        ),
-        "silence": (
-            "Device Proxy: {name} – keine Daten",
-            "Seit {since} kommen keine Daten vom Gerät.",
-        ),
-        "stuck": (
-            "Device Proxy: {name} – Client liest nicht",
-            "{address} liest nicht mehr; alle Clients dieser Verbindung werden gebremst.",
-        ),
-        "line_errors": (
-            "Device Proxy: {name} – Leitungsfehler",
-            "Die Leitungsfehler steigen ({count} seit Start) – Baudrate oder Format prüfen.",
-        ),
-        "ser2net": (
-            "Device Proxy: ser2net startet immer wieder neu",
-            "ser2net ist in den letzten 10 Minuten {count}× beendet worden. Siehe Log der App.",
-        ),
-        "unreachable": (
-            "Device Proxy: {name} – Gerät nicht erreichbar",
-            "{target} antwortet nicht (seit {since}): {error}.",
-        ),
-        "listen": (
-            "Device Proxy: {name} – Port belegt",
-            "Port {port} kann nicht geöffnet werden: {error}.",
-        ),
-        "duty": (
-            "Device Proxy: {name} – Funkzeit fast aufgebraucht",
-            "In der letzten Stunde sind {share} % der erlaubten Funkzeit (1 %) verbraucht. "
-            "Darüber verzögert oder verwirft das Gateway Telegramme.",
-        ),
-        "fallback": (
-            "Device Proxy: {name} – läuft über Ersatz",
-            "Seit {since} übernimmt {fallback} ({reason}). Die Programme merken nichts.",
-        ),
-        "fallback_unready": (
-            "Device Proxy: {name} – Ersatz nicht einsatzbereit",
-            "{fallback} könnte bei einem Ausfall nicht übernehmen: {reason}.",
-        ),
-        "custom": (
-            "Device Proxy: eigene ser2net.yaml unbrauchbar",
-            "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. "
-            "Siehe Einstellungen der App.",
-        ),
-    },
-    "en": {
-        "missing": (
-            "Device Proxy: {name} – device missing",
-            "{device} is not plugged in (since {since}).",
-        ),
-        "no_client": ("Device Proxy: {name} – no client", "No client connected since {since}."),
-        "new_clients": (
-            "Device Proxy: {count} new clients",
-            "{count} computers connected for the first time. Mark them as known, name or block "
-            "them under Settings → Clients.",
-        ),
-        "new_client": (
-            "Device Proxy: new client {host}",
-            "{address} connected to {name} on {since}, for the first time. Known? Then mark it as "
-            "known under Settings → Clients or give it a name.",
-        ),
-        "silence": ("Device Proxy: {name} – no data", "No data from the device since {since}."),
-        "stuck": (
-            "Device Proxy: {name} – client does not read",
-            "{address} stopped reading; all clients of this connection are slowed down.",
-        ),
-        "line_errors": (
-            "Device Proxy: {name} – line errors",
-            "Line errors are rising ({count} since start) – check baud rate and format.",
-        ),
-        "ser2net": (
-            "Device Proxy: ser2net keeps restarting",
-            "ser2net ended {count}× in the last 10 minutes. See the app log.",
-        ),
-        "unreachable": (
-            "Device Proxy: {name} – device not reachable",
-            "{target} does not answer (since {since}): {error}.",
-        ),
-        "listen": (
-            "Device Proxy: {name} – port in use",
-            "Port {port} cannot be opened: {error}.",
-        ),
-        "duty": (
-            "Device Proxy: {name} – air time nearly used up",
-            "{share} % of the allowed air time (1 %) was used in the last hour. Beyond it the "
-            "gateway delays or drops telegrams.",
-        ),
-        "fallback": (
-            "Device Proxy: {name} – running on the fallback",
-            "{fallback} stands in since {since} ({reason}). The programs notice nothing.",
-        ),
-        "fallback_unready": (
-            "Device Proxy: {name} – fallback not ready",
-            "{fallback} could not stand in if the gateway failed: {reason}.",
-        ),
-        "custom": (
-            "Device Proxy: own ser2net.yaml unusable",
-            "Your own ser2net.yaml is not used, nothing is shared. See the app's settings.",
-        ),
-    },
-}
-REASONS = {  # why a gateway went on through its fallback, or why the fallback is not ready
-    "de": {
-        "disconnected": "Gateway nicht verbunden",
-        "no_answer": "Gateway antwortet nicht",
-        "by_hand": "von Hand umgeschaltet",
-        "off": "Ersatz ist ausgeschaltet",
-        "not_connected": "Ersatz nicht verbunden",
-        "base_id_unknown": "Base-ID des Ersatzes noch unbekannt",
-        "own_base_id_unknown": "eigene Base-ID noch unbekannt",
-        "base_id_differs": "Base-ID passt nicht",
-        "silent": "Ersatz antwortet nicht",
-    },
-    "en": {
-        "disconnected": "gateway not connected",
-        "no_answer": "gateway does not answer",
-        "by_hand": "switched by hand",
-        "off": "the fallback is switched off",
-        "not_connected": "fallback not connected",
-        "base_id_unknown": "the fallback's base ID is not known yet",
-        "own_base_id_unknown": "the own base ID is not known yet",
-        "base_id_differs": "the base ID differs",
-        "silent": "the fallback does not answer",
-    },
-}
+NOTES = i18n.section("notifications")
+REASONS = i18n.section("reasons")  # why a gateway went on through its fallback, or not
 PRINTS_FILE = Path("/data/device_prints.json")  # the adapter of each connection, see moved_to
 IMPORT_DIR = Path("/config/import")  # a ser2net.yaml put here is taken over at start
 

@@ -396,9 +396,11 @@ def test_the_modbus_profiles_are_templates_with_a_name_in_the_panel() -> None:
     from device_proxy.model import MODBUS_PROFILES
 
     src = Path(__file__).parents[1] / "panel-src" / "src"
-    modbus, i18n = (src / "modbus.js").read_text(), (src / "i18n.js").read_text()
+    modbus = (src / "modbus.js").read_text()
+    locales = Path(__file__).parents[1] / "device_proxy" / "app" / "device_proxy" / "locales"
+    panel_texts = [json.loads(path.read_text("utf-8"))["text"] for path in locales.glob("*.json")]
     new = {"name": "M", "port": 15020, "kind": "modbus", "host": "192.0.2.5"}
     for profile in ("modbus", *MODBUS_PROFILES):
         assert Connection.from_dict({**new, "template": profile}).template == profile
         assert f"  {profile}: {{ ...TIMING," in modbus
-        assert i18n.count(f"tpl_{profile}:") == 2 and i18n.count(f"tplsub_{profile}:") == 2
+        assert all(f"tpl_{profile}" in text and f"tplsub_{profile}" in text for text in panel_texts)

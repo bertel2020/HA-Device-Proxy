@@ -21,12 +21,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from . import i18n
+
 _LOGGER = logging.getLogger(__name__)
 
 CORE = "http://supervisor/core/api"
 QUIET_AFTER_START = 60  # seconds
 RETRY_AFTER = 60  # seconds before a notification that could not be sent is tried again
-RESOLVED = {"de": "Wieder in Ordnung", "en": "OK again"}
+RESOLVED = i18n.section("notify_status")
 SHOWN_FILE = Path("/data/notifications.json")
 
 
@@ -163,7 +165,7 @@ class Notifier:
                     f"services/notify/{service}",
                     {
                         "title": f"✓ {problem.title}",
-                        "message": RESOLVED.get(language, RESOLVED["en"]),
+                        "message": RESOLVED.get(language, RESOLVED["en"])["resolved"],
                     },
                 )
         for key, retry_at in list(self._dismissing.items()):

@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any
 
 from .clients import parse_names
+from .i18n import LANGUAGES
 from .modbus_entities import parse_entities
 
 _LOGGER = logging.getLogger(__name__)
@@ -726,8 +727,8 @@ class Settings:
             e["notify_grace"] = "0 to 3600 seconds"
         if settings.notify_service and not re.fullmatch(r"[a-z0-9_]+", settings.notify_service):
             e["notify_service"] = "a notify service name like mobile_app_phone"
-        if settings.notify_language not in ("de", "en"):
-            e["notify_language"] = "de or en"
+        if settings.notify_language not in LANGUAGES:
+            e["notify_language"] = f"one of {', '.join(LANGUAGES)}"
         if not 1 <= settings.no_client_minutes <= 1440:
             e["no_client_minutes"] = "1 to 1440 minutes"
         try:
