@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from . import diagnostics
+from . import diagnostics, ha_registry
 from .clients import parse_names, plain_host, with_name
 from .config import block, export
 from .controller import Controller, CustomError
@@ -169,6 +169,8 @@ class WebServer:
         self._route("POST", r"api/restore", self.restore_backup)
         self._route("GET", r"api/runtime", self.runtime_yaml)
         self._route("POST", r"api/mqtt/test", self.mqtt_test)
+        self._route("GET", r"api/mqtt/entity-ids", self.entity_ids)
+        self._route("POST", r"api/mqtt/entity-ids", self.rename_entity_ids)
         self._route("GET", r"api/custom", self.get_custom)
         self._route("POST", r"api/custom/check", self.check_custom)
         self._route("PUT", r"api/custom", self.put_custom)
@@ -623,6 +625,21 @@ class WebServer:
     async def restore_backup(self, request: Request) -> Response:
         _, config = self._backup_config(request)
         return await self._save(lambda _: config, "restore")
+
+    async def entity_ids(self, request: Request) -> Response:
+        """Which entity IDs would get the prefix, and who uses them."""
+        try:
+            return ok({"rows": await ha_registry.preview()})
+        except ha_registry.FAILED as err:
+            return ok({"error": str(err) or type(err).__name__}, 502)
+
+    async def rename_entity_ids(self, request: Request) -> Response:
+        try:
+            renamed, failed = await ha_registry.rename()
+        except ha_registry.FAILED as err:
+            return ok({"error": str(err) or type(err).__name__}, 502)
+        self.c.events.emit("info", "entity_ids_renamed", count=renamed, failed=len(failed))
+        return ok({"renamed": renamed, "failed": failed})
 
     async def mqtt_test(self, request: Request) -> Response:
         """Try the broker of the form (or the Supervisor's when the host is empty)."""

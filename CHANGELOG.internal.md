@@ -11,6 +11,9 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- MQTT: `default_entity_id` je Entität (ab HA 2025.10, ersetzt `object_id`), greift nur beim ersten Anlegen. Bestehende IDs über
+  `ha_registry.py`, ein kleiner WebSocket-Client auf `/core/websocket` (`config/entity_registry/list` und `/update`, `search/related`).
+  Bewusst per Knopf, nicht beim Update, weil Verweise auf alte IDs brechen.
 - MQTT: Plattform `event` je Verbindung und am Hub, Liste in `EVENT_TYPES`/`APP_EVENT_TYPES`, gesendet per
   EventLog-Listener auf dem Controller (die Bridge wird neu gebaut). Nur `count == 1`, nicht retained.
 - MQTT: `sw_version` aus `APP_VERSION` an jedem Gerät, die ser2net-Version steht weiter im Panel.

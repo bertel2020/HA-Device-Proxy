@@ -30,7 +30,7 @@ function lineDiff(before, after) {
 
 export class SettingsPage extends Page {
   static properties = {
-    state: { attribute: false }, section: {}, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
+    state: { attribute: false }, section: {}, mqttIds: { state: true }, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
     versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true }, active: { state: true },
   };
 
@@ -257,6 +257,34 @@ export class SettingsPage extends Page {
 
   _nameField(host, name, placeholder) {
     return html`<label class="fld"><span class="lbl">${t("clientNamePlaceholder")}</span><input class="inp" data-name=${host} maxlength="40" .value=${name} placeholder=${placeholder} aria-label=${t("clientNameFor", { h: host })} @change=${(e) => this._nameClient(host, e.target, name)} @keydown=${(e) => { if (e.key === "Enter") e.target.blur(); }}></label>`;
+  }
+
+  _checkIds = async () => {
+    this.mqttIds = { busy: true };
+    try { this.mqttIds = await api("api/mqtt/entity-ids"); } catch (err) { this.mqttIds = { error: err.message }; }
+  };
+
+  _applyIds = async () => {
+    const count = this.mqttIds.rows.filter((r) => !r.conflict).length;
+    if (!(await confirmDialog(this, t("mqttIdsConfirm", { n: count }), t("mqttIdsApply")))) return;
+    this.mqttIds = { busy: true };
+    try { this.mqttIds = { done: await api("api/mqtt/entity-ids", { method: "POST" }) }; } catch (err) { this.mqttIds = { error: err.message }; }
+  };
+
+  _idsResult() {
+    const ids = this.mqttIds;
+    if (!ids) return "";
+    if (ids.busy) return html`<span class="hint">${t("mqttIdsChecking")}</span>`;
+    if (ids.error) return html`<span class="chip bad" style="white-space:normal">${ids.error}</span>`;
+    if (ids.done) return html`<div style="display:flex;flex-direction:column;gap:6px"><span><span class="chip ok">${t("mqttIdsDone", { n: ids.done.renamed })}</span></span>
+      ${ids.done.failed.length ? html`<span class="hint" style="color:var(--warn)">${t("mqttIdsFailed", { list: ids.done.failed.map((f) => `${f.old} (${f.error})`).join(", ") })}</span>` : ""}</div>`;
+    if (!ids.rows.length) return html`<span class="hint">${t("mqttIdsNone")}</span>`;
+    const used = ids.rows.filter((r) => r.used).length;
+    return html`<span class="hint">${t("mqttIdsCount", { n: ids.rows.length })}</span>
+      ${used ? html`<span class="hint" style="color:var(--warn)">${t("mqttIdsWarn", { n: used })}</span>` : ""}
+      <div style="max-height:260px;overflow:auto"><table><tbody>${ids.rows.map((r) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${r.old}</td><td class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${r.new}</td>
+        <td style="white-space:nowrap">${r.conflict ? html`<span class="chip bad">${t("mqttIdsTaken")}</span>` : r.used ? html`<span class="chip warn">${t("mqttIdsUsed", { n: r.used })}</span>` : ""}</td></tr>`)}</tbody></table></div>
+      <div><button class="btn btn-p" @click=${this._applyIds}>${t("mqttIdsApply")}</button></div>`;
   }
 
   updated(changed) {
@@ -769,6 +797,12 @@ export class SettingsPage extends Page {
                 <p class="hint">${t("mqttNames")}</p>
               </div>
             </details>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <h3>${t("mqttIdsTitle")}</h3>
+              <p class="hint" style="margin:0">${t("mqttIdsHint")}</p>
+              <div><button class="btn btn-s" ?disabled=${this.mqttIds?.busy} @click=${this._checkIds}>${t("mqttIdsCheck")}</button></div>
+              ${this._idsResult()}
+            </div>
           </div>
           ${this._saveRow(ROWS.mqtt)}
         </section>

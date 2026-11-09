@@ -65,6 +65,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {"app_started": {"version": "–"}}
 MESSAGES = {
     "app_started": "Started version {version} with {connections} connections, {active} active",
     "app_stopped": "Stopped",
+    "entity_ids_renamed": "Entity IDs changed to device_proxy_…: {count}, not changed: {failed}",
     "config_restored": "The configuration could not be used, running on the latest saved version",
     "config_lost": (
         "The configuration could not be read and no version is saved: started without connections"

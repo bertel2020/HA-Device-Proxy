@@ -601,6 +601,11 @@ hardware.
 The buttons are meant for automations, e.g. restarting a stick that hangs.
 **Disconnect clients** is also on a connection's page, next to its clients.
 
+**Entity IDs**: New entities are called `sensor.device_proxy_<connection>_<entity>`. Existing ones
+keep their ID until you change them under **Settings → MQTT → Entity IDs**. The preview names every
+change and where automations, scripts, scenes or groups use the ID. There, and in dashboards and
+templates, you have to enter the new IDs yourself.
+
 **Events as triggers**: Each connection has an entity "Events". Its attribute `event_type` says what
 happened, such as `modbus_down`, `device_missing`, `client_new` or `write_blocked`, along with details
 like `address` and `message`. Repeats the app sums up are not sent one by one. A trigger is a state

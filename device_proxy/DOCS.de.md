@@ -633,6 +633,11 @@ erreichbar“ bleibt die eigene Hardware des Gateways.
 
 Die Buttons sind für Automationen gedacht, z. B. um einen hängenden Stick neu zu starten. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
 
+**Entity-IDs**: Neue Entitäten heißen `sensor.device_proxy_<verbindung>_<entität>`. Bestehende
+behalten ihre ID, bis du sie unter **Einstellungen → MQTT → Entity-IDs** umstellst. Die Vorschau
+nennt jede Änderung und wo Automationen, Skripte, Szenen oder Gruppen die ID benutzen. Dort und in
+Dashboards und Vorlagen musst du die neuen IDs selbst eintragen.
+
 **Ereignisse als Auslöser**: Jede Verbindung hat eine Entität „Ereignisse“. Ihr Attribut `event_type`
 nennt, was passiert ist, etwa `modbus_down`, `device_missing`, `client_new` oder `write_blocked`, dazu
 die Details wie `address` und `message`. Wiederholungen, die die App zusammenfasst, werden nicht
