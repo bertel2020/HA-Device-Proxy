@@ -11,6 +11,10 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Panel: `trace.js` wählt die Verbindung per `<select>` statt über die seitlich scrollende Chip-Reihe.
+- Ereignisse: `client_refused_network` (Warnung), `client_refused_exclusive` und
+  `client_refused_blocked` (Info) in `modbus.py` und `enocean.py` statt reiner Log-Zeilen, alle in
+  `SUMMED`, damit ein Portscan ein Eintrag bleibt. Serielle Verbindungen nicht: dort weist ser2net ab.
 - Übersetzungen: `device_proxy/app/device_proxy/locales/<code>.json` je Sprache statt der Tabellen in
   `i18n.js`, `controller.py`, `ha_mqtt.py` und `notify.py`. Das Panel bekommt seine Abschnitte beim
   Build (`__LOCALES__`, Fehlendes auf Englisch), die App liest sie über `i18n.py`. Sprachauswahl,

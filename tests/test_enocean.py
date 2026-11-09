@@ -453,6 +453,7 @@ async def test_allowed_clients_and_slow_clients(
     reader, writer = await _connect(proxy)
     assert await reader.read() == b""  # 127.0.0.1 is refused
     assert proxy.stats.refused == 1
+    assert setup.events[-1][0] == "client_refused_network"
     writer.close()
 
     proxy.c = replace(proxy.c, remaddr="127.0.0.1")
@@ -479,6 +480,14 @@ async def test_blocked_host_is_refused_and_dropped(setup: Setup) -> None:
     reader, writer = await _connect(proxy)
     assert await reader.read() == b""
     assert not proxy.clients
+    assert setup.events[-1][0] == "client_refused_blocked"
+    writer.close()
+
+    proxy.refuse = lambda _host, _name: False
+    proxy.only = "192.0.2.7"  # maintenance: only this host
+    reader, writer = await _connect(proxy)
+    assert await reader.read() == b""
+    assert setup.events[-1][0] == "client_refused_exclusive"
     writer.close()
 
 

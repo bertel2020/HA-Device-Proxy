@@ -12,11 +12,7 @@ export class TracePage extends Page {
   static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true } };
 
   static styles = [...Page.styles, css`
-    .chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 14px; scrollbar-width: thin; }
-    .chips button { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; min-height: 36px; padding: 0 14px; border-radius: 18px; cursor: pointer; font: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 500;
-      border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
-    .chips button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hover); border-color: var(--accent); }
-    .chips .dot { width: 8px; height: 8px; color: var(--accent); }
+    .picker { display: block; max-width: 480px; margin-bottom: 14px; }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
     .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: calc(12px * var(--fs, 1)); color: var(--code-text); }
@@ -110,8 +106,9 @@ export class TracePage extends Page {
     const name = (id) => s.connections.find((c) => c.id === id)?.name;
     return html`
       <div class="head"><div><h1>${t("traceTitle")}</h1><p class="sub">${t("traceSub")}</p></div></div>
-      <div class="chips" role="group" aria-label=${t("navConnections")}>${s.connections.map((c) => html`<button type="button" aria-pressed=${c.id === this.selected ? "true" : "false"}
-        title=${c.trace === "off" ? c.name : `${c.name} · ${t("recording", { m: this._label(c, c.trace) })}`} @click=${() => navigate(`#/trace/${c.id}`)}>${c.trace === "off" ? "" : html`<span class="dot" role="img" aria-label=${t("recording", { m: this._label(c, c.trace) })}></span>`}${c.name}</button>`)}</div>
+      <label class="fld picker"><span class="lbl">${t("navConnections")}</span>
+        <select class="inp" @change=${(e) => navigate(`#/trace/${e.target.value}`)}>
+          ${s.connections.map((c) => html`<option value=${c.id} ?selected=${c.id === this.selected}>${c.trace === "off" ? c.name : `● ${c.name} · ${t("recording", { m: this._label(c, c.trace) })}`}</option>`)}</select></label>
       <div class="cols">
         <div class="main-col">
           <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-view">
