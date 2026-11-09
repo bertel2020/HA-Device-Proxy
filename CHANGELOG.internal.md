@@ -11,6 +11,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- MQTT: `sw_version` aus `APP_VERSION` an jedem Gerät, die ser2net-Version steht weiter im Panel.
 - MQTT: `configuration_url` je Gerät als `homeassistant://hassio/ingress/<slug>`, Slug von
   `/addons/self/info`, auf dem Controller gemerkt (die Bridge wird bei Änderungen neu gebaut).
 - MQTT: Modell der Geräte ist `Device Proxy · <Art>` aus `entities.kind_*`, folgt also

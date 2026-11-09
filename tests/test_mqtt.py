@@ -321,3 +321,11 @@ def test_without_the_supervisor_there_is_no_link(
     assert ha_mqtt.panel_url() == ""
     configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
     assert not any("configuration_url" in config["device"] for config in configs.values())
+
+
+def test_every_device_names_the_version_of_the_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("APP_VERSION", "9.9.9")
+    configs = ha_mqtt.HaBridge(_controller(tmp_path)).configs()
+    assert {config["device"]["sw_version"] for config in configs.values()} == {"9.9.9"}

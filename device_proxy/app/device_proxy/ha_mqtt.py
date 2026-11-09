@@ -134,7 +134,8 @@ class HaBridge:
 
     def _links(self) -> dict[str, str]:
         """What every device of the app shows on its page in Home Assistant."""
-        return {"configuration_url": self.c.panel_url} if self.c.panel_url else {}
+        link = {"configuration_url": self.c.panel_url} if self.c.panel_url else {}
+        return {"sw_version": os.environ.get("APP_VERSION", "dev"), **link}
 
     def _device(self, connection_id: str, name: str, model: str) -> dict[str, Any]:
         return {
@@ -164,7 +165,6 @@ class HaBridge:
                     "identifiers": ["device_proxy"],
                     "name": "Device Proxy",
                     "manufacturer": "Device Proxy app",
-                    **({"sw_version": self.c.ser2net_version} if self.c.ser2net_version else {}),
                     **self._links(),
                 },
             }
