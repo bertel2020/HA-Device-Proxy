@@ -489,7 +489,8 @@ Beides gibt es auch als Buttons in Home Assistant (siehe unten).
   liest mit. Die Live-Ansicht geht jederzeit und belegt keinen Client-Platz. Die **Aufzeichnung**
   in Dateien (vom Gerät, zum Gerät oder beides) wird je Verbindung auf der Seite **Mitschnitt**
   geschaltet, ohne ser2net anzufassen – kein Client wird getrennt. Dateien:
-  `/addon_configs/<…>_device_proxy/trace/<name>.log`, nach Größe rotiert (**Einstellungen →
+  `/addon_configs/<…>_device_proxy/trace/<name>-<Startdatum>.log`, je Einschalten und bei Erreichen
+  der Größe eine neue Datei, die ältesten über dem Limit werden gelöscht (**Einstellungen →
   Protokolle und Aufbewahrung**).
 - **Leitungsfehler** (Frame, Parität, Überlauf, Break) kommen vom Treiber des Adapters, solange
   das Gerät offen ist. Steigende Zahlen bedeuten meist eine falsche Baudrate oder ein falsches

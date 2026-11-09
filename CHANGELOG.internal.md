@@ -11,6 +11,11 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Mitschnitt: `Recorder` schreibt `<name>-<YYYYmmdd-HHMMSS>.log` (Beginn), nichts wird mehr
+  umbenannt. Neue Datei beim Einschalten (`TraceHub._switched_off`) oder bei voller Datei, nach einem
+  App-Neustart geht es in der neuesten weiter. Alte `.log`/`.log.N` zählen nach mtime mit und werden
+  nicht fortgesetzt. Aufräumen nach Anzahl behebt, dass nach gesenktem `trace_keep` Dateien liegen blieben.
+  `recording_stem` ordnet Dateien der Verbindung zu. Panel: Tabelle mit `.iconbtn`, neueste oben.
 - Panel: `trace.js` wählt die Verbindung per `<select>` statt über die seitlich scrollende Chip-Reihe.
 - Ereignisse: `client_refused_network` (Warnung), `client_refused_exclusive` und
   `client_refused_blocked` (Info) in `modbus.py` und `enocean.py` statt reiner Log-Zeilen, alle in
