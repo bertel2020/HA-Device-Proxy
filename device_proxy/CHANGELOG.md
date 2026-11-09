@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.0 - 2026-11-09
+
 - **Home Assistant, Entity-IDs**: Neue Entitäten beginnen mit `device_proxy_`. Bestehende stellst du unter Einstellungen → MQTT um, die Vorschau zeigt, wo sie benutzt werden. Verweise auf alte IDs passt Home Assistant nicht an.
 - **Home Assistant, Ereignisse**: Jede Verbindung hat jetzt eine Entität „Ereignisse“. Gerät weg, neuer Client, Schreiben abgewiesen und mehr können damit Automationen auslösen.
 - **Home Assistant, Version**: Alle Geräte der App nennen jetzt die Version der App. Beim Gerät Device Proxy stand dort bisher die Version von ser2net.
