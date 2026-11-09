@@ -39,6 +39,21 @@ CREATE TABLE IF NOT EXISTS config_versions (
     changes TEXT NOT NULL,
     config TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS client_sessions (
+    id INTEGER PRIMARY KEY,
+    host TEXT NOT NULL,
+    connection TEXT NOT NULL,
+    name TEXT NOT NULL,
+    start REAL NOT NULL,
+    end REAL,
+    count INTEGER NOT NULL DEFAULT 1,
+    to_client INTEGER NOT NULL DEFAULT 0,
+    from_client INTEGER NOT NULL DEFAULT 0,
+    refused TEXT,
+    unknown INTEGER NOT NULL DEFAULT 0,
+    updated REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS client_sessions_host ON client_sessions (host, start);
 """
 
 

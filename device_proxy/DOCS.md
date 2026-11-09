@@ -517,6 +517,12 @@ pencil next to a client does the same. The name shows next to the address in the
 in the events. This host is called Home Assistant by itself, addresses in the Supervisor network
 App; a name of your own goes first.
 
+Below it is the computer's history: a timeline per connection over 7 days or 24 hours and the recent
+connections with duration and data. Short visits close together, from a polling client or when the
+connection keeps dropping, are summed up in one row and marked yellow. Refused attempts (red) exist
+for Modbus and EnOcean; on serial connections the amount of data is as exact as the last status read.
+The history is kept as long as the event history and goes when the computer is removed.
+
 The ports have no login, so a computer that connects for the first time is reported: an event and,
 unless switched off there, a notification in Home Assistant. It stays at the top of the list as
 **New** until you mark it as **Known** or give it a name. The list holds at most 50 new computers,

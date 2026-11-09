@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Clients, Verlauf**: Tippst du auf einen Rechner, siehst du jetzt, wann er an welcher Verbindung
+  hing: eine Zeitleiste über 7 Tage oder 24 Stunden, die letzten Verbindungen mit Dauer und
+  Datenmenge, dazu Abbruch-Serien und abgewiesene Versuche. Der Verlauf beginnt mit diesem Update.
+  Bei seriellen Verbindungen ist die Datenmenge so genau wie der letzte Statusabruf, abgewiesene
+  Versuche gibt es bei Modbus und EnOcean. Wird ein Rechner entfernt, verschwindet auch sein Verlauf.
 - **Sprachen**: Jede Sprache ist jetzt eine eigene Datei, mit Weboberfläche, Meldungen und
   Entitätsnamen. Eine neue Sprache braucht nur noch eine Datei; was darin fehlt, erscheint auf
   Englisch. Die Texte selbst sind unverändert.
@@ -19,6 +24,11 @@
 
 ### English
 
+- **Clients, history**: Tap a computer to see when it was connected to which connection: a timeline
+  over 7 days or 24 hours, the recent connections with duration and data, plus reconnect bursts and
+  refused attempts. The history starts with this update. On serial connections the amount of data is
+  as exact as the last status read; refused attempts exist for Modbus and EnOcean. Removing a
+  computer removes its history too.
 - **Languages**: Each language is now a file of its own, with the web interface, notifications and
   entity names. A new language needs just one file; whatever it leaves out appears in English. The
   texts themselves have not changed.

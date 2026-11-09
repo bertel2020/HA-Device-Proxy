@@ -559,7 +559,13 @@ class EnOceanProxy:
             if self.clients.get(address) is client:
                 self.clients.pop(address)
             writer.close()
-            self.on_event("info", "client_disconnected", address=address)
+            self.on_event(
+                "info",
+                "client_disconnected",
+                address=address,
+                bytes_to_client=client.bytes_out,
+                bytes_from_client=client.bytes_in,
+            )
 
     def _send(self, client: _Client, frame: bytes) -> None:
         """Write to a client; one that has stopped reading is dropped, not buffered forever."""
