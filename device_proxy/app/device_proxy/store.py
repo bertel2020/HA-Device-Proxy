@@ -88,6 +88,11 @@ class Store:
     def __init__(self, db: Database | None, path: Path = PATH) -> None:
         self.db = db
         self.path = path
+        self.problems: list[tuple[str, dict[str, Any]]] = []  # for the events, after the start
+
+    def _problem(self, kind: str, **params: Any) -> None:
+        if (kind, params) not in self.problems:  # the configuration is loaded more than once
+            self.problems.append((kind, params))
 
     def load(self) -> AppConfig:
         """The saved configuration; when the file is missing, unreadable or invalid, the
@@ -98,7 +103,10 @@ class Store:
             return self._latest_version() or AppConfig()
         except (OSError, ValueError) as err:
             _LOGGER.error("Configuration %s unreadable (%s)", self.path, err)
-            return self._latest_version() or AppConfig()
+            latest = self._latest_version()
+            if latest is None:
+                self._problem("config_lost")
+            return latest or AppConfig()
         try:
             return AppConfig.from_dict(data)
         except ValidationError as err:
@@ -111,6 +119,7 @@ class Store:
         config, dropped = AppConfig.salvage(data)
         for item in dropped:
             _LOGGER.error("Configuration: left out %s", item)
+        self._problem("config_salvaged", dropped=len(dropped))
         try:
             self._write(config)  # the next start finds it (the invalid file is set aside)
         except SaveError as err:
@@ -142,6 +151,7 @@ class Store:
             return None
         if config is not None:
             _LOGGER.warning("Using the latest saved version of the configuration")
+            self._problem("config_restored")
         return config
 
     def save(self, old: AppConfig, new: AppConfig, source: str) -> list[Change]:

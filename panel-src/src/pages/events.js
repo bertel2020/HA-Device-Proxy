@@ -4,7 +4,7 @@ import { Page } from "../app.js";
 import { eventText, lang, t } from "../i18n.js";
 import { fmtTime, icon } from "../ui.js";
 
-const LEVELS = ["info", "warning", "error", "debug"];
+const LEVELS = ["info", "warning", "error"];
 
 export class EventsPage extends Page {
   static properties = {
@@ -21,7 +21,6 @@ export class EventsPage extends Page {
     .lv[aria-pressed="true"].info { background: var(--accent-soft); color: var(--accent-hover); border-color: var(--accent); }
     .lv[aria-pressed="true"].warning { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
     .lv[aria-pressed="true"].error { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
-    .lv[aria-pressed="true"].debug { background: var(--neutral-soft); color: var(--neutral); border-color: var(--neutral); }
     .log { max-height: max(320px, calc(100vh - 330px)); overflow: auto; }
     .dayrow { padding: 6px 16px; font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
     .lv { display: inline-flex; align-items: center; gap: 6px; }
@@ -44,7 +43,7 @@ export class EventsPage extends Page {
   }
 
   willUpdate(changed) {
-    if (changed.has("search") && this.search) { this.query = this.search; this.tab = "history"; this._loadHistory(); }  // from the card Clients: everything of one computer
+    if (changed.has("search") && this.search) { this.query = this.search; this.contains = this.search; this.tab = "history"; this._loadHistory(); }  // from the card Clients: everything of one computer
     if (changed.has("preset") && this.preset && this.preset !== this.conn) { this.conn = this.preset; if (this.tab === "history") this._loadHistory(); }
   }
 
@@ -54,7 +53,7 @@ export class EventsPage extends Page {
     try {
       [this.stats, this.history] = await Promise.all([
         api(`api/stats?days=${Math.min(days, 30)}`),
-        api(`api/history?since=${since}&limit=2000${this.conn ? `&connection=${this.conn}` : ""}`),
+        api(`api/history?since=${since}&limit=2000${this.conn ? `&connection=${this.conn}` : ""}${this.contains ? `&contains=${encodeURIComponent(this.contains)}` : ""}`),
       ]);
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -80,10 +79,10 @@ export class EventsPage extends Page {
 
   /** The rows both tabs share: day rows, time, level, text. */
   _list(lines, total = lines.length) {
-    const color = { info: "info", warning: "warn", error: "bad", debug: "" };
+    const color = { info: "info", warning: "warn", error: "bad" };
     return html`<div class="log" role="log">${lines.map((e, i) => html`${i === 0 || this._dayLabel(lines[i - 1].ts) !== this._dayLabel(e.ts) ? html`<div class="dayrow">${this._dayLabel(e.ts)}</div>` : ""}<div class="line">
         <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
-        <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></div>`)}
+        <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count, time: fmtTime(e.last_ts, true, true) })}</span>` : ""}</span></div>`)}
         ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t("noEntries")}</p>`}
         ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size: calc(13px * var(--fs, 1))">${t("moreEntries", { n: total - lines.length })}</p>` : ""}</div>`;
   }
@@ -129,12 +128,18 @@ export class EventsPage extends Page {
       </section>`;
   }
 
+  /** From the card Clients the history holds that client's entries only; typing leaves that. */
+  _search(value) {
+    this.query = value;
+    if (this.contains && value !== this.contains) { this.contains = ""; if (this.tab === "history") this._loadHistory(); }
+  }
+
   /** Search and level switches for a list of events (both tabs); the counts follow the other filters. */
   _searchLevels(list) {
     const base = this._filtered(list, true);
     const counts = Object.fromEntries(LEVELS.map((lv) => [lv, base.filter((e) => e.level === lv).length]));
     return html`<label class="fld" style="flex:1 1 220px"><span class="lbl">${t("search")}</span>
-        <input class="inp" type="search" .value=${this.query} placeholder=${t("searchPh")} @input=${(e) => { this.query = e.target.value; }}></label>
+        <input class="inp" type="search" .value=${this.query} placeholder=${t("searchPh")} @input=${(e) => this._search(e.target.value)}></label>
       <div role="group" aria-label=${t("levelGroup")} style="display:flex;flex-wrap:wrap;gap:6px">${LEVELS.map((lv) => html`<button class="lv ${lv}" aria-pressed=${this.levels.has(lv) ? "true" : "false"}
         @click=${() => { const s = new Set(this.levels); s.has(lv) ? s.delete(lv) : s.add(lv); this.levels = s; }}>${this.levels.has(lv) ? icon("check", 14) : ""}${t(`lv_${lv}`)}${counts[lv] ? html` <span style="opacity:.8">${counts[lv]}</span>` : ""}</button>`)}</div>`;
   }

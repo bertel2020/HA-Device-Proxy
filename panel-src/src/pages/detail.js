@@ -798,7 +798,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
     const recentCard = html`<section class="card" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size: calc(13px * var(--fs, 1))">${t("allEventsOf", { n: c.name })}</a></div>
             ${recent.length ? html`<ol class="recent">${recent.map((e) => html`<li><time>${fmtTime(e.ts)}</time><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
-              <span class="txt">${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count })}</span>` : ""}</span></li>`)}</ol>`
+              <span class="txt">${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count, time: fmtTime(e.last_ts, true, true) })}</span>` : ""}</span></li>`)}</ol>`
               : html`<p class="hint">${t("noEntries")}</p>`}
           </section>`;
     const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;

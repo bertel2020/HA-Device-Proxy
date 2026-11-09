@@ -7,6 +7,16 @@
   Datenmenge, dazu Abbruch-Serien und abgewiesene Versuche. Der Verlauf beginnt mit diesem Update.
   Bei seriellen Verbindungen ist die Datenmenge so genau wie der letzte Statusabruf, abgewiesene
   Versuche gibt es bei Modbus und EnOcean. Wird ein Rechner entfernt, verschwindet auch sein Verlauf.
+- **Ereignisse, Sammelzeilen**: Wiederholungen werden jetzt je Client zusammengefasst, kein Rechner
+  verschwindet mehr hinter einem anderen. Die Zeile nennt, wie oft und wann zuletzt.
+- **Ereignisse, neu**: MQTT verbunden oder verloren, kein Broker gefunden, ser2net startet nicht,
+  interner Fehler einer Verbindung, fehlgeschlagener automatischer Neustart, volle Aufzeichnung,
+  App beendet sowie unbrauchbare Konfiguration, Historie oder Blockliste. Der Start nennt die Version,
+  ein Neustart den USB-Reset.
+- **Ereignisse, Stufen**: Warnung heißt jetzt, dass etwas Aufmerksamkeit braucht. Blockieren und
+  Wartung sind Info, ein automatischer Neustart ist eine Warnung. Der leere Filter Debug ist weg.
+- **Verfügbarkeit**: Fiel ein Modbus- oder EnOcean-Gerät aus und die App startete währenddessen neu,
+  zählte die Zeit danach weiter als Ausfall. Das ist behoben, auch rückwirkend für die Anzeige.
 - **Sprachen**: Jede Sprache ist jetzt eine eigene Datei, mit Weboberfläche, Meldungen und
   Entitätsnamen. Eine neue Sprache braucht nur noch eine Datei; was darin fehlt, erscheint auf
   Englisch. Die Texte selbst sind unverändert.
@@ -29,6 +39,16 @@
   refused attempts. The history starts with this update. On serial connections the amount of data is
   as exact as the last status read; refused attempts exist for Modbus and EnOcean. Removing a
   computer removes its history too.
+- **Events, summed rows**: Repeats are now summed up per client, so no computer disappears behind
+  another. The row says how often and when last.
+- **Events, new**: MQTT connected or lost, no broker found, ser2net does not start, an internal error
+  of a connection, a failed automatic restart, a full recording, the app stopping, and an unusable
+  configuration, history or list of blocked clients. The start names the version, a restart the USB
+  reset.
+- **Events, levels**: A warning now means something needs attention. Blocking and maintenance are
+  info, an automatic restart is a warning. The empty Debug filter is gone.
+- **Availability**: If a Modbus or EnOcean device was away and the app restarted meanwhile, the time
+  after that kept counting as an outage. Fixed, for what is shown of the past too.
 - **Languages**: Each language is now a file of its own, with the web interface, notifications and
   entity names. A new language needs just one file; whatever it leaves out appears in English. The
   texts themselves have not changed.

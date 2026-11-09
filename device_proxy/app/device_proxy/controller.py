@@ -39,6 +39,7 @@ from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, host_of, is_local, local_kind, parse_names, plain_host
 from .config import blocks, changed, readable_alias, remaddr_without, render
+from .db import Database
 from .detect import detect
 from .devices import (
     Device,
@@ -53,7 +54,7 @@ from .devices import (
 )
 from .enocean import EnOceanProxy
 from .enocean_ha import EnOceanHa
-from .enocean_tools import Captures, parse_frame, sendable
+from .enocean_tools import Capture, Captures, parse_frame, sendable
 from .events import EventLog
 from .ha_mqtt import HaBridge
 from .importer import ImportResult, ReadError, conflicts, merge, read
@@ -221,6 +222,7 @@ class Controller:
         self.mqtt = HaBridge(self)
         self.enocean_ha = EnOceanHa(self)
         self.captures = Captures(self.trace.record_dir)
+        self.captures.on_full = self._capture_full
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self.last_change: dict[str, object] | None = None  # see apply()
@@ -291,7 +293,11 @@ class Controller:
         await self.import_folder()
         active = [c for c in self.config.connections if c.enabled]
         self.events.emit(
-            "info", "app_started", connections=len(self.config.connections), active=len(active)
+            "info",
+            "app_started",
+            version=os.environ.get("APP_VERSION", "dev"),
+            connections=len(self.config.connections),
+            active=len(active),
         )
         for c in self.config.proxied:
             self.events.emit(
@@ -334,11 +340,13 @@ class Controller:
                 self._loop(stop, STATUS_POLL, self._silence_tick),
                 self._loop(stop, STATUS_POLL, self._sessions_tick),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
+                self._loop(stop, STATUS_POLL, self._report_problems),
             )
         finally:
             # also when one of them failed: the others and MQTT end too, and the app exits
             # (and is started again) instead of serving the panel without its proxies
             stop.set()
+            self.events.emit("info", "app_stopped")
             for task in self._keepers.values():
                 task.cancel()
             for task in self._proxy_tasks.values():
@@ -631,7 +639,7 @@ class Controller:
         for proxy in self.proxies.values():
             proxy.disconnect_host(host)
         await self._apply_ser2net()
-        self.events.emit("warning", "client_blocked", address=host)
+        self.events.emit("info", "client_blocked", address=host)
 
     async def unblock_client(self, host: str) -> bool:
         if not self.known_clients.unblock(host):
@@ -641,7 +649,10 @@ class Controller:
         return True
 
     def _ser2net_ended(self, code: int | None, delay: float) -> None:
-        self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
+        if error := self.ser2net.start_error:
+            self.events.emit("error", "ser2net_start_failed", error=error, delay=delay)
+        else:
+            self.events.emit("warning", "ser2net_restart", code=code, delay=delay)
         now = time.time()
         self._restarts = [t for t in self._restarts if now - t < 600] + [now]
 
@@ -740,6 +751,15 @@ class Controller:
         if not task.cancelled() and (err := task.exception()) is not None:
             _LOGGER.error("Proxy ended, starts again in %d s", PROXY_RESTART, exc_info=err)
             self._proxy_failed[connection_id] = time.monotonic()
+            c = self.config.connection(connection_id)
+            self.events.emit(
+                "error",
+                "proxy_failed",
+                connection=connection_id,
+                name=c.name if c else connection_id,
+                error=str(err) or type(err).__name__,
+                delay=PROXY_RESTART,
+            )
 
     async def _restart_failed(self) -> None:
         """Start a proxy again that an unexpected error has ended."""
@@ -758,6 +778,11 @@ class Controller:
                 if isinstance(proxy, EnOceanProxy):
                     self._capture_ends(proxy)
             await self._reconcile_proxies()
+            for connection_id in due:
+                if connection_id in self.proxies and (c := self.config.connection(connection_id)):
+                    self.events.emit(
+                        "info", "proxy_restarted", connection=connection_id, name=c.name
+                    )
 
     def _proxy_event(self, connection_id: str) -> Callable[..., None]:
         def emit(level: str, kind: str, **params: object) -> None:
@@ -1337,7 +1362,7 @@ class Controller:
         else:
             await self._restart_proxy(c, usb, result, power)
         self.events.emit(
-            "info",
+            "warning" if source == "auto" else "info",  # by itself: something was wrong
             "connection_restarted",
             connection=c.id,
             name=c.name,
@@ -1493,7 +1518,7 @@ class Controller:
                 try:
                     await self.restart_connection(c.id, "auto", power=True)
                 except ValueError as err:
-                    _LOGGER.warning("Automatic power cycle of %s failed: %s", c.name, err)
+                    self._auto_restart_failed(c, err)
                 continue
             if state[1] >= AUTO_RESTART_MAX:
                 if not state[2]:
@@ -1510,7 +1535,13 @@ class Controller:
             try:
                 await self.restart_connection(c.id, "auto", usb=c.silence_restart == "usb")
             except ValueError as err:
-                _LOGGER.warning("Automatic restart of %s failed: %s", c.name, err)
+                self._auto_restart_failed(c, err)
+
+    def _auto_restart_failed(self, c: Connection, err: Exception) -> None:
+        _LOGGER.warning("Automatic restart of %s failed: %s", c.name, err)
+        self.events.emit(
+            "warning", "auto_restart_failed", connection=c.id, name=c.name, error=str(err)
+        )
 
     # maintenance: one host alone
 
@@ -1554,7 +1585,7 @@ class Controller:
         self.exclusive[connection_id] = (host, time.time() + minutes * 60)
         await self._apply_exclusive(connection_id)
         self.events.emit(
-            "warning", "exclusive_on", connection=c.id, name=c.name, host=host, minutes=minutes
+            "info", "exclusive_on", connection=c.id, name=c.name, host=host, minutes=minutes
         )
 
     async def end_exclusive(self, connection_id: str, reason: str = "by_hand") -> bool:
@@ -1671,6 +1702,16 @@ class Controller:
             frames=capture.frames,
         )
         return capture.to_dict()
+
+    def _capture_full(self, capture: Capture) -> None:
+        self.events.emit(
+            "warning",
+            "capture_full",
+            connection=capture.connection,
+            name=capture.name,
+            file=capture.path.name,
+            frames=capture.frames,
+        )
 
     def _modbus_proxy(self, connection_id: str) -> ModbusProxy | None:
         """The running proxy of a Modbus connection, for units routed to it."""
@@ -2120,6 +2161,16 @@ class Controller:
                 )
         # without ser2net's answer nobody can say who is gone
         self.sessions.tick(live, check_gone=self.admin.connected.is_set())
+
+    async def _report_problems(self) -> None:
+        """What went wrong before the events could say so, or below them."""
+        sources: list[Store | KnownClients | Database] = [self.store, self.known_clients]
+        if self.events.db is not None:
+            sources.append(self.events.db)
+        for source in sources:
+            found, source.problems = source.problems, []
+            for kind, params in found:
+                self.events.emit("error", kind, **params)
 
     async def _housekeeping(self) -> None:
         days = self.config.settings.history_days

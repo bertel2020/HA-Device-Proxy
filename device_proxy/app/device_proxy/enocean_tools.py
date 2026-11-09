@@ -14,6 +14,7 @@ import io
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any
@@ -60,6 +61,7 @@ class Captures:
         self.folder = folder
         self.current: Capture | None = None
         self._proxy: EnOceanProxy | None = None
+        self.on_full: Callable[[Capture], None] | None = None  # the size limit ended a capture
 
     def start(self, proxy: EnOceanProxy, exclusive_peer: str | None) -> Capture:
         if self.current is not None:
@@ -133,6 +135,8 @@ class Captures:
         if capture.bytes >= MAX_BYTES:
             _LOGGER.warning("Capture %s stopped at %d MB", capture.path.name, MAX_BYTES >> 20)
             self.stop()
+            if self.on_full is not None:
+                self.on_full(capture)
 
 
 def parse_frame(protocol: str, text: str) -> bytes:
