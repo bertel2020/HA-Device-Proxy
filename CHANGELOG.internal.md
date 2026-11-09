@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.6.0 - 2026-11-09
+
 - MQTT: `default_entity_id` je Entität (ab HA 2025.10, ersetzt `object_id`), greift nur beim ersten Anlegen. Bestehende IDs über
   `ha_registry.py`, ein kleiner WebSocket-Client auf `/core/websocket` (`config/entity_registry/list` und `/update`, `search/related`).
   Bewusst per Knopf, nicht beim Update, weil Verweise auf alte IDs brechen.
