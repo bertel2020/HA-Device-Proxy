@@ -735,7 +735,7 @@ export class SettingsPage extends Page {
           <div class="row"><div><h2 id="t-mqtt">${t("sMqtt")}</h2><p class="hint" style="margin-top:4px">${t("sMqttSub")}</p></div>
             ${mqttChip}</div>
           <details class="expert"><summary>${t("mqttWhat")}</summary>
-            <ul class="hint" style="margin:8px 0 0;padding-left:18px">${["mqttWhatSerial", "mqttWhatModbus", "mqttWhatEnocean"].map((k) => html`<li style="border:0;padding:0;display:list-item">${t(k)}</li>`)}</ul></details>
+            <ul class="hint" style="margin:8px 0 0;padding-left:18px">${["mqttWhatSerial", "mqttWhatModbus", "mqttWhatEnocean", "mqttWhatEvents"].map((k) => html`<li style="border:0;padding:0;display:list-item">${t(k)}</li>`)}</ul></details>
           <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_enabled} @change=${(e) => { this.draft = { ...this.draft, mqtt_enabled: e.target.checked }; }}><span>${t("mqttOn")}</span></label>
           <div style="display:flex;flex-direction:column;gap:16px;${d.mqtt_enabled ? "" : "opacity:.5"}" ?inert=${!d.mqtt_enabled}>
             <div class="grp">

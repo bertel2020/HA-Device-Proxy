@@ -219,6 +219,7 @@ class Controller:
         self._proxy_tasks: dict[str, asyncio.Task[None]] = {}
         self._proxy_failed: dict[str, float] = {}  # connection id → when its proxy ended
         self.health_file = health.HEALTH_FILE
+        self.events.listeners.append(lambda event: self.mqtt.send_event(event))
         self.panel_url = ""  # the link to this app in Home Assistant, for its devices
         self.mqtt = HaBridge(self)
         self.enocean_ha = EnOceanHa(self)

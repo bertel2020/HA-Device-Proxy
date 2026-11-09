@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- MQTT: Plattform `event` je Verbindung und am Hub, Liste in `EVENT_TYPES`/`APP_EVENT_TYPES`, gesendet per
+  EventLog-Listener auf dem Controller (die Bridge wird neu gebaut). Nur `count == 1`, nicht retained.
 - MQTT: `sw_version` aus `APP_VERSION` an jedem Gerät, die ser2net-Version steht weiter im Panel.
 - MQTT: `configuration_url` je Gerät als `homeassistant://hassio/ingress/<slug>`, Slug von
   `/addons/self/info`, auf dem Controller gemerkt (die Bridge wird bei Änderungen neu gebaut).

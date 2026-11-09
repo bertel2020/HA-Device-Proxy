@@ -773,6 +773,7 @@
     "mqttWhat": "What exactly is created?",
     "mqttWhatSerial": "Serial: connected, clients, data rate, last data, line errors, switch",
     "mqttWhatModbus": "Modbus: reachable, requests, unanswered, answer time, switch",
+    "mqttWhatEvents": "All: events that can start automations, e.g. device gone or new client",
     "mqttWhatEnocean": "EnOcean: reachable, telegrams, air time",
     "mqttBrokerTitle": "Broker",
     "mqttAuto": "Automatic",
@@ -1555,6 +1556,7 @@
     "resolved": "OK again"
   },
   "entities": {
+    "events": "Events",
     "kind_serial": "Serial",
     "kind_modbus": "Modbus",
     "kind_enocean": "EnOcean",
