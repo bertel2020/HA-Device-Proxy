@@ -461,8 +461,10 @@ Both are also buttons in Home Assistant (see below).
 - **Live data and traces**: ser2net traces every connection into memory and the app reads
   along. The live view works at any time and takes no client place. **Recording** to files
   (from the device, to the device or both) is switched per connection on the **Trace** page without touching
-  ser2net – no client is disconnected. Files: `/addon_configs/<…>_device_proxy/trace/<name>.log`,
-  rotated by size (**Settings → Logs and retention**).
+  ser2net – no client is disconnected. Files:
+  `/addon_configs/<…>_device_proxy/trace/<name>-<start date>.log`, a new file each time recording is
+  switched on and when the size is reached, the oldest above the limit are deleted
+  (**Settings → Logs and retention**).
 - **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
   device is open. Rising numbers usually mean a wrong baud rate or format. Not every driver
   counts them.

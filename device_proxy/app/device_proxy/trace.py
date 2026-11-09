@@ -24,6 +24,7 @@ import os
 import re
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -139,38 +140,66 @@ class TraceTail:
         return parse_lines(lines, time.time() if now is None else now)
 
 
-class Recorder:
-    """Writes the chunks of one connection to rotating files in the config folder."""
+def recording_stem(name: str) -> str:
+    """The connection's part of a file name: "pump-20261109-104012.log" → "pump".
 
-    def __init__(self, path: Path, *, max_bytes: int, keep: int) -> None:
-        self.path = path
+    Also "pump.log.1" of older versions and "pump-capture-20261109-104012.jsonl"."""
+    base = re.split(r"\.(?:log|jsonl)", name)[0]
+    return re.sub(r"-(?:capture-)?\d{8}-\d{6}(?:-\d+)?$", "", base)
+
+
+class Recorder:
+    """Writes the chunks of one connection to files in the config folder.
+
+    A file is named after the moment it began and keeps that name; when it is full the next one
+    begins. The newest is the running one, and files of older versions count as the oldest."""
+
+    def __init__(
+        self,
+        directory: Path,
+        name: str,
+        *,
+        max_bytes: int,
+        keep: int,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self.directory = directory
+        self.name = name
         self.max_bytes = max_bytes
         self.keep = keep
+        self.clock = clock
+        self._mine = re.compile(re.escape(name) + r"(?:-\d{8}-\d{6}\.log|\.log(?:\.\d+)?)")
 
-    def write(self, chunks: list[Chunk], mode: str) -> None:
+    def files(self) -> list[Path]:
+        """This connection's recordings, oldest first."""
+        found = [p for p in self.directory.iterdir() if self._mine.fullmatch(p.name)]
+        return sorted(found, key=lambda p: (p.stat().st_mtime, p.name))
+
+    def _new_file(self) -> Path:
+        stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.clock()))
+        return self.directory / f"{self.name}-{stamp}.log"
+
+    def write(self, chunks: list[Chunk], mode: str, *, fresh: bool = False) -> bool:
+        """fresh: the recording was just switched on, so it begins a file of its own.
+        False when none of the chunks is recorded in this mode."""
         wanted = {"rx": {"rx"}, "tx": {"tx"}, "both": {"rx", "tx"}}.get(mode, set())
         lines = [
             c.line() for c in chunks if c.direction in wanted or c.direction in ("open", "close")
         ]
         if not lines:
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as f:
+            return False
+        self.directory.mkdir(parents=True, exist_ok=True)
+        files = self.files()
+        target = files[-1] if files and files[-1].name.endswith(".log") else None
+        if target is not None and target.name == f"{self.name}.log":
+            target = None  # of an older version: when it began is not known
+        if fresh or target is None or target.stat().st_size >= self.max_bytes:
+            target = self._new_file()
+        with target.open("a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
-        if self.path.stat().st_size > self.max_bytes:
-            self.rotate()
-
-    def rotate(self) -> None:
-        def numbered(number: int) -> Path:
-            return self.path if number == 0 else self.path.with_name(f"{self.path.name}.{number}")
-
-        if self.keep == 0:
-            self.path.unlink(missing_ok=True)
-            return
-        numbered(self.keep).unlink(missing_ok=True)
-        for number in range(self.keep - 1, -1, -1):
-            if numbered(number).exists():
-                numbered(number).replace(numbered(number + 1))
+        for old in self.files()[: -(self.keep + 1)]:
+            old.unlink(missing_ok=True)
+        return True
 
 
 @dataclass
@@ -195,6 +224,7 @@ class TraceHub:
         self.flow: dict[str, Flow] = {}
         self.fed: dict[str, list[Chunk]] = {}  # from the Modbus proxy, until the next poll
         self._not_recorded: set[str] = set()  # recordings that failed (the thread's own)
+        self._switched_off: set[str] = set()  # the next recording begins a file (the thread's own)
 
     def prepare(self) -> None:
         self.shm_dir.mkdir(parents=True, exist_ok=True)
@@ -249,6 +279,8 @@ class TraceHub:
         """The thread's part: file reads and recordings, nothing shared with the loop."""
         result: list[tuple[str, list[Chunk]]] = []
         for alias, file_name, mode, tail, chunks in jobs:
+            if mode == "off":
+                self._switched_off.add(alias)
             if tail is not None:
                 try:
                     chunks = tail.read()
@@ -258,9 +290,10 @@ class TraceHub:
             if not chunks:
                 continue
             if mode != "off":
-                path = self.record_dir / f"{file_name}.log"
+                recorder = Recorder(self.record_dir, file_name, max_bytes=max_bytes, keep=keep)
                 try:
-                    Recorder(path, max_bytes=max_bytes, keep=keep).write(chunks, mode)
+                    if recorder.write(chunks, mode, fresh=alias in self._switched_off):
+                        self._switched_off.discard(alias)
                     self._not_recorded.discard(alias)
                 except OSError as err:  # e.g. a full disk: the live view goes on
                     if alias not in self._not_recorded:

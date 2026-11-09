@@ -83,7 +83,7 @@ from .model import (
 from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
 from .store import PASSWORD_KEPT, Change, Store, hidden, quiet, summary
-from .trace import Chunk, TraceHub
+from .trace import Chunk, TraceHub, recording_stem
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -863,12 +863,10 @@ class Controller:
     def _trace_files(self) -> list[dict[str, object]]:
         """The recordings, each with the connection it belongs to (if it still exists)."""
         owner = {name: c.id for c, name in self._trace_names()}
-
-        def stem(name: str) -> str:  # "pump.log.1" → "pump", "pump-capture-….jsonl" too
-            base = re.split(r"\.(?:log|jsonl)", name)[0]
-            return re.sub(r"-capture-\d{8}-\d{6}(?:-\d+)?$", "", base)
-
-        return [{**f, "connection": owner.get(stem(str(f["name"])))} for f in self.trace.files()]
+        return [
+            {**f, "connection": owner.get(recording_stem(str(f["name"])))}
+            for f in self.trace.files()
+        ]
 
     async def _trace_tick(self) -> None:
         settings = self.config.settings

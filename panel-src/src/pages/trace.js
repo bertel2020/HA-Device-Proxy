@@ -13,6 +13,15 @@ export class TracePage extends Page {
 
   static styles = [...Page.styles, css`
     .picker { display: block; max-width: 480px; margin-bottom: 14px; }
+    .files td { vertical-align: middle; padding: 5px 8px; }
+    .files .fname { white-space: nowrap; font-size: calc(13px * var(--fs, 1)); }
+    .files .chip { margin-left: 8px; }
+    .files .acts { display: flex; justify-content: flex-end; gap: 2px; }
+    .iconbtn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; color: var(--muted); }
+    .iconbtn:hover:not([disabled]) { background: var(--accent-soft); color: var(--accent-hover); }
+    .iconbtn.del:hover:not([disabled]) { background: var(--bad-soft); color: var(--bad); }
+    .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .iconbtn[disabled] { opacity: .4; cursor: not-allowed; }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
     .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: calc(12px * var(--fs, 1)); color: var(--code-text); }
@@ -101,7 +110,9 @@ export class TracePage extends Page {
     const current = this.connection(this.selected);
     const files = s.trace_files;
     const rows = this.chunks.slice(-200);
-    const file = current && current.trace !== "off" ? files.filter((f) => f.connection === current.id && f.name.includes(".log")).sort((a, b) => b.modified - a.modified)[0] : null;
+    const newest = (id) => files.filter((f) => f.connection === id && f.name.includes(".log")).sort((a, b) => b.modified - a.modified)[0];
+    const file = current && current.trace !== "off" ? newest(current.id) : null;
+    const writing = new Set([...s.connections.filter((c) => c.trace !== "off").map((c) => newest(c.id)?.name), s.capture?.file]);
     const locked = s.source === "custom" && current?.kind === "serial";
     const name = (id) => s.connections.find((c) => c.id === id)?.name;
     return html`
@@ -135,13 +146,13 @@ export class TracePage extends Page {
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
               <button class="btn btn-g mono" style="font-size: calc(12px * var(--fs, 1))" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
             <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
-            ${files.length ? html`<div class="scroll"><table style="min-width:560px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
-              <tbody>${files.map((f) => html`<tr><td class="mono" style="font-size: calc(13px * var(--fs, 1))">${f.name}</td>
-                <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}</td>
+            ${files.length ? html`<div class="scroll"><table class="files" style="min-width:640px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
+              <tbody>${[...files].sort((a, b) => b.modified - a.modified).map((f) => { const capturing = s.capture && s.capture.file === f.name; return html`<tr><td class="mono fname">${f.name}</td>
+                <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}${writing.has(f.name) ? html`<span class="chip info">${t("recordingShort")}</span>` : ""}</td>
                 <td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
-                <td style="text-align:right;white-space:nowrap;padding:4px 0 4px 8px">
-                  <a class="btn btn-g" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download aria-label="${f.name} ${t("download")}">${icon("download", 16)}</a>
-                  <button class="btn btn-d" ?disabled=${s.capture && s.capture.file === f.name} title=${s.capture && s.capture.file === f.name ? t("eoI_capture") : ""} @click=${() => this._delete(f.name)}>${t("delete")}</button></td></tr>`)}</tbody></table></div>`
+                <td><div class="acts">
+                  <a class="iconbtn" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download title=${t("download")} aria-label="${f.name} ${t("download")}">${icon("download", 18)}</a>
+                  <button class="iconbtn del" ?disabled=${capturing} title=${capturing ? t("eoI_capture") : t("delete")} aria-label="${f.name} ${t("delete")}" @click=${() => this._delete(f.name)}>${icon("trash", 18)}</button></div></td></tr>`; })}</tbody></table></div>`
               : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noFiles")}</p>`}
           </section>
         </div>
