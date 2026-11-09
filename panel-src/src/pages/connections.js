@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { clientName, plain, t } from "../i18n.js";
-import { changeNote, confirmDialog, connectionState, movedNote, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
+import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -187,6 +187,7 @@ export class ConnectionsPage extends Page {
     const clients = all.reduce((n, c) => n + c.clients.length, 0);
     const errors = all.reduce((n, c) => n + (c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0), 0);
     const brokenNote = changeNote(this, s);
+    const brokerNote = mqttNote(this, s);
     return html`
       <div class="head">
         <div><h1>${t("connectionsTitle")}</h1><p class="sub">${t("connectionsSub")}</p></div>
@@ -199,6 +200,7 @@ export class ConnectionsPage extends Page {
         ${s.custom_ports.map((p) => html` <span class="chip">${p.alias} · ${p.clients.length}</span>`)}
         · <a href="#/settings">${t("toSettings")}</a></div>` : ""}
       ${brokenNote ? html`<div style="margin-bottom:20px">${brokenNote}</div>` : ""}
+      ${brokerNote ? html`<div style="margin-bottom:20px">${brokerNote}</div>` : ""}
       <div class="band">
         <span><b>${active}</b> ${t("bandOf", { n: all.length })}</span>
         ${problems ? html`<span class="warn"><b>${problems}</b> ${t("bandProblems")}</span>` : html`<span class="ok">${t("bandFine")}</span>`}

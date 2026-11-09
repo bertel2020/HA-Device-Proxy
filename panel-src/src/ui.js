@@ -90,6 +90,21 @@ export function brokenByChange(s) {
   return s.connections.filter((c) => change.working.includes(c.id) && connectionState(c, s.ser2net_running)[1] === "bad");
 }
 
+const MQTT_HIDDEN = "device_proxy.mqtt_note_hidden";
+const mqttHidden = () => { try { return !!localStorage.getItem(MQTT_HIDDEN); } catch { return false; } };
+
+/** The way to the broker when the entities cannot reach Home Assistant. Without any broker that may
+ * be just as wanted (MQTT is on by default), so that note can be hidden; a lost broker cannot. */
+export function mqttNote(page, s) {
+  if (!s.settings.mqtt_enabled || s.mqtt.connected) return "";
+  const lost = s.mqtt.broker && s.mqtt.error;
+  if (s.mqtt.broker ? !lost : mqttHidden()) return "";
+  const hide = () => { try { localStorage.setItem(MQTT_HIDDEN, "1"); } catch { /* private window */ } page.requestUpdate(); };
+  return html`<div class="note ${lost ? "warn" : "info"}" role="status" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between">
+    <span>${lost ? t("mqttNoteLost", { b: s.mqtt.broker, e: s.mqtt.error }) : t("mqttNoteNone")}</span>
+    <span style="display:flex;gap:8px;align-items:center">${lost ? "" : html`<button class="btn btn-g" @click=${hide}>${t("mqttNoteHide")}</button>`}<a class="btn btn-s" href="#/settings/mqtt" style="text-decoration:none">${t(lost ? "mqttNoteCheck" : "mqttNoteSet")}</a></span></div>`;
+}
+
 /** The way back after a change that broke a connection: the configuration before it. */
 export function changeNote(page, s, only = "") {
   const broken = brokenByChange(s).filter((c) => !only || c.id === only);

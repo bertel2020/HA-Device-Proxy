@@ -175,3 +175,22 @@ async def test_the_controller_reports_problems_and_a_failed_ser2net_start(tmp_pa
     controller._ser2net_ended(None, 1)
     latest = controller.events.history()[0]
     assert (latest.level, latest.kind) == ("error", "ser2net_start_failed")
+
+
+async def test_no_broker_is_no_warning(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from device_proxy import ha_mqtt
+    from device_proxy.controller import Controller
+    from device_proxy.trace import TraceHub
+
+    monkeypatch.setattr(ha_mqtt, "supervisor_broker", lambda: None)
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )
+    await controller.mqtt.run(asyncio.Event())
+    assert [(e.level, e.kind) for e in controller.events.history()] == [("info", "mqtt_no_broker")]

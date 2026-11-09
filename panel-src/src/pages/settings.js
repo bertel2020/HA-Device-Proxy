@@ -30,7 +30,7 @@ function lineDiff(before, after) {
 
 export class SettingsPage extends Page {
   static properties = {
-    state: { attribute: false }, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
+    state: { attribute: false }, section: {}, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
     versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true }, active: { state: true },
   };
 
@@ -174,6 +174,7 @@ export class SettingsPage extends Page {
 
   willUpdate(changed) {
     if (!this.draft && this.state) this.draft = { ...this.state.settings };
+    if (changed.has("section") && this.section === "mqtt" && !this.state?.mqtt.broker) this.ownBroker = true; // from the note: no broker was found, so one is to be entered
     if (changed.has("clientOpen") || changed.has("clientRange")) { this.clientAll = false; this._loadClientHistory(); }
     else if (changed.has("state") && this.clientOpen && Date.now() - this._histAt > HISTORY_REFRESH) this._loadClientHistory(true);
   }
@@ -258,7 +259,8 @@ export class SettingsPage extends Page {
     return html`<label class="fld"><span class="lbl">${t("clientNamePlaceholder")}</span><input class="inp" data-name=${host} maxlength="40" .value=${name} placeholder=${placeholder} aria-label=${t("clientNameFor", { h: host })} @change=${(e) => this._nameClient(host, e.target, name)} @keydown=${(e) => { if (e.key === "Enter") e.target.blur(); }}></label>`;
   }
 
-  updated() {
+  updated(changed) {
+    if (changed.has("section") && this.section) this.renderRoot.getElementById(this.section)?.scrollIntoView();
     if (!this._focusName) return;
     const field = this.renderRoot.querySelector(`[data-name="${this._focusName}"]`);
     if (field) { field.focus(); this._focusName = null; }
