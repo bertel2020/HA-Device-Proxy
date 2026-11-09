@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Modbus, Clients nebeneinander**: Die Client-Tabelle zeigt jetzt Anteil an der Gerätezeit,
+  Antwortzeit und Wartezeit je Client. Ein Satz darunter sagt, ob sich die Clients ausbremsen.
 - **Clients, Verlauf**: Tippst du auf einen Rechner, siehst du jetzt, wann er an welcher Verbindung
   hing: eine Zeitleiste über 7 Tage oder 24 Stunden, die letzten Verbindungen mit Dauer und
   Datenmenge, dazu Abbruch-Serien und abgewiesene Versuche. Der Verlauf beginnt mit diesem Update.
@@ -34,6 +36,9 @@
 
 ### English
 
+- **Modbus, clients side by side**: The table of clients now shows each client's share of the
+  device's time, answer time and waiting time. A sentence below says whether they slow each other
+  down.
 - **Clients, history**: Tap a computer to see when it was connected to which connection: a timeline
   over 7 days or 24 hours, the recent connections with duration and data, plus reconnect bursts and
   refused attempts. The history starts with this update. On serial connections the amount of data is

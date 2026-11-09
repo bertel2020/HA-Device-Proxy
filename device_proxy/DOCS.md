@@ -153,6 +153,12 @@ for" (60 s by default), else with exception 0B, as from a gateway whose device i
 what the master reads can be read; writing is refused with exception 01. The status card
 shows the frames heard and which registers of which units are known.
 
+**Clients side by side**: The table of clients shows for each client the requests, its share of the
+device's time, the average answer time and how long its requests wait for the device to be free,
+each since it connected. A sentence below says whether the clients slow each other down: a device
+answers one request after the other and the clients take turns, so a request normally waits for at
+most one of each of the others. EnOcean and serial connections have no such queue between clients.
+
 **Settings**: port for the clients (502 by default; each connection needs its own), number
 of clients, answer timeout, further attempts, a pause after connecting (ha-modbusproxy's
 `connection_time`, for devices that need a moment) and a pause between requests for slow

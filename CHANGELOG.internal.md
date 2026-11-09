@@ -11,6 +11,10 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Modbus: `ClientInfo` zählt `cached`, `busy`, `time_avg`, `wait_avg`; `_Job.queued_at` misst die
+  Wartezeit inklusive Pause zwischen Anfragen. `busy` zählt auch Timeouts, weil das Gerät dann ebenfalls
+  belegt ist. Panel: `_share`, `_sharing` in `detail.js`; „ausgelastet“ heißt Wartezeit über
+  (Clients × Antwortzeit), also mehr als eine Runde im Round Robin.
 - Ereignisse: `_bursts` nach (Verbindung, Art, Host), `flush_bursts` räumt abgelaufene Einträge weg.
   Eine Sammelzeile bleibt wie geschrieben, `last_ts` kommt aus der Datenbank und im Panel aus den
   Wiederholungen (`app.js`). `stats` schließt offene Ausfälle bei `app_started`/`app_stopped`, weil ein

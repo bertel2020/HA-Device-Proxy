@@ -930,3 +930,26 @@ def test_write_rules_are_checked_and_need_no_restart() -> None:
     assert modbus.restart_key(c, "lan") == modbus.restart_key(
         replace(c, write_rules="10.0.0.1 *"), "lan"
     )
+
+
+async def test_each_client_shows_its_share_and_its_wait() -> None:
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Inverter", "", 0, kind="modbus", host="127.0.0.1", bind="127.0.0.1", max_clients=10,
+        host_port=device.sockets[0].getsockname()[1], cache_ms=1000,
+    )  # fmt: skip
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    first, second = ClientInfo("192.0.2.1:1", 0), ClientInfo("192.0.2.2:1", 0)
+    read = bytes([3, 0, 0, 0, 1])
+    other = bytes([3, 0, 1, 0, 1])
+    await asyncio.gather(proxy.request(1, read, first), proxy.request(1, other, second))
+    await proxy.request(1, read, first)  # from the cache: no time of the device, no wait
+    assert first.requests == 2 and first.cached == 1 and second.cached == 0
+    assert first.busy >= 0.02 and second.busy >= 0.02 and first.time_avg >= 0.02
+    assert second.wait_avg >= 0.015 > first.wait_avg  # the second waited for the first
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
