@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Sprachen**: Jede Sprache ist jetzt eine eigene Datei, mit Weboberfläche, Meldungen und
+  Entitätsnamen. Eine neue Sprache braucht nur noch eine Datei; was darin fehlt, erscheint auf
+  Englisch. Die Texte selbst sind unverändert.
+
+### English
+
+- **Languages**: Each language is now a file of its own, with the web interface, notifications and
+  entity names. A new language needs just one file; whatever it leaves out appears in English. The
+  texts themselves have not changed.
+
 ## 1.5.1 - 2026-11-08
 
 - **Übersicht**: In der Kachel einer Verbindung steht bei den Clients kein Stift mehr, die Zeile

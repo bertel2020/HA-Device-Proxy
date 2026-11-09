@@ -105,6 +105,10 @@ python -m pytest
 
 Die Weboberfläche wird aus `panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf einem Desktop mit Beispielverbindungen und spielt mit `--replay datei.json` einen Testfall ab, der aus den Live-Daten einer Verbindung heruntergeladen wurde. `tools/screenshots.mjs` erzeugt die Screenshots oben, `tools/render_images.py` zeichnet `icon.png` und `logo.png`. `tools/soak_test.py` (Modbus) und `tools/soak_enocean.py` (EnOcean mit Ersatz-Gateway) lassen die Proxys minutenlang unter Last und Fehlern laufen und prüfen feste Grenzwerte; [tests/HARDWARE.md](tests/HARDWARE.md) listet die Prüfungen, die echte Geräte brauchen.
 
+### Übersetzungen
+
+Jede Sprache ist eine Datei, `device_proxy/app/device_proxy/locales/<code>.json`, mit Weboberfläche, Meldungen und den Namen der Home-Assistant-Entitäten. Für eine neue Sprache `en.json` in eine Datei mit dem zweistelligen Sprachcode kopieren (z. B. `fr.json`), `name` setzen und die Werte übersetzen; Schlüssel und `{Platzhalter}` bleiben, wie sie sind. Was fehlt, erscheint auf Englisch. Danach `node build.mjs` in `panel-src/` ausführen, dann steht die Sprache in beiden Sprachauswahlen. Der Abschnitt `errors` übersetzt die englischen Fehlermeldungen der App über Muster; siehe `de.json`.
+
 ## Dank
 
 Der EnOcean-Teil baut auf der Arbeit anderer auf:

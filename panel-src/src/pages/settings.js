@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
-import { changesText, fieldError, lang, noteText, t } from "../i18n.js";
+import { LANGUAGES, changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
 import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
 
@@ -609,7 +609,7 @@ export class SettingsPage extends Page {
                 <option value="" ?selected=${!d.notify_service}>${t("notifyNone")}</option>
                 ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} ?selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
               <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
-                <option value="de" ?selected=${d.notify_language === "de"}>Deutsch</option><option value="en" ?selected=${d.notify_language === "en"}>English</option></select><span class="hint">${t("notifyLanguageHint")}</span></label>
+                ${LANGUAGES.map(([code, name]) => html`<option value=${code} ?selected=${d.notify_language === code}>${name}</option>`)}</select><span class="hint">${t("notifyLanguageHint")}</span></label>
             </div>
             <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
           </div>
@@ -756,7 +756,7 @@ export class SettingsPage extends Page {
             <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("language")}</span>
               <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
-                <option value="de" ?selected=${lang === "de"}>Deutsch</option><option value="en" ?selected=${lang === "en"}>English</option></select>
+                ${LANGUAGES.map(([code, name]) => html`<option value=${code} ?selected=${lang === code}>${name}</option>`)}</select>
                 <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
               ${[["lookScheme", "scheme", SCHEMES], ["lookMode", "mode", MODES], ["lookSize", "size", Object.keys(SIZES)]].map(([label, key, values]) => html`
                 <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t(label)}</span>

@@ -20,6 +20,7 @@ import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from . import i18n
 from .kinds import PROXIED
 from .meter import ENTITIES, entity_values
 from .model import AppConfig
@@ -30,64 +31,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-NAMES = {
-    "de": {
-        "present": "Gerät angeschlossen",
-        "clients": "Clients",
-        "rate": "Datenrate",
-        "received": "Daten vom Gerät",
-        "last_data": "Letzte Daten",
-        "line_errors": "Leitungsfehler",
-        "enabled": "Aktiv",
-        "running": "ser2net läuft",
-        "reachable": "Gerät erreichbar",
-        "requests": "Anfragen",
-        "failed": "Anfragen ohne Antwort",
-        "answer_time": "Antwortzeit",
-        "telegrams": "Telegramme vom Gateway",
-        "duty_cycle": "Funkzeit (Anteil am 1-%-Limit)",
-        "fallback_active": "Ersatz-Gateway aktiv",
-        "active_gateway": "Aktives Gateway",
-        "fallback_ready": "Ersatz-Gateway bereit",
-        "disconnect": "Clients trennen",
-        "restart": "Verbindung neu starten",
-        "usb_reset": "USB-Reset",
-        "power_cycle": "Stromzyklus",
-        "meter_import": "Zählerstand Bezug",
-        "meter_export": "Zählerstand Einspeisung",
-        "meter_power": "Leistung",
-        "to_fallback": "Auf Ersatz-Gateway umschalten",
-        "to_main": "Zurück zum eigenen Gateway",
-    },
-    "en": {
-        "present": "Device connected",
-        "clients": "Clients",
-        "rate": "Data rate",
-        "received": "Data from the device",
-        "last_data": "Last data",
-        "line_errors": "Line errors",
-        "enabled": "Active",
-        "running": "ser2net running",
-        "reachable": "Device reachable",
-        "requests": "Requests",
-        "failed": "Unanswered requests",
-        "answer_time": "Answer time",
-        "telegrams": "Telegrams from the gateway",
-        "duty_cycle": "Air time (share of the 1 % limit)",
-        "fallback_active": "Fallback gateway active",
-        "active_gateway": "Active gateway",
-        "fallback_ready": "Fallback gateway ready",
-        "disconnect": "Disconnect clients",
-        "restart": "Restart connection",
-        "usb_reset": "USB reset",
-        "power_cycle": "Power cycle",
-        "meter_import": "Meter reading import",
-        "meter_export": "Meter reading export",
-        "meter_power": "Power",
-        "to_fallback": "Switch to the fallback gateway",
-        "to_main": "Back to its own gateway",
-    },
-}
+NAMES = i18n.section("entities")
 
 
 class HaBridge:

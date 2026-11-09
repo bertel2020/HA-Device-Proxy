@@ -105,6 +105,10 @@ python -m pytest
 
 The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/screenshots.mjs` renders the screenshots above, `tools/render_images.py` draws `icon.png` and `logo.png`. `tools/soak_test.py` (Modbus) and `tools/soak_enocean.py` (EnOcean with a fallback) run the proxies for minutes under load and faults and check fixed limits; [tests/HARDWARE.md](tests/HARDWARE.md) lists the checks that need real devices.
 
+### Translations
+
+Each language is one file, `device_proxy/app/device_proxy/locales/<code>.json`, with the web interface, notifications and Home Assistant entity names. To add a language, copy `en.json` to a file named with its two-letter code (e.g. `fr.json`), set `name` and translate the values; keys and `{placeholders}` stay as they are. Whatever is left out appears in English. Then run `node build.mjs` in `panel-src/`, and the language shows up in both language pickers. The section `errors` translates the app's English error messages by pattern; see `de.json`.
+
 ## Thanks
 
 The EnOcean part builds on the work of others:
