@@ -646,6 +646,14 @@ class ClientInfo:
     blocked: int = 0
     bytes_in: int = 0
     bytes_out: int = 0
+    cached: int = 0  # of the requests: answered without asking the device
+    busy: float = 0.0  # seconds the device was taken up by this client's requests
+    time_avg: float = 0.0  # seconds the device took to answer, moving average
+    wait_avg: float = 0.0  # seconds a request waited until the device was free, moving average
+
+
+def _moving(average: float, value: float) -> float:
+    return value if not average else average * 0.9 + value * 0.1
 
 
 @dataclass
@@ -826,6 +834,7 @@ class _Job:
     future: asyncio.Future[bytes | None]
     timeout: float | None = None  # seconds, instead of the connection's
     retries: int | None = None
+    queued_at: float = 0.0  # loop time
 
 
 class Scheduler:
@@ -1089,6 +1098,7 @@ class ModbusProxy:
         if hit is not None and now - hit[0] <= self.c.cache_ms / 1000:
             self.stats.cached += 1
             client.requests += 1
+            client.cached += 1
             return hit[1]
         pending = self._inflight.get(key)
         if pending is not None:
@@ -1101,6 +1111,7 @@ class ModbusProxy:
             else:
                 self.stats.cached += 1
                 client.requests += 1
+                client.cached += 1
                 return answer
         future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
         self._inflight[key] = future
@@ -1128,7 +1139,8 @@ class ModbusProxy:
         retries: int | None = None,
     ) -> bytes | None:
         future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
-        self.scheduler.put(client.address, _Job(unit, pdu, client, future, timeout, retries))
+        now = asyncio.get_running_loop().time()
+        self.scheduler.put(client.address, _Job(unit, pdu, client, future, timeout, retries, now))
         self.stats.queue_max = max(self.stats.queue_max, self.scheduler.size)
         try:
             return await future
@@ -1155,6 +1167,8 @@ class ModbusProxy:
             per_unit.requests += 1
         if self.gap and (wait := path.last_request + self.gap - loop.time()) > 0:
             await asyncio.sleep(wait)
+        if counted:
+            client.wait_avg = _moving(client.wait_avg, loop.time() - job.queued_at)
         timeout = job.timeout or self.c.request_timeout_ms / 1000
         # a scan asks units that are not there: no late answers to wait for
         settle = min(timeout, SETTLE_MAX) if job.timeout else SETTLE_MAX
@@ -1202,6 +1216,8 @@ class ModbusProxy:
                 continue
             finally:
                 path.last_request = self._last_exchange = loop.time()
+                if counted:  # a timeout keeps the device from the others just the same
+                    client.busy += path.last_request - started
                 if error and not tool:
                     self._error(error)
             elapsed = loop.time() - started
@@ -1213,6 +1229,7 @@ class ModbusProxy:
                 stats.time_max = max(stats.time_max, elapsed)
             if counted:
                 stats.answered += 1
+                client.time_avg = _moving(client.time_avg, elapsed)
                 per_unit.answered += 1
                 per_unit.last_answer = time.time()
                 per_unit.time_avg = (
@@ -1486,8 +1503,12 @@ def client_row(client: _Client) -> dict[str, Any]:
         "bytes_to_client": info.bytes_out,
         "bytes_from_client": info.bytes_in,
         "requests": info.requests,
+        "cached": info.cached,
         "blocked": info.blocked,
         "failed": info.failed,
+        "busy": round(info.busy, 3),
+        "time_avg_ms": round(info.time_avg * 1000, 1),
+        "wait_avg_ms": round(info.wait_avg * 1000, 1),
         "queued": 0,
         "stuck": False,
     }

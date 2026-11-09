@@ -215,6 +215,27 @@ export class DetailPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
+  /** How much of the device's time went to this client, among those connected. */
+  _share(c, client) {
+    const total = c.clients.reduce((sum, cl) => sum + cl.busy, 0);
+    if (!total) return "–";
+    const percent = Math.round((client.busy / total) * 100);
+    return html`<span style="display:flex;align-items:center;gap:8px;min-width:90px"><span style="flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden"><span style="display:block;height:100%;width:${percent}%;background:var(--accent)"></span></span><span>${percent} %</span></span>`;
+  }
+
+  /** In one sentence whether the clients get in each other's way; a device does one thing at a time. */
+  _sharing(c) {
+    const asking = c.clients.filter((cl) => cl.requests > cl.cached);
+    const answer = (c.modbus || {}).time_avg_ms;
+    if (asking.length < 2 || !answer) return "";
+    const worst = asking.reduce((a, b) => (b.wait_avg_ms > a.wait_avg_ms ? b : a));
+    // taking turns, a request waits for at most one request of each of the others
+    const busy = worst.wait_avg_ms > asking.length * answer;
+    return html`<p class="hint" style="margin:8px 0 0;${busy ? "color:var(--warn)" : ""}">${busy
+      ? t("mbSharingBusy", { n: clientName(worst.address) || worst.address, w: worst.wait_avg_ms, a: answer })
+      : t("mbSharingOk", { w: worst.wait_avg_ms })}</p>`;
+  }
+
   /** The clients' last writes: who changed what, and what was refused. */
   _writeLog(c) {
     const writes = [...((c.modbus || {}).writes || [])].reverse();
@@ -758,9 +779,12 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span style="display:flex;gap:10px;align-items:center"><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
               ${c.clients.length ? html`<button class="btn btn-g" style="min-height:32px" @click=${() => this._disconnect(c)}>${t("disconnectClients")}</button>` : ""}</span></div>
             ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
-              <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
+              <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th title=${t("mbTipShare")}>${t("mbShare")}</th><th style="text-align:right" title=${t("mbTipAnswer")}>${t("mbAnswer")}</th><th style="text-align:right" title=${t("mbTipWait")}>${t("mbWait")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
-                <td style="text-align:right">${cl.requests}</td><td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>`
+                <td style="text-align:right;white-space:nowrap">${cl.requests}${cl.cached ? html` <span class="hint">· ${t("mbCachedShort", { n: cl.cached })}</span>` : ""}</td>
+                <td>${this._share(c, cl)}</td>
+                <td style="text-align:right;white-space:nowrap">${cl.time_avg_ms ? `${cl.time_avg_ms} ms` : "–"}</td><td style="text-align:right;white-space:nowrap">${cl.requests > cl.cached ? `${cl.wait_avg_ms} ms` : "–"}</td>
+                <td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
             : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>

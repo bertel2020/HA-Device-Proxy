@@ -159,6 +159,13 @@ hören war, sonst mit Fehler 0B, wie von einem Gateway, dessen Gerät weg ist. L
 was der Master liest; Schreiben wird mit Fehler 01 abgewiesen. Die Status-Karte zeigt die
 gehörten Frames und welche Register welcher Units bekannt sind.
 
+**Clients nebeneinander**: Die Tabelle der Clients zeigt je Client die Anfragen, den Anteil an der
+Zeit des Geräts, die mittlere Antwortzeit und wie lange seine Anfragen auf ein freies Gerät warten,
+jeweils seit er verbunden ist. Ein Satz darunter sagt, ob sich die Clients ausbremsen: Ein Gerät
+beantwortet eine Anfrage nach der anderen, die Clients sind reihum dran, also wartet eine Anfrage
+normalerweise höchstens auf je eine der anderen. Bei EnOcean und seriellen Verbindungen gibt es
+das nicht, dort stehen sich Clients nicht in einer Warteschlange gegenüber.
+
 **Einstellungen**: Port für die Clients (Standard 502; jede Verbindung braucht ihren eigenen),
 Anzahl der Clients, Antwort-Timeout, weitere Versuche, eine Pause nach dem Verbinden
 (`connection_time` von ha-modbusproxy, für Geräte, die einen Moment brauchen) und eine Pause
