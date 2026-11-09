@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Home Assistant, Geräte**: Die Geräteliste zeigt jetzt „Device Proxy · Seriell“, „· Modbus“ oder
+  „· EnOcean“, so sind die Geräte auf den ersten Blick zuzuordnen. Geräte und Entitäten bleiben dieselben.
 - **MQTT, Hinweis**: Findet die App keinen Broker, etwa bei EMQX, oder verliert sie ihn, sagt die
   Seite Verbindungen das jetzt und führt direkt zur Einstellung. Ohne Broker lässt sich der Hinweis
   ausblenden.
@@ -39,6 +41,8 @@
 
 ### English
 
+- **Home Assistant, devices**: The list of devices now shows "Device Proxy · Serial", "· Modbus" or
+  "· EnOcean", so the devices can be placed at a glance. Devices and entities stay the same.
 - **MQTT, note**: If the app finds no broker, as with EMQX, or loses it, the Connections page now
   says so and leads straight to the setting. Without a broker the note can be hidden.
 - **Modbus, clients side by side**: The table of clients now shows each client's share of the

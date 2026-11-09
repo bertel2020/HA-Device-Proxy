@@ -291,3 +291,13 @@ async def test_old_entities_go_with_a_prefix_with_slashes_another_prefix_or_mqtt
     bridge._last["state:0000dead"] = "{}"
     await bridge.publish_states()
     assert (f"{bridge.base}/0000dead/state", b"") in sent
+
+
+def test_the_device_list_shows_whose_device_it_is(tmp_path: Path) -> None:
+    controller = _controller(tmp_path)
+    device = ha_mqtt.HaBridge(controller).configs()[
+        "homeassistant/button/device_proxy_0000000a/disconnect/config"
+    ]["device"]
+    assert device["model"].startswith("Device Proxy · ")
+    assert device["identifiers"] == ["device_proxy_0000000a"]  # the same device as before
+    assert device["model"].split(" · ")[1] in ("Serial", "Seriell")

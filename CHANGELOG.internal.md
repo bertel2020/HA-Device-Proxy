@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- MQTT: Modell der Geräte ist `Device Proxy · <Art>` aus `entities.kind_*`, folgt also
+  `notify_language`; `Kind.model` entfällt. `identifiers` bleiben, die Entity-IDs ändern sich nicht.
 - MQTT: `mqttNote` in `ui.js`, ausgeblendet per `localStorage` (nur ohne Broker, je Browser).
   `#/settings/mqtt` scrollt zur Karte und öffnet ohne gefundenen Broker „Eigener Broker“.
   `mqtt_no_broker` ist Info, weil MQTT ab Werk an ist und viele keinen Broker haben.

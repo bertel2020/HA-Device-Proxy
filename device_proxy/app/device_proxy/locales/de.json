@@ -1749,6 +1749,9 @@
     "resolved": "Wieder in Ordnung"
   },
   "entities": {
+    "kind_serial": "Seriell",
+    "kind_modbus": "Modbus",
+    "kind_enocean": "EnOcean",
     "present": "Gerät angeschlossen",
     "clients": "Clients",
     "rate": "Datenrate",
