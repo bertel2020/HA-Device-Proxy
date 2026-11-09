@@ -144,13 +144,11 @@ async def main() -> None:
         assert result.disconnected == [] and result.rebuilt == [], result
         os.write(dev_a, b"rec")
         assert await asyncio.wait_for(reader_a.readexactly(3), 5) == b"rec"
-        await until(
-            lambda: (
-                (data / "trace" / "a.log").exists()
-                and " RX 72 65 63" in (data / "trace" / "a.log").read_text()
-            ),
-            "recording written",
-        )
+
+        def recorded() -> str:  # a file is named after the start of its recording
+            return "".join(p.read_text() for p in (data / "trace").glob("a-*.log"))
+
+        await until(lambda: " RX 72 65 63" in recorded(), "recording written")
         snapshot = controller.snapshot()
         json.dumps(snapshot)
         print("ok: trace live and recorded; switching the recording disconnected nobody")

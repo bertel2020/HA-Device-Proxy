@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- CI: Der Integrationstest sucht die Aufzeichnung als `a-*.log`, seit Dateien das Startdatum tragen.
+
 ## 1.6.0 - 2026-11-09
 
 - MQTT: `default_entity_id` je Entität (ab HA 2025.10, ersetzt `object_id`), greift nur beim ersten Anlegen. Bestehende IDs über
