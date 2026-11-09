@@ -547,6 +547,13 @@ Details einer Verbindung geht das über den Stift beim Client. Der Name steht ne
 Client-Listen und in den Ereignissen. Dieser Host heißt von selbst Home Assistant, Adressen aus dem
 Supervisor-Netz App; ein eigener Name geht vor.
 
+Darunter steht der Verlauf des Rechners: eine Zeitleiste je Verbindung über 7 Tage oder 24 Stunden
+und die letzten Verbindungen mit Dauer und Datenmenge. Kurze Besuche kurz hintereinander, etwa von
+einem pollenden Client oder bei Abbrüchen, sind zu einer Zeile zusammengefasst und gelb markiert.
+Abgewiesene Versuche (rot) gibt es bei Modbus und EnOcean; bei seriellen Verbindungen ist die
+Datenmenge so genau wie der letzte Statusabruf. Der Verlauf bleibt so lange wie die Historie und
+verschwindet, wenn der Rechner entfernt wird.
+
 Die Ports haben keine Anmeldung, also wird ein Rechner gemeldet, der sich zum ersten Mal verbindet:
 ein Ereignis und, sofern dort nicht ausgeschaltet, eine Benachrichtigung in Home Assistant. Er steht
 als **Neu** oben in der Liste, bis du ihn als **Bekannt** markierst oder ihm einen Namen gibst. Als

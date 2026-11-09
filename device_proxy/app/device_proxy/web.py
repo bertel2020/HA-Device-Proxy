@@ -202,6 +202,7 @@ class WebServer:
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("GET", r"api/ha/switches", self.ha_switches)
+        self._route("GET", r"api/clients/history", self.client_history)
         self._route("POST", r"api/clients/known", self.known_client)
         self._route("POST", r"api/clients/name", self.client_name)
         self._route("POST", r"api/clients/forget", self.forget_client)
@@ -822,6 +823,19 @@ class WebServer:
             raise HttpError(404, "no such job")
         return ok(job)
 
+    async def client_history(self, request: Request) -> Response:
+        host = plain_host(request.query.get("host", "").strip())
+        days = min(max(_number(request.query, "days", 7, int), 1), 365)
+        now = time.time()
+        return ok(
+            {
+                "host": host,
+                "days": days,
+                "now": now,
+                "rows": self.c.sessions.history(host, now - days * 86400),
+            }
+        )
+
     async def known_client(self, request: Request) -> Response:
         data = request.json()
         host = data.get("host") if isinstance(data, dict) else None
@@ -857,6 +871,7 @@ class WebServer:
             raise HttpError(400, "an IP address is needed")
         host = plain_host(host.strip())
         known = self.c.known_clients.forget(host)
+        self.c.sessions.forget(host)
         if host not in parse_names(self.c.config.settings.client_names):
             if not known:
                 raise HttpError(404, "no such client")

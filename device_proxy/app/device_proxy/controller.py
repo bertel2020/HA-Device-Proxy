@@ -82,6 +82,7 @@ from .model import (
 )
 from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
+from .sessions import ClientSessions
 from .store import PASSWORD_KEPT, Change, Store, hidden, quiet, summary
 from .trace import Chunk, TraceHub, recording_stem
 
@@ -90,6 +91,11 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_POLL = 2  # seconds between device checks
 STATUS_POLL = 5  # seconds between status reads from ser2net
 HOUSEKEEPING = 6 * 3600  # seconds between history clean-ups
+REFUSED_REASONS = {
+    "client_refused": "full",
+    "client_refused_network": "network",
+    "client_refused_exclusive": "exclusive",
+}
 STUCK_BYTES = 4096  # a client with this much waiting ...
 STUCK_SECONDS = 30  # ... for this long does not read
 KEEP_OPEN_RETRY = 5  # seconds
@@ -175,6 +181,7 @@ class Controller:
         except (OSError, ValueError):
             self.prints = {}
         self.events = events
+        self.sessions = ClientSessions(events.db)
         self.config_file = config_file
         self.custom_file = custom_file
         self.import_dir = import_dir
@@ -325,6 +332,7 @@ class Controller:
                 self._loop(stop, STATUS_POLL, self.read_status),
                 self._loop(stop, STATUS_POLL, self._proxy_tick),
                 self._loop(stop, STATUS_POLL, self._silence_tick),
+                self._loop(stop, STATUS_POLL, self._sessions_tick),
                 self._loop(stop, HOUSEKEEPING, self._housekeeping),
             )
         finally:
@@ -336,6 +344,7 @@ class Controller:
             for task in self._proxy_tasks.values():
                 task.cancel()
             await asyncio.gather(*self._proxy_tasks.values(), return_exceptions=True)
+            self.sessions.shutdown()
             await self.enocean_ha.stop()
             if self._mqtt_task is not None:
                 await asyncio.gather(self._mqtt_task, return_exceptions=True)
@@ -581,10 +590,19 @@ class Controller:
         else:
             self.client_since.pop((alias, address), None)
             self.known_clients.touch(address, name)
+            self.sessions.disconnected(address, connection_id or alias)
         event = "client_connected" if kind == "new connection" else "client_disconnected"
         self.events.emit("info", event, connection=connection_id, name=name, address=address)
         if event == "client_connected":
             self._client_seen(connection_id, name, address)
+            if self._on_the_list(address):
+                self.sessions.connected(address, connection_id or alias, name)
+
+    def _on_the_list(self, address: str) -> bool:
+        """A host the card Clients can show; a scan of the network does not fill the history."""
+        host = plain_host(host_of(address))
+        known = self.known_clients
+        return host in known.known or host in known.new or is_local(host, self.lan_ip)
 
     def _client_seen(self, connection_id: str | None, name: str, address: str) -> None:
         names = parse_names(self.config.settings.client_names)
@@ -745,12 +763,26 @@ class Controller:
         def emit(level: str, kind: str, **params: object) -> None:
             c = self.config.connection(connection_id)
             name = c.name if c else connection_id
+            to_client, from_client = (
+                params.pop("bytes_to_client", None),
+                params.pop("bytes_from_client", None),
+            )
             self.events.emit(level, kind, connection=connection_id, name=name, **params)
             address = str(params.get("address", ""))
             if kind == "client_connected":
                 self._client_seen(connection_id, name, address)
+                if self._on_the_list(address):
+                    self.sessions.connected(address, connection_id, name)
             elif kind == "client_disconnected":
                 self.known_clients.touch(address, name)
+                self.sessions.disconnected(
+                    address,
+                    connection_id,
+                    to_client if isinstance(to_client, int) else None,
+                    from_client if isinstance(from_client, int) else None,
+                )
+            elif kind in REFUSED_REASONS and self._on_the_list(address):
+                self.sessions.refused(address, connection_id, name, REFUSED_REASONS[kind])
 
         return emit
 
@@ -2072,8 +2104,26 @@ class Controller:
 
     # housekeeping
 
+    async def _sessions_tick(self) -> None:
+        live: dict[tuple[str, str], tuple[int, int]] = {}
+        for alias, port in self.status.items():
+            connection = self._names(alias)[0] or alias
+            for cl in port.clients:
+                if cl.address not in self.internal:
+                    live[(connection, cl.address)] = (cl.bytes_to_client, cl.bytes_from_client)
+        for connection_id, proxy in self.proxies.items():
+            client_row = PROXIED[proxy.c.kind].client_row
+            for row in map(client_row, proxy.clients.values()):
+                live[(connection_id, row["address"])] = (
+                    row["bytes_to_client"],
+                    row["bytes_from_client"],
+                )
+        # without ser2net's answer nobody can say who is gone
+        self.sessions.tick(live, check_gone=self.admin.connected.is_set())
+
     async def _housekeeping(self) -> None:
         days = self.config.settings.history_days
+        self.sessions.prune(days)
         if removed := self.events.prune(days):
             _LOGGER.info("History: %s entries older than %s days removed", removed, days)
 

@@ -267,6 +267,35 @@ async def replay_serial(
         await asyncio.sleep(2)
 
 
+def _demo_sessions(db: Database) -> None:
+    """Some past days for the history of the Home Assistant row in the card Clients."""
+    now, hour = time.time(), 3600
+    for connection, name, start, end, count, refused in (
+        ("0000b001", "BWT AQA perla", 150, 120, 1, None),
+        ("0000b001", "BWT AQA perla", 118, 92, 1, None),
+        ("0000b001", "BWT AQA perla", 91.8, 91.5, 12, None),
+        ("0000b001", "BWT AQA perla", 91.4, 40, 1, None),
+        ("0000b003", "Wärmepumpe", 70, 69, 1, None),
+        ("0000b003", "Wärmepumpe", 30, 30, 2, "network"),
+        ("0000b003", "Wärmepumpe", 8, 6, 1, None),
+    ):
+        db.execute(
+            "INSERT INTO client_sessions (host, connection, name, start, end, count, to_client,"
+            " from_client, refused, updated) VALUES ('127.0.0.1', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                connection,
+                name,
+                now - start * hour,
+                now - end * hour,
+                count,
+                0 if refused else int((start - end + 1) * 41000),
+                0 if refused else int((start - end + 1) * 3300),
+                refused,
+                now,
+            ),
+        )
+
+
 async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
     """offset moves the example connections' ports, so two dev servers can run at once."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -452,6 +481,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                 }
             )
         )
+        _demo_sessions(db)
         controller = Controller(
             store,
             events,

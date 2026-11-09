@@ -4,8 +4,11 @@ import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { LANGUAGES, changesText, fieldError, lang, noteText, t } from "../i18n.js";
 import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
-import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
+import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
 
+const REPEATS = 3; // from this many connections in a row a client counts as coming back all the time
+const ROWS_SHOWN = 8;
+const HISTORY_REFRESH = 30000; // ms, while a computer is open
 const NUMBERS = ["history_days", "trace_file_mb", "trace_keep", "debounce_count", "debounce_minutes"];
 // the settings saved with a section's button; the others take effect when chosen
 const ROWS = {
@@ -27,7 +30,7 @@ function lineDiff(before, after) {
 
 export class SettingsPage extends Page {
   static properties = {
-    state: { attribute: false }, clientOpen: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
+    state: { attribute: false }, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
     versions: { state: true }, open: { state: true }, histAll: { state: true }, runtime: { state: true }, exportDisabled: { state: true }, ownBroker: { state: true }, mqttTest: { state: true }, copied: { state: true }, lanDraft: { state: true }, lanInput: { state: true }, lanErr: { state: true }, diffs: { state: true }, services: { state: true }, active: { state: true },
   };
 
@@ -45,7 +48,33 @@ export class SettingsPage extends Page {
     .cl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
     .cl-chev { flex: none; display: flex; color: var(--muted); transition: transform .15s; }
     .cl-chev.open { transform: rotate(180deg); }
-    .cl-more { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 2px 14px 14px 36px; }
+    .cl-more { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 8px 14px 14px 36px; }
+    .cl-hist { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+    .cl-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+    .cl-tile { background: var(--surface-2); border-radius: 10px; padding: 9px 11px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .cl-tile b { font-weight: 500; font-size: calc(15px * var(--fs, 1)); overflow-wrap: anywhere; }
+    .cl-sec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-weight: 500; }
+    .cl-seg { flex: none; }
+    .cl-seg button { min-height: 30px; padding: 0 12px; }
+    .cl-lane { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 6px; }
+    .cl-lane > span { font-size: calc(13px * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cl-track { position: relative; height: 16px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+    .cl-track i { position: absolute; top: 0; bottom: 0; min-width: 2px; background: var(--ok); }
+    .cl-track i.repeat { background: var(--warn); min-width: 3px; } .cl-track i.refused { background: var(--bad); min-width: 3px; }
+    .cl-axis { display: flex; justify-content: space-between; margin-left: 160px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .cl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .cl-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+    .cl-rows { display: flex; flex-direction: column; }
+    .cl-r { display: grid; grid-template-columns: 112px 104px minmax(0, 1fr) 112px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-2); font-size: calc(13px * var(--fs, 1)); }
+    .cl-r.th { border: 0; padding: 0 0 5px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .cl-r .chip { min-height: 20px; padding: 0 8px; font-size: calc(12px * var(--fs, 1)); margin-left: 6px; }
+    .cl-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
+    @media (max-width: 600px) {
+      .cl-more { padding-left: 14px; }
+      .cl-lane { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); } .cl-axis { margin-left: 106px; }
+      .cl-r { grid-template-columns: 1fr 1fr; } .cl-r.th { display: none; }
+      .cl-r > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+    }
     .cl-more .fld { flex: 1 1 200px; max-width: 320px; }
     .cl-add { display: flex; flex-wrap: wrap; gap: 8px; }
     .cl-add .inp { flex: 1 1 200px; width: auto; }
@@ -100,6 +129,7 @@ export class SettingsPage extends Page {
 
   connectedCallback() {
     super.connectedCallback();
+    this.clientRange ??= 7;
     this.exportDisabled = true;
     this.open = -1;
     this.diffs = {};
@@ -142,8 +172,20 @@ export class SettingsPage extends Page {
 
   firstUpdated() { this._onScroll(); }
 
-  willUpdate() {
+  willUpdate(changed) {
     if (!this.draft && this.state) this.draft = { ...this.state.settings };
+    if (changed.has("clientOpen") || changed.has("clientRange")) { this.clientAll = false; this._loadClientHistory(); }
+    else if (changed.has("state") && this.clientOpen && Date.now() - this._histAt > HISTORY_REFRESH) this._loadClientHistory(true);
+  }
+
+  async _loadClientHistory(quiet = false) {
+    const host = this.clientOpen, days = this.clientRange;
+    this._histAt = Date.now();
+    if (!host) return;
+    try {
+      const data = await api(`api/clients/history?host=${encodeURIComponent(host)}&days=${days}`);
+      if (this.clientOpen === host && this.clientRange === days) this.clientHist = data;
+    } catch (err) { if (!quiet) this.toast(`${t("error")}: ${err.message}`); }
   }
 
   /** After a restore: the form shows the restored settings, not the ones before. */
@@ -272,7 +314,78 @@ export class SettingsPage extends Page {
         ${r.auto ? html`<span class="hint" style="align-self:center">${t("clientAutoHint")}</span>` : html`<span class="cl-acts">
           <button class="btn btn-d" @click=${() => this._blockClient(r.host)}>${t("newClientBlock")}</button>
           ${r.connected ? "" : html`<button class="btn btn-g" @click=${() => this._forgetClient(r.host)}>${t("clientForget")}</button>`}</span>`}
+        ${this._clientHistory(r)}
       </div>` : ""}`;
+  }
+
+  /** What the rows of the time shown add up to. */
+  _historyTiles(h, visits, refused) {
+    const open = visits.filter((v) => v.end === null);
+    const tiles = [];
+    if (open.length) tiles.push([t("clHistSince"), fmtDuration(h.now - Math.min(...open.map((v) => v.start)))]);
+    else if (visits.length) tiles.push([t("clHistLastSeen"), fmtTime(Math.max(...visits.map((v) => v.end)))]);
+    tiles.push([t("clHistCount"), visits.reduce((n, v) => n + v.count, 0)]);
+    tiles.push([t("clHistSeries"), visits.filter((v) => v.count >= REPEATS).length]);
+    if (refused.length) tiles.push([t("clHistRefused"), refused.reduce((n, v) => n + v.count, 0)]);
+    const sum = (key) => fmtBytes(visits.reduce((n, v) => n + v[key], 0));
+    tiles.push([t("clHistData"), `${sum("to_client")} / ${sum("from_client")}`]);
+    return html`<div class="cl-tiles">${tiles.map(([label, value]) => html`<div class="cl-tile"><span class="hint">${label}</span><b>${value}</b></div>`)}</div>`;
+  }
+
+  /** One line per connection, a bar for every row; what stands out is drawn last, on top. */
+  _historyLanes(h, from) {
+    const span = h.now - from;
+    const pos = (ts) => Math.max(0, Math.min(100, ((ts - from) / span) * 100));
+    const lanes = new Map();
+    for (const row of h.rows) lanes.set(row.connection, [...(lanes.get(row.connection) || []), row]);
+    const level = (row) => (row.refused ? 2 : row.count >= REPEATS ? 1 : 0);
+    const lanesByName = [...lanes.values()].sort((a, b) => a[0].name.localeCompare(b[0].name));
+    const ticks = h.days === 1 ? 4 : 7;
+    const label = (i) => {
+      if (i === ticks) return t("clHistNow");
+      const d = new Date((from + (span * i) / ticks) * 1000);
+      return h.days === 1 ? d.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString(lang, { weekday: "short" });
+    };
+    return html`${lanesByName.map((rows) => html`<div class="cl-lane"><span title=${rows[0].name}>${rows[0].name}</span>
+        <div class="cl-track" role="img" aria-label=${rows[0].name}>${[...rows].sort((a, b) => level(a) - level(b)).map((row) => {
+          const end = row.end ?? h.now;
+          return html`<i class=${["", "repeat", "refused"][level(row)]} style="left:${pos(row.start)}%;width:${pos(end) - pos(row.start)}%" title="${fmtTime(row.start)} – ${row.end === null ? t("clHistRunning") : fmtTime(end)}"></i>`;
+        })}</div></div>`)}
+      <div class="cl-axis">${Array.from({ length: ticks + 1 }, (_, i) => html`<span>${label(i)}</span>`)}</div>
+      <div class="cl-legend"><span style="--c:var(--ok)">${t("clHistOn")}</span><span style="--c:var(--warn)">${t("clHistRepeat")}</span><span style="--c:var(--bad)">${t("clHistOff")}</span></div>`;
+  }
+
+  _historyRow(h, row) {
+    const times = row.count > 1 ? `${row.count}× ` : "";
+    const chips = row.refused ? html`<span class="chip bad">${times}${t(`clHistWhy_${row.refused}`)}</span>`
+      : html`${row.end === null ? html`<span class="chip ok">${t("clHistRunning")}</span>` : ""}
+        ${row.count >= REPEATS ? html`<span class="chip warn">${t("clHistRepeats", { n: row.count })}</span>` : ""}
+        ${row.unknown ? html`<span class="chip">${t("clHistUnknownEnd")}</span>` : ""}`;
+    return html`<div class="cl-r"><span class="mono">${fmtTime(row.start)}</span>
+      <span>${row.refused ? "–" : fmtDuration((row.end ?? h.now) - row.start)}</span>
+      <span>${row.name}${chips}</span>
+      <span class="hint">${row.refused ? "–" : `${fmtBytes(row.to_client)} / ${fmtBytes(row.from_client)}`}</span></div>`;
+  }
+
+  /** When and where a computer was connected. */
+  _clientHistory(r) {
+    const h = this.clientHist?.host === r.host ? this.clientHist : null;
+    if (!h) return html`<div class="cl-hist hint">${t("loading")}</div>`;
+    const from = h.now - h.days * 86400;
+    const visits = h.rows.filter((row) => !row.refused), refused = h.rows.filter((row) => row.refused);
+    const shown = this.clientAll ? h.rows : h.rows.slice(0, ROWS_SHOWN);
+    const events = r.host.includes(":") ? `[${r.host}]` : `${r.host}:`;
+    return html`<div class="cl-hist">
+      ${h.rows.length ? this._historyTiles(h, visits, refused) : ""}
+      <div><div class="cl-sec"><span>${t("clHistWhen")}</span>
+        <div class="seg cl-seg">${[[7, "clHistWeek"], [1, "clHistDay"]].map(([days, key]) => html`<button aria-pressed=${days === this.clientRange ? "true" : "false"} @click=${() => { this.clientRange = days; }}>${t(key)}</button>`)}</div></div>
+        ${h.rows.length ? this._historyLanes(h, from) : html`<span class="hint">${t("clHistEmpty")}</span>`}</div>
+      ${h.rows.length ? html`<div><div class="cl-sec">${t("clHistRecent")}</div>
+        <div class="cl-rows"><div class="cl-r th"><span>${t("clHistStart")}</span><span>${t("clHistDuration")}</span><span>${t("clHistConnection")}</span><span>${t("clHistData")}</span></div>
+        ${shown.map((row) => this._historyRow(h, row))}</div>
+        <div class="cl-links">${h.rows.length > shown.length ? html`<button class="btn btn-g" @click=${() => { this.clientAll = true; }}>${t("clHistMore", { n: h.rows.length })}</button>` : ""}
+          <a href="#/events//${encodeURIComponent(events)}">${t("clHistEvents")}</a></div></div>` : ""}
+    </div>`;
   }
 
   /** Where a known client was last. */

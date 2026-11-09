@@ -128,6 +128,15 @@ export function fmtAgo(ts) {
   return rtf.format(-Math.round(seconds / 86400), "day");
 }
 
+/** How long, in the two largest units that matter. */
+export function fmtDuration(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return t("durSeconds", { s });
+  const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (d) return t("durDays", { d, h: h % 24 });
+  return h ? t("durHours", { h, m: m % 60 }) : t("durMinutes", { m });
+}
+
 /** Where a proxy's device is: the serial device or host:port. */
 /** Items joined sixteen to a line, so hex and ASCII break at the same bytes. */
 export const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.length / 16) }, (_, i) => items.slice(i * 16, i * 16 + 16).join(sep)).join("\n");

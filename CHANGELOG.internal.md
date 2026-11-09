@@ -11,6 +11,15 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Clients: neue Tabelle `client_sessions` und `sessions.py` (`ClientSessions`), weil die `SUMMED`-Events
+  pro Verbindung ohne Adresse hochzählen. Eine Zeile je Host und Verbindung; kurze Besuche (< 120 s,
+  Pause <= 60 s) laufen in einer Zeile mit `count` weiter, bleibt der Client, trennt `_settled` die Serie
+  ab. Wiederholte Zeilen werden höchstens alle 300 s geschrieben. Offene Zeilen werden beim Start mit
+  `unknown = 1` geschlossen, auf `updated` als Ende. Nur Hosts auf der Liste (`_on_the_list`), damit ein
+  Scan die Tabelle nicht füllt. Modbus und EnOcean geben die Bytes beim Trennen mit (`_proxy_event`
+  nimmt sie aus den Event-Parametern), ser2net nimmt den letzten `showport`. `GET api/clients/history`,
+  Panel in `settings.js`, `#/events//<suche>` füllt die Suche der Historie. Aufräumen über `history_days`.
+  `tools/dev_server.py` legt Demo-Zeilen für 127.0.0.1 an.
 - Mitschnitt: `Recorder` schreibt `<name>-<YYYYmmdd-HHMMSS>.log` (Beginn), nichts wird mehr
   umbenannt. Neue Datei beim Einschalten (`TraceHub._switched_off`) oder bei voller Datei, nach einem
   App-Neustart geht es in der neuesten weiter. Alte `.log`/`.log.N` zählen nach mtime mit und werden
