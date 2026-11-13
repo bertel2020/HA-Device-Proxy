@@ -123,16 +123,21 @@ async def test_the_app_reads_its_registers_without_counting_them_for_the_clients
     assert list(proxy.entity_values) == ["reg_1_3_40083"]
 
 
-async def test_a_device_that_is_not_reachable_is_not_asked() -> None:
+async def test_a_device_that_is_not_reachable_is_asked_once_a_round() -> None:
+    """The clients come first while it is away, but one read a round finds out that it is
+    back (nobody else may ask: a serial adapter that was gone, clients that left)."""
     proxy = _proxy()
     proxy.reachable = False
     proxy.entity_values = {"reg_1_3_40083": 5.0}
+    asked: list[bytes] = []
 
     async def ask(unit: int, pdu: bytes, **kwargs: Any) -> bytes | None:
-        raise AssertionError("asked")
+        asked.append(pdu)
+        return bytes([pdu[0] | 0x80, 0x0B])  # no answer from the device
 
     proxy.ask = ask
     await proxy._entity_round()
+    assert asked == [struct.pack(">BHH", 3, 40083, 1)]
     assert proxy.entity_values == {"reg_1_3_40083": None, "reg_1_4_10": None}
 
 

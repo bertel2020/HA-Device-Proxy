@@ -43,6 +43,8 @@ const fill = (text, params = {}) =>
 
 export const retriesText = (n) => t(n === 0 ? "retries_0" : n === 1 ? "retries_1" : "retries_n", { n });
 export const t = (key, params) => fill(texts().text[key] ?? key, params);
+/** A text with a count in it: the key's "_1" text when the count is 1 ("1 Eintrag", not "1 Einträge"). */
+export const tn = (key, count, params) => t(count === 1 && `${key}_1` in texts().text ? `${key}_1` : key, params);
 
 const settingValue = (key, value) => {
   if (typeof value === "boolean") return t(value ? "histOn" : "histOff");

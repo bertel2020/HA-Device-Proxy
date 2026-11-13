@@ -908,10 +908,11 @@ class WebServer:
         if not isinstance(host, str):
             raise HttpError(400, "an IP address is needed")
         try:
-            await self.c.block_client(host.strip())
+            serial_unaffected = await self.c.block_client(host.strip())
         except ValueError as err:
             raise HttpError(400, str(err)) from None
-        return ok()
+        # the own ser2net.yaml goes to ser2net as it is: its ports still let the host in
+        return ok({"serial_unaffected": serial_unaffected})
 
     async def unblock_client(self, request: Request) -> Response:
         data = request.json()

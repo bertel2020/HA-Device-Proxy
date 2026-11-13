@@ -137,10 +137,10 @@ export function fmtAgo(ts) {
   if (!ts) return t("never");
   const seconds = Math.max(0, Date.now() / 1000 - ts);
   const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
-  if (seconds < 60) return rtf.format(-Math.round(seconds), "second");
-  if (seconds < 3600) return rtf.format(-Math.round(seconds / 60), "minute");
-  if (seconds < 86400) return rtf.format(-Math.round(seconds / 3600), "hour");
-  return rtf.format(-Math.round(seconds / 86400), "day");
+  if (seconds < 60) return rtf.format(-Math.floor(seconds), "second");
+  if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), "minute");
+  if (seconds < 86400) return rtf.format(-Math.floor(seconds / 3600), "hour");
+  return rtf.format(-Math.floor(seconds / 86400), "day");
 }
 
 /** How long since a moment, for "since …" texts: "seit 30 Min", not "seit vor 30 Minuten". */
@@ -153,6 +153,14 @@ export function fmtDuration(seconds) {
   const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
   if (d) return t("durDays", { d, h: h % 24 });
   return h ? t("durHours", { h, m: m % 60 }) : t("durMinutes", { m });
+}
+
+/** The whole number typed into a field; anything but digits keeps the old value (and shows it again), never NaN. */
+export function wholeNumber(e, old) {
+  const text = e.target.value.trim();
+  if (/^\d*$/.test(text)) return Number(text || 0);
+  e.target.value = String(old ?? "");
+  return old;
 }
 
 /** Where a proxy's device is: the serial device or host:port. */

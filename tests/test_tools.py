@@ -172,6 +172,51 @@ def test_diagnostics_hide_the_own_mqtt_broker_and_its_login() -> None:
     assert "mqtt-host" in text
 
 
+def test_diagnostics_hide_names_in_earlier_config_changes() -> None:
+    """A config_changed event carries the new values of the settings: earlier names of
+    clients and senders, notify services and brokers must not reach the ZIP either."""
+    import io
+    import zipfile
+
+    from device_proxy import store
+    from device_proxy.diagnostics import build
+    from device_proxy.model import Settings
+
+    planted = Settings.from_dict(
+        {
+            "client_names": "192.168.1.20 Robertos Laptop",
+            "sender_names": "FE-E9-12-34 Schlafzimmer Anna",
+            "notify_service": "mobile_app_annas_iphone",
+            "mqtt_host": "broker.familie-muster.de",
+        }
+    )
+    items = store.changes(AppConfig(), AppConfig(settings=planted))
+    (values,) = [item["values"] for item in items]
+    assert "client_names" not in values and "sender_names" not in values  # not kept at all
+    old_event = {  # as an older version kept it
+        "kind": "config_changed",
+        "params": {
+            "changes": [
+                {"connection": None, "change": "settings", "values": planted.to_dict()},
+            ]
+        },
+    }
+    now = AppConfig(settings=Settings(notify_service="mobile_app_other")).to_dict()
+    data = build(
+        version="1",
+        ser2net_version="4",
+        snapshot={"settings": now["settings"], "connections": []},
+        config=now,
+        runtime_yaml="",
+        events=[{"kind": "config_changed", "params": {"changes": items}}, old_event],
+    )
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    text = "".join(archive.read(n).decode() for n in archive.namelist())
+    for name in ("Robertos", "Schlafzimmer", "annas_iphone", "familie-muster", "mobile_app_other"):
+        assert name not in text, name
+    assert "notify_service" in text  # that it changed stays
+
+
 def test_own_mqtt_broker_settings_are_checked() -> None:
     import pytest
 

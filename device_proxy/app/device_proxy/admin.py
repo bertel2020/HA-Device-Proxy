@@ -213,8 +213,14 @@ class AdminClient:
                 raise AdminError("ser2net's admin port is not connected")
             future: asyncio.Future[Node] = asyncio.get_running_loop().create_future()
             await self._waiting.put(future)
-            self._writer.write(line.encode() + b"\r\n")
-            await self._writer.drain()
+            writer = self._writer
+            try:
+                writer.write(line.encode() + b"\r\n")
+                await writer.drain()
+            except OSError as err:  # ser2net went away meanwhile (ConnectionResetError ...)
+                future.cancel()
+                writer.close()
+                raise AdminError(f"ser2net's admin port: {err}") from err
             try:
                 response = await asyncio.wait_for(future, timeout)
             except TimeoutError:

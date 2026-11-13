@@ -2,7 +2,7 @@
 // (send one frame, test the gateway, capture with the lock for PCT14).
 import { LitElement, css, html } from "lit";
 import { api, url } from "./api.js";
-import { fieldError, lang, t } from "./i18n.js";
+import { fieldError, lang, t, tn } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { confirmDialog, fmtAgo, fmtSince, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
 
@@ -206,7 +206,7 @@ export class EnOceanGateways extends LitElement {
       ${other ? html`<details class="fold" style="border-top:1px solid var(--line-2);padding-top:10px"><summary>${t("fbPromote")}</summary>
         <div class="stack" style="margin-top:8px"><p class="hint" style="margin:0">${t("fbPromoteSub", { a: c.name, b: other.name })}</p>
           <label class="fld"><span class="lbl">${t("fbOld")}</span><select class="inp" @change=${(ev) => { this.old = ev.target.value; }}>
-            ${["off", "keep", "delete"].map((v) => html`<option value=${v} ?selected=${this.old === v}>${t(`fbold_${v}`, { b: other.name })}</option>`)}</select></label>
+            ${["off", "keep", "delete"].map((v) => html`<option value=${v} .selected=${this.old === v}>${t(`fbold_${v}`, { b: other.name })}</option>`)}</select></label>
           <div><button class="btn btn-s" ?disabled=${this.busy} @click=${this._promote}>${t("fbPromote")}</button></div></div></details>` : ""}
     </div></section>`;
   }
@@ -329,7 +329,7 @@ export class EnOceanSenders extends LitElement {
             <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
           <td>${this.names ? html`<input class="inp" style="min-width:140px" maxlength="40" aria-label=${t("eoSendersName")} .value=${this.names[r.id] ?? r.name ?? ""} @input=${(e) => { this.names = { ...this.names, [r.id]: e.target.value }; }}>` : r.name || ""}</td>
-          <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString()}</td><td>${fmtAgo(r.last)}</td>
+          <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString(lang)}</td><td>${fmtAgo(r.last)}</td>
           ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>
           ${both ? html`<td>${[...r.heard].sort().reverse().map((h) => t(h === "main" ? "eoHeardMain" : "eoHeardFallback")).join(" + ")}</td>` : ""}</tr>`)}</tbody></table></div>`
         : html`<p class="hint">${t(this.rows ? "eoSendersNone" : "eoSendersOpen")}</p>`}`);
@@ -390,7 +390,7 @@ export class EnOceanTools extends LitElement {
     const c = this.connection, e = c.enocean || {};
     const left = e.base_id_writes_left;
     const wanted = this.baseId.trim().toUpperCase();
-    const text = t("eoBaseConfirm", { id: wanted, n: c.name }) + (left != null ? ` ${t("eoBaseConfirmLeft", { n: Math.max(0, left - 1) })}` : ` ${t("eoBaseConfirmUnknown")}`);
+    const text = t("eoBaseConfirm", { id: wanted, n: c.name }) + (left != null ? ` ${tn("eoBaseConfirmLeft", Math.max(0, left - 1), { n: Math.max(0, left - 1) })}` : ` ${t("eoBaseConfirmUnknown")}`);
     if (!(await confirmDialog(this, text, t("eoBaseSet")))) return;
     this.busy = "base";
     try {
@@ -448,7 +448,7 @@ export class EnOceanTools extends LitElement {
         <input class="inp mono" spellcheck="false" placeholder="FF-AB-CD-80" .value=${this.baseId} @input=${(ev) => { this.baseId = ev.target.value; }}>
         <span class="hint" style=${baseCheck && !baseCheck.ok ? "color:var(--bad)" : ""}>${baseCheck ? baseCheck.msg : t("eoBaseRange")}</span></label></div>
       <div><button class="btn btn-s" ?disabled=${!!blocked || !baseCheck?.ok || e.base_id_writes_left === 0 || this.busy === "base"} @click=${this._setBaseId}>${this.busy === "base" ? t("eoBaseSetting") : t("eoBaseSet")}</button></div>
-      ${this.baseResult ? html`<div class="note ${this.baseResult.result === "ok" ? "ok" : "bad"}" role="status">${t(`eoBaseR_${this.baseResult.result}`)}${this.baseResult.writes_left != null ? ` · ${t("eoBaseLeftN", { n: this.baseResult.writes_left })}` : ""}</div>` : ""}
+      ${this.baseResult ? html`<div class="note ${this.baseResult.result === "ok" ? "ok" : "bad"}" role="status">${t(`eoBaseR_${this.baseResult.result}`)}${this.baseResult.writes_left != null ? ` · ${tn("eoBaseLeftN", this.baseResult.writes_left, { n: this.baseResult.writes_left })}` : ""}</div>` : ""}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoSendTitle")}</b><p class="hint">${t("eoSendSub", { p: c.esp_protocol.toUpperCase() })}</p></div>
       <textarea class="inp mono" spellcheck="false" aria-label=${t("eoSendTitle")} .value=${this.text} placeholder=${c.esp_protocol === "esp2" ? "A5 5A AB 58 00 00 00 00 00 00 00 00 00 03" : "55 00 01 00 05 70 08 38"}
@@ -460,13 +460,13 @@ export class EnOceanTools extends LitElement {
         <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoCapture")}</b><p class="hint">${t("eoCaptureSub")}</p></div>
-      ${mine ? html`<div class="note info" role="status">${t("eoCaptureRunning", { f: cap.file, n: cap.frames, since: fmtSince(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>
+      ${mine ? html`<div class="note info" role="status">${tn("eoCaptureRunning", cap.frames, { f: cap.file, n: cap.frames, since: fmtSince(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>
           <div><button class="btn btn-s" @click=${() => this._capture(false)}>${t("eoCaptureStop")}</button> <a class="btn btn-g" href="#/trace/${c.id}">${t("eoToFiles")}</a></div>`
         : cap ? html`<div class="note warn">${t("eoCaptureOther", { n: cap.name })}</div>`
         : html`<div class="grid"><label class="fld"><span class="lbl">${t("eoLockTo")}</span>
             <select class="inp" @change=${(ev) => { this.peer = ev.target.value; }}>
-              <option value="" ?selected=${!this._lockPeer()}>${t("eoLockNone")}</option>
-              ${hosts.map((h) => html`<option value=${h} ?selected=${this.peer === h}>${h}</option>`)}</select>
+              <option value="" .selected=${!this._lockPeer()}>${t("eoLockNone")}</option>
+              ${hosts.map((h) => html`<option value=${h} .selected=${this.peer === h}>${h}</option>`)}</select>
             <span class="hint">${t("eoLockHint")}</span></label></div>
           <div><button class="btn btn-s" ?disabled=${!c.enabled} @click=${() => this._capture(true)}>${t("eoCaptureStart")}</button></div>
           <details class="fold"><summary>${t("eoPct14")}</summary><ol class="hint" style="margin:8px 0 0 18px;padding:0">${t("eoPct14Steps").split("|").map((s) => html`<li>${s}</li>`)}</ol></details>`}

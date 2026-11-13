@@ -2,9 +2,9 @@ import { css, html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
-import { LANGUAGES, changesText, fieldError, lang, noteText, t } from "../i18n.js";
+import { LANGUAGES, changesText, fieldError, lang, noteText, t, tn } from "../i18n.js";
 import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
-import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, withEffects } from "../ui.js";
+import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, wholeNumber, withEffects } from "../ui.js";
 
 const REPEATS = 3; // from this many connections in a row a client counts as coming back all the time
 const ROWS_SHOWN = 8;
@@ -438,7 +438,8 @@ export class SettingsPage extends Page {
     host = host.trim();
     if (!host || !(await confirmDialog(this, t("blockAsk", { h: host }), t("newClientBlock")))) return;
     try {
-      await api("api/clients/block", { method: "POST", body: { host } });
+      const result = await api("api/clients/block", { method: "POST", body: { host } });
+      if (result?.serial_unaffected) this.toast(t("blockSerialNote", { h: host }));
       this.blockAdd = false;
       this.clientOpen = null;
       this.refresh();
@@ -465,11 +466,20 @@ export class SettingsPage extends Page {
       this.toast(t("saved"));
       this.refresh();
       this._loadVersions();
+      await this._syncSaved(Object.keys(patch));
       return true;
     } catch (err) {
       this.toast(err.data.errors ? Object.values(err.data.errors).map(fieldError).join("; ") : `${t("error")}: ${err.message}`);
       return false;
     }
+  }
+
+  /** After saving: the saved fields take the values as stored (a password comes back masked), so the card no longer shows "not saved". */
+  async _syncSaved(keys) {
+    try {
+      const saved = (await api("api/state")).settings;
+      this.draft = { ...this.draft, ...Object.fromEntries(keys.filter((k) => k in saved).map((k) => [k, saved[k]])) };
+    } catch { /* the next status refresh compares again */ }
   }
 
   /** The home network list: "own" (this host's network) and the networks added. */
@@ -620,7 +630,7 @@ export class SettingsPage extends Page {
       </li>`;
     });
     const rest = groups.length - 5;
-    return html`<ol class="hist">${rows}</ol>${rest > 0 ? html`<div><button class="btn btn-g" @click=${() => { this.histAll = !this.histAll; }}>${this.histAll ? t("histLess") : t("histMore", { n: rest })}</button></div>` : ""}`;
+    return html`<ol class="hist">${rows}</ol>${rest > 0 ? html`<div><button class="btn btn-g" @click=${() => { this.histAll = !this.histAll; }}>${this.histAll ? t("histLess") : tn("histMore", rest, { n: rest })}</button></div>` : ""}`;
   }
 
   async _restore(v) {
@@ -738,9 +748,9 @@ export class SettingsPage extends Page {
             <h3>${t("nWhen")}</h3>
             <div class="grid2">
               <label class="fld"><span class="lbl">${t("notifyGrace")}</span><input class="inp" inputmode="numeric" .value=${String(d.notify_grace)}
-                @input=${(e) => { this.draft = { ...d, notify_grace: Number(e.target.value || 0) }; }}><span class="hint">${t("notifyGraceHint")}</span></label>
+                @input=${(e) => { this.draft = { ...d, notify_grace: wholeNumber(e, d.notify_grace) }; }}><span class="hint">${t("notifyGraceHint")}</span></label>
               <label class="fld"><span class="lbl">${t("noClientMinutes")}</span><input class="inp" inputmode="numeric" ?disabled=${!noClient} .value=${String(d.no_client_minutes)}
-                @input=${(e) => { this.draft = { ...d, no_client_minutes: Number(e.target.value || 0) }; }}><span class="hint">${noClient ? t("noClientHint") : t("noClientOff")}</span></label>
+                @input=${(e) => { this.draft = { ...d, no_client_minutes: wholeNumber(e, d.no_client_minutes) }; }}><span class="hint">${noClient ? t("noClientHint") : t("noClientOff")}</span></label>
             </div>
           </div>
           <div class="grp">
@@ -749,10 +759,10 @@ export class SettingsPage extends Page {
             <label class="chk"><input type="checkbox" .checked=${!!d.notify_dismiss} @change=${(e) => { this.draft = { ...this.draft, notify_dismiss: e.target.checked }; }}><span>${t("notifyDismiss")}</span></label>
             <div class="grid2">
               <label class="fld"><span class="lbl">${t("notifyService")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_service: e.target.value }; }}>
-                <option value="" ?selected=${!d.notify_service}>${t("notifyNone")}</option>
-                ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} ?selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
+                <option value="" .selected=${!d.notify_service}>${t("notifyNone")}</option>
+                ${[...new Set([...(this.services || []), ...(d.notify_service ? [d.notify_service] : [])])].map((sv) => html`<option value=${sv} .selected=${d.notify_service === sv}>notify.${sv}</option>`)}</select></label>
               <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
-                ${LANGUAGES.map(([code, name]) => html`<option value=${code} ?selected=${d.notify_language === code}>${name}</option>`)}</select><span class="hint">${t("notifyLanguageHint")}</span></label>
+                ${LANGUAGES.map(([code, name]) => html`<option value=${code} .selected=${d.notify_language === code}>${name}</option>`)}</select><span class="hint">${t("notifyLanguageHint")}</span></label>
             </div>
             <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
           </div>
@@ -774,7 +784,7 @@ export class SettingsPage extends Page {
               ${ownBroker ? html`
                 <div class="grid2">
                   <label class="fld"><span class="lbl">${t("mqttHost")}</span><input class="inp mono" .value=${d.mqtt_host} @input=${(e) => { this.draft = { ...this.draft, mqtt_host: e.target.value.trim() }; }}></label>
-                  <label class="fld"><span class="lbl">${t("mqttPort")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_port)} @input=${(e) => { this.draft = { ...this.draft, mqtt_port: Number(e.target.value || 0) }; }}><span class="hint">${t("mqttTlsHint")}</span></label>
+                  <label class="fld"><span class="lbl">${t("mqttPort")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_port)} @input=${(e) => { this.draft = { ...this.draft, mqtt_port: wholeNumber(e, d.mqtt_port) }; }}><span class="hint">${t("mqttTlsHint")}</span></label>
                   <label class="fld"><span class="lbl">${t("mqttUser")}</span><input class="inp" autocomplete="off" .value=${d.mqtt_user} @input=${(e) => { this.draft = { ...this.draft, mqtt_user: e.target.value }; }}></label>
                   <label class="fld"><span class="lbl">${t("mqttPassword")}</span><input class="inp" type="password" autocomplete="new-password" .value=${d.mqtt_password} @input=${(e) => { this.draft = { ...this.draft, mqtt_password: e.target.value }; }}></label>
                 </div>
@@ -792,7 +802,7 @@ export class SettingsPage extends Page {
                 <div class="grid2">
                   <label class="fld"><span class="lbl">${t("mqttPrefix")}</span><input class="inp mono" .value=${d.mqtt_prefix} @input=${(e) => { this.draft = { ...this.draft, mqtt_prefix: e.target.value }; }}><span class="hint">${t("mqttPrefixHint")}</span></label>
                   <label class="fld"><span class="lbl">${t("mqttBase")}</span><input class="inp mono" .value=${d.mqtt_base} @input=${(e) => { this.draft = { ...this.draft, mqtt_base: e.target.value }; }}></label>
-                  <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)} @input=${(e) => { this.draft = { ...d, mqtt_interval: Number(e.target.value || 0) }; }}></label>
+                  <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)} @input=${(e) => { this.draft = { ...d, mqtt_interval: wholeNumber(e, d.mqtt_interval) }; }}></label>
                 </div>
                 <p class="hint">${t("mqttNames")}</p>
               </div>
@@ -809,7 +819,7 @@ export class SettingsPage extends Page {
 
         <section id="enocean" class="card" aria-labelledby="t-enocean">
           <div class="row"><div><h2 id="t-enocean">${t("sEnocean")}</h2><p class="hint" style="margin-top:4px">${t("sEnoceanSub")}</p></div>
-            ${gateways ? html`<span class="chip ok">${t("eoStatusOn", { n: gateways })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
+            ${gateways ? html`<span class="chip ok">${tn("eoStatusOn", gateways, { n: gateways })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
           ${gateways ? "" : html`<div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}<span>${t("eoNoGateway")} <a href="#/edit/new">${t("addConnection")}</a></span></div>`}
           ${eoStatus?.port && !eoStatus.listening ? html`<div class="note bad" role="alert">${t("eoStatusClosed", { port: eoStatus.port, e: eoStatus.error || "?" })}</div>` : ""}
           <label class="chk"><input type="checkbox" .checked=${!!d.enocean_discovery} @change=${(e) => { this.draft = { ...this.draft, enocean_discovery: e.target.checked }; }}>
@@ -818,7 +828,7 @@ export class SettingsPage extends Page {
             <summary>${t("eoAdvanced")}${d.enocean_status_port !== 9199 ? html` <span class="hint">· ${t("eoPortCustom")}</span>` : ""}</summary>
             <div class="expert-body">
               <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
-                @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: Number(e.target.value || 0) }; }}>
+                @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: wholeNumber(e, d.enocean_status_port) }; }}>
                 <span class="hint">${t("eoStatusPortHint")}</span></label>
             </div>
           </details>
@@ -830,22 +840,22 @@ export class SettingsPage extends Page {
           <div class="grp" style="border-top:none;padding-top:0">
             <h3>${t("logAddon")}</h3>
             <label class="fld" style="max-width:280px"><span class="lbl">${t("logLevel")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, log_level: e.target.value }; }}>
-              ${[["info", "logNormal"], ["debug", "logDebug"]].map(([v, k]) => html`<option value=${v} ?selected=${d.log_level === v}>${t(k)}</option>`)}</select></label>
+              ${[["info", "logNormal"], ["debug", "logDebug"]].map(([v, k]) => html`<option value=${v} .selected=${d.log_level === v}>${t(k)}</option>`)}</select></label>
             <p class="hint">${t("logHint")}</p>
           </div>
           <div class="grp">
             <h3>${t("evTitle")}</h3>
-            <label class="fld" style="max-width:280px"><span class="lbl">${t("historyDays")}</span><input class="inp" inputmode="numeric" .value=${String(d.history_days)} @input=${(e) => { this.draft = { ...d, history_days: Number(e.target.value || 0) }; }}></label>
+            <label class="fld" style="max-width:280px"><span class="lbl">${t("historyDays")}</span><input class="inp" inputmode="numeric" .value=${String(d.history_days)} @input=${(e) => { this.draft = { ...d, history_days: wholeNumber(e, d.history_days) }; }}></label>
             <p class="hint">${t("historyDaysHint")}</p>
-            <div class="sentence">${t("debA")}<input class="inp num" inputmode="numeric" aria-label=${t("debA")} .value=${String(d.debounce_count)} @input=${(e) => { this.draft = { ...d, debounce_count: Number(e.target.value || 0) }; }}>${t("debB")}<input class="inp num" inputmode="numeric" aria-label=${t("debB")} .value=${String(d.debounce_minutes)} @input=${(e) => { this.draft = { ...d, debounce_minutes: Number(e.target.value || 0) }; }}>${t("debC")}</div>
+            <div class="sentence">${t("debA")}<input class="inp num" inputmode="numeric" aria-label=${t("debA")} .value=${String(d.debounce_count)} @input=${(e) => { this.draft = { ...d, debounce_count: wholeNumber(e, d.debounce_count) }; }}>${t("debB")}<input class="inp num" inputmode="numeric" aria-label=${t("debB")} .value=${String(d.debounce_minutes)} @input=${(e) => { this.draft = { ...d, debounce_minutes: wholeNumber(e, d.debounce_minutes) }; }}>${t("debC")}</div>
             <p class="hint">${t("debHint")}</p>
           </div>
           <div class="grp">
             <h3>${t("trTitle")}</h3>
             <p class="hint">${t("trHint")}</p>
             <div class="grid2">
-              <label class="fld"><span class="lbl">${t("traceMb")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_file_mb)} @input=${(e) => { this.draft = { ...d, trace_file_mb: Number(e.target.value || 0) }; }}></label>
-              <label class="fld"><span class="lbl">${t("traceKeep")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_keep)} @input=${(e) => { this.draft = { ...d, trace_keep: Number(e.target.value || 0) }; }}></label>
+              <label class="fld"><span class="lbl">${t("traceMb")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_file_mb)} @input=${(e) => { this.draft = { ...d, trace_file_mb: wholeNumber(e, d.trace_file_mb) }; }}></label>
+              <label class="fld"><span class="lbl">${t("traceKeep")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_keep)} @input=${(e) => { this.draft = { ...d, trace_keep: wholeNumber(e, d.trace_keep) }; }}></label>
             </div>
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>
@@ -865,7 +875,7 @@ export class SettingsPage extends Page {
             <div class="row"><div style="flex:1;min-width:220px"><b style="font-weight:500">${t("runtimeTitle")}</b><p class="hint" style="margin-top:4px">${t("runtimeHint")}</p></div>
               <div style="display:flex;gap:8px"><button class="btn btn-s" @click=${this._copyRuntime}>${icon("copy")}${this.copied ? t("copied") : t("copy")}</button></div></div>
             <pre class="code runtime">${this.runtime.text || "–"}</pre>
-            <div class="hint">${this.runtime.ts ? `${fmtTime(this.runtime.ts)} · ` : ""}${t("runtimeConns", { n: this.runtime.connections })} · ${t("runtimeFoot")}</div>` : ""}
+            <div class="hint">${this.runtime.ts ? `${fmtTime(this.runtime.ts)} · ` : ""}${tn("runtimeConns", this.runtime.connections, { n: this.runtime.connections })} · ${t("runtimeFoot")}</div>` : ""}
           ${own || this.customOpen ? html`
             <div class="expert-body">
               ${own ? html`<div class="note warn" role="note">${t("ownWarn")}</div>` : ""}
@@ -873,7 +883,7 @@ export class SettingsPage extends Page {
               <textarea class="inp mono editor" aria-label="ser2net.yaml" .value=${this.customText || ""} @input=${(e) => this._edited(e)}></textarea>
               <div class="row">
                 ${check ? check.errors.length ? html`<div class="note bad" style="flex:1" role="alert">${check.errors.map((n) => html`<div>${noteText(n)}</div>`)}</div>`
-                  : html`<span class="chip ok">${t("checkOk", { n: check.connections.length })}</span>` : html`<span class="hint">${t("checking")}</span>`}
+                  : html`<span class="chip ok">${tn("checkOk", check.connections.length, { n: check.connections.length })}</span>` : html`<span class="hint">${t("checking")}</span>`}
                 <button class="btn btn-g" @click=${() => this._fill()}>${t("fillForms")}</button>
               </div>
               ${check && check.notes.length ? html`<div class="hint">${check.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
@@ -905,7 +915,7 @@ export class SettingsPage extends Page {
             <div style="display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr);gap:10px 16px;border-top:1px solid var(--line);padding-top:16px">
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("language")}</span>
               <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
-                ${LANGUAGES.map(([code, name]) => html`<option value=${code} ?selected=${lang === code}>${name}</option>`)}</select>
+                ${LANGUAGES.map(([code, name]) => html`<option value=${code} .selected=${lang === code}>${name}</option>`)}</select>
                 <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
               ${[["lookScheme", "scheme", SCHEMES], ["lookMode", "mode", MODES], ["lookSize", "size", Object.keys(SIZES)]].map(([label, key, values]) => html`
                 <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t(label)}</span>

@@ -997,11 +997,10 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
     # no older versions yet; lift them here one step at a time when SCHEMA grows
     settings = data.get("settings")
     if isinstance(settings, dict) and "lan_networks" not in settings:
-        # before the list existed "lan" meant every private network: keep that
-        data = {
-            **data,
-            "settings": {**settings, "lan_networks": " ".join(PRIVATE_NETWORKS[1:4])},
-        }
+        # before the list existed "lan" meant every private network, IPv6 too: keep that
+        # (this host and the apps are always in)
+        private = [n for n in PRIVATE_NETWORKS if n not in APPS_NETWORKS]
+        data = {**data, "settings": {**settings, "lan_networks": " ".join(private)}}
     connections = data.get("connections")
     if isinstance(connections, list):
         data = {**data, "connections": [_old_write_access(_without_unsafe(c)) for c in connections]}

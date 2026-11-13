@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
-import { noteText, t } from "../i18n.js";
+import { noteText, t, tn } from "../i18n.js";
 import { confirmDialog, effectsOf, fmtSerial, focused, icon, modbusTarget, radioKeys, radioTab, trapTab, withEffects } from "../ui.js";
 
 /** A missing device that also has an unstable name is one note, not two. */
@@ -93,10 +93,10 @@ export class ImportDialog extends Page {
   }
 
   async _apply() {
-    const take = [...this.preview.items.filter((i) => i.connection && (this.take.has(i.alias) || (this.choice[i.alias] && this.choice[i.alias] !== "skip"))).map((i) => i.alias)];
+    const take = this.preview.items.filter((i) => this._taken(i)).map((i) => i.alias);
     const replaced = this.replaceAll ? this.state.connections.length : take.filter((a) => this.choice[a] === "replace").length;
     const effects = await effectsOf("api/import/effects", { text: this.text, replace_all: this.replaceAll, take, on_conflict: this.choice });
-    if ((replaced || effects) && !(await confirmDialog(this, withEffects(replaced ? t("importReplaceConfirm", { n: replaced }) : t("importEffectsConfirm"), effects), replaced ? t("importReplace") : t("confirm")))) return;
+    if ((replaced || effects) && !(await confirmDialog(this, withEffects(replaced ? tn("importReplaceConfirm", replaced, { n: replaced }) : t("importEffectsConfirm"), effects), replaced ? t("importReplace") : t("confirm")))) return;
     this.busy = true;
     try {
       const result = await api("api/import", { method: "POST", body: { text: this.text, replace_all: this.replaceAll, take, on_conflict: this.choice } });
@@ -107,6 +107,32 @@ export class ImportDialog extends Page {
     } finally {
       this.busy = false;
     }
+  }
+
+  /** Whether a row is imported: with "replace all" its checkbox, otherwise a conflicting row by the choice under it. */
+  _taken(item) {
+    if (!item.connection) return false;
+    if (this.replaceAll || !Object.keys(item.conflicts).length) return this.take.has(item.alias);
+    return (this.choice[item.alias] || "skip") !== "skip";
+  }
+
+  /** Switching between merge and "replace all": a conflicting row keeps what was chosen for it, as a checkbox or as a choice. */
+  _mode(replaceAll) {
+    if (replaceAll === this.replaceAll) return;
+    const conflicting = this.preview.items.filter((i) => i.connection && Object.keys(i.conflicts).length);
+    const take = new Set(this.take), choice = { ...this.choice };
+    for (const item of conflicting) {
+      if (replaceAll) {
+        if ((choice[item.alias] || "skip") !== "skip") take.add(item.alias);
+        else take.delete(item.alias);
+      } else {
+        if (!take.has(item.alias)) choice[item.alias] = "skip";
+        take.delete(item.alias);
+      }
+    }
+    this.take = take;
+    this.choice = choice;
+    this.replaceAll = replaceAll;
   }
 
   _steps(step) {
@@ -144,13 +170,13 @@ export class ImportDialog extends Page {
   _previewView() {
     const p = this.preview;
     const takeable = p.items.filter((i) => i.connection);
-    const count = takeable.filter((i) => this.take.has(i.alias) || (this.choice[i.alias] && this.choice[i.alias] !== "skip")).length;
+    const count = takeable.filter((i) => this._taken(i)).length;
     return html`<section class="card" aria-labelledby="t-prev">
       <div class="row"><div style="display:flex;align-items:center;gap:12px">${icon("file", 28)}
-        <div><h2 id="t-prev">${t(`format_${p.version}`)}</h2><span class="hint">${t("found", { n: p.items.length })}</span></div></div>
+        <div><h2 id="t-prev">${t(`format_${p.version}`)}</h2><span class="hint">${tn("found", p.items.length, { n: p.items.length })}</span></div></div>
         <button class="btn btn-g" @click=${() => { this.preview = null; }}>${t("otherFile")}</button></div>
       <div class="choices" role="radiogroup" aria-label=${t("importMode")} @keydown=${radioKeys}>${[[false, "merge", "mergeSub"], [true, "replaceAll", "replaceAllSub"]].map(([v, k, sub]) => html`
-        <button type="button" class="choice" role="radio" aria-checked=${this.replaceAll === v ? "true" : "false"} tabindex=${radioTab(this.replaceAll === v)} @click=${() => { this.replaceAll = v; }}>
+        <button type="button" class="choice" role="radio" aria-checked=${this.replaceAll === v ? "true" : "false"} tabindex=${radioTab(this.replaceAll === v)} @click=${() => this._mode(v)}>
           <b style="font-weight:500">${t(k)}</b><span class="hint">${t(sub)}</span></button>`)}</div>
       ${this.replaceAll && this.state.connections.length ? html`<div class="gone" role="alert"><b style="font-weight:500">${t("willGo")}</b> ${this.state.connections.map((c) => c.name).join(", ")}</div>` : ""}
       ${p.notes.length ? html`<div class="note warn"><b>${t("fileNotes")}</b>${p.notes.map((n) => html`<div>${noteText(n)}</div>`)}</div>` : ""}
@@ -161,14 +187,14 @@ export class ImportDialog extends Page {
           return html`<tr>
             <td>${c && !conflict ? html`<input type="checkbox" style="width:18px;height:18px;accent-color:var(--accent)" aria-label="${item.alias} ${t("take")}"
               .checked=${this.take.has(item.alias)} @change=${(e) => { const s = new Set(this.take); e.target.checked ? s.add(item.alias) : s.delete(item.alias); this.take = s; }}>` : ""}</td>
-            <td class="nm"><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${t("importMax", { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
+            <td class="nm"><b style="font-weight:500">${item.alias}</b>${c ? html`<div class="hint">${this._kind(c)} · ${tn("importMax", c.max_clients, { n: c.max_clients })}${c.enabled ? "" : ` · ${t("importOff")}`}</div>` : ""}</td>
             <td class="mono" data-l=${t("port")}>${c ? c.port : ""}</td>
             <td class="mono dev" data-l=${t("device")}>${c ? (c.kind !== "serial" ? modbusTarget(c) : c.device) : ""}</td>
             <td>${this._result(item)}
               ${item.notes.length ? html`<ul class="notes">${joinNotes(item.notes).map((n) => html`<li>${noteText(n)}</li>`)}</ul>` : ""}
               ${conflict ? html`<label class="fld" style="margin-top:8px"><span class="hint">${t("onConflict")}</span>
                 <select class="inp" style="min-height:36px" @change=${(e) => { this.choice = { ...this.choice, [item.alias]: e.target.value }; }}>
-                  ${["skip", "replace", "new_port"].filter((v) => v !== "new_port" || !item.conflicts.device).map((v) => html`<option value=${v} ?selected=${this.choice[item.alias] === v}>${t(`c_${v}`)}</option>`)}
+                  ${["skip", "replace", "new_port"].filter((v) => v !== "new_port" || !item.conflicts.device).map((v) => html`<option value=${v} .selected=${this.choice[item.alias] === v}>${t(`c_${v}`)}</option>`)}
                 </select></label>` : ""}
             </td></tr>`;
         })}</tbody></table></div>

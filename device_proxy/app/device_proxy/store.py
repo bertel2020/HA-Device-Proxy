@@ -18,6 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 PATH = Path("/data/config.json")
 KEEP_VERSIONS = 25
 SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, never the value
+# their text names people and rooms: the history says that they changed, not to what
+PRIVATE_SETTINGS = frozenset({"client_names", "sender_names"})
 # changes that touch no connection: no version in the history, no "last change" to go back from
 QUIET_SETTINGS = frozenset({"client_names", "notify_new_clients"})
 PASSWORD_KEPT = "••••••••"  # the browser gets this for a set password; sent back: unchanged
@@ -55,7 +57,7 @@ def changes(old: AppConfig, new: AppConfig) -> list[Change]:
     if old.settings != new.settings:
         old_s, new_s = old.settings.to_dict(), new.settings.to_dict()
         keys = [k for k in new_s if old_s[k] != new_s[k]]
-        values = {k: new_s[k] for k in keys if k not in SECRET_SETTINGS}
+        values = {k: new_s[k] for k in keys if k not in SECRET_SETTINGS | PRIVATE_SETTINGS}
         items.append({"connection": None, "change": "settings", "fields": keys, "values": values})
     return sorted(items, key=lambda item: (item["connection"] or "", item["change"]))
 

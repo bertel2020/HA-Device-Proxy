@@ -435,9 +435,11 @@ class HaBridge:
         """A retained discovery config of this app for an entity that no longer exists."""
         prefix = f"{self.c.config.settings.mqtt_prefix}/"  # may have slashes of its own
         parts = topic.removeprefix(prefix).split("/") if topic.startswith(prefix) else []
-        if not payload or len(parts) != 4 or parts[3] != "config" or topic in self.configs():
+        if not payload or len(parts) != 4 or parts[3] != "config":
             return
-        if parts[1] == "device_proxy" or parts[1].startswith("device_proxy_"):
+        if not (parts[1] == "device_proxy" or parts[1].startswith("device_proxy_")):
+            return  # another program's: not worth building this app's configs for
+        if topic not in self.configs():
             await self.client.publish(topic, b"", retain=True)
             self._last.pop(topic, None)
 

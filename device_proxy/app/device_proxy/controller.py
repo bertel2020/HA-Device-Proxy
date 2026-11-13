@@ -84,7 +84,7 @@ from .model import (
 from .notify import SHOWN_FILE, Notifier, set_switch
 from .process import Ser2Net
 from .sessions import ClientSessions
-from .store import PASSWORD_KEPT, Change, Store, hidden, quiet, summary
+from .store import PASSWORD_KEPT, Change, SaveError, Store, hidden, quiet, summary
 from .trace import Chunk, TraceHub, recording_stem
 
 _LOGGER = logging.getLogger(__name__)
@@ -225,6 +225,7 @@ class Controller:
         self.enocean_ha = EnOceanHa(self)
         self.captures = Captures(self.trace.record_dir)
         self.captures.on_full = self._capture_full
+        self.captures.on_failed = self._capture_failed
         self._mqtt_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self.last_change: dict[str, object] | None = None  # see apply()
@@ -268,10 +269,11 @@ class Controller:
         return custom.runtime(text, check.version), custom.blocks(text)
 
     def write_config(self) -> None:
-        text, self._written = self._runtime()
+        text, written = self._runtime()
         tmp = self.config_file.with_suffix(".tmp")
         tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, self.config_file)
+        self._written = written  # only what ser2net can read
         _LOGGER.debug("Configuration for ser2net:\n%s", text)
 
     def apply_log_level(self) -> None:
@@ -381,29 +383,46 @@ class Controller:
                     else None
                 )
             self.config = new
-            self.known_clients.named(parse_names(new.settings.client_names))
-            self.write_config()
-            touched = changed(before, self._written)
-            self.apply_log_level()
-            self._apply_latency()
-            if [getattr(old.settings, k) for k in MQTT_KEYS] != [
-                getattr(new.settings, k) for k in MQTT_KEYS
-            ]:
-                await self._restart_mqtt()
+            self.events.debounce_count = new.settings.debounce_count
+            self.events.window = new.settings.debounce_minutes * 60
+            touched: set[str] = set()
             disconnected: list[str] = []
-            if touched and self.ser2net.running:
-                await self._let_go(before.keys() - self._written.keys())
-                disconnected = await self._reload(touched)
-            self._reconcile_keepers()
-            restarted = await self._reconcile_proxies()
-            await self.enocean_ha.update()
+            # saved: whatever fails now, the proxies and entities still follow the new
+            # configuration, and the history has the change
+            try:
+                self.known_clients.named(parse_names(new.settings.client_names))
+                try:
+                    self.write_config()
+                except OSError as err:
+                    raise SaveError(
+                        err.errno,
+                        f"configuration saved, but not written for ser2net: {err.strerror or err}",
+                    ) from err
+                touched = changed(before, self._written)
+                self.apply_log_level()
+                self._apply_latency()
+                if [getattr(old.settings, k) for k in MQTT_KEYS] != [
+                    getattr(new.settings, k) for k in MQTT_KEYS
+                ]:
+                    await self._restart_mqtt()
+                if touched and self.ser2net.running:
+                    await self._let_go(before.keys() - self._written.keys())
+                    disconnected = await self._reload(touched)
+            finally:
+                try:
+                    self._reconcile_keepers()
+                    restarted = await self._reconcile_proxies()
+                    await self.enocean_ha.update()
+                finally:
+                    if items:
+                        self.events.emit(
+                            "info", "config_changed", summary=summary(items), changes=items
+                        )
             names = sorted(self._names(alias)[1] for alias in touched if alias in self._written)
             names += sorted(
                 c.name for c in old.connections if c.alias in touched and not new.connection(c.id)
             )
             names += sorted(restarted)
-            if items:
-                self.events.emit("info", "config_changed", summary=summary(items), changes=items)
             return ApplyResult(items, names, disconnected)
 
     def effects(self, new: AppConfig) -> list[dict[str, object]]:
@@ -624,9 +643,11 @@ class Controller:
     def acknowledge_client(self, host: str) -> bool:
         return self.known_clients.acknowledge(host)
 
-    async def block_client(self, host: str) -> None:
+    async def block_client(self, host: str) -> bool:
         """Keep this host out of every connection; its clients are disconnected at once. With
-        ser2net all clients of a connection reconnect: it cannot drop a single one."""
+        ser2net all clients of a connection reconnect: it cannot drop a single one. True when
+        the block does not reach serial ports: those of the own ser2net.yaml, which ser2net
+        gets as it is."""
         host = plain_host(host)
         try:
             ipaddress.ip_address(host)
@@ -636,12 +657,15 @@ class Controller:
             raise ValueError("Home Assistant, its apps and this host cannot be blocked")
         if any(host == only for only, _ in self.exclusive.values()):
             raise ValueError("this host is in maintenance")
+        serial_unaffected = self.uses_custom and bool(self._written)
         if not self.known_clients.block(host):
-            return
+            return serial_unaffected
         for proxy in self.proxies.values():
             proxy.disconnect_host(host)
         await self._apply_ser2net()
-        self.events.emit("info", "client_blocked", address=host)
+        kind = "client_blocked_not_custom" if serial_unaffected else "client_blocked"
+        self.events.emit("info", kind, address=host)
+        return serial_unaffected
 
     async def unblock_client(self, host: str) -> bool:
         if not self.known_clients.unblock(host):
@@ -910,18 +934,22 @@ class Controller:
 
     # traces
 
+    def _file_names(self) -> dict[str, str]:
+        """Connection id → the name of its recording files, for every connection: numbered in
+        the order of the configuration, so switching one off or on does not hand its name
+        ("pump_1") to another of the same name ("Pump-1" is "pump_1_2"), whose recordings would
+        then end up among its files, and the oldest of them deleted."""
+        taken: set[str] = set()
+        return {c.id: readable_alias(c.name, taken) for c in self.config.connections}
+
     def _trace_names(self) -> list[tuple[Connection, str]]:
         """Enabled connection → the name of its recording files."""
-        taken: set[str] = set()
-        return [
-            (c, readable_alias(c.name, taken))
-            for c in self.active + self.config.proxied
-            if c.enabled
-        ]
+        names = self._file_names()
+        return [(c, names[c.id]) for c in self.active + self.config.proxied if c.enabled]
 
     def _trace_files(self) -> list[dict[str, object]]:
         """The recordings, each with the connection it belongs to (if it still exists)."""
-        owner = {name: c.id for c, name in self._trace_names()}
+        owner = {name: connection_id for connection_id, name in self._file_names().items()}
         return [
             {**f, "connection": owner.get(recording_stem(str(f["name"])))}
             for f in self.trace.files()
@@ -1680,7 +1708,7 @@ class Controller:
 
     def start_capture(self, connection_id: str, exclusive_peer: str | None) -> dict[str, object]:
         proxy = self._enocean(connection_id)
-        capture = self.captures.start(proxy, exclusive_peer)
+        capture = self.captures.start(proxy, exclusive_peer, self._file_names().get(proxy.c.id))
         self.events.emit(
             "info",
             "capture_locked" if exclusive_peer else "capture_started",
@@ -1713,6 +1741,17 @@ class Controller:
             name=capture.name,
             file=capture.path.name,
             frames=capture.frames,
+        )
+
+    def _capture_failed(self, capture: Capture, error: str) -> None:
+        self.events.emit(
+            "error",
+            "capture_failed",
+            connection=capture.connection,
+            name=capture.name,
+            file=capture.path.name,
+            frames=capture.frames,
+            error=error,
         )
 
     def _modbus_proxy(self, connection_id: str) -> ModbusProxy | None:
