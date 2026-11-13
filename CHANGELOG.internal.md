@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.6.1 - 2026-11-13
+
 - Panel: `fmtSince(ts)` (Dauer über `fmtDuration`) für alle „seit {t}“-Texte statt `fmtAgo`, das „vor …“ liefert; englische Texte von „since“ auf „for“.
 - Review mit Fable (Backend und Panel), alle Befunde behoben:
   - Modbus: `write_shape_ok()` prüft Länge, Bytezahl und Anzahl von FC5/6/15/16/22/23, sonst `EXC_VALUE` (Log `blocked`, Zugriffstest `ac_malformed`). Herstellerfunktionen bleiben offen.

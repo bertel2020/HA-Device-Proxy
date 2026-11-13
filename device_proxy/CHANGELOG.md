@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.1 - 2026-11-13
+
 - **Modbus, Schreibschutz**: Ein Schreibbefehl muss jetzt genau so lang sein, wie seine Anzahl sagt. Vorher konnte ein Client, der nur bestimmte Register schreiben darf, einen zweiten Befehl anhängen oder mehr Daten mitschicken, als erlaubt war.
 - **Modbus RTU**: Ist der USB-Adapter wieder da, findet die App das Gerät ohne Neustart. Vorher blieben „erreichbar“ und die Register-Entitäten aus, bis ein Client etwas fragte.
 - **Diagnose**: Das Diagnose-ZIP enthält keine Client- und Sendernamen mehr, auch nicht über frühere Einstellungsänderungen im Verlauf.
