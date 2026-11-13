@@ -11,6 +11,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Panel: `fmtSince(ts)` (Dauer über `fmtDuration`) für alle „seit {t}“-Texte statt `fmtAgo`, das „vor …“ liefert; englische Texte von „since“ auf „for“.
 - CI: Der Integrationstest sucht die Aufzeichnung als `a-*.log`, seit Dateien das Startdatum tragen.
 
 ## 1.6.0 - 2026-11-09

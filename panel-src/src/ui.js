@@ -143,6 +143,9 @@ export function fmtAgo(ts) {
   return rtf.format(-Math.round(seconds / 86400), "day");
 }
 
+/** How long since a moment, for "since …" texts: "seit 30 Min", not "seit vor 30 Minuten". */
+export const fmtSince = (ts) => fmtDuration(Date.now() / 1000 - ts);
+
 /** How long, in the two largest units that matter. */
 export function fmtDuration(seconds) {
   const s = Math.max(0, Math.round(seconds));

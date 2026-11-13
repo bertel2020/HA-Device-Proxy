@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api, url } from "./api.js";
 import { fieldError, lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtSince, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", model: "fam_usb", link: "serial", baud: 9600 },
@@ -92,7 +92,7 @@ export function issues(c, capture, main = null) {
   const add = (level, key, values = {}) => out.push({ level, title: t(`eoI_${key}`, values), text: t(`eoIt_${key}`, values) });
   if (e.listen_error) add("bad", "port", { port: c.port, e: e.listen_error });
   const fb = e.fallback;
-  if (fb && fb.active === "fallback") add("warn", fb.reason === "by_hand" ? "fallbackHand" : "fallback", { b: fb.name || "?", r: t(`fbReason_${fb.reason}`), t: fmtAgo(fb.active_since) });
+  if (fb && fb.active === "fallback") add("warn", fb.reason === "by_hand" ? "fallbackHand" : "fallback", { b: fb.name || "?", r: t(`fbReason_${fb.reason}`), t: fmtSince(fb.active_since) });
   else if (fb && !fb.ready) add("warn", "fbUnready", { b: fb.name || "?", r: t(`fbReason_${fb.not_ready}`) });
   if (c.present === false) add("bad", "missing", { d: c.device });
   else if (!e.connected) e.reachable === false ? add("bad", "down", { e: e.last_error || "?" }) : add("warn", "connecting");
@@ -195,7 +195,7 @@ export class EnOceanGateways extends LitElement {
       ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback, e.frames)}
       ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback, fb.frames)}
       ${!fb.ready && fb.not_ready ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
-      ${onFallback ? html`<p class="hint" style="margin:0">${t("fbSince", { t: fmtAgo(fb.active_since) })} · ${t(`fbReason_${fb.reason}`)}${fb.manual ? ` · ${t("fbManualNote")}` : ""}</p>` : ""}
+      ${onFallback ? html`<p class="hint" style="margin:0">${t("fbSince", { t: fmtSince(fb.active_since) })} · ${t(`fbReason_${fb.reason}`)}${fb.manual ? ` · ${t("fbManualNote")}` : ""}</p>` : ""}
       <div class="row" style="justify-content:flex-start;gap:8px">
         ${onFallback ? html`<button class="btn btn-s" ?disabled=${this.busy || !e.connected} @click=${() => this._switch("main")}>${t("fbBack", { a: c.name })}</button>`
           : html`<button class="btn btn-s" ?disabled=${this.busy || !fb.ready} @click=${() => this._switch("fallback")}>${t("fbToFallback")}</button>`}
@@ -460,7 +460,7 @@ export class EnOceanTools extends LitElement {
         <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoCapture")}</b><p class="hint">${t("eoCaptureSub")}</p></div>
-      ${mine ? html`<div class="note info" role="status">${t("eoCaptureRunning", { f: cap.file, n: cap.frames, since: fmtAgo(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>
+      ${mine ? html`<div class="note info" role="status">${t("eoCaptureRunning", { f: cap.file, n: cap.frames, since: fmtSince(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>
           <div><button class="btn btn-s" @click=${() => this._capture(false)}>${t("eoCaptureStop")}</button> <a class="btn btn-g" href="#/trace/${c.id}">${t("eoToFiles")}</a></div>`
         : cap ? html`<div class="note warn">${t("eoCaptureOther", { n: cap.name })}</div>`
         : html`<div class="grid"><label class="fld"><span class="lbl">${t("eoLockTo")}</span>

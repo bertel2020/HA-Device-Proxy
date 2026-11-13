@@ -2,7 +2,7 @@ import { css, html } from "lit";
 import { api, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { clientName, plain, t } from "../i18n.js";
-import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo, fmtRate, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
+import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo, fmtRate, fmtSince, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
@@ -156,7 +156,7 @@ export class ConnectionsPage extends Page {
           ${c.enabled && (c.present || proxied) ? html`<div class="rate">${sparkline(rateHistory(c.id), { label: t("dataFromDevice") })}<span class="hint" style="font-weight:500">${fmtRate(c.rate_from_device)}</span></div>` : ""}
         </div>
         ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
-          <span class="hint">${cl.since ? t("since", { t: fmtAgo(cl.since) }) : ""}</span></div>`)}
+          <span class="hint">${cl.since ? t("since", { t: fmtSince(cl.since) }) : ""}</span></div>`)}
         ${c.clients.length ? "" : off ? html`<div class="why">${t("disabledText")}</div>`
           : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
           : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}

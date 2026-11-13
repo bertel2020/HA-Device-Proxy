@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Oberfläche, Zeitangaben**: Statt „seit vor 30 Minuten“ steht jetzt „seit 30 Min“, bei Clients, beim Ersatz-Gateway und bei laufenden EnOcean-Aufzeichnungen.
+
 ## 1.6.0 - 2026-11-09
 
 - **Home Assistant, Entity-IDs**: Neue Entitäten beginnen mit `device_proxy_`. Bestehende stellst du unter Einstellungen → MQTT um, die Vorschau zeigt, wo sie benutzt werden. Verweise auf alte IDs passt Home Assistant nicht an.
