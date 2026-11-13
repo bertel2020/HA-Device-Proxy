@@ -65,7 +65,7 @@ def test_home_assistant_under_the_host_name_counts_as_local() -> None:
 
 
 def test_home_network_validation_and_migration() -> None:
-    from device_proxy.model import AppConfig, Settings, ValidationError
+    from device_proxy.model import AppConfig, Settings, ValidationError, client_allowed
 
     for bad in ("0.0.0.0/0", "::/0", "nonsense"):
         try:
@@ -74,9 +74,13 @@ def test_home_network_validation_and_migration() -> None:
             assert "lan_networks" in err.errors
         else:
             raise AssertionError(bad)
-    # a configuration from before the list: "lan" stays every private network
+    # a configuration from before the list: "lan" stays every private network, IPv6 too
     old = AppConfig.from_dict({"schema": 1, "settings": {"listen": "lan"}, "connections": []})
-    assert old.settings.lan_networks == "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+    nets = "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7 fe80::/10"
+    assert old.settings.lan_networks == nets
+    for address in ("192.168.1.5", "fd12:3456::5", "fe80::1"):
+        assert client_allowed("", "lan", address)
+        assert client_allowed("", old.settings.access, address), address
     new = AppConfig.from_dict({"schema": 1, "settings": {"lan_networks": "own"}})
     assert new.settings.lan_networks == "own"
 

@@ -1,15 +1,15 @@
 import { css, html } from "lit";
 import { api, saveConnection, toConnection, url } from "../api.js";
 import { Page } from "../app.js";
-import { t } from "../i18n.js";
-import { confirmDialog, copyText, dirLabel, fmtBytes, fmtTime, icon, lines16, navigate } from "../ui.js";
+import { lang, t, tn } from "../i18n.js";
+import { confirmDialog, dirLabel, fmtBytes, fmtTime, icon, lines16, navigate } from "../ui.js";
 
 const MODES = ["off", "rx", "tx", "both"];
 const KEEP = 400;
-const PATH = "/addon_configs/…_device_proxy/trace/";
+const PATH = "/addon_configs/…_device_proxy/trace/"; // the slug's first part is not known here: shown, not copied
 
 export class TracePage extends Page {
-  static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true }, copied: { state: true } };
+  static properties = { state: { attribute: false }, selected: {}, chunks: { state: true }, paused: { state: true }, ascii: { state: true } };
 
   static styles = [...Page.styles, css`
     .picker { display: block; max-width: 480px; margin-bottom: 14px; }
@@ -96,10 +96,6 @@ export class TracePage extends Page {
 
   _label(c, mode) { return t(c.kind === "modbus" ? `trmb_${mode}` : `tr_${mode}`); }
 
-  async _copyPath() {
-    if (await copyText(PATH)) { this.copied = true; setTimeout(() => { this.copied = false; }, 1500); }
-  }
-
   async _delete(name) {
     if (!(await confirmDialog(this, t("deleteFile", { n: name }), t("delete")))) return;
     try { await api(`api/trace/${encodeURIComponent(name)}`, { method: "DELETE" }); this.refresh(); } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
@@ -119,13 +115,13 @@ export class TracePage extends Page {
       <div class="head"><div><h1>${t("traceTitle")}</h1><p class="sub">${t("traceSub")}</p></div></div>
       <label class="fld picker"><span class="lbl">${t("navConnections")}</span>
         <select class="inp" @change=${(e) => navigate(`#/trace/${e.target.value}`)}>
-          ${s.connections.map((c) => html`<option value=${c.id} ?selected=${c.id === this.selected}>${c.trace === "off" ? c.name : `● ${c.name} · ${t("recording", { m: this._label(c, c.trace) })}`}</option>`)}</select></label>
+          ${s.connections.map((c) => html`<option value=${c.id} .selected=${c.id === this.selected}>${c.trace === "off" ? c.name : `● ${c.name} · ${t("recording", { m: this._label(c, c.trace) })}`}</option>`)}</select></label>
       <div class="cols">
         <div class="main-col">
           <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-view">
             <div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)">
               <div><h2 id="t-view">${t("liveView")}${current ? html` · ${current.name}` : ""}</h2>
-                <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}${this.chunks.length ? ` · ${t("linesShown", { n: rows.length })}` : ""}${this.paused ? ` · ${t("paused")}` : ""}</p></div>
+                <p class="hint" style="margin:2px 0 0">${t("liveCap", { n: KEEP })}${this.chunks.length ? ` · ${tn("linesShown", rows.length, { n: rows.length })}` : ""}${this.paused ? ` · ${t("paused")}` : ""}</p></div>
               <div class="ctl" style="display:flex;gap:4px;flex-wrap:wrap">
                 ${current && current.kind !== "serial" ? "" : html`<div class="seg" role="group" aria-label=${t("liveView")}>${[[false, "hexOnly"], [true, "hexAscii"]].map(([v, k]) => html`<button type="button" aria-pressed=${this.ascii === v ? "true" : "false"} @click=${() => { this.ascii = v; }}>${t(k)}</button>`)}</div>`}
                 <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
@@ -144,7 +140,7 @@ export class TracePage extends Page {
           </section>
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
-              <button class="btn btn-g mono" style="font-size: calc(12px * var(--fs, 1))" @click=${this._copyPath} aria-label="${t("copyPath")}">${icon("copy", 14)} ${this.copied ? t("copied") : PATH}</button></div>
+              <span class="hint mono" style="font-size: calc(12px * var(--fs, 1))">${PATH}</span></div>
             <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
             ${files.length ? html`<div class="scroll"><table class="files" style="min-width:640px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
               <tbody>${[...files].sort((a, b) => b.modified - a.modified).map((f) => { const capturing = s.capture && s.capture.file === f.name; return html`<tr><td class="mono fname">${f.name}</td>
@@ -161,6 +157,6 @@ export class TracePage extends Page {
 
   _time(ts) {
     const d = new Date(ts * 1000);
-    return `${d.toLocaleTimeString(undefined, { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+    return `${d.toLocaleTimeString(lang, { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
   }
 }

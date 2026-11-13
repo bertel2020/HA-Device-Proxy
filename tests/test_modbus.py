@@ -953,3 +953,167 @@ async def test_each_client_shows_its_share_and_its_wait() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+async def test_register_entities_find_a_device_that_is_back() -> None:
+    """Clients drove the device "down" and left: the entities' read brings it back."""
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        bind="127.0.0.1",
+        register_entities="1 3 10 uint16 none 1 - - Test\n1 3 11 uint16 none 1 - - Other",
+    )
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    proxy._entity_loop = asyncio.Event().wait  # the rounds by hand
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    proxy._down("no answer")
+    await proxy._entity_round()
+    assert proxy.reachable is True and events == ["modbus_down", "modbus_back"]
+    assert proxy.entity_values == {"reg_1_3_10": 100, "reg_1_3_11": 110}
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
+
+
+async def test_a_serial_adapter_that_comes_back_is_found(tmp_path: object, monkeypatch) -> None:
+    """The USB adapter was missing (connecting failed): once the line opens again the state is
+    unknown, and the first answer makes it reachable, with modbus_back."""
+    import os
+    import pty
+    from pathlib import Path
+
+    monkeypatch.setattr(modbus, "SERIAL_RETRY", 0.05)
+    path = Path(str(tmp_path)) / "ttyFAKE"
+    c = Connection(
+        "Meter",
+        str(path),
+        0,
+        kind="modbus",
+        link="rtu",
+        bind="127.0.0.1",
+        register_entities="1 3 10 uint16 none 1 - - Test",
+        request_timeout_ms=300,
+        retries=0,
+    )
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    proxy._entity_loop = asyncio.Event().wait
+    task = asyncio.create_task(proxy.run())
+    while proxy.reachable is not False:
+        await asyncio.sleep(0.01)
+    assert proxy._down_on_connect and events == ["modbus_down"]
+
+    master, slave = pty.openpty()
+    path.symlink_to(os.ttyname(slave))
+    buffer = bytearray()
+
+    def readable() -> None:
+        buffer.extend(os.read(master, 256))
+        while len(buffer) >= 8:
+            frame = bytes(buffer[:8])
+            del buffer[:8]
+            count = int.from_bytes(frame[4:6], "big")
+            os.write(master, rtu_frame(frame[0], bytes([3, 2 * count]) + b"\x12\x34" * count))
+
+    asyncio.get_running_loop().add_reader(master, readable)
+    try:
+        for _ in range(100):
+            if proxy.paths[0].link.is_open:
+                break
+            await asyncio.sleep(0.02)
+        assert proxy.reachable is None and not proxy._down_on_connect  # the line, not the device
+        await proxy._entity_round()
+        assert proxy.reachable is True and proxy.entity_values == {"reg_1_3_10": 0x1234}
+        assert events == ["modbus_down", "modbus_back"]
+    finally:
+        asyncio.get_running_loop().remove_reader(master)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        os.close(master)
+        os.close(slave)
+
+
+def test_a_write_must_be_as_long_as_its_counts_say() -> None:
+    """The register check only sees the head of a write: whatever stands behind it (a second
+    RTU frame, more registers than counted) would reach the device unchecked."""
+    from device_proxy.modbus import EXC_ADDRESS, EXC_VALUE, write_pdu, write_refusal, write_shape_ok
+
+    c = Connection(
+        "WP", "", 15020, kind="modbus", host="192.0.2.5", write_access="all", write_registers="16"
+    )
+    host = "192.168.1.9"
+    allowed = struct.pack(">BHH", 6, 16, 1)
+    assert write_refusal(c, host, False, allowed) is None
+    smuggled = allowed + crc16(bytes([1]) + allowed).to_bytes(2, "little")
+    smuggled += rtu_frame(1, struct.pack(">BHH", 6, 999, 0xBEEF))
+    assert write_refusal(c, host, False, smuggled) == EXC_VALUE
+    two = struct.pack(">BHHB", 16, 16, 1, 4) + b"\x00\x01\xbe\xef"  # count 1, two registers
+    assert write_refusal(c, host, False, two) == EXC_VALUE
+    assert write_refusal(c, host, False, write_pdu(16, 16, [7])) is None
+    assert write_refusal(c, host, False, write_pdu(16, 16, [7, 8])) == EXC_ADDRESS
+    # also without any register rule
+    anyone = replace(c, write_registers="")
+    assert write_refusal(anyone, host, False, smuggled) == EXC_VALUE
+    assert write_refusal(anyone, host, False, write_pdu(15, 0, [1] * 9)) is None
+
+    good = [
+        write_pdu(5, 1, [1]),
+        write_pdu(6, 1, [1]),
+        write_pdu(15, 1, [1] * 1968),
+        write_pdu(16, 1, [1] * 123),
+        struct.pack(">BHHH", 22, 1, 0xFF00, 0x0001),
+        struct.pack(">BHHHHB", 23, 0, 2, 10, 2, 4) + b"\x00\x01\x00\x02",
+        bytes([0x41, 1, 2, 3]),  # a vendor's own: its shape is not known
+    ]
+    bad = [
+        write_pdu(5, 1, [1]) + b"\x00",
+        write_pdu(6, 1, [1])[:4],
+        struct.pack(">BHHB", 15, 0, 9, 1) + b"\xff",  # 9 coils need 2 bytes
+        struct.pack(">BHHB", 15, 0, 1969, 247) + bytes(247),
+        struct.pack(">BHHB", 16, 0, 0, 0),
+        struct.pack(">BHHB", 16, 0, 124, 248) + bytes(248),
+        write_pdu(16, 1, [1, 2]) + b"\x00\x03",
+        struct.pack(">BHHH", 22, 1, 0xFF00, 0x0001) + b"\x00",
+        struct.pack(">BHHHHB", 23, 0, 2, 10, 2, 4) + b"\x00\x01",  # data missing
+        struct.pack(">BHHHHB", 23, 0, 2, 10, 1, 4) + b"\x00\x01\x00\x02",  # 1 register, 4 bytes
+    ]
+    assert all(write_shape_ok(pdu) for pdu in good)
+    assert not any(write_shape_ok(pdu) for pdu in bad)
+
+
+async def test_a_write_with_something_behind_it_is_refused() -> None:
+    device = await _device(False, ignore=set())
+    c = Connection(
+        "Heat pump",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        bind="127.0.0.1",
+        write_access="all",
+        write_registers="16",
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    port = proxy._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    pdu = struct.pack(">BHHB", 16, 16, 1, 4) + b"\x00\x01\xbe\xef"
+    writer.write(struct.pack(">HHHB", 1, 0, len(pdu) + 1, 1) + pdu)
+    head = await reader.readexactly(7)
+    assert await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1) == bytes([0x90, 0x03])
+    assert proxy.writes[-1]["result"] == "blocked" and proxy.stats.blocked == 1
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()

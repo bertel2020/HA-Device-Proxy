@@ -141,6 +141,24 @@ async def test_stale_retained_configs_of_the_app_are_cleared(tmp_path: Path) -> 
     assert sent == [("homeassistant/switch/device_proxy_0000dead/enabled/config", b"")]
 
 
+async def test_foreign_retained_configs_cost_nothing(tmp_path: Path) -> None:
+    """The broker sends every retained config of every program: only the app's own are
+    compared with the configs there should be."""
+    controller = _controller(tmp_path)
+    bridge = ha_mqtt.HaBridge(controller)
+    built: list[int] = []
+    configs = bridge.configs
+
+    def counted() -> dict[str, dict[str, object]]:
+        built.append(1)
+        return configs()
+
+    bridge.configs = counted  # type: ignore[method-assign]
+    for i in range(50):
+        await bridge._message(f"homeassistant/sensor/0x00158d{i:04x}/temperature/config", b"{}")
+    assert built == []
+
+
 async def test_check_broker_says_why_it_fails() -> None:
     async def accepting(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         await reader.read(64)

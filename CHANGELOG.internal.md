@@ -12,6 +12,17 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 ## Unreleased
 
 - Panel: `fmtSince(ts)` (Dauer über `fmtDuration`) für alle „seit {t}“-Texte statt `fmtAgo`, das „vor …“ liefert; englische Texte von „since“ auf „for“.
+- Review mit Fable (Backend und Panel), alle Befunde behoben:
+  - Modbus: `write_shape_ok()` prüft Länge, Bytezahl und Anzahl von FC5/6/15/16/22/23, sonst `EXC_VALUE` (Log `blocked`, Zugriffstest `ac_malformed`). Herstellerfunktionen bleiben offen.
+  - Modbus: RTU-Leitung nach `_down_on_connect` wieder offen → `reachable = None`, `_back_due` hält `modbus_back` fällig. Die Entity-Runde liest bei `reachable False` eine Entität je Runde als Probe.
+  - Diagnose: `masked()` maskiert Namen, Notify-Dienst und MQTT-Zugang auch in alten Ereignissen. `store.changes` speichert `client_names` und `sender_names` nicht mehr (`PRIVATE_SETTINGS`).
+  - EnOcean: `Captures._write` fängt `OSError`, stoppt und meldet `capture_failed`. `stop()` gibt auch frei, wenn `close()` scheitert. Keepalive für Clients.
+  - `block_client` gibt `serial_unaffected` zurück (API und Toast `blockSerialNote`), Ereignis `client_blocked_not_custom`.
+  - `migrate`: `lan_networks` aus allen `PRIVATE_NETWORKS` außer den App-Netzen. Keine zweite Migration, weil sie bearbeitete Listen nicht erkennen kann.
+  - `apply()`: Debounce wird übernommen; nach dem Speichern läuft der Abgleich in `try/finally`; `OSError` aus `write_config` wird zu `SaveError`; `AdminClient.command` macht aus `OSError` einen `AdminError`.
+  - `ha_mqtt._stale_config` prüft zuerst das Präfix, dann `configs()`.
+  - Dateinamen der Mitschnitte (`_file_names`) nummeriert über alle Verbindungen in der Reihenfolge der Konfiguration, auch für Aufzeichnungen.
+  - Panel: `.selected` statt `?selected` (37 Stellen); `_syncSaved` nach dem Speichern; `discard()` beim Löschen; Import über `_taken`/`_mode`; Sequenzzähler in `_loadHistory`; `wholeNumber()` für Zahlenfelder; `fmtAgo` mit `Math.floor`; `lang` bei allen `toLocale*`; `tn()` mit `_1`-Schlüsseln für die Einzahl; Pfad der Aufzeichnungen ohne Kopier-Knopf.
 - CI: Der Integrationstest sucht die Aufzeichnung als `a-*.log`, seit Dateien das Startdatum tragen.
 
 ## 1.6.0 - 2026-11-09

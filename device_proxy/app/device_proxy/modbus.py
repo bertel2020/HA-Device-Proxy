@@ -206,6 +206,41 @@ def write_span(pdu: bytes) -> tuple[int, int] | None:
     return None
 
 
+def write_shape_ok(pdu: bytes) -> bool:
+    """Is a write of a known function exactly as long as its counts say? Like READ_LENGTHS
+    for the reads: on RTU more bytes would go to the device as they are, e.g. a second frame
+    behind an allowed write, and the register check only sees the head."""
+    function = pdu[0] if pdu else 0
+    if function in (5, 6):
+        return len(pdu) == 5
+    if function == 22:
+        return len(pdu) == 7
+    if function in (15, 16):
+        if len(pdu) < 6:
+            return False
+        count, size = int.from_bytes(pdu[3:5], "big"), pdu[5]
+        if function == 15:
+            right = 1 <= count <= 1968 and size == (count + 7) // 8
+        else:
+            right = 1 <= count <= 123 and size == 2 * count
+        return right and len(pdu) == 6 + size
+    if function == 23:
+        if len(pdu) < 10:
+            return False
+        reads, writes, size = (
+            int.from_bytes(pdu[3:5], "big"),
+            int.from_bytes(pdu[7:9], "big"),
+            pdu[9],
+        )
+        return (
+            1 <= reads <= 125
+            and 1 <= writes <= 121
+            and size == 2 * writes
+            and len(pdu) == 10 + size
+        )
+    return True  # a vendor's own function: its shape is not known
+
+
 def written_values(pdu: bytes) -> list[int]:
     """What a write sets (the first 8 values), for the log."""
     function = pdu[0]
@@ -740,6 +775,8 @@ def write_refusal(c: Connection, host: str, local: bool, pdu: bytes) -> int | No
     pass."""
     if not may_write(c, host, local):
         return EXC_FUNCTION
+    if not write_shape_ok(pdu):
+        return EXC_VALUE
     rule = write_rule(c, host, local)
     ranges = rule[1] if rule else parse_ranges(c.write_registers) if c.write_registers else None
     if ranges is not None and not in_ranges(write_span(pdu), ranges):
@@ -775,7 +812,7 @@ def check_access(
             continue
         code = write_refusal(rules, host, local, pdu)
         if code is not None:
-            why = "write_access" if code == EXC_FUNCTION else "registers"
+            why = {EXC_FUNCTION: "write_access", EXC_ADDRESS: "registers"}.get(code, "malformed")
             rule = write_rule(rules, host, local) if code == EXC_ADDRESS else None
             return {
                 **result,
@@ -914,6 +951,7 @@ class ModbusProxy:
         self.reachable_since = time.time()
         self._failures = 0  # requests in a row without an answer
         self._down_on_connect = False  # not reachable because connecting failed
+        self._back_due = False  # unknown after a serial line came back: modbus_back still due
         self._connect_failed_at = float("-inf")  # loop time of the last failed attempt
 
         self._server: asyncio.Server | None = None
@@ -1006,10 +1044,13 @@ class ModbusProxy:
     async def _entity_round(self) -> None:
         entities = parse_entities(self.c.register_entities)
         values: dict[str, float | int | str | None] = {}
+        probed = False
         for entity in entities:
-            if self.reachable is False:  # the clients come first while it is away
-                values[entity.key] = None
-                continue
+            if self.reachable is False:  # the clients come first while it is away ...
+                if probed:
+                    values[entity.key] = None
+                    continue
+                probed = True  # ... one read a round finds out when it is back
             try:
                 registers = await self._entity_registers(entity)
             except Exception:  # a bug in one must not stop the others or the proxy
@@ -1057,13 +1098,19 @@ class ModbusProxy:
             # reachable again; a device that takes connections but does not answer only
             # counts once it answers (a serial device: always)
             self._up()
+        elif self.c.link == "rtu" and self._down_on_connect:
+            # the serial adapter is back; whether the device answers is not known yet
+            self._down_on_connect = False
+            self._back_due = self._back_due or self.reachable is False
+            self.reachable, self.reachable_since = None, time.time()
 
     def _up(self) -> None:
         self._failures = 0
         if self.reachable is not True:
-            if self.reachable is False:
+            if self.reachable is False or self._back_due:
                 self.on_event("info", "modbus_back", target=self.c.upstream)
             self.reachable, self.reachable_since = True, time.time()
+            self._back_due = False
 
     def _down(self, error: str, *, connect: bool = False) -> None:
         self.stats.last_error, self.stats.last_error_at = error, time.time()
@@ -1072,7 +1119,9 @@ class ModbusProxy:
             self._connect_failed_at = asyncio.get_running_loop().time()
         if self.reachable is not False:
             self.reachable, self.reachable_since = False, time.time()
-            self.on_event("warning", "modbus_down", target=self.c.upstream, error=error)
+            if not self._back_due:  # still away since its modbus_down
+                self.on_event("warning", "modbus_down", target=self.c.upstream, error=error)
+            self._back_due = False
 
     def _trace(self, address: str) -> Callable[[str, bytes, str], None]:
         def write(direction: str, data: bytes, info: str) -> None:
@@ -1343,25 +1392,23 @@ class ModbusProxy:
             answer: bytes | None
             if route is not None:
                 answer = await self._routed(route, pdu, info, host, local, write)
-            elif write and not self.may_write(host, local):
+            elif write and (code := self.write_refusal(host, local, pdu)) is not None:
                 self.stats.blocked += 1
                 info.blocked += 1
-                self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
-                answer = exception(pdu, EXC_FUNCTION)
-                self._log_write(info, unit, pdu, "blocked")
-            elif write and self.write_refusal(host, local, pdu) == EXC_ADDRESS:
-                self.stats.blocked += 1
-                info.blocked += 1
-                span = write_span(pdu)
-                self.on_event(
-                    "warning",
-                    "write_blocked_register",
-                    address=info.address,
-                    function=pdu[0],
-                    register=span[0] if span else "?",
-                )
-                answer = exception(pdu, EXC_ADDRESS)
-                self._log_write(info, unit, pdu, "outside")
+                if code == EXC_FUNCTION:
+                    self.on_event("warning", "write_blocked", address=info.address, function=pdu[0])
+                elif code == EXC_ADDRESS:
+                    span = write_span(pdu)
+                    self.on_event(
+                        "warning",
+                        "write_blocked_register",
+                        address=info.address,
+                        function=pdu[0],
+                        register=span[0] if span else "?",
+                    )
+                # EXC_VALUE: a write whose length does not fit its counts, never sent on
+                answer = exception(pdu, code)
+                self._log_write(info, unit, pdu, "outside" if code == EXC_ADDRESS else "blocked")
             else:
                 answer = await self.request(device_unit, pdu, info)
                 if write:
@@ -1400,7 +1447,7 @@ class ModbusProxy:
                 self.stats.blocked += 1
                 info.blocked += 1
                 self._log_write(
-                    info, route[1], pdu, "blocked" if code == EXC_FUNCTION else "outside"
+                    info, route[1], pdu, "outside" if code == EXC_ADDRESS else "blocked"
                 )
                 return exception(pdu, code)
         answer = await target.request(route[1], pdu, info)

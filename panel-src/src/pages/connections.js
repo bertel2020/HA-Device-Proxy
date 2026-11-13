@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
-import { clientName, plain, t } from "../i18n.js";
+import { clientName, lang, plain, t, tn } from "../i18n.js";
 import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo, fmtRate, fmtSince, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
 const KINDS = ["serial", "modbus", "enocean"];
@@ -76,7 +76,7 @@ export class ConnectionsPage extends Page {
   }
 
   async _enable(c, enabled) {
-    if (!enabled && c.clients.length && !(await confirmDialog(this, t("offConfirm", { n: c.name, c: c.clients.length }), t("switchOff")))) return;
+    if (!enabled && c.clients.length && !(await confirmDialog(this, tn("offConfirm", c.clients.length, { n: c.name, c: c.clients.length }), t("switchOff")))) return;
     this.busy = c.id;
     try {
       await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
@@ -117,7 +117,7 @@ export class ConnectionsPage extends Page {
       : [fmtSerial(c), c.mode, `Port ${c.port}`];
     if (modbus && (c.link === "rtu" || c.link === "rtu_listen")) chips.splice(1, 0, fmtSerial(c));
     if (modbus && m.answered) chips.push(t("mbAvg", { ms: m.time_avg_ms }));
-    if (enocean && eo) chips.push(t("eoDutyChip", { p: eo.duty_cycle.of_limit.toLocaleString() }));
+    if (enocean && eo) chips.push(t("eoDutyChip", { p: eo.duty_cycle.of_limit.toLocaleString(lang) }));
     if (enocean && eo && eo.base_id) chips.push(`ID ${eo.base_id}`);
     const fallbackOf = enocean && eo?.serves ? eo.serves : "";
     const fallback = enocean && c.fallback ? (this.state.connections.find((x) => x.id === c.fallback) || {}).name : "";
@@ -151,7 +151,7 @@ export class ConnectionsPage extends Page {
       </div>` : ""}
       <div class="clients">
         <div class="meter">
-          <div class="slots"><span class="hint" style="font-weight:500">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+          <div class="slots"><span class="hint" style="font-weight:500">${tn("clientsLine", c.max_clients, { n: c.clients.length, m: c.max_clients })}</span>
             <span class="bar ${c.clients.length >= c.max_clients ? "full" : ""}" aria-hidden="true"><i style="width:${Math.min(100, (c.clients.length / (c.max_clients || 1)) * 100)}%"></i></span></div>
           ${c.enabled && (c.present || proxied) ? html`<div class="rate">${sparkline(rateHistory(c.id), { label: t("dataFromDevice") })}<span class="hint" style="font-weight:500">${fmtRate(c.rate_from_device)}</span></div>` : ""}
         </div>

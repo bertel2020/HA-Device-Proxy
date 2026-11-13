@@ -3,8 +3,8 @@ import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.j
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
-import { clientName, eventText, retriesText, t } from "../i18n.js";
-import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle } from "../ui.js";
+import { clientName, eventText, lang, retriesText, t, tn } from "../i18n.js";
+import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle, wholeNumber } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -177,7 +177,7 @@ export class DetailPage extends Page {
   }
 
   async _enable(c, enabled) {
-    if (!enabled && c.clients.length && !(await confirmDialog(this, t("offConfirm", { n: c.name, c: c.clients.length }), t("switchOff")))) return;
+    if (!enabled && c.clients.length && !(await confirmDialog(this, tn("offConfirm", c.clients.length, { n: c.name, c: c.clients.length }), t("switchOff")))) return;
     try {
       await api(`api/connections/${c.id}/enabled`, { method: "POST", body: { enabled } });
       this.refresh();
@@ -270,7 +270,7 @@ export class DetailPage extends Page {
       <div class="grid4" style="grid-template-columns:2fr 1fr auto;align-items:end">
         <label class="fld"><span class="lbl">${t("maintHost")}</span><input class="inp mono" placeholder="192.168.1.35" .value=${f.host} @input=${(e) => { this.maint = { ...f, host: e.target.value.trim() }; }}></label>
         <label class="fld"><span class="lbl">${t("maintMinutes")}</span><select class="inp" @change=${(e) => { this.maint = { ...f, minutes: Number(e.target.value) }; }}>
-          ${[15, 30, 60, 120, 240].map((m) => html`<option value=${m} ?selected=${f.minutes === m}>${m} min</option>`)}</select></label>
+          ${[15, 30, 60, 120, 240].map((m) => html`<option value=${m} .selected=${f.minutes === m}>${m} min</option>`)}</select></label>
         <button class="btn btn-s" ?disabled=${!f.host} @click=${() => this._startExclusive(c)}>${t("maintStart")}</button>
       </div>`);
   }
@@ -327,7 +327,7 @@ export class DetailPage extends Page {
   }
 
   async _doRestart(c, usb) {
-    const ask = t(usb ? "usbResetAsk" : "restartAsk", { n: c.name, c: c.clients.length });
+    const ask = tn(usb ? "usbResetAsk" : "restartAsk", c.clients.length, { n: c.name, c: c.clients.length });
     if (!(await confirmDialog(this, ask, t(usb ? "usbResetBtn" : "restartBtn")))) return;
     this.restarting = c.id;
     try {
@@ -383,7 +383,7 @@ export class DetailPage extends Page {
 
   _num(form, key, label, prop) {
     return html`<label class="fld"><span class="lbl">${label}</span><input class="inp" inputmode="numeric" .value=${String(form[key])}
-      @input=${(e) => { this[prop] = { ...this[prop], [key]: Number(e.target.value || 0) }; }}></label>`;
+      @input=${(e) => { this[prop] = { ...this[prop], [key]: wholeNumber(e, this[prop][key]) }; }}></label>`;
   }
 
   /** The timing of the vendor the scan found; the port stays, the device answers on it. */
@@ -402,7 +402,7 @@ export class DetailPage extends Page {
     const rows = (c.register_entities || "").split("\n").map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 9);
     if (!rows.length) return "";
     const values = (c.modbus || {}).entity_values || {};
-    return foldCard("device_proxy.mbentities", "t-mbent", t("mbEntities"), t("mbEntitiesCard", { n: rows.length, s: c.entity_seconds }), html`
+    return foldCard("device_proxy.mbentities", "t-mbent", t("mbEntities"), tn("mbEntitiesCard", rows.length, { n: rows.length, s: c.entity_seconds }), html`
       <div class="scroll"><table><thead><tr><th>Name</th><th>Unit</th><th>${t("mbAddress")}</th><th style="text-align:right">${t("mbValue")}</th></tr></thead>
         <tbody>${rows.map((p) => { const v = values[`reg_${p[0]}_${p[1]}_${p[2]}`]; return html`<tr><td>${p.slice(8).join(" ")}</td><td class="mono">${p[0]}</td><td class="mono">${p[2]}</td>
           <td style="text-align:right">${v === null || v === undefined ? "–" : html`${fmtValue(v)}${p[6] !== "-" ? ` ${p[6]}` : ""}`}</td></tr>`; })}</tbody></table></div>`);
@@ -436,9 +436,9 @@ export class DetailPage extends Page {
       <p class="hint">${t("mbDecodeSub")}</p>
       <div class="grid4" style="margin-top:8px">
         <label class="fld"><span class="lbl">${t("mbType")}</span><select class="inp" @change=${(e) => { this.mbDecode = { ...d, type: e.target.value }; }}>
-          ${TYPES.map((v) => html`<option value=${v} ?selected=${d.type === v}>${v}</option>`)}</select></label>
+          ${TYPES.map((v) => html`<option value=${v} .selected=${d.type === v}>${v}</option>`)}</select></label>
         <label class="fld"><span class="lbl">${t("mbSwap")}</span><select class="inp" @change=${(e) => { this.mbDecode = { ...d, swap: e.target.value }; }}>
-          ${swaps.map((v) => html`<option value=${v} ?selected=${swap === v}>${t(`swap_${v}`)}</option>`)}</select></label>
+          ${swaps.map((v) => html`<option value=${v} .selected=${swap === v}>${t(`swap_${v}`)}</option>`)}</select></label>
         <label class="fld"><span class="lbl">${t("mbScale")}</span><input class="inp" inputmode="decimal" .value=${String(d.scale)}
           @change=${(e) => { const v = Number(String(e.target.value).replace(",", ".")); this.mbDecode = { ...d, scale: Number.isFinite(v) && v !== 0 ? v : 1 }; }}></label>
       </div>
@@ -449,10 +449,10 @@ export class DetailPage extends Page {
         <div class="grid4" style="margin-top:8px">
           <label class="fld"><span class="lbl">Name</span><input class="inp" maxlength="64" .value=${this.mbEntity.name} @input=${(e) => { this.mbEntity = { ...this.mbEntity, name: e.target.value }; }}></label>
           ${list.length > 1 ? html`<label class="fld"><span class="lbl">${t("mbAddress")}</span><select class="inp" @change=${(e) => { this.mbEntity = { ...this.mbEntity, address: Number(e.target.value) }; }}>
-            ${list.map((row) => html`<option value=${row.address} ?selected=${this.mbEntity.address === row.address}>${row.address}</option>`)}</select></label>` : ""}
+            ${list.map((row) => html`<option value=${row.address} .selected=${this.mbEntity.address === row.address}>${row.address}</option>`)}</select></label>` : ""}
           <label class="fld"><span class="lbl">${t("mbEntityUom")}</span><input class="inp" maxlength="16" placeholder="W" .value=${this.mbEntity.uom} @input=${(e) => { this.mbEntity = { ...this.mbEntity, uom: e.target.value }; }}></label>
           <label class="fld"><span class="lbl">${t("mbEntityClass")}</span><select class="inp" @change=${(e) => { this.mbEntity = { ...this.mbEntity, deviceClass: e.target.value }; }}>
-            <option value="" ?selected=${!this.mbEntity.deviceClass}>–</option>${DEVICE_CLASSES.map((v) => html`<option value=${v} ?selected=${this.mbEntity.deviceClass === v}>${v}</option>`)}</select></label>
+            <option value="" .selected=${!this.mbEntity.deviceClass}>–</option>${DEVICE_CLASSES.map((v) => html`<option value=${v} .selected=${this.mbEntity.deviceClass === v}>${v}</option>`)}</select></label>
         </div>
         <div style="margin-top:8px"><button class="btn btn-s" @click=${() => this._mbAddEntity(c, r, list, swap)}>${t("mbEntityAdd")}</button></div></div>` : ""}
       <div class="row" style="margin:8px 0"><p class="hint" style="margin:0;flex:1">${t("mbSensorYaml", { a: r.form.address })}</p>${this._copyBtn("mb-sensor", yaml)}</div>
@@ -472,7 +472,7 @@ export class DetailPage extends Page {
       <div class="grid5">
         ${this._num(f, "unit", t("mbUnit"), "mbForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.mbForm = { ...f, function: Number(e.target.value) }; }}>
-          ${[3, 4, 1, 2].map((v) => html`<option value=${v} ?selected=${f.function === v}>${t(`fc_${v}`)}</option>`)}</select></label>
+          ${[3, 4, 1, 2].map((v) => html`<option value=${v} .selected=${f.function === v}>${t(`fc_${v}`)}</option>`)}</select></label>
         ${this._num(f, "address", t("mbAddress"), "mbForm")}
         ${this._num(f, "count", t("mbCount"), "mbForm")}
         <button class="btn btn-s" ?disabled=${!c.enabled} @click=${this._mbRead}>${t("mbReadBtn")}</button>
@@ -488,7 +488,7 @@ export class DetailPage extends Page {
       <div class="grid5">
         ${this._num(w, "unit", t("mbUnit"), "wrForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.wrForm = { ...w, function: Number(e.target.value) }; }}>
-          ${[6, 16, 5, 15].map((v) => html`<option value=${v} ?selected=${w.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
+          ${[6, 16, 5, 15].map((v) => html`<option value=${v} .selected=${w.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
         ${this._num(w, "address", t("mbAddress"), "wrForm")}
         <label class="fld"><span class="lbl">${t("mbValues")}</span><input class="inp mono" .value=${w.values} placeholder=${w.function === 5 || w.function === 15 ? "1" : "300"}
           @input=${(e) => { this.wrForm = { ...w, values: e.target.value }; }}></label>
@@ -521,8 +521,8 @@ export class DetailPage extends Page {
           @input=${(e) => { this.acForm = { ...this.acForm, host: e.target.value.trim() }; }} @keydown=${(e) => { if (e.key === "Enter") this._access(); }}></label>
         ${this._num(this.acForm, "unit", t("mbUnit"), "acForm")}
         <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => { this.acForm = { ...this.acForm, function: Number(e.target.value) }; }}>
-          ${[3, 4, 1, 2].map((v) => html`<option value=${v} ?selected=${this.acForm.function === v}>${t(`fc_${v}`)}</option>`)}
-          ${[6, 16, 5, 15].map((v) => html`<option value=${v} ?selected=${this.acForm.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
+          ${[3, 4, 1, 2].map((v) => html`<option value=${v} .selected=${this.acForm.function === v}>${t(`fc_${v}`)}</option>`)}
+          ${[6, 16, 5, 15].map((v) => html`<option value=${v} .selected=${this.acForm.function === v}>${t(`fcw_${v}`)}</option>`)}</select></label>
         ${this._num(this.acForm, "address", t("mbAddress"), "acForm")}
         <button class="btn btn-s" ?disabled=${!this.acForm.host} @click=${this._access}>${t("acCheck")}</button>
       </div>
@@ -534,14 +534,14 @@ export class DetailPage extends Page {
     const m = this.meter, job = this.job;
     const best = job && job.state === "done" ? job.results.filter((r) => r.score >= 0.6) : [];
     const fmt = (r) => `${r.baud} ${r.data_bits}${r.parity.toUpperCase()}${r.stop_bits}`;
-    const value = (r) => typeof r.value === "number" && r.unit === "Wh" ? `${(r.value / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} kWh` : `${r.value} ${r.unit}`;
+    const value = (r) => typeof r.value === "number" && r.unit === "Wh" ? `${(r.value / 1000).toLocaleString(lang, { maximumFractionDigits: 3 })} kWh` : `${r.value} ${r.unit}`;
     const blocked = !c.enabled ? "toolOff" : c.present === false ? "toolMissing" : "";
     const meterFirst = ["ehz_sml", "ehz_d0"].includes(c.template) || !!(m && m.bytes && m.protocol !== "unknown");
     const meter = (head) => html`<div class="row ${head ? "" : "sep"}"><div><b style="font-weight:500">${t("meterCheck")}</b>${blocked ? "" : html`<p class="hint">${t("meterCheckSub")}</p>`}${blocked ? html`<p class="hint" style="color:var(--bad)">${t(blocked)}</p>` : ""}</div>
         <button class="btn btn-s" ?disabled=${!!blocked} @click=${this._checkMeter}>${t("toolCheck")}</button></div>
       ${m ? m.bytes ? html`<div class="well" style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="chip ${m.protocol === "unknown" ? "warn" : "info"}">${t(`proto_${m.protocol}`)}</span>
-            ${m.telegrams ? html`<span class="chip">${t("telegrams", { n: m.telegrams })}</span>
+            ${m.telegrams ? html`<span class="chip">${tn("telegrams", m.telegrams, { n: m.telegrams })}</span>
               <span class="chip ${m.valid === m.telegrams ? "ok" : "warn"}">${t(m.protocol === "sml" ? "validCrc" : "validD0", { n: m.valid })}</span>` : ""}
             ${this.meterAt ? html`<span class="hint" style="margin-left:auto">${t("checkedAt", { t: fmtTime(this.meterAt, false) })}</span>` : ""}</div>
           ${m.readings.length ? html`<table><tbody>${m.readings.slice(0, 12).map((r) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1))">${r.obis}</td><td>${r.name ? t(`obis_${r.obis}`) : ""}</td><td style="text-align:right">${value(r)}</td></tr>`)}</tbody></table>` : ""}
@@ -598,9 +598,9 @@ export class DetailPage extends Page {
       const line = last ? (last.info || last.hex || last.text || "") : "";
       return html`<section class="card" aria-labelledby="t-live" style="gap:6px">
         <div class="row"><div><h2 id="t-live" style="display:inline">${t("live")}</h2>
-          <span class="hint"> · <span class="dot" style="color:${last ? "var(--ok)" : "var(--muted)"}"></span>${last ? `${t("liveLast", { ago: fmtAgo(last.ts) })}${rate ? ` · ${t(modbus ? "liveRateMb" : "liveRate", { n: rate.toLocaleString() })}` : ""}` : t("liveNone")}</span></div>
+          <span class="hint"> · <span class="dot" style="color:${last ? "var(--ok)" : "var(--muted)"}"></span>${last ? `${t("liveLast", { ago: fmtAgo(last.ts) })}${rate ? ` · ${t(modbus ? "liveRateMb" : "liveRate", { n: rate.toLocaleString(lang) })}` : ""}` : t("liveNone")}</span></div>
           <button class="btn btn-g" @click=${() => this._setOpen(true)}>${t("liveShow")}</button></div>
-        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(undefined, { hour12: false })} · ${dirLabel(last.direction, kind)} · ${line}</div>`
+        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(lang, { hour12: false })} · ${dirLabel(last.direction, kind)} · ${line}</div>`
           : html`<p class="hint" style="margin:0">${t(enocean ? "liveEmptyEo" : modbus ? "liveEmptyMb" : "liveEmpty")} ${t("liveAutoOpen")}</p>`}
       </section>`;
     }
@@ -618,7 +618,7 @@ export class DetailPage extends Page {
         ${this.search || this.dir ? html`<span class="hint">${t("eoShown", { n: rows.length, m: all.length })}</span>` : ""}</div>` : ""}
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
-          <td class="fit" style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(undefined, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
+          <td class="fit" style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(lang, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
           <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
           <td class=${ch.info ? "frame" : ""}>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
             @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1));color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
@@ -675,9 +675,9 @@ export class DetailPage extends Page {
     const rate = rq.length ? rq.slice(-5).reduce((x, y) => x + y, 0) / Math.min(rq.length, 5) : 0;
     return html`<section class="card" aria-labelledby="t-mb">
       <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
-      <div><b style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(m.requests ?? 0).toLocaleString()}</b> <span class="hint">${summary}</span></div>
+      <div><b style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(m.requests ?? 0).toLocaleString(lang)}</b> <span class="hint">${summary}</span></div>
       ${this._sparkline(rq, t("mbRate"))}
-      <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString() })}</span><span>${t("sparkNow")}</span></div>
+      <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("sparkOld")}</span><span>${t("mbRateNow", { n: (Math.round(rate * 10) / 10).toLocaleString(lang) })}</span><span>${t("sparkNow")}</span></div>
       <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
       <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
       ${problems.length || m.cached || m.probes || (m.queue ?? 0) > 1 ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -687,10 +687,10 @@ export class DetailPage extends Page {
       ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
       ${m.listen ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
         <b style="font-weight:500">${t("mbListenTitle")}</b>
-        ${m.listen.frames ? html`<span class="hint">${t("mbListenVal", { f: m.listen.frames.toLocaleString(), r: m.listen.registers.toLocaleString(), t: m.listen.last_frame ? fmtAgo(m.listen.last_frame) : "–" })}</span>
+        ${m.listen.frames ? html`<span class="hint">${t("mbListenVal", { f: m.listen.frames.toLocaleString(lang), r: m.listen.registers.toLocaleString(lang), t: m.listen.last_frame ? fmtAgo(m.listen.last_frame) : "–" })}</span>
           <div style="display:flex;flex-wrap:wrap;gap:6px">${m.listen.ranges.map((r) => html`<span class="chip mono" title=${fmtAgo(r.heard)}>Unit ${r.unit} · FC0${r.function} · ${r.first}${r.last > r.first ? `–${r.last}` : ""}</span>`)}</div>`
           : html`<div class="note warn">${t("mbListenNone")}</div>`}
-        ${m.listen.dropped ? html`<span class="hint">${t("mbListenDropped", { n: m.listen.dropped.toLocaleString() })}</span>` : ""}</div>` : ""}
+        ${m.listen.dropped ? html`<span class="hint">${tn("mbListenDropped", m.listen.dropped, { n: m.listen.dropped.toLocaleString(lang) })}</span>` : ""}</div>` : ""}
       ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
       ${tips.length ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
         <b style="font-weight:500">${t("tipsTitle")}</b>
@@ -866,7 +866,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
         <div class="row" style="justify-content:flex-start"><h1>${c.name}</h1>
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
-          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("clientsLine", { n: c.clients.length, m: c.max_clients })}</span>
+          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${tn("clientsLine", c.max_clients, { n: c.clients.length, m: c.max_clients })}</span>
           ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
           ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}${this._fallbackChip(c)}` : ""}</div>
         <div class="row">

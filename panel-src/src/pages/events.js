@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { api } from "../api.js";
 import { Page } from "../app.js";
-import { eventText, lang, t } from "../i18n.js";
+import { eventText, lang, t, tn } from "../i18n.js";
 import { fmtTime, icon } from "../ui.js";
 
 const LEVELS = ["info", "warning", "error"];
@@ -50,12 +50,15 @@ export class EventsPage extends Page {
   async _loadHistory() {
     const days = this.state.settings.history_days;
     const since = Date.now() / 1000 - days * 86400;
+    const seq = (this._seq = (this._seq || 0) + 1);
     try {
-      [this.stats, this.history] = await Promise.all([
+      const answer = await Promise.all([
         api(`api/stats?days=${Math.min(days, 30)}`),
         api(`api/history?since=${since}&limit=2000${this.conn ? `&connection=${this.conn}` : ""}${this.contains ? `&contains=${encodeURIComponent(this.contains)}` : ""}`),
       ]);
-    } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+      if (seq !== this._seq) return; // an answer for an older filter: a newer one is on its way
+      [this.stats, this.history] = answer;
+    } catch (err) { if (seq === this._seq) this.toast(`${t("error")}: ${err.message}`); }
   }
 
   _dayLabel(ts) {
@@ -84,7 +87,7 @@ export class EventsPage extends Page {
         <span class="mono hint">${fmtTime(e.ts, false, true)}</span><span class="chip ${color[e.level]}" style="justify-content:center">${t(`lv_${e.level}`)}</span>
         <span style="overflow-wrap:anywhere">${this._who(e)} ${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count, time: fmtTime(e.last_ts, true, true) })}</span>` : ""}</span></div>`)}
         ${lines.length ? "" : html`<p class="hint" style="padding:32px 16px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t("noEntries")}</p>`}
-        ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size: calc(13px * var(--fs, 1))">${t("moreEntries", { n: total - lines.length })}</p>` : ""}</div>`;
+        ${total > lines.length ? html`<p class="hint" style="padding:12px 16px;font-size: calc(13px * var(--fs, 1))">${tn("moreEntries", total - lines.length, { n: total - lines.length })}</p>` : ""}</div>`;
   }
 
   _live() {
@@ -93,7 +96,7 @@ export class EventsPage extends Page {
     return html`<section class="card" style="padding:0;gap:0;overflow:hidden" aria-label=${t("tabLive")}>
       <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
         <span class="hint" style="font-size: calc(13px * var(--fs, 1));display:flex;align-items:center;gap:8px"><span class="dot" style="color:${this.paused ? "var(--muted)" : "var(--ok)"}"></span>
-          ${this.paused ? t("paused") : t("liveState")} · ${t("entries", { n: all.length })}</span>
+          ${this.paused ? t("paused") : t("liveState")} · ${tn("entries", all.length, { n: all.length })}</span>
         <button class="btn btn-g" @click=${() => { this.paused = this.paused ? null : [...this.events]; }}>${this.paused ? t("resume") : t("pause")}</button></div>
       ${this._list(lines, all.length)}
     </section>`;
@@ -114,16 +117,16 @@ export class EventsPage extends Page {
         return html`<section class="card" aria-label=${c.name} style="gap:10px">
           <div class="row" style="flex-wrap:nowrap"><b style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${c.name}>${c.name}</b><span class="chip ${st.drops ? "warn" : "ok"}" style="flex:none">${st.drops ? t("unstable", { n: st.drops }) : t("stable")}</span></div>
           <div style="display:flex;gap:20px">
-            <div><div class="hint">${t("drops", { d: days })}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${st.drops}</div></div>
+            <div><div class="hint">${tn("drops", days, { d: days })}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${st.drops}</div></div>
             <div><div class="hint">${t("availability")}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
-          <div class="bars" role="img" aria-label="${t("drops", { d: days })}: ${st.drops}">${st.per_day.map((v, i) => html`<span title="${this._dayLabel(Date.now() / 1000 - (days - 1 - i) * 86400)}: ${v ? t("unstable", { n: v }) : t("stable")}" style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
-          <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${t("daysAgo", { d: days })}</span><span>${t("today")}</span></div>
+          <div class="bars" role="img" aria-label="${tn("drops", days, { d: days })}: ${st.drops}">${st.per_day.map((v, i) => html`<span title="${this._dayLabel(Date.now() / 1000 - (days - 1 - i) * 86400)}: ${v ? t("unstable", { n: v }) : t("stable")}" style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
+          <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${tn("daysAgo", days, { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
       <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-tl">
         <div class="row" style="padding:12px 16px;border-bottom:1px solid var(--line)">
           <h2 id="t-tl" style="font-size: calc(14px * var(--fs, 1));font-weight:500">${t("timeline")}</h2>
-          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("retention", { d: this.state.settings.history_days })} · ${t("entries", { n: all.length })}</span></div>
+          <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${tn("retention", this.state.settings.history_days, { d: this.state.settings.history_days })} · ${tn("entries", all.length, { n: all.length })}</span></div>
         ${this._list(all.slice(0, 500), all.length)}
       </section>`;
   }
@@ -149,13 +152,13 @@ export class EventsPage extends Page {
     const tabButton = (key, label) => html`<button role="tab" aria-selected=${this.tab === key ? "true" : "false"}
       @click=${() => { this.tab = key; if (key === "history") this._loadHistory(); }}>${t(label)}</button>`;
     return html`
-      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${live ? t("eventsSub") : t("eventsSubHistory", { d: this.state.settings.history_days })}</p></div>
+      <div class="head"><div><h1>${t("eventsTitle")}</h1><p class="sub">${live ? t("eventsSub") : tn("eventsSubHistory", this.state.settings.history_days, { d: this.state.settings.history_days })}</p></div>
         <div class="tabs" role="tablist">${tabButton("live", "tabLive")}${tabButton("history", "tabHistory")}</div></div>
       <div class="filters">
         <label class="fld"><span class="lbl">${t("navConnections")}</span>
           <select class="inp" @change=${(e) => { this.conn = e.target.value; if (this.tab === "history") this._loadHistory(); }}>
-            <option value="">${t("allConnections")}</option>
-            ${this.state.connections.map((c) => html`<option value=${c.id} ?selected=${this.conn === c.id}>${c.name}</option>`)}</select></label>
+            <option value="" .selected=${!this.conn}>${t("allConnections")}</option>
+            ${this.state.connections.map((c) => html`<option value=${c.id} .selected=${this.conn === c.id}>${c.name}</option>`)}</select></label>
         ${this._searchLevels(live ? this.paused || this.events : this.history || [])}
       </div>
       ${live ? this._live() : this._historyView()}`;

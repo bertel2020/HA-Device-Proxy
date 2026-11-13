@@ -81,6 +81,7 @@ MESSAGES = {
     "proxy_restarted": "Connection started again after an internal error",
     "auto_restart_failed": "Automatic restart failed: {error}",
     "capture_full": "Recording ended, the file is full: {file}, {frames} frames",
+    "capture_failed": "Recording ended, writing failed: {file}, {frames} frames: {error}",
     "connection_loaded": (
         "{state}: {device} · {format} · {mode} · port {port} · up to {max_clients} clients"
     ),
@@ -146,6 +147,10 @@ MESSAGES = {
     "client_refused_blocked": "Blocked client refused: {address}",
     "client_new": "New client, never seen before: {address}",
     "client_blocked": "Client blocked, kept out of every connection: {address}",
+    "client_blocked_not_custom": (
+        "Client blocked, kept out of the app's Modbus and EnOcean connections, "
+        "not of the ports of the own ser2net.yaml: {address}"
+    ),
     "client_unblocked": "Client released: {address}",
     "clients_disconnected": "{count} client(s) disconnected ({by})",
     "connection_restarted": "Connection restarted ({by})",

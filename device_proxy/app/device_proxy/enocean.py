@@ -59,7 +59,7 @@ from typing import Any
 
 from . import esp
 from .clients import plain_host
-from .modbus import Link, SerialLink, TcpLink
+from .modbus import Link, SerialLink, TcpLink, keepalive
 from .model import Connection, peer_allowed
 from .trace import Chunk
 
@@ -543,6 +543,7 @@ class EnOceanProxy:
             if oldest.writer is not None:
                 oldest.writer.transport.abort()
             self.clients.pop(oldest.address, None)
+        keepalive(writer.get_extra_info("socket"))  # a client that vanished frees its place
         client = _Client(address, host, time.time(), writer, esp.Splitter(self.protocol))
         self.clients[address] = client
         self.on_event("info", "client_connected", address=address)

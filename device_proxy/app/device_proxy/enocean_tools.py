@@ -9,6 +9,7 @@ of the others are dropped (not sent later), and the app's own tools do not send 
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json
@@ -62,12 +63,17 @@ class Captures:
         self.current: Capture | None = None
         self._proxy: EnOceanProxy | None = None
         self.on_full: Callable[[Capture], None] | None = None  # the size limit ended a capture
+        # writing failed (a full disk): the capture ended, the reservation with it
+        self.on_failed: Callable[[Capture, str], None] | None = None
 
-    def start(self, proxy: EnOceanProxy, exclusive_peer: str | None) -> Capture:
+    def start(
+        self, proxy: EnOceanProxy, exclusive_peer: str | None, alias: str | None = None
+    ) -> Capture:
+        """alias: the name of the connection's files (as its recordings), else from its name."""
         if self.current is not None:
             raise ToolError(f"a capture of {self.current.name} is running")
         self.folder.mkdir(parents=True, exist_ok=True)
-        path, file = self._new_file(readable_alias(proxy.c.name, set()))
+        path, file = self._new_file(alias or readable_alias(proxy.c.name, set()))
         capture = Capture(
             proxy.c.id,
             proxy.c.name,
@@ -102,8 +108,10 @@ class Captures:
             proxy.exclusive_peer = None
             if self._write in proxy.observers:
                 proxy.observers.remove(self._write)
-        capture.file.close()
-        self.current, self._proxy = None, None
+        try:
+            capture.file.close()
+        finally:
+            self.current, self._proxy = None, None
         return capture
 
     def _write(self, direction: str, frame: bytes, peer: str) -> None:
@@ -128,8 +136,16 @@ class Captures:
                 "hex": frame.hex(),
             }
         )
-        capture.file.write(line + "\n")
-        capture.file.flush()
+        try:
+            capture.file.write(line + "\n")
+            capture.file.flush()
+        except OSError as err:
+            _LOGGER.warning("Capture %s stopped: %s", capture.path.name, err)
+            with contextlib.suppress(OSError):
+                self.stop()  # closing flushes once more and may fail the same way
+            if self.on_failed is not None:
+                self.on_failed(capture, str(err))
+            return
         capture.bytes += len(line) + 1
         capture.frames += 1
         if capture.bytes >= MAX_BYTES:

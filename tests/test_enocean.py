@@ -1232,6 +1232,51 @@ def test_the_senders_as_a_file() -> None:
     assert second[1] == "'=1+1" and second[5] == "-74"  # a name cannot be a formula
 
 
+async def test_a_capture_that_cannot_write_ends_with_its_reservation(
+    setup: Setup, tmp_path: Path
+) -> None:
+    """A full disk: the capture ends, and the gateway is not left reserved for one program."""
+    from device_proxy import enocean_tools
+
+    captures = enocean_tools.Captures(tmp_path)
+    failed: list[tuple[enocean_tools.Capture, str]] = []
+    captures.on_failed = lambda capture, error: failed.append((capture, error))
+    capture = captures.start(setup.proxy, "192.168.1.50")
+    assert setup.proxy.exclusive_peer == "192.168.1.50"
+
+    class Full:
+        def write(self, text: str) -> int:
+            raise OSError(28, "No space left on device")
+
+        def flush(self) -> None:
+            pass
+
+        def close(self) -> None:
+            raise OSError(28, "No space left on device")
+
+    capture.file = Full()  # type: ignore[assignment]
+    setup.proxy._trace("rx", b"\x55\x00\x01\x00\x05\x70\x08\x38")
+    assert captures.current is None and setup.proxy.exclusive_peer is None
+    assert captures._write not in setup.proxy.observers
+    assert failed == [(capture, "[Errno 28] No space left on device")]
+    enocean_tools.sendable(setup.proxy)  # the tools may send again
+
+
+async def test_clients_get_tcp_keepalive(setup: Setup) -> None:
+    """A client that vanished without a word (Wi-Fi gone) frees its place."""
+    import socket
+
+    reader, writer = await _connect(setup.proxy)
+    async with asyncio.timeout(5):
+        while not setup.proxy.clients:
+            await asyncio.sleep(0.01)
+    (client,) = setup.proxy.clients.values()
+    assert client.writer is not None
+    sock = client.writer.get_extra_info("socket")
+    assert sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE)
+    writer.close()
+
+
 async def test_a_capture_at_its_limit_tells_that_it_ended(
     setup: Setup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

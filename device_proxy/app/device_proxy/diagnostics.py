@@ -18,7 +18,7 @@ import time
 import zipfile
 from typing import Any
 
-from .store import SECRET_SETTINGS, hidden
+from .store import PRIVATE_SETTINGS, SECRET_SETTINGS, hidden
 
 IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 IPV6 = re.compile(r"[0-9A-Fa-f]*:[0-9A-Fa-f:]*:[0-9A-Fa-f]*")
@@ -43,6 +43,21 @@ def redact(value: Any) -> Any:
         return {k: redact(v) for k, v in value.items()}
     if isinstance(value, list | tuple):
         return [redact(v) for v in value]
+    return value
+
+
+# settings whose value is personal: masked wherever they stand, also in the values of a
+# config_changed event (the current notify service and broker are replaced by name below, an
+# earlier one only here)
+MASKED = SECRET_SETTINGS | PRIVATE_SETTINGS | {"notify_service", "mqtt_host"}
+
+
+def masked(value: Any) -> Any:
+    """The value with the set values of the MASKED keys replaced, at any depth."""
+    if isinstance(value, dict):
+        return {k: "***" if k in MASKED and v else masked(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [masked(v) for v in value]
     return value
 
 
@@ -101,7 +116,7 @@ def build(
         "about.json": about,
         "status.json": snapshot,
         "config.json": config,
-        "events.json": events,
+        "events.json": masked(events),
     }
     names = private_names(config)
 

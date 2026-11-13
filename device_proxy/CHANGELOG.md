@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Modbus, Schreibschutz**: Ein Schreibbefehl muss jetzt genau so lang sein, wie seine Anzahl sagt. Vorher konnte ein Client, der nur bestimmte Register schreiben darf, einen zweiten Befehl anhängen oder mehr Daten mitschicken, als erlaubt war.
+- **Modbus RTU**: Ist der USB-Adapter wieder da, findet die App das Gerät ohne Neustart. Vorher blieben „erreichbar“ und die Register-Entitäten aus, bis ein Client etwas fragte.
+- **Diagnose**: Das Diagnose-ZIP enthält keine Client- und Sendernamen mehr, auch nicht über frühere Einstellungsänderungen im Verlauf.
+- **EnOcean, Aufzeichnung**: Kann eine Aufzeichnung nicht mehr schreiben (etwa bei vollem Speicher), endet sie und gibt das Gateway wieder frei. Ein Ereignis sagt, warum.
+- **EnOcean, Clients**: Ein Client, der ohne Abmeldung verschwindet, wird jetzt erkannt und blockiert keinen Platz mehr.
+- **Clients sperren**: Mit eigener `ser2net.yaml` gilt eine Sperre nur für Modbus und EnOcean. Oberfläche und Ereignis sagen das jetzt.
+- **Netzwerk**: Wer von einer Version vor 0.3 kommt, hat jetzt auch die privaten IPv6-Netze im Heimnetz. Wer schon aktualisiert hat, ergänzt `fc00::/7` und `fe80::/10` bei Bedarf selbst.
+- **Ereignisse**: Geänderte Werte für das Zusammenfassen gleicher Ereignisse wirken sofort, nicht erst nach einem Neustart.
+- **Aufzeichnungen**: Haben zwei Verbindungen fast den gleichen Namen, behalten ihre Dateien den Namen, auch wenn eine abgeschaltet wird.
+- **Oberfläche**: Nach dem Speichern eines MQTT-Passworts steht nicht mehr „Nicht gespeichert“. Auswahlfelder zeigen immer den Wert, der gilt. Nach dem Löschen einer Verbindung kommt keine Rückfrage mehr. Beim Import wird eine abgewählte Zeile nicht mehr übernommen. Der Ereignis-Verlauf zeigt bei schnellem Filterwechsel den richtigen Stand.
+- **Oberfläche, Texte**: Zahlenfelder nehmen nur Ziffern an statt „NaN“ zu zeigen. Zahlen und Uhrzeiten folgen der Sprache der App. „vor 1 Tag“ und „1 Eintrag“ statt „vor 1 Tagen“ und „1 Einträge“, „vor 1 Stunde“ statt „vor 60 Minuten“. Der Pfad der Aufzeichnungen steht als Text da, der Kopier-Knopf kopierte nur einen Platzhalter.
 - **Oberfläche, Zeitangaben**: Statt „seit vor 30 Minuten“ steht jetzt „seit 30 Min“, bei Clients, beim Ersatz-Gateway und bei laufenden EnOcean-Aufzeichnungen.
 
 ## 1.6.0 - 2026-11-09

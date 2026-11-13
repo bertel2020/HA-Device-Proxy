@@ -57,3 +57,28 @@ def test_remote_address() -> None:
     assert remote_address("ipv4,192.168.1.20,50114") == "192.168.1.20:50114"
     assert remote_address("ipv6,::ffff:192.168.1.20,50114") == "192.168.1.20:50114"
     assert remote_address("ipv6,fe80::1,50114") == "[fe80::1]:50114"
+
+
+async def test_a_command_to_a_vanished_ser2net_is_an_admin_error() -> None:
+    """drain() of a connection ser2net closed raises ConnectionResetError: the callers only
+    expect AdminError (a reload falls back to SIGHUP)."""
+    import pytest
+
+    from device_proxy.admin import AdminError
+
+    class Gone:
+        def write(self, data: bytes) -> None:
+            pass
+
+        async def drain(self) -> None:
+            raise ConnectionResetError("Connection lost")
+
+        def close(self) -> None:
+            self.closed = True
+
+    client = AdminClient(lambda *e: None, path="/nonexistent")
+    gone = Gone()
+    client._writer = gone  # type: ignore[assignment]
+    with pytest.raises(AdminError, match="Connection lost"):
+        await client.reload()
+    assert gone.closed

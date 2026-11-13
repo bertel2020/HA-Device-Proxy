@@ -2,11 +2,11 @@ import { css, html } from "lit";
 import { api, saveConnection } from "../api.js";
 import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
-import { fieldError, retriesText, t } from "../i18n.js";
+import { fieldError, retriesText, t, tn } from "../i18n.js";
 import { PROFILES } from "../modbus.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
-import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle } from "../ui.js";
+import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle, wholeNumber } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -272,7 +272,7 @@ export class EditPage extends Page {
     if (!b) return true;
     const mine = before?.enocean?.base_id, theirs = b.enocean?.base_id;
     const base = mine && theirs ? (mine === theirs ? t("fbBaseSame", { id: mine }) : t("fbBaseDiffers", { b: b.name, theirs, mine })) : t("fbBaseUnknown");
-    const clients = b.clients.length ? t("fbConfirmClients", { n: b.clients.length }) : "";
+    const clients = b.clients.length ? tn("fbConfirmClients", b.clients.length, { n: b.clients.length }) : "";
     // the integration asks for the replay: a client with it is most likely its entry for B
     const integration = t(b.clients.some((cl) => cl.replay) ? "fbConfirmIntegration" : "fbConfirmIntegrationMaybe", { b: b.name });
     return confirmDialog(this, `${t("fbConfirm", { a: d.name, b: b.name, p: b.port, clients, base })} ${integration}`, t("fbConfirmBtn"));
@@ -306,6 +306,7 @@ export class EditPage extends Page {
     try {
       await api(`api/connections/${this.draft.id}`, { method: "DELETE" });
       this.refresh();
+      this.discard(); // deleted: the unsaved changes went with it, leaving asks nothing
       navigate("#/connections");
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
@@ -324,14 +325,14 @@ export class EditPage extends Page {
     return html`<label class="fld"><span class="lbl">${label}</span>
       <input class="inp ${mono ? "mono" : ""}" type=${type} .value=${String(value ?? "")} inputmode=${number ? "numeric" : "text"} ?disabled=${disabled}
         aria-invalid=${this._shown()[key] ? "true" : "false"} aria-describedby="e-${key}"
-        @input=${(e) => this._set({ [key]: number ? Number(e.target.value || 0) : e.target.value })}>
+        @input=${(e) => this._set({ [key]: number ? wholeNumber(e, value) : e.target.value })}>
       ${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</label>`;
   }
 
   _trace() {
     const d = this.draft;
     return html`<label class="fld"><span class="lbl">${t("traceMode")}</span><select class="inp" @change=${(e) => this._set({ trace: e.target.value })}>
-      ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} ?selected=${d.trace === v}>${t(d.kind === "modbus" ? `trmb_${v}` : `tr_${v}`)}</option>`)}</select></label>`;
+      ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} .selected=${d.trace === v}>${t(d.kind === "modbus" ? `trmb_${v}` : `tr_${v}`)}</option>`)}</select></label>`;
   }
 
   /** Units that live on other Modbus connections: one port for several devices. */
@@ -348,7 +349,7 @@ export class EditPage extends Page {
       ${rows.map((r, i) => html`<div style="display:grid;grid-template-columns:5rem 1fr 5rem auto;gap:8px;align-items:end;margin-top:6px">
         <label class="fld"><span class="lbl">${t("mbRouteUnit")}</span><input class="inp" inputmode="numeric" .value=${r.unit} @change=${(e) => change(i, { unit: e.target.value.trim() })}></label>
         <label class="fld"><span class="lbl">${t("mbRouteTarget")}</span><select class="inp" @change=${(e) => change(i, { target: e.target.value })}>
-          ${others.map((c) => html`<option value=${c.id} ?selected=${c.id === r.target}>${c.name}</option>`)}</select></label>
+          ${others.map((c) => html`<option value=${c.id} .selected=${c.id === r.target}>${c.name}</option>`)}</select></label>
         <label class="fld"><span class="lbl">${t("mbRouteDeviceUnit")}</span><input class="inp" inputmode="numeric" .value=${r.targetUnit} @change=${(e) => change(i, { targetUnit: e.target.value.trim() })}></label>
         <button type="button" class="btn btn-g" aria-label=${t("lanRemove")} @click=${() => save(rows.filter((_, j) => j !== i))}>${icon("x")}</button></div>`)}
       ${others.length ? html`<div><button type="button" class="btn btn-s" style="margin-top:6px" @click=${() => {
@@ -374,8 +375,8 @@ export class EditPage extends Page {
           if (!d.id) this._suggestName();
         }}>
           ${d.device ? "" : html`<option value="" selected>–</option>`}
-          ${devices.map((x) => html`<option value=${x.stable} ?selected=${!this.otherDevice && chosen === x}>${this._deviceLabel(x)}</option>`)}
-          <option value="__other" ?selected=${this.otherDevice}>${t("deviceOther")}</option>
+          ${devices.map((x) => html`<option value=${x.stable} .selected=${!this.otherDevice && chosen === x}>${this._deviceLabel(x)}</option>`)}
+          <option value="__other" .selected=${this.otherDevice}>${t("deviceOther")}</option>
         </select>
         ${this.otherDevice ? html`<input class="inp mono" .value=${d.device} placeholder="/dev/serial/by-id/…" @input=${(e) => this._set({ device: e.target.value })}>` : html`<span class="hint mono" style="overflow-wrap:anywhere">${d.device}</span>`}
         ${this._err("device")}</label>
@@ -387,12 +388,12 @@ export class EditPage extends Page {
   _serialFormat() {
     const d = this.draft;
     return html`<label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
-        ${[...new Set([...BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>${this._err("baud")}</label>
+        ${[...new Set([...BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} .selected=${b === d.baud}>${b}</option>`)}</select>${this._err("baud")}</label>
       <label class="fld"><span class="lbl">${t("dataBits")} · ${t("parityF")} · ${t("stopBits")}</span>
         <div style="display:flex;gap:6px">
-          <select class="inp" aria-label=${t("dataBits")} @change=${(e) => this._set({ data_bits: Number(e.target.value) })}>${[5, 6, 7, 8].map((v) => html`<option ?selected=${v === d.data_bits}>${v}</option>`)}</select>
-          <select class="inp" aria-label=${t("parityF")} @change=${(e) => this._set({ parity: e.target.value })}>${["n", "e", "o", "m", "s"].map((v) => html`<option value=${v} ?selected=${v === d.parity}>${v.toUpperCase()}</option>`)}</select>
-          <select class="inp" aria-label=${t("stopBits")} @change=${(e) => this._set({ stop_bits: Number(e.target.value) })}>${[1, 2].map((v) => html`<option ?selected=${v === d.stop_bits}>${v}</option>`)}</select>
+          <select class="inp" aria-label=${t("dataBits")} @change=${(e) => this._set({ data_bits: Number(e.target.value) })}>${[5, 6, 7, 8].map((v) => html`<option .selected=${v === d.data_bits}>${v}</option>`)}</select>
+          <select class="inp" aria-label=${t("parityF")} @change=${(e) => this._set({ parity: e.target.value })}>${["n", "e", "o", "m", "s"].map((v) => html`<option value=${v} .selected=${v === d.parity}>${v.toUpperCase()}</option>`)}</select>
+          <select class="inp" aria-label=${t("stopBits")} @change=${(e) => this._set({ stop_bits: Number(e.target.value) })}>${[1, 2].map((v) => html`<option .selected=${v === d.stop_bits}>${v}</option>`)}</select>
         </div></label>`;
   }
 
@@ -468,7 +469,7 @@ export class EditPage extends Page {
               ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}
               ${d.probe_seconds ? html`${this._input("probe_unit", t("mbUnit"), { number: true })}
                 <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => this._set({ probe_function: Number(e.target.value) })}>
-                  ${[3, 4].map((f) => html`<option value=${f} ?selected=${d.probe_function === f}>${t(`fc_${f}`)}</option>`)}</select></label>
+                  ${[3, 4].map((f) => html`<option value=${f} .selected=${d.probe_function === f}>${t(`fc_${f}`)}</option>`)}</select></label>
                 ${this._input("probe_address", t("mbAddress"), { number: true, hint: t("mbAddressHint") })}` : ""}
             </div></div>
           <div class="grp"><h3>${t("grpTrace")}</h3>${this._trace()}</div>` : ""}
@@ -542,12 +543,12 @@ export class EditPage extends Page {
             <span class="hint">${t(`eoproto_${d.esp_protocol}`)}</span></div>
         </div>
         <label class="fld"><span class="lbl">${t("eoModel")}</span><select class="inp" aria-invalid=${this._shown().model ? "true" : "false"} aria-describedby="e-model" @change=${(e) => this._set({ model: e.target.value })}>
-          <option value="" ?selected=${!d.model}>${t("eoModelNone")}</option>
-          ${Object.keys(MODELS).filter((m) => MODELS[m] === d.esp_protocol || m === d.model).map((m) => html`<option value=${m} ?selected=${m === d.model}>${t(`eomodel_${m}`)}</option>`)}</select>
+          <option value="" .selected=${!d.model}>${t("eoModelNone")}</option>
+          ${Object.keys(MODELS).filter((m) => MODELS[m] === d.esp_protocol || m === d.model).map((m) => html`<option value=${m} .selected=${m === d.model}>${t(`eomodel_${m}`)}</option>`)}</select>
           ${this._err("model")}<span class="hint">${t("eoModelHint")}</span></label>
         ${serial ? html`${this._devicePicker(chosen)}
           <label class="fld"><span class="lbl">${t("baud")}</span><select class="inp" @change=${(e) => this._set({ baud: Number(e.target.value) })}>
-            ${[...new Set([...ENOCEAN_BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} ?selected=${b === d.baud}>${b}</option>`)}</select>
+            ${[...new Set([...ENOCEAN_BAUDS, d.baud])].sort((a, b) => a - b).map((b) => html`<option value=${b} .selected=${b === d.baud}>${b}</option>`)}</select>
             ${this._err("baud")}</label>` : html`<div class="grid2">
           ${this._input("host", t("mbHost"), { mono: true, hint: t("eoHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
         <div class="grid2">${this._input("send_gap_ms", t("eoGap"), { number: true, hint: t("eoGapHint") })}</div>
@@ -578,7 +579,7 @@ export class EditPage extends Page {
           ${this._input("replay_size", t("eoReplaySize"), { number: true })}
           <label class="fld"><span class="lbl">${t("eoReplayAge")}</span>
             <input class="inp" inputmode="numeric" .value=${String(Math.round(d.replay_max_age_s / 60))} aria-describedby="e-replay_max_age_s"
-              @input=${(e) => this._set({ replay_max_age_s: Number(e.target.value || 0) * 60 })}>${this._err("replay_max_age_s")}</label>
+              @input=${(e) => this._set({ replay_max_age_s: wholeNumber(e, Math.round(d.replay_max_age_s / 60)) * 60 })}>${this._err("replay_max_age_s")}</label>
         </div>
         <label class="chk"><input type="checkbox" .checked=${!!d.replay_persist} @change=${(e) => this._set({ replay_persist: e.target.checked })}>
           <span>${t("eoPersist")}<br><span class="hint">${t("eoPersistHint")}</span></span></label>` : ""}
@@ -621,8 +622,8 @@ export class EditPage extends Page {
       <div><h2 id="t-fb">${t("fbTitle")}</h2><p class="hint" style="margin-top:4px">${t("fbSub")}</p></div>
       ${candidates.length || chosen ? html`<label class="fld"><span class="lbl">${t("fbPick")}</span>
         <select class="inp" aria-invalid=${this._shown().fallback ? "true" : "false"} @change=${(e) => this._set({ fallback: e.target.value })}>
-          <option value="" ?selected=${!d.fallback}>${t("fbNone")}</option>
-          ${[...new Set([...(chosen ? [chosen] : []), ...candidates])].map((c) => html`<option value=${c.id} ?selected=${d.fallback === c.id}>${c.name} · ${proxyTarget(c)}</option>`)}
+          <option value="" .selected=${!d.fallback}>${t("fbNone")}</option>
+          ${[...new Set([...(chosen ? [chosen] : []), ...candidates])].map((c) => html`<option value=${c.id} .selected=${d.fallback === c.id}>${c.name} · ${proxyTarget(c)}</option>`)}
         </select>${this._err("fallback")}<span class="hint">${t("fbPickHint")}</span></label>`
         : html`<div class="note info">${t("fbNoCandidates", { p: d.esp_protocol.toUpperCase() })}</div>`}
       ${base ? html`<div class="note ${base[0]}">${base[1]}</div>` : ""}
@@ -648,7 +649,7 @@ export class EditPage extends Page {
     return html`<section class="card" aria-labelledby="t-prev">
       <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("eoPreviewSub")}</p></div>
       <ol class="flow">
-        <li><b>${t("mbFlowClients", { n: d.max_clients })}</b><span class="hint">${t("eoFlowClients", { p: d.port })}</span></li>
+        <li><b>${tn("mbFlowClients", d.max_clients, { n: d.max_clients })}</b><span class="hint">${t("eoFlowClients", { p: d.port })}</span></li>
         <li><b>${t("eoFlowQueue")}</b><span class="hint">${t("eoFlowQueueSub", { ms: d.send_gap_ms })}</span></li>
         <li><b>${d.esp_protocol.toUpperCase()} · ${t(`eolink_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
@@ -664,7 +665,7 @@ export class EditPage extends Page {
     return html`<section class="card" aria-labelledby="t-prev">
       <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("mbPreviewSub")}</p></div>
       <ol class="flow">
-        <li><b>${t("mbFlowClients", { n: d.max_clients })}</b><span class="hint">Modbus TCP → ${t("port")} ${d.port}</span></li>
+        <li><b>${tn("mbFlowClients", d.max_clients, { n: d.max_clients })}</b><span class="hint">Modbus TCP → ${t("port")} ${d.port}</span></li>
         <li><b>${t("mbFlowQueue")}</b><span class="hint">${t("mbFlowQueueSub", { ms: d.request_timeout_ms, r: retriesText(d.retries) })}</span></li>
         <li><b>${t(`link_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
@@ -751,7 +752,7 @@ export class EditPage extends Page {
                 ${chosen && chosen.ftdi || d.low_latency ? this._check("low_latency") : ""}</div>
               <div class="grid2">
                 ${["dtr", "rts"].map((k) => html`<label class="fld"><span class="lbl">${t(k)}</span><select class="inp" @change=${(e) => this._set({ [k]: e.target.value })}>
-                  ${[["", t("lineDefault")], ["on", t("on")], ["off", t("off")]].map(([v, l]) => html`<option value=${v} ?selected=${d[k] === v}>${l}</option>`)}</select></label>`)}
+                  ${[["", t("lineDefault")], ["on", t("on")], ["off", t("off")]].map(([v, l]) => html`<option value=${v} .selected=${d[k] === v}>${l}</option>`)}</select></label>`)}
                 ${this._input("rs485", t("rs485"), { mono: true, hint: t("rs485Hint") })}
               </div></fieldset>
             <fieldset><legend>${t("connectionSide")}</legend>
@@ -773,7 +774,7 @@ export class EditPage extends Page {
           <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}${this._check("stuck_disconnect")}</div>
           <div class="grid2">${this._input("silence_minutes", t("silence"), { number: true })}
             <label class="fld"><span class="lbl">${t("silenceRestart")}</span><select class="inp" aria-invalid=${this._shown().silence_restart ? "true" : "false"} @change=${(e) => this._set({ silence_restart: e.target.value })}>
-              ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} ?selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
+              ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} .selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
               ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
         </section>`}
 

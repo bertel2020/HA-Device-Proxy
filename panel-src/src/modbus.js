@@ -2,6 +2,8 @@
 // same data types and the same "swap" (byte: the two bytes of each register, word: the order
 // of the registers), so a value that looks right here is right in a sensor with these settings.
 
+import { lang } from "./i18n.js";
+
 export const TYPES = ["int16", "uint16", "int32", "uint32", "float32", "int64", "uint64", "float64", "string"];
 export const SWAPS = ["none", "word", "byte", "word_byte"];
 
@@ -59,11 +61,11 @@ export function rows(values, address, type, swap, scale) {
 
 /** A number as text: floats rounded to what the eye needs, NaN as such. */
 export function fmtValue(v) {
-  if (typeof v === "bigint") return v.toLocaleString();
+  if (typeof v === "bigint") return v.toLocaleString(lang);
   if (typeof v !== "number") return v;
   if (!Number.isFinite(v)) return String(v);
   if (v !== 0 && (Math.abs(v) < 1e-4 || Math.abs(v) >= 1e15)) return v.toExponential(4);
-  return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return Number.isInteger(v) ? v.toLocaleString(lang) : v.toLocaleString(lang, { maximumFractionDigits: 6 });
 }
 
 // the same as DEVICE_CLASSES in modbus_entities.py: Home Assistant refuses an unknown one

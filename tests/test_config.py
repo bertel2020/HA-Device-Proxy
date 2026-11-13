@@ -404,3 +404,103 @@ def test_the_modbus_profiles_are_templates_with_a_name_in_the_panel() -> None:
         assert Connection.from_dict({**new, "template": profile}).template == profile
         assert f"  {profile}: {{ ...TIMING," in modbus
         assert all(f"tpl_{profile}" in text and f"tplsub_{profile}" in text for text in panel_texts)
+
+
+async def test_after_saving_the_rest_follows_even_when_something_fails(tmp_path: Path) -> None:
+    """ser2net's file cannot be written (a full disk): the configuration is saved, so the
+    proxies, the event and the summing up of events follow it all the same."""
+    import asyncio
+
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import SaveError, Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    events = EventLog(db)
+    (tmp_path / "s.yaml").mkdir()  # cannot be replaced by a file
+    controller = Controller(
+        store, events, tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    modbus = Connection(
+        "WR", "", 15020, id="0000000b", kind="modbus", host="127.0.0.1", host_port=9
+    )
+    new = AppConfig(settings=Settings(debounce_count=7, debounce_minutes=11), connections=(modbus,))
+    try:
+        with pytest.raises(SaveError, match="saved, but not written for ser2net"):
+            await controller.apply(new, "test")
+        assert controller.config == new and store.load() == new
+        assert set(controller.proxies) == {"0000000b"}
+        assert [e.kind for e in events.history()] == ["config_changed"]
+        assert (events.debounce_count, events.window) == (7, 11 * 60)
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()
+        await asyncio.sleep(0)
+
+
+async def test_a_block_with_the_own_ser2net_yaml_says_it_misses_its_ports(
+    tmp_path: Path,
+) -> None:
+    from device_proxy.clients import KnownClients
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    own = tmp_path / "own.yaml"
+    own.write_text(
+        "connection: &a\n  accepter: tcp,3335\n  connector: serialdev,/dev/ttyUSB0,9600n81\n"
+    )
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        custom_file=own,
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+        known_clients=KnownClients(tmp_path / "clients.json"),
+    )
+    controller.write_config()
+    assert await controller.block_client("192.168.1.40") is False  # the forms: every port
+    controller.config = replace(controller.config, settings=Settings(source="custom"))
+    controller.write_config()
+    assert await controller.block_client("192.168.1.41") is True
+    assert await controller.block_client("192.168.1.41") is True  # blocked already
+    kinds = [e.kind for e in reversed(controller.events.history())]
+    assert kinds == ["client_blocked", "client_blocked_not_custom"]
+
+
+def test_recording_names_do_not_move_to_another_connection(tmp_path: Path) -> None:
+    """Two connections whose names make the same file name: each keeps its own, also while
+    the first is switched off (the second would write into its files and delete them)."""
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"),
+        EventLog(db),
+        tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )
+    first = Connection("Pump 1", "/dev/null", 3335, id="0000000a")
+    second = Connection("Pump-1", "/dev/zero", 3336, id="0000000b")
+    controller.config = AppConfig(connections=(first, second))
+    assert [n for _, n in controller._trace_names()] == ["pump_1", "pump_1_2"]
+    controller.config = AppConfig(connections=(replace(first, enabled=False), second))
+    assert [(c.id, n) for c, n in controller._trace_names()] == [("0000000b", "pump_1_2")]
+    controller.trace.record_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("pump_1-20261109-104012.log", "pump_1_2-20261109-104012.log"):
+        (controller.trace.record_dir / name).write_text("x\n")
+    owners = {f["name"]: f["connection"] for f in controller._trace_files()}
+    assert owners == {
+        "pump_1-20261109-104012.log": "0000000a",  # switched off, still its own
+        "pump_1_2-20261109-104012.log": "0000000b",
+    }
