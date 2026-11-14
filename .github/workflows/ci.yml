@@ -159,3 +159,52 @@ jobs:
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.14-alpine3.24
             BUILD_VERSION=${{ steps.version.outputs.version }}
+
+  release:
+    # The GitHub release of a version, once its images are out: the notes are its section in
+    # device_proxy/CHANGELOG.md plus .github/release-footer.md, the tag goes on the commit that
+    # set the version in config.yaml (not on a later one with unreleased changes).
+    name: GitHub release
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    needs: [tests, panel, lint, build, integration, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version: "\(.*\)"/\1/p' device_proxy/config.yaml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          awk -v v="$version" '
+            index($0, "## " v " ") == 1 { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' device_proxy/CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::No section '## $version - <date>' in device_proxy/CHANGELOG.md"
+            exit 1
+          fi
+          printf '\n' >> release-notes.md
+          cat .github/release-footer.md >> release-notes.md
+          commit=$(git log -1 --format=%H -S"version: \"$version\"" -- device_proxy/config.yaml)
+          echo "commit=${commit:-$GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Create release
+        if: steps.notes.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.notes.outputs.version }}" \
+            --target "${{ steps.notes.outputs.commit }}" \
+            --title "${{ steps.notes.outputs.version }}" \
+            --notes-file release-notes.md \
+            --latest
