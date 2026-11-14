@@ -3,7 +3,7 @@ import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.j
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
 import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
-import { clientName, eventText, lang, retriesText, t, tn } from "../i18n.js";
+import { clientName, eventText, has, lang, retriesText, t, tn } from "../i18n.js";
 import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle, wholeNumber } from "../ui.js";
 
 const LIVE_MS = 1000;
@@ -107,13 +107,20 @@ export class DetailPage extends Page {
   /** The polls of tool runs (baud rate, scan): they belong to the connection shown. */
   _jobPoll(job, set) {
     const id = this.connectionId;
+    let misses = 0;  // polls in a row that failed: one lost answer does not end the run
     const timer = setInterval(async () => {
       try {
         const result = await api(`api/jobs/${job}`);
         if (this.connectionId !== id) { this._stopJobs(); return; }
+        misses = 0;
         set(result);
         if (result.state !== "running") { clearInterval(timer); this._jobs.delete(timer); }
-      } catch { clearInterval(timer); this._jobs.delete(timer); }
+      } catch (err) {
+        if (this.connectionId !== id) { this._stopJobs(); return; }
+        if (err.status !== 404 && ++misses < 5) return;  // 404: the app started anew, the run is gone
+        clearInterval(timer); this._jobs.delete(timer);
+        set({ state: "failed", error: err.message, done: 0, total: 0, results: [] });
+      }
     }, 1000);
     (this._jobs ||= new Set()).add(timer);
   }
@@ -466,7 +473,7 @@ export class DetailPage extends Page {
     const same = !!(wr && wr.ok && wr.readback && wr.readback.ok && wr.readback.values.length === wr.values.length && wr.readback.values.every((v, i) => v === wr.values[i]));
     const signed = (v) => (v > 32767 ? v - 65536 : v);
     const hex4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, "0")}`;
-    const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: t(`ex_${code}`) });
+    const exText = (code) => code === null || code === undefined ? t("mbNoAnswer") : t("mbException", { c: code.toString(16).toUpperCase().padStart(2, "0"), n: has(`ex_${code}`) ? t(`ex_${code}`) : t("ex_other") });
     return toolsCard("device_proxy.mbtools", "t-mtools", t("mbToolsSub"), html`
       <div><b style="font-weight:500">${t("mbReadTitle")}</b><p class="hint">${t("mbReadSub")}</p></div>
       <div class="grid5">
@@ -659,7 +666,7 @@ export class DetailPage extends Page {
 
   /** Units sent on to another connection: a write must pass that connection's rule too. */
   _routedWrites(c) {
-    const targets = [...new Set((c.unit_routes || "").split(/\s+/).filter(Boolean).map((item) => item.split("=")[1]?.split(":")[0]))];
+    const targets = [...new Set((c.unit_routes || "").split(/[,;\s]+/).filter(Boolean).map((item) => item.split("=")[1]?.split(":")[0]))];
     return targets.map((id) => {
       const other = this.state.connections.find((x) => x.id === id);
       return other ? html`<br><span class="hint">${t("mbRouteWrite", { n: other.name })} ${writeRule(other)}</span>` : "";
@@ -753,8 +760,8 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               <span>${t("who")}</span><span>${who(c, s)}</span>
               ${c.cache_ms ? html`<span>${t("mbCacheShort")}</span><span>${c.cache_ms} ms</span>` : ""}
               ${c.unit_map ? html`<span>${t("mbUnitMapShort")}</span><span class="mono">${c.unit_map}</span>` : ""}
-              ${c.unit_routes ? html`<span>${t("mbRoutes")}</span><span>${c.unit_routes.split(/\s+/).filter(Boolean).map((item) => {
-                const [unit, rest] = item.split("="), [target, targetUnit] = rest.split(":");
+              ${c.unit_routes ? html`<span>${t("mbRoutes")}</span><span>${c.unit_routes.split(/[,;\s]+/).filter(Boolean).map((item) => {
+                const [unit, rest] = item.split("="), [target, targetUnit] = (rest || "").split(":");
                 const other = this.state.connections.find((x) => x.id === target);
                 return t("mbRouteShort", { u: unit, n: other ? other.name : target, d: targetUnit || unit });
               }).join(" · ")}</span>` : ""}

@@ -129,7 +129,9 @@ export class DeviceProxyApp extends LitElement {
       history.replaceState(null, "", "#/connections");
       return { page: "connections", id: "" };
     }
-    return { page: parts[0], id: parts[1] || "", search: decodeURIComponent(parts[2] || "") };
+    let search = parts[2] || "";
+    try { search = decodeURIComponent(search); } catch { /* a cut or typed address: as it is */ }
+    return { page: parts[0], id: parts[1] || "", search };
   }
 
   async _loadHistory() {

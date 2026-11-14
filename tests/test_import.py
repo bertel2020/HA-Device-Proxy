@@ -340,3 +340,28 @@ async def test_the_import_event_counts_a_replaced_connection_as_taken_over(
     assert controller.config.connection(old.id).port == 3001  # type: ignore[union-attr]
     event = next(e for e in controller.events.history() if e.kind == "imported")
     assert (event.params["taken"], event.params["skipped"]) == (1, 1)
+
+
+def test_remaddr_with_the_family_in_front_keeps_its_host() -> None:
+    """ipv4,192.168.1.10,0 is how ser2net writes it, too: dropped, the connection would be
+    open to the whole network instead of the one host."""
+    from device_proxy.importer import _remaddr
+
+    notes: list[dict] = []
+    text = "ipv4,192.168.1.10,0;ipv6,::1,0 tcp,10.0.0.0/8 !192.168.2.5"
+    assert _remaddr(text, notes) == "192.168.1.10/32 ::1/128 10.0.0.0/8 192.168.2.5/32"
+    assert notes == []
+
+
+def test_a_file_in_latin_1_or_nested_without_end_does_not_stop_the_app(tmp_path: Path) -> None:
+    import pytest
+
+    from device_proxy.importer import ReadError, parse, read_file
+
+    old = tmp_path / "ser2net.conf"
+    old.write_bytes(
+        "# Zähler im Keller\n3335:raw:0:/dev/ttyUSB0:9600 8DATABITS\n".encode("latin-1")
+    )
+    assert read_file(old).startswith("# Zähler")
+    with pytest.raises(ReadError):
+        parse("a: " + "[" * 100000)

@@ -614,7 +614,8 @@ change of this entity with the condition `trigger.to_state.attributes.event_type
 Plus a device **Device Proxy** with "ser2net running". Without a broker nothing changes, the Connections page only says so and the note can be hidden. A
 broker of your own such as EMQX is not found by itself and has to be entered. Prefix
 (`homeassistant`), base topic (`device_proxy`) and the update interval are in **Settings → MQTT
-entities**; the entity names follow the language of the notifications.
+entities**; the entity names follow the language of the notifications. Two installations on
+the same broker each need a base topic of their own.
 
 ## Coming from ha-modbusproxy
 

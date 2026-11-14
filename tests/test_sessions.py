@@ -240,3 +240,21 @@ def test_hosts_off_the_list_leave_no_rows(tmp_path: Path) -> None:
     emit("warning", "client_refused_network", address="10.9.9.8:1")
     assert controller.sessions.history("10.9.9.9", 0) == []
     assert controller.sessions.history("10.9.9.8", 0) == []
+
+
+def test_a_row_open_while_the_file_is_started_anew_is_written_again(tmp_path: Path) -> None:
+    """The ids of the old file are gone: an UPDATE by the old id would hit nothing, or the
+    row of another client once the new file gets that far."""
+    sessions, now, db = make(tmp_path)
+    sessions.connected(ADDR, "c1", "Zähler")
+    db.conn.close()
+    db.conn = db._recreate(Exception("database disk image is malformed"))
+    db.execute(
+        "INSERT INTO client_sessions (host, connection, name, start, end, refused, updated)"
+        " VALUES ('192.168.1.99', 'c2', 'other', 1, 2, NULL, 2)"
+    )  # id 1 in the new file
+    now[0] += 500
+    sessions.disconnected(ADDR, "c1", 1000, 50)
+    row = sessions.history(A, 0)[0]
+    assert (row["start"], row["end"], row["to_client"]) == (100000.0, 100500.0, 1000)
+    assert sessions.history("192.168.1.99", 0)[0]["end"] == 2  # not overwritten

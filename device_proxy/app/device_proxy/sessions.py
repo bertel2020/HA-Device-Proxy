@@ -59,6 +59,7 @@ class _Row:
     visits: dict[str, _Visit] = field(default_factory=dict)
     dirty: bool = False
     written: float = 0.0
+    generation: int = 0  # of the database file the row id belongs to
 
 
 class ClientSessions:
@@ -88,9 +89,12 @@ class ClientSessions:
             (row.host, row.connection, row.name, row.start, row.end, row.refused, self.clock()),
         )
         row.id = cursor.lastrowid if cursor is not None else None
+        row.generation = self.db.generation if self.db is not None else 0
         row.written = self.clock()
 
     def _write(self, row: _Row) -> None:
+        if self.db is not None and (row.id is None or row.generation != self.db.generation):
+            self._insert(row)  # the file was started anew meanwhile: the old id is gone
         now = self.clock()
         to_client = row.to_client + sum(v.to_client for v in row.visits.values())
         from_client = row.from_client + sum(v.from_client for v in row.visits.values())

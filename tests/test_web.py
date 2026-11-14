@@ -353,3 +353,64 @@ async def test_sender_names_are_saved_together_and_kept(tmp_path: Path) -> None:
     status, _ = await request(port, "PUT", path, {"names": "x"})
     assert status == 400
     await web.stop()
+
+
+async def test_wrong_input_is_a_400_and_a_backup_without_config_deletes_nothing(
+    tmp_path: Path,
+) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    await request(
+        port,
+        "POST",
+        "api/connections",
+        {"connection": {"name": "eHZ", "device": "/dev/null", "port": 3335}},
+    )
+    assert (await request(port, "POST", "api/preview", {"connection": [1]}))[0] == 400
+    assert (await request(port, "GET", "api/versions/99999999999999999999999"))[0] == 404
+    status, answer = await request(port, "POST", "api/mqtt/test", {"host": "x", "port": 99999999})
+    assert status == 400 and isinstance(answer, dict) and answer["error"] == "port"
+    empty = json.dumps({"app": "device_proxy_backup"})
+    assert (await request(port, "POST", "api/restore", {"text": empty}))[0] == 400
+    deep = {"text": "a: " + "[" * 100000}
+    assert (await request(port, "POST", "api/import/preview", deep))[0] in (200, 400)
+    # a backup made with an own ser2net.yaml, on an install without one: the forms
+    status, backup = await request(port, "GET", "api/backup")
+    assert isinstance(backup, dict)
+    backup["config"]["settings"]["source"] = "custom"
+    status, _ = await request(port, "POST", "api/restore", {"text": json.dumps(backup)})
+    assert status == 200 and controller.config.settings.source == "forms"
+    status, state = await request(port, "GET", "api/state")
+    assert isinstance(state, dict) and [c["name"] for c in state["connections"]] == ["eHZ"]
+    await web.stop()
+
+
+async def test_the_stop_does_not_wait_for_an_open_panel(tmp_path: Path) -> None:
+    """A panel keeps its connection open and polls: the stop must not wait for it."""
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(b"GET /api/state HTTP/1.1\r\nHost: x\r\n\r\n")
+    await reader.readuntil(b"\r\n\r\n")  # answered; the connection stays open (keep-alive)
+    await asyncio.wait_for(web.stop(), 3)
+    writer.close()

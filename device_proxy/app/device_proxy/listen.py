@@ -218,6 +218,7 @@ class ListenProxy(ModbusProxy):
                 data = b""
             if not link.is_open:
                 self._down("the adapter was closed")
+                await asyncio.sleep(1.0)  # a line that hangs up at once: not thousands a second
                 continue
             if not data:
                 self._down("no traffic on the bus")

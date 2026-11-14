@@ -1023,6 +1023,8 @@
     "ex_4": "Gerätefehler",
     "ex_5": "bestätigt, in Arbeit",
     "ex_6": "Gerät beschäftigt",
+    "ex_7": "nicht bestätigt (NAK)",
+    "ex_other": "unbekannte Exception",
     "ex_8": "Paritätsfehler im Speicher",
     "ex_10": "Weg zum Gerät nicht verfügbar",
     "ex_11": "Gerät antwortet nicht",
@@ -1434,6 +1436,7 @@
     "config_lost": "Konfiguration nicht lesbar und kein Stand gespeichert: gestartet ohne Verbindungen",
     "config_salvaged": "Konfiguration nicht verwendbar, {dropped} Teil(e) ausgelassen",
     "history_damaged": "Historie war beschädigt und beginnt neu, die alte Datei: {file}",
+    "history_unavailable": "Historie-Datei nicht nutzbar ({error}): bis zum nächsten Start nur im Speicher",
     "blocked_unreadable": "Blockierte Clients nicht lesbar: im Moment ist niemand blockiert",
     "mqtt_connected": "MQTT verbunden mit {broker}",
     "mqtt_lost": "MQTT nicht verbunden mit {broker}: {error}",
@@ -1719,7 +1722,18 @@
     "^network error$": "keine Verbindung zur App",
     "^the fallback is not ready: (.+)$": "der Ersatz ist nicht einsatzbereit: $1",
     "^the gateway has no fallback$": "das Gateway hat keinen Ersatz",
-    "^main or fallback$": "Haupt oder Ersatz"
+    "^main or fallback$": "Haupt oder Ersatz",
+    "^Home Assistant, its apps and this host cannot be blocked$": "Home Assistant, seine Apps und dieser Host lassen sich nicht blockieren",
+    "^this host is in maintenance$": "dieser Host ist gerade in der Wartung",
+    "^this host is blocked$": "dieser Host ist blockiert",
+    "^not with an own ser2net\\.yaml$": "nicht mit einer eigenen ser2net.yaml",
+    "^a name without #$": "ein Name ohne #",
+    "^a name of at most (\\d+) characters$": "ein Name mit höchstens $1 Zeichen",
+    "^empty, restart or usb$": "leer, restart oder usb",
+    "^only for a serial connection$": "nur für eine serielle Verbindung",
+    "^needs the minutes without data$": "braucht die Minuten ohne Daten",
+    "^a USB reset needs a device of this host$": "ein USB-Reset braucht ein Gerät an diesem Host",
+    "^device or tcp$": "device oder tcp"
   },
   "notifications": {
     "missing": [

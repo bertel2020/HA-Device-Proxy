@@ -1023,6 +1023,8 @@
     "ex_4": "server device failure",
     "ex_5": "acknowledge, in progress",
     "ex_6": "server device busy",
+    "ex_7": "negative acknowledge",
+    "ex_other": "unknown exception",
     "ex_8": "memory parity error",
     "ex_10": "gateway path unavailable",
     "ex_11": "device does not answer",

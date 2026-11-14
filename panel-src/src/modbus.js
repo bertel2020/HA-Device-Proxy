@@ -52,6 +52,7 @@ export function decode(regs, type, swap, scale = 1) {
 /** The values of a read as rows: address of the first register, its registers, the value. */
 export function rows(values, address, type, swap, scale) {
   const n = width(type, values.length), out = [];
+  if (!n) return out;  // a string of no registers: nothing to show (and no endless loop)
   for (let i = 0; i + n <= values.length; i += n) {
     const regs = values.slice(i, i + n);
     out.push({ address: address + i, regs, value: decode(regs, type, swap, scale) });
