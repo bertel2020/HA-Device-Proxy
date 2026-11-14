@@ -84,6 +84,7 @@ CLIENT_BUFFER_LIMIT = 256 * 1024  # bytes not yet delivered to a client before i
 CLIENT_QUEUE_MAX = 32  # frames of one client waiting for the gateway: then it is not read
 RELAY_QUEUE_MAX = 128  # B: frames of A's clients waiting; more are dropped, not kept forever
 CLOSE_TIMEOUT = 2.0  # seconds to wait for the clients when stopping
+HOLD_SECONDS = 1.0  # a new client's first frames wait this long for its replay request
 REPLAY_DIR = Path("/data/replay")  # the kept replay buffers, one file per connection id
 BASE_ID_FILE = Path("/data/enocean_base_ids.json")  # last base ID of each gateway, for B's check
 SUPERVISE = 1.0  # seconds between two looks at the fallback
@@ -162,6 +163,10 @@ class _Client:
     queued: int = 0  # frames waiting in the outgoing queue
     answer_within: float = RESPONSE_TIMEOUT  # the app's own requests may wait longer
     written: asyncio.Future[bool] | None = None  # the app's own request: set once it went out
+    # frames for a new network client until it has sent its first bytes (the replay
+    # request?): sent live and replayed again, a telegram would come twice
+    held: list[bytes] | None = None
+    active: float = 0.0  # loop time of the last data either way, for the timeout
 
 
 def restart_key(c: Connection, listen: str) -> Connection:
@@ -544,16 +549,28 @@ class EnOceanProxy:
                 oldest.writer.transport.abort()
             self.clients.pop(oldest.address, None)
         keepalive(writer.get_extra_info("socket"))  # a client that vanished frees its place
+        loop = asyncio.get_running_loop()
         client = _Client(address, host, time.time(), writer, esp.Splitter(self.protocol))
+        client.held, client.active = [], loop.time()
         self.clients[address] = client
         self.on_event("info", "client_connected", address=address)
+        loop.call_later(HOLD_SECONDS, self._release, client)  # a client that only listens
         idle = self.c.timeout or None
         try:
-            while chunk := await asyncio.wait_for(reader.read(1024), idle):
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(reader.read(1024), idle)
+                except TimeoutError:
+                    if idle and loop.time() - client.active < idle:
+                        continue  # telegrams to the client count as activity, as in ser2net
+                    raise
+                if not chunk:
+                    break
                 client.bytes_in += len(chunk)
+                client.active = loop.time()
                 self._from_client(client, chunk)
-                while client.queued >= CLIENT_QUEUE_MAX:  # the gateway is slower: wait
-                    await asyncio.sleep(self.c.send_gap_ms / 1000 or 0.05)
+                while client.queued >= CLIENT_QUEUE_MAX and not writer.is_closing():
+                    await asyncio.sleep(self.c.send_gap_ms / 1000 or 0.05)  # the gateway is slower
         except (OSError, TimeoutError):
             pass
         finally:
@@ -570,6 +587,9 @@ class EnOceanProxy:
 
     def _send(self, client: _Client, frame: bytes) -> None:
         """Write to a client; one that has stopped reading is dropped, not buffered forever."""
+        if client.held is not None:
+            client.held.append(frame)
+            return
         if client.inbox is not None:
             client.inbox.put_nowait(frame)
             return
@@ -580,6 +600,7 @@ class EnOceanProxy:
             return
         client.writer.write(frame)
         client.bytes_out += len(frame)
+        client.active = asyncio.get_running_loop().time()
         transport = client.writer.transport
         if (queued := transport.get_write_buffer_size()) > CLIENT_BUFFER_LIMIT:
             self.stats.slow_clients += 1
@@ -604,15 +625,24 @@ class EnOceanProxy:
                 del client.pending[: end + 1 if end >= 0 else len(client.pending)]
                 if line in (REPLAY_REQUEST, REPLAY_REQUEST_TS):
                     self._start_replay(client, timestamps=line == REPLAY_REQUEST_TS)
+            self._release(client)
         data, client.pending = bytes(client.pending), bytearray()
         for frame in client.splitter.feed(data):
             client.queued += 1
             self._outgoing.put_nowait((client, frame))
 
+    def _release(self, client: _Client, sent: list[bytes] | None = None) -> None:
+        """The held frames go out, those already in the replay (sent) not again."""
+        held, client.held = client.held, None
+        for frame in held or ():
+            if not any(frame is other for other in sent or ()):
+                self._send(client, frame)
+
     def _start_replay(self, client: _Client, *, timestamps: bool = False) -> None:
         oldest = self._clock() - self.c.replay_max_age_s
         kept = [(wall, frame) for received, wall, frame in self._replay if received >= oldest]
         self._replay.clear()
+        held, client.held = client.held, None  # the replay first, then what came meanwhile
         client.replay = True
         if timestamps:
             lines = [f"EOPX TS {len(kept)}\n".encode()]
@@ -621,6 +651,8 @@ class EnOceanProxy:
         else:
             for _wall, frame in kept:
                 self._send(client, frame)
+        client.held = held
+        self._release(client, [frame for _wall, frame in kept])
         self.stats.replayed += len(kept)
         _LOGGER.info("%s: replayed %d telegrams to %s", self.c.name, len(kept), client.address)
 

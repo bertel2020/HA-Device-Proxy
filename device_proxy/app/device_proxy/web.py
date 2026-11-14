@@ -28,7 +28,7 @@ from .clients import parse_names, plain_host, with_name
 from .config import block, export
 from .controller import Controller, CustomError
 from .enocean_tools import senders_csv
-from .importer import ReadError
+from .importer import ReadError, read_file
 from .modbus import check_access, write_pdu
 from .model import (
     INGRESS_PORT,
@@ -144,6 +144,7 @@ class WebServer:
         self.version = version
         self.routes: list[tuple[str, re.Pattern[str], Handler]] = []
         self._server: asyncio.Server | None = None
+        self._writers: set[asyncio.StreamWriter] = set()  # open connections (keep-alive)
         self._route("GET", r"api/state", self.state)
         self._route("GET", r"api/events", self.events)
         self._route("GET", r"api/history", self.history)
@@ -175,9 +176,9 @@ class WebServer:
         self._route("POST", r"api/custom/check", self.check_custom)
         self._route("PUT", r"api/custom", self.put_custom)
         self._route("GET", r"api/versions", self.versions)
-        self._route("GET", r"api/versions/(?P<id>\d+)", self.version_config)
-        self._route("POST", r"api/versions/(?P<id>\d+)/restore", self.restore)
-        self._route("GET", r"api/versions/(?P<id>\d+)/effects", self.restore_effects)
+        self._route("GET", r"api/versions/(?P<id>\d{1,15})", self.version_config)
+        self._route("POST", r"api/versions/(?P<id>\d{1,15})/restore", self.restore)
+        self._route("GET", r"api/versions/(?P<id>\d{1,15})/effects", self.restore_effects)
         self._route("GET", r"api/trace/(?P<name>[^/]+)", self.trace_file)
         self._route("DELETE", r"api/trace/(?P<name>[^/]+)", self.delete_trace)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/meter", self.meter)
@@ -227,9 +228,18 @@ class WebServer:
         _LOGGER.error("Web interface could not start on port %s", self.port)
 
     async def stop(self) -> None:
-        if self._server is not None:
-            self._server.close()
-            await self._server.wait_closed()
+        """Stops at once: an open panel keeps its connection for up to IDLE_SECONDS and,
+        while it polls, for good, and wait_closed() waits for every connection."""
+        if self._server is None:
+            return
+        self._server.close()
+        for writer in list(self._writers):
+            writer.transport.abort()
+        try:
+            await asyncio.wait_for(self._server.wait_closed(), 2)
+        except TimeoutError:
+            _LOGGER.debug("Web interface: connections still open at the stop")
+        self._server = None
 
     # HTTP
 
@@ -238,6 +248,7 @@ class WebServer:
         if self.peers is not None and (not peer or peer[0] not in self.peers):
             writer.close()
             return
+        self._writers.add(writer)
         try:
             while True:
                 request = await self._read(reader)
@@ -253,6 +264,7 @@ class WebServer:
         except HttpError as err:
             self._write(writer, ok({"error": str(err)}, err.status))
         finally:
+            self._writers.discard(writer)
             writer.close()
 
     async def _read(self, reader: asyncio.StreamReader) -> Request | None:
@@ -461,6 +473,8 @@ class WebServer:
 
     async def preview(self, request: Request) -> Response:
         data = request.json().get("connection") or {}
+        if not isinstance(data, dict):
+            raise HttpError(400, "a connection object is needed")
         connection_id = str(data.get("id") or "00000000")
         try:
             connection = self._connection_from(data, connection_id)
@@ -610,9 +624,16 @@ class WebServer:
             data = None
         if not isinstance(data, dict) or data.get("app") != BACKUP_MARK:
             raise HttpError(400, "not a backup of this app")
-        if not isinstance(config := data.get("config") or {}, dict):
+        if not isinstance(config := data.get("config"), dict):  # no config: not "delete all"
             raise HttpError(400, "not a backup of this app")
         return str(data.get("created", "")), AppConfig.from_dict(config)
+
+    def _custom_only_if_there(self, config: AppConfig) -> AppConfig:
+        """A backup or version made with an own ser2net.yaml, where there is none (e.g. a
+        new install): the forms, as saving the settings would insist on, too."""
+        if config.settings.source == "custom" and not self.c.custom_file.exists():
+            return replace(config, settings=replace(config.settings, source="forms"))
+        return config
 
     async def restore_preview(self, request: Request) -> Response:
         created, config = self._backup_config(request)
@@ -624,6 +645,7 @@ class WebServer:
 
     async def restore_backup(self, request: Request) -> Response:
         _, config = self._backup_config(request)
+        config = self._custom_only_if_there(config)
         return await self._save(lambda _: config, "restore")
 
     async def entity_ids(self, request: Request) -> Response:
@@ -649,6 +671,8 @@ class WebServer:
             try:
                 port = int(data.get("port") or 1883)
             except (TypeError, ValueError):
+                return ok({"ok": False, "error": "port"}, 400)
+            if not 1 <= port <= 65535:
                 return ok({"ok": False, "error": "port"}, 400)
             broker = Broker(
                 host,
@@ -676,7 +700,7 @@ class WebServer:
 
     async def get_custom(self, request: Request) -> Response:
         try:
-            text = self.c.custom_file.read_text(encoding="utf-8")
+            text = read_file(self.c.custom_file)
         except OSError:
             text = export(self.c.config)  # a start: the current connections
         return ok(
@@ -728,7 +752,9 @@ class WebServer:
 
         def build(current: AppConfig) -> AppConfig:  # what has no versions stays as it is
             kept = {k: getattr(current.settings, k) for k in QUIET_SETTINGS}
-            return replace(config, settings=replace(config.settings, **kept))
+            return self._custom_only_if_there(
+                replace(config, settings=replace(config.settings, **kept))
+            )
 
         return await self._save(build, "restore")
 

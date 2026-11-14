@@ -93,7 +93,7 @@ export function issues(c, capture, main = null) {
   if (e.listen_error) add("bad", "port", { port: c.port, e: e.listen_error });
   const fb = e.fallback;
   if (fb && fb.active === "fallback") add("warn", fb.reason === "by_hand" ? "fallbackHand" : "fallback", { b: fb.name || "?", r: t(`fbReason_${fb.reason}`), t: fmtSince(fb.active_since) });
-  else if (fb && !fb.ready) add("warn", "fbUnready", { b: fb.name || "?", r: t(`fbReason_${fb.not_ready}`) });
+  else if (fb && !fb.ready && fb.not_ready && fb.not_ready !== "none") add("warn", "fbUnready", { b: fb.name || "?", r: t(`fbReason_${fb.not_ready}`) });
   if (c.present === false) add("bad", "missing", { d: c.device });
   else if (!e.connected) e.reachable === false ? add("bad", "down", { e: e.last_error || "?" }) : add("warn", "connecting");
   const duty = e.duty_cycle.of_limit;
@@ -194,7 +194,7 @@ export class EnOceanGateways extends LitElement {
       <div class="row"><h2 id="t-gws">${t("fbCardTitle")}</h2><span class="hint">${c.fallback_return === "manual" ? t("fbReturnManual") : t("fbReturnAuto", { s: c.fallback_stable_s })}</span></div>
       ${gatewayBox(t("fbMain"), c.name, "", e.connected, ...mainState, mine, null, e.probe_ms, !onFallback, e.frames)}
       ${gatewayBox(t("fbFallback"), fb.name || other?.name || "?", other ? `#/connection/${other.id}` : "", fb.connected, ...fbState, fb.base_id, same, fb.probe_ms, onFallback, fb.frames)}
-      ${!fb.ready && fb.not_ready ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
+      ${!fb.ready && fb.not_ready && fb.not_ready !== "none" ? html`<div class="note warn">${t(`fbReason_${fb.not_ready}`)}</div>` : ""}
       ${onFallback ? html`<p class="hint" style="margin:0">${t("fbSince", { t: fmtSince(fb.active_since) })} · ${t(`fbReason_${fb.reason}`)}${fb.manual ? ` · ${t("fbManualNote")}` : ""}</p>` : ""}
       <div class="row" style="justify-content:flex-start;gap:8px">
         ${onFallback ? html`<button class="btn btn-s" ?disabled=${this.busy || !e.connected} @click=${() => this._switch("main")}>${t("fbBack", { a: c.name })}</button>`

@@ -14,6 +14,7 @@ import ipaddress
 import os
 import re
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -144,8 +145,25 @@ def _yaml_error(err: yaml.YAMLError) -> ReadError:
     )
 
 
+def read_file(path: Path) -> str:
+    """A ser2net file as text: UTF-8, or else Latin-1 (an old file with an umlaut in a
+    comment must not stop the app)."""
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("latin-1")
+
+
 def parse(text: str) -> tuple[int, list[tuple[str, dict[str, Any]]], list[Note]]:
     """The connections of a ser2net.yaml as (name, raw definition), plus file notes."""
+    try:
+        return _parse(text)
+    except RecursionError:  # e.g. [[[[... thousands deep
+        raise ReadError({"code": "unreadable", "error": "nested too deeply"}) from None
+
+
+def _parse(text: str) -> tuple[int, list[tuple[str, dict[str, Any]]], list[Note]]:
     try:
         loader = _Loader(text)  # a control character in the file fails here already
     except yaml.YAMLError as err:
@@ -304,9 +322,13 @@ def _remaddr(text: str, notes: list[Note]) -> str:
     for item in re.split(r"[;\s]+", text.strip()):
         if not item:
             continue
-        address, _, port = item.lstrip("!").rpartition(",")
+        bare = item.lstrip("!")
+        family, comma, rest = bare.partition(",")
+        if comma and family.lower() in ("ipv4", "ipv6", "tcp", "udp", "sctp"):
+            bare = rest  # ipv4,192.168.1.10,0: the family in front, as in the accepter
+        address, _, port = bare.rpartition(",")
         if not address:
-            address, port = item.lstrip("!"), "0"
+            address, port = bare, "0"
         if port not in ("", "0"):
             notes.append({"code": "remaddr_port_dropped", "address": item})
         try:

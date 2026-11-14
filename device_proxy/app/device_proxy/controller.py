@@ -57,7 +57,7 @@ from .enocean_ha import EnOceanHa
 from .enocean_tools import Capture, Captures, parse_frame, sendable
 from .events import EventLog
 from .ha_mqtt import HaBridge
-from .importer import ImportResult, ReadError, conflicts, merge, read
+from .importer import ImportResult, ReadError, conflicts, merge, read, read_file
 from .kinds import PROXIED, AppProxy
 from .meter import Analysis, analyze
 from .modbus import (
@@ -253,7 +253,7 @@ class Controller:
             config = self._for_ser2net(self.config)
             return render(config), blocks(config)
         try:
-            text = self.custom_file.read_text(encoding="utf-8")
+            text = read_file(self.custom_file)
         except OSError as err:
             self.events.emit(
                 "error", "custom_invalid", errors=[{"code": "unreadable", "error": str(err)}]
@@ -563,7 +563,7 @@ class Controller:
         if source is None:
             return
         try:
-            text = source.read_text(encoding="utf-8")
+            text = read_file(source)
             result, collisions = await self.preview(text)
             for item in result.items:
                 for note in item.notes:
@@ -575,7 +575,7 @@ class Controller:
             for note in result.notes:
                 _LOGGER.info("Import: %s", note)
             await self.run_import(text, replace_all=False)
-        except (OSError, ReadError, ValidationError) as err:
+        except (OSError, ValueError, ValidationError) as err:  # ReadError is a ValueError
             note = err.note if isinstance(err, ReadError) else {"code": "error", "error": str(err)}
             self.events.emit("error", "import_failed", error=note)
             return

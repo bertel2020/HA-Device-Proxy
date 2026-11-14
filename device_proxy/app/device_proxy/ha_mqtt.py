@@ -124,8 +124,11 @@ class HaBridge:
         self.c = controller
         settings = controller.config.settings
         self.base = settings.mqtt_base
+        # a second installation on the same broker has its own base topic, and so its own
+        # client ID: one ID twice and the broker keeps throwing the other out
+        client_id = "device-proxy" if self.base == "device_proxy" else f"device-proxy-{self.base}"
         self.client = MqttClient(
-            "device-proxy",
+            re.sub(r"[^A-Za-z0-9_-]", "-", client_id),
             self._message,
             self._connected,
             will=(f"{self.base}/status", b"offline"),
@@ -439,6 +442,13 @@ class HaBridge:
             return
         if not (parts[1] == "device_proxy" or parts[1].startswith("device_proxy_")):
             return  # another program's: not worth building this app's configs for
+        try:
+            announced = json.loads(payload)
+            availability = {a.get("topic") for a in announced.get("availability") or []}
+        except (ValueError, AttributeError, TypeError):
+            return
+        if f"{self.base}/status" not in availability:
+            return  # another installation's (with its own base topic) on the same broker
         if topic not in self.configs():
             await self.client.publish(topic, b"", retain=True)
             self._last.pop(topic, None)

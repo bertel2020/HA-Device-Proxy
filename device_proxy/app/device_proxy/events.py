@@ -72,6 +72,9 @@ MESSAGES = {
     ),
     "config_salvaged": "The configuration could not be used, {dropped} part(s) left out",
     "history_damaged": "The history was damaged and started anew, the old file: {file}",
+    "history_unavailable": (
+        "The history file cannot be used ({error}): kept in memory until the next start"
+    ),
     "blocked_unreadable": "The blocked clients could not be read: no client is blocked now",
     "mqtt_connected": "MQTT connected to {broker}",
     "mqtt_lost": "MQTT not connected to {broker}: {error}",

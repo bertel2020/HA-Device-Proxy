@@ -649,7 +649,7 @@ sich ausblenden. Ein eigener Broker wie EMQX wird nicht von selbst gefunden und 
 werden. Präfix
 (`homeassistant`), Basis-Topic (`device_proxy`) und das Aktualisierungsintervall stehen unter
 **Einstellungen → MQTT-Entitäten**; die Namen der Entitäten folgen der Sprache der
-Benachrichtigungen.
+Benachrichtigungen. Zwei Installationen am selben Broker brauchen je ein eigenes Basis-Topic.
 
 ## Umstieg von ha-modbusproxy
 

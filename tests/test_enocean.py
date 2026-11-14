@@ -1289,3 +1289,44 @@ async def test_a_capture_at_its_limit_tells_that_it_ended(
     capture = captures.start(setup.proxy, None)
     captures._write("rx", b"\x55\x00\x01\x00\x05\x70\x08\x38", "")
     assert captures.current is None and ended == [capture]
+
+
+async def test_a_telegram_just_before_the_replay_request_comes_once(setup: Setup) -> None:
+    """A telegram between connecting and EOPX REPLAY: kept for the replay and not sent live as
+    well, or the client gets it twice (and out of order)."""
+    gateway, proxy = setup.gateway, setup.proxy
+    gateway.send(FRAME_A)
+    await _until(lambda: proxy.stats.from_gateway == 1)
+    reader, writer = await asyncio.open_connection("127.0.0.1", proxy.port)
+    await _until(lambda: len(proxy.clients) == 1)
+    gateway.send(FRAME_B)  # before the request
+    await _until(lambda: proxy.stats.from_gateway == 2)
+    writer.write(REPLAY_REQUEST)
+    assert await reader.readexactly(28) == FRAME_A + FRAME_B
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(reader.readexactly(1), 0.2)
+    writer.close()
+
+
+async def test_a_client_that_only_listens_gets_the_telegrams(setup: Setup) -> None:
+    gateway, proxy = setup.gateway, setup.proxy
+    reader, writer = await _connect(proxy)  # sends nothing at all
+    await _until(lambda: len(proxy.clients) == 1)
+    gateway.send(FRAME_A)
+    assert await asyncio.wait_for(reader.readexactly(14), 3) == FRAME_A
+    writer.close()
+
+
+async def test_the_timeout_counts_telegrams_to_the_client(setup: Setup) -> None:
+    """As in ser2net: a client that only listens is not idle while telegrams flow."""
+    gateway, proxy = setup.gateway, setup.proxy
+    proxy.c = replace(proxy.c, timeout=1)
+    reader, writer = await _connect(proxy)
+    await _until(lambda: len(proxy.clients) == 1)
+    for _ in range(4):
+        await asyncio.sleep(0.5)
+        gateway.send(FRAME_A)
+        assert await asyncio.wait_for(reader.readexactly(14), 2) == FRAME_A
+    assert len(proxy.clients) == 1  # 2 s without a byte from the client: still there
+    await _until(lambda: not proxy.clients, 3)  # quiet both ways: closed
+    writer.close()

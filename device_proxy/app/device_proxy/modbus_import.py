@@ -33,11 +33,11 @@ KNOWN = {"upstreamhost", "upstreamport", "listenport", "timeout", "connection_ti
 def _load(text: str) -> Any:
     try:
         return yaml.safe_load(text)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, RecursionError):
         pass
     try:
         return tomllib.loads(text)  # modbus-proxy also reads .toml
-    except tomllib.TOMLDecodeError:
+    except (tomllib.TOMLDecodeError, RecursionError):
         return None
 
 

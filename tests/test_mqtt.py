@@ -133,11 +133,16 @@ async def test_stale_retained_configs_of_the_app_are_cleared(tmp_path: Path) -> 
         sent.append((topic, payload))  # type: ignore[arg-type]
 
     bridge.client.publish = publish  # type: ignore[method-assign,assignment]
+    own = b'{"availability": [{"topic": "device_proxy/status"}]}'
     live = "homeassistant/switch/device_proxy_0000000a/enabled/config"
-    await bridge._message(live, b"{}")
-    await bridge._message("homeassistant/switch/device_proxy_0000dead/enabled/config", b"{}")
-    await bridge._message("homeassistant/switch/other_app/x/config", b"{}")
+    await bridge._message(live, own)
+    await bridge._message("homeassistant/switch/device_proxy_0000dead/enabled/config", own)
+    await bridge._message("homeassistant/switch/other_app/x/config", own)
     await bridge._message("homeassistant/switch/device_proxy_0000beef/enabled/config", b"")
+    # a second installation on the same broker, with its own base topic: left alone
+    other = b'{"availability": [{"topic": "proxy_garage/status"}]}'
+    await bridge._message("homeassistant/switch/device_proxy_0000cafe/enabled/config", other)
+    await bridge._message("homeassistant/switch/device_proxy_0000f00d/enabled/config", b"{}")
     assert sent == [("homeassistant/switch/device_proxy_0000dead/enabled/config", b"")]
 
 
@@ -296,7 +301,7 @@ async def test_old_entities_go_with_a_prefix_with_slashes_another_prefix_or_mqtt
 
     bridge.client.publish = publish  # type: ignore[method-assign,assignment]
     stale = "ha/disc/switch/device_proxy_0000dead/enabled/config"
-    await bridge._message(stale, b"{}")
+    await bridge._message(stale, b'{"availability": [{"topic": "device_proxy/status"}]}')
     assert sent == [(stale, b"")]
 
     sent.clear()  # MQTT is switched off: what this bridge announced goes

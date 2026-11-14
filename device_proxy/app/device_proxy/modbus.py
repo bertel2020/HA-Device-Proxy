@@ -908,6 +908,14 @@ class Scheduler:
             del self._queues[key]
         return job
 
+    def drain(self) -> list[_Job]:
+        """All waiting requests, taken out (when the proxy stops)."""
+        jobs = [job for queue in self._queues.values() for job in queue]
+        self._queues.clear()
+        self._turn.clear()
+        self.size = 0
+        return jobs
+
 
 class _Path:
     """One connection to the device, with its framing."""
@@ -951,6 +959,7 @@ class ModbusProxy:
         self.reachable_since = time.time()
         self._failures = 0  # requests in a row without an answer
         self._down_on_connect = False  # not reachable because connecting failed
+        self._stopped = False  # stopped: requests (e.g. routed from another proxy) fail at once
         self._back_due = False  # unknown after a serial line came back: modbus_back still due
         self._connect_failed_at = float("-inf")  # loop time of the last failed attempt
 
@@ -1011,6 +1020,10 @@ class ModbusProxy:
                 continue  # the client went away meanwhile
             try:
                 answer = await self._exchange(path, job)
+            except asyncio.CancelledError:  # the proxy stops: whoever waits gets an answer
+                if not job.future.done():
+                    job.future.set_result(exception(job.pdu, EXC_PATH))
+                raise
             except Exception:  # a bug must not stop the worker: the proxy would hang
                 _LOGGER.exception("%s: request failed", self.c.name)
                 await path.link.close()
@@ -1073,6 +1086,10 @@ class ModbusProxy:
             self._down(_text(err), connect=True)
 
     async def _shutdown(self) -> None:
+        self._stopped = True
+        for job in self.scheduler.drain():  # e.g. a client of another proxy, a scan
+            if not job.future.done():
+                job.future.set_result(exception(job.pdu, EXC_PATH))
         if self._server is not None:
             self._server.close()
         for client in list(self.clients.values()):
@@ -1097,6 +1114,7 @@ class ModbusProxy:
         if self.c.link != "rtu" and (self.reachable is None or self._down_on_connect):
             # reachable again; a device that takes connections but does not answer only
             # counts once it answers (a serial device: always)
+            self._down_on_connect = False  # the next connects do not count as answers
             self._up()
         elif self.c.link == "rtu" and self._down_on_connect:
             # the serial adapter is back; whether the device answers is not known yet
@@ -1187,6 +1205,8 @@ class ModbusProxy:
         timeout: float | None = None,
         retries: int | None = None,
     ) -> bytes | None:
+        if self._stopped:
+            return exception(pdu, EXC_PATH)
         future: asyncio.Future[bytes | None] = asyncio.get_running_loop().create_future()
         now = asyncio.get_running_loop().time()
         self.scheduler.put(client.address, _Job(unit, pdu, client, future, timeout, retries, now))
@@ -1338,6 +1358,8 @@ class ModbusProxy:
                 return
             oldest = min(self.clients.values(), key=lambda cl: cl.info.since)
             oldest.writer.close()
+            if oldest.task is not None:
+                oldest.task.cancel()  # also while it waits for an answer
             self.clients.pop(oldest.info.address, None)  # its place is free now
         keepalive(writer.get_extra_info("socket"))  # a client that vanished frees its place
         client = _Client(ClientInfo(address, time.time()), writer, asyncio.current_task())

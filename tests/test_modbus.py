@@ -1117,3 +1117,69 @@ async def test_a_write_with_something_behind_it_is_refused() -> None:
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     device.close()
+
+
+async def test_a_device_that_takes_connections_but_does_not_answer_goes_down() -> None:
+    """Connecting failed once (the app started first); later the device takes connections but
+    does not answer (the dongle awake, the inverter asleep): every request connects anew, and
+    that must not count as an answer, or the device stays "reachable" for good."""
+    device = await _device(False, ignore={1})
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        bind="127.0.0.1",
+        request_timeout_ms=100,
+        retries=0,
+    )
+    events: list[str] = []
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    proxy._down("connection refused", connect=True)
+    proxy._connect_failed_at = float("-inf")  # not just now: no fail fast
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    client = ClientInfo("192.168.1.5:5000", 0.0)
+    for _ in range(modbus.DOWN_AFTER):
+        answer = await proxy.request(1, bytes([3, 0, 10, 0, 1]), client)
+        assert answer == bytes([0x83, modbus.EXC_TARGET])
+    assert proxy.reachable is False
+    assert events == ["modbus_down", "modbus_back", "modbus_down"]
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    device.close()
+
+
+async def test_a_stopped_proxy_answers_whoever_waits() -> None:
+    """A request routed from another connection or a scan waits for this proxy: when it stops
+    (a restart), the waiting requests get an answer, and later ones get it at once."""
+    device = await _device(False, ignore={1})
+    c = Connection(
+        "Inverter",
+        "",
+        0,
+        kind="modbus",
+        host="127.0.0.1",
+        host_port=device.sockets[0].getsockname()[1],
+        bind="127.0.0.1",
+        request_timeout_ms=5000,
+        retries=0,
+    )
+    proxy = ModbusProxy(c, "lan", lambda level, kind, **p: None, lambda ch: None)
+    task = asyncio.create_task(proxy.run())
+    while proxy._server is None:
+        await asyncio.sleep(0.01)
+    client = ClientInfo("192.168.1.5:5000", 0.0)
+    pdu = bytes([3, 0, 10, 0, 1])
+    running = asyncio.create_task(proxy.request(1, pdu, client))  # at the device
+    waiting = asyncio.create_task(proxy.request(1, bytes([3, 0, 11, 0, 1]), client))  # queued
+    await asyncio.sleep(0.2)
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    gone = bytes([0x83, modbus.EXC_PATH])
+    assert await asyncio.wait_for(asyncio.gather(running, waiting), 1) == [gone, gone]
+    assert await asyncio.wait_for(proxy.request(1, pdu, client), 1) == gone
+    device.close()

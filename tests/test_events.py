@@ -194,3 +194,22 @@ async def test_no_broker_is_no_warning(tmp_path: Path, monkeypatch: pytest.Monke
     )
     await controller.mqtt.run(asyncio.Event())
     assert [(e.level, e.kind) for e in controller.events.history()] == [("info", "mqtt_no_broker")]
+
+
+def test_a_history_file_that_cannot_be_opened_is_not_moved_aside(tmp_path: Path) -> None:
+    """Locked, a full or read-only disk: the file is not damaged, so it stays where it is,
+    and the history is kept in memory until the next start."""
+    folder = tmp_path / "ro"
+    folder.mkdir()
+    folder.chmod(0o500)  # no new file can be made here
+    try:
+        db = Database(folder / "history.db")
+        assert [kind for kind, _ in db.problems] == ["history_unavailable"]
+        db.execute(
+            "INSERT INTO events (ts, last_ts, level, name, kind, params)"
+            " VALUES (1, 1, 'info', '', 'x', '{}')"
+        )
+        assert db.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
+        assert list(folder.iterdir()) == []
+    finally:
+        folder.chmod(0o700)

@@ -11,6 +11,21 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Zweites Review mit Fable (Kern, Web/Speicher, Panel), alle Befunde behoben:
+  - Modbus: `_connect` setzt bei TCP `_down_on_connect` nach `_up()` zurück; sonst nullte jeder Neuaufbau nach einem Timeout `_failures`, und `DOWN_AFTER` wurde nie erreicht (auch `FAIL_FAST` griff nach erfolgreichem Verbinden weiter).
+  - Modbus: `_shutdown` setzt `_stopped`, leert den `Scheduler` (`drain()`) und beantwortet alle Futures mit `EXC_PATH`; `_work` beantwortet den laufenden Job beim Abbruch; `_queued` antwortet nach dem Stopp sofort. `kickolduser` bricht auch den Task des verdrängten Clients ab.
+  - `importer.read_file()`: UTF-8, sonst Latin-1; benutzt für Import-Ordner, `_runtime` und `GET api/custom`. `parse()` macht aus `RecursionError` einen `ReadError` (`unreadable`), `modbus_import._load` fängt ihn auch. `import_folder` fängt `ValueError` statt nur `ReadError`.
+  - `_remaddr` entfernt `ipv4,`/`ipv6,`/`tcp,`/`udp,`/`sctp,` vorne, wie `_accepter`.
+  - `db._open`: nur bei `DAMAGED` `_recreate`, sonst `_in_memory` (`:memory:`, Ereignis `history_unavailable`); `_recreate` fällt bei `OSError`/`sqlite3.Error` ebenfalls auf `_in_memory` zurück. `Database.generation` zählt neue Dateien; `ClientSessions._write` fügt eine Zeile aus einer älteren Generation neu ein, statt per alter ID zu updaten.
+  - `WebServer.stop`: offene Verbindungen (`_writers`) per `transport.abort()`, `wait_closed()` mit 2 s.
+  - Web: `api/preview` prüft `connection` auf Objekt, `api/versions/<id>` nur bis 15 Ziffern (sonst 404), `api/mqtt/test` Port 1–65535. `_backup_config` verlangt `config`; `_custom_only_if_there` setzt `source` auf `forms`, wenn die eigene Datei fehlt (Backup und Versionen).
+  - EnOcean: neue Netz-Clients halten Frames in `held`, bis die ersten Bytes da sind oder `HOLD_SECONDS` (1 s) um ist; `_start_replay` schickt danach nur die gehaltenen, die nicht im Replay waren. `active` merkt Daten in beide Richtungen für `timeout`. Die Warteschleife bei `CLIENT_QUEUE_MAX` endet, wenn der Writer schließt.
+  - `listen._sniff`: 1 s Pause nach „the adapter was closed“.
+  - MQTT: Client-ID aus dem Basis-Topic (`device-proxy` beim Standard), `_stale_config` löscht nur Configs mit `availability` `<base>/status`. DOCS: zwei Installationen brauchen je ein eigenes Basis-Topic.
+  - Panel: `_jobPoll` toleriert vier Fehler in Folge (404 sofort) und setzt dann `state: "failed"`; `rows()` mit Breite 0 gibt nichts zurück; `decodeURIComponent` im Hash mit `try`; `unit_routes` auf der Detailseite an `[,;\s]+` getrennt; `has()` in `i18n.js`, `ex_7`/`ex_other`; `fbReason_none` wird nicht gezeigt.
+  - Locales: elf deutsche Fehlermuster (Sperren, Wartung, `silence_restart`, Namen, `source`), `history_unavailable`.
+  - Tests für alle Punkte; zwei MQTT-Tests schicken jetzt Configs mit `availability`.
+
 ## 1.6.1 - 2026-11-13
 
 - Panel: `fmtSince(ts)` (Dauer über `fmtDuration`) für alle „seit {t}“-Texte statt `fmtAgo`, das „vor …“ liefert; englische Texte von „since“ auf „for“.

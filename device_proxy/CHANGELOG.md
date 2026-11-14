@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **Modbus TCP, erreichbar**: Nimmt ein Gerät Verbindungen an, antwortet aber nicht (etwa Dongle wach, Wechselrichter schläft), gilt es nach drei Anfragen ohne Antwort als nicht erreichbar. Vorher blieb es „erreichbar“, wenn die App einmal vor dem Gerät gestartet war, und es kam keine Benachrichtigung.
+- **Modbus, Neustart einer Verbindung**: Wartende Anfragen bekommen sofort eine Antwort. Vorher konnten ein Client einer anderen Verbindung (über `unit_routes`) und ein laufender Bus-Scan für immer hängen bleiben; der Scan ließ sich dann nicht mehr starten.
+- **Import und eigene ser2net.yaml**: Eine Datei, die nicht als UTF-8 gespeichert ist (etwa eine alte `ser2net.conf` mit Umlaut), lässt die App nicht mehr bei jedem Start abstürzen. Die eigene `ser2net.yaml` lässt sich dann auch wieder in der Oberfläche öffnen.
+- **Import, Zugriff**: `remaddr` wie `ipv4,192.168.1.10,0` wird übernommen. Vorher fiel der Eintrag weg und die Verbindung war für das ganze Heimnetz offen statt für den einen Host.
+- **Historie**: Eine gesperrte Datenbank oder ein voller Speicher gilt nicht mehr als beschädigt. Die Datei bleibt, wie sie ist, die App läuft weiter und hält die Historie bis zum nächsten Start im Speicher. Vorher wurden Ereignisse, Client-Verlauf und alle Versionen für „Rückgängig“ beiseitegeschoben, bei vollem Speicher startete die App gar nicht.
+- **Stoppen und Update**: Ein offenes Panel hält das Stoppen der App nicht mehr auf.
+- **Backup**: Ein Backup ohne Konfiguration wird abgelehnt, statt alle Verbindungen zu löschen. Ein Backup oder eine Version mit eigener `ser2net.yaml` nutzt die Formulare, wenn die Datei fehlt (etwa nach einer Neuinstallation).
+- **EnOcean**: Ein Telegramm kurz vor der Replay-Anfrage kommt nur noch einmal an. Der Timeout zählt wie bei ser2net auch Telegramme zum Client, eine Integration, die nur zuhört, wird nicht mehr getrennt. Nach einem Neustart läuft kein alter Client-Handler im Hintergrund weiter.
+- **Modbus RTU, nur mithören**: Ein Adapter, der sofort wieder auflegt, wird nur noch einmal pro Sekunde neu geöffnet statt tausendfach.
+- **MQTT**: Zwei Installationen am selben Broker mit eigenem Basis-Topic werfen sich nicht mehr gegenseitig hinaus und löschen nicht mehr die Entitäten der anderen.
+- **Oberfläche**: Ein Werkzeuglauf (Baudrate, Scan) bleibt nach einem kurzen Verbindungsfehler nicht mehr auf „läuft“ stehen. Das Lesewerkzeug hängt nicht mehr bei Typ „string“ und leerer Antwort. Eine abgeschnittene Adresse lässt die Seite nicht mehr leer. `unit_routes` mit Kommas wird auf der Detailseite richtig gezeigt. Exception 07 und unbekannte Codes haben einen Text, kein „fbReason_none“ direkt nach dem Start.
+- **Texte**: Weitere Fehlermeldungen sind auf Deutsch, und ungültige Eingaben ergeben eine Meldung statt „internal error“.
+
+### English
+
+- **Modbus TCP, reachable**: A device that takes connections but does not answer (e.g. the dongle awake, the inverter asleep) counts as not reachable after three requests without an answer. Before, it stayed "reachable" once the app had started before the device, and no notification came.
+- **Modbus, restarting a connection**: Waiting requests get an answer at once. Before, a client of another connection (through `unit_routes`) and a running bus scan could hang for good; the scan could not be started again.
+- **Import and own ser2net.yaml**: A file not saved as UTF-8 (such as an old `ser2net.conf` with an umlaut) no longer makes the app crash at every start. The own `ser2net.yaml` can be opened in the interface again, too.
+- **Import, access**: `remaddr` such as `ipv4,192.168.1.10,0` is taken over. Before, the entry was dropped and the connection was open to the whole home network instead of the one host.
+- **History**: A locked database or a full disk no longer counts as damaged. The file stays as it is, the app keeps running and keeps the history in memory until the next start. Before, events, client history and all versions for "Undo" were moved aside, and with a full disk the app did not start at all.
+- **Stop and update**: An open panel no longer holds up the stop of the app.
+- **Backup**: A backup without a configuration is refused instead of deleting all connections. A backup or version made with an own `ser2net.yaml` uses the forms when the file is missing (e.g. after a new install).
+- **EnOcean**: A telegram just before the replay request arrives only once. As in ser2net, the timeout also counts telegrams to the client, so an integration that only listens is no longer disconnected. After a restart no old client handler keeps running in the background.
+- **Modbus RTU, listen only**: An adapter that hangs up at once is opened again once a second instead of thousands of times.
+- **MQTT**: Two installations on the same broker with their own base topics no longer throw each other out or delete each other's entities.
+- **Interface**: A tool run (baud rate, scan) no longer stays on "running" after a short connection error. The read tool no longer hangs with type "string" and an empty answer. A cut address no longer leaves the page empty. `unit_routes` with commas is shown right on the detail page. Exception 07 and unknown codes have a text, no "fbReason_none" right after the start.
+- **Texts**: More error messages are in German, and invalid input gives a message instead of "internal error".
+
 ## 1.6.1 - 2026-11-13
 
 - **Modbus, Schreibschutz**: Ein Schreibbefehl muss jetzt genau so lang sein, wie seine Anzahl sagt. Vorher konnte ein Client, der nur bestimmte Register schreiben darf, einen zweiten Befehl anhängen oder mehr Daten mitschicken, als erlaubt war.
