@@ -1436,6 +1436,7 @@
     "config_lost": "Konfiguration nicht lesbar und kein Stand gespeichert: gestartet ohne Verbindungen",
     "config_salvaged": "Konfiguration nicht verwendbar, {dropped} Teil(e) ausgelassen",
     "history_damaged": "Historie war beschädigt und beginnt neu, die alte Datei: {file}",
+    "button_failed": "Knopf „{button}“ in Home Assistant hat nichts bewirkt: {error}",
     "history_unavailable": "Historie-Datei nicht nutzbar ({error}): bis zum nächsten Start nur im Speicher",
     "blocked_unreadable": "Blockierte Clients nicht lesbar: im Moment ist niemand blockiert",
     "mqtt_connected": "MQTT verbunden mit {broker}",
