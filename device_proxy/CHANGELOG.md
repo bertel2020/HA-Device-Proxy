@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.2 - 2026-11-14
+
 - **Modbus TCP, erreichbar**: Nimmt ein Gerät Verbindungen an, antwortet aber nicht (etwa Dongle wach, Wechselrichter schläft), gilt es nach drei Anfragen ohne Antwort als nicht erreichbar. Vorher blieb es „erreichbar“, wenn die App einmal vor dem Gerät gestartet war, und es kam keine Benachrichtigung.
 - **Modbus, Neustart einer Verbindung**: Wartende Anfragen bekommen sofort eine Antwort. Vorher konnten ein Client einer anderen Verbindung (über `unit_routes`) und ein laufender Bus-Scan für immer hängen bleiben; der Scan ließ sich dann nicht mehr starten.
 - **Import und eigene ser2net.yaml**: Eine Datei, die nicht als UTF-8 gespeichert ist (etwa eine alte `ser2net.conf` mit Umlaut), lässt die App nicht mehr bei jedem Start abstürzen. Die eigene `ser2net.yaml` lässt sich dann auch wieder in der Oberfläche öffnen.
