@@ -11,6 +11,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- CI: Job `release` nach `publish` (nur main, alle Jobs grün): legt `v<version>` als GitHub-Release an, falls es noch fehlt. Notes = Abschnitt `## <version> - …` aus `device_proxy/CHANGELOG.md` plus `.github/release-footer.md` (Stern, Issue mit Diagnose-Paket, Spenden, Anleitung; deutsch und englisch). Der Tag sitzt auf dem Commit, der die Version in `config.yaml` gesetzt hat. Fehlt der Abschnitt, wird der Job rot.
 - Zweites Review mit Fable (Kern, Web/Speicher, Panel), alle Befunde behoben:
   - Modbus: `_connect` setzt bei TCP `_down_on_connect` nach `_up()` zurück; sonst nullte jeder Neuaufbau nach einem Timeout `_failures`, und `DOWN_AFTER` wurde nie erreicht (auch `FAIL_FAST` griff nach erfolgreichem Verbinden weiter).
   - Modbus: `_shutdown` setzt `_stopped`, leert den `Scheduler` (`drain()`) und beantwortet alle Futures mit `EXC_PATH`; `_work` beantwortet den laufenden Job beim Abbruch; `_queued` antwortet nach dem Stopp sofort. `kickolduser` bricht auch den Task des verdrängten Clients ab.
