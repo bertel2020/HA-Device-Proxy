@@ -25,6 +25,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
   - Panel: `_jobPoll` toleriert vier Fehler in Folge (404 sofort) und setzt dann `state: "failed"`; `rows()` mit Breite 0 gibt nichts zurück; `decodeURIComponent` im Hash mit `try`; `unit_routes` auf der Detailseite an `[,;\s]+` getrennt; `has()` in `i18n.js`, `ex_7`/`ex_other`; `fbReason_none` wird nicht gezeigt.
   - Locales: elf deutsche Fehlermuster (Sperren, Wartung, `silence_restart`, Namen, `source`), `history_unavailable`.
   - Tests für alle Punkte; zwei MQTT-Tests schicken jetzt Configs mit `availability`.
+- MQTT: Scheitert `press()`, meldet `_message` das Ereignis `button_failed` (Knopfname in der Sprache der Benachrichtigungen, `error`); das Panel übersetzt `error` mit `fieldError`.
 - Jobs tragen `tool` (`detect`, `scan`); `Controller.running_jobs()` und `GET api/tools/<id>/jobs` liefern die laufenden als tool → job id. Die Detailseite holt sie in `_resumeJobs()` (bei Wechsel der Verbindung und beim erneuten Einhängen) und pollt weiter; `disconnectedCallback` setzt laufende Stände zurück.
 
 ## 1.6.1 - 2026-11-13

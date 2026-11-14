@@ -466,6 +466,16 @@ class HaBridge:
                 await self.c.press(parts[0], parts[1])
             except Exception as err:  # also AdminError: ser2net's admin socket not there
                 _LOGGER.warning("MQTT: button %s of %s: %s", parts[1], parts[0], err)
+                c = self.c.config.connection(parts[0])
+                names = NAMES[self.c.config.settings.notify_language]
+                self.c.events.emit(  # in the events, where whoever pressed it looks
+                    "warning",
+                    "button_failed",
+                    connection=c.id if c else None,
+                    name=c.name if c else parts[0],
+                    button=names.get(parts[1], parts[1]),
+                    error=str(err) or type(err).__name__,
+                )
             return
         if len(parts) != 3 or parts[1:] != ["enabled", "set"]:
             return

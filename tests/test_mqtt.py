@@ -215,6 +215,12 @@ async def test_buttons_are_announced_and_pressed(tmp_path: Path) -> None:
         ("0000000a", "nonsense"),
         ("0000000a", "restart"),
     ]
+    failed = controller.events.history(kinds=["button_failed"])[::-1]
+    assert [(e.connection, e.params["error"]) for e in failed] == [
+        ("0000000a", "no such button"),
+        ("0000000a", "ser2net's admin socket is not there"),
+    ]  # in the events, where whoever pressed it looks
+    assert failed[1].params["button"] in ("Restart connection", "Verbindung neu starten")
 
 
 async def test_meter_entities_for_the_energy_dashboard(tmp_path: Path) -> None:

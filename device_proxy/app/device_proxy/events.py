@@ -72,6 +72,7 @@ MESSAGES = {
     ),
     "config_salvaged": "The configuration could not be used, {dropped} part(s) left out",
     "history_damaged": "The history was damaged and started anew, the old file: {file}",
+    "button_failed": 'Button "{button}" in Home Assistant did nothing: {error}',
     "history_unavailable": (
         "The history file cannot be used ({error}): kept in memory until the next start"
     ),
