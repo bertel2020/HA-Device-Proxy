@@ -203,6 +203,7 @@ class WebServer:
         )
         self._route("POST", r"api/capture/stop", self.capture_stop)
         self._route("GET", r"api/jobs/(?P<job>[0-9a-f]{8})", self.job)
+        self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/jobs", self.running_jobs)
         self._route("GET", r"api/notify/services", self.notify_services)
         self._route("GET", r"api/ha/switches", self.ha_switches)
         self._route("GET", r"api/clients/history", self.client_history)
@@ -859,6 +860,9 @@ class WebServer:
             return ok({"job": self.c.start_scan(request.params["id"], first, last, timeout_ms)})
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def running_jobs(self, request: Request) -> Response:
+        return ok(self.c.running_jobs(request.params["id"]))
 
     async def job(self, request: Request) -> Response:
 

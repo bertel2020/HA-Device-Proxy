@@ -14,6 +14,7 @@
 - **MQTT**: Zwei Installationen am selben Broker mit eigenem Basis-Topic werfen sich nicht mehr gegenseitig hinaus und löschen nicht mehr die Entitäten der anderen.
 - **Oberfläche**: Ein Werkzeuglauf (Baudrate, Scan) bleibt nach einem kurzen Verbindungsfehler nicht mehr auf „läuft“ stehen. Das Lesewerkzeug hängt nicht mehr bei Typ „string“ und leerer Antwort. Eine abgeschnittene Adresse lässt die Seite nicht mehr leer. `unit_routes` mit Kommas wird auf der Detailseite richtig gezeigt. Exception 07 und unbekannte Codes haben einen Text, kein „fbReason_none“ direkt nach dem Start.
 - **Texte**: Weitere Fehlermeldungen sind auf Deutsch, und ungültige Eingaben ergeben eine Meldung statt „internal error“.
+- **Werkzeuge**: Eine laufende Baudraten-Erkennung oder ein Bus-Scan wird wieder angezeigt, wenn du die Seite verlässt und zurückkommst oder sie in einem anderen Browser öffnest. Vorher hieß es beim neuen Start nur „already running“.
 
 ### English
 
@@ -29,6 +30,7 @@
 - **MQTT**: Two installations on the same broker with their own base topics no longer throw each other out or delete each other's entities.
 - **Interface**: A tool run (baud rate, scan) no longer stays on "running" after a short connection error. The read tool no longer hangs with type "string" and an empty answer. A cut address no longer leaves the page empty. `unit_routes` with commas is shown right on the detail page. Exception 07 and unknown codes have a text, no "fbReason_none" right after the start.
 - **Texts**: More error messages are in German, and invalid input gives a message instead of "internal error".
+- **Tools**: A running baud rate detection or bus scan shows again when you leave the page and come back, or open it in another browser. Before, starting it again only said "already running".
 
 ## 1.6.1 - 2026-11-13
 

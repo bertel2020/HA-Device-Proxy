@@ -96,12 +96,15 @@ export class DetailPage extends Page {
     super.connectedCallback();
     this._timer = setInterval(() => this._poll(), LIVE_MS);
     this._poll();
+    if (this.connectionId) this._resumeJobs();  // the same page shown again
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     clearInterval(this._timer);
     this._stopJobs();
+    if (this.job?.state === "running") this.job = null;  // followed on when shown again
+    if (this.scan?.state === "running") this.scan = null;
   }
 
   /** The polls of tool runs (baud rate, scan): they belong to the connection shown. */
@@ -125,6 +128,22 @@ export class DetailPage extends Page {
     (this._jobs ||= new Set()).add(timer);
   }
 
+  /** A run started before (the page left and opened again, another browser): followed on. */
+  async _resumeJobs() {
+    const id = this.connectionId;
+    let running;
+    try { running = await api(`api/tools/${id}/jobs`); } catch { return; }  // the run only shows later
+    if (this.connectionId !== id) return;
+    if (running.detect && !this.job) {
+      this.job = { state: "running", done: 0, total: 0 };
+      this._jobPoll(running.detect, (result) => { this.job = result; });
+    }
+    if (running.scan && !this.scan) {
+      this.scan = { state: "running", done: 0, total: 0, results: [] };
+      this._jobPoll(running.scan, (result) => { this.scan = result; });
+    }
+  }
+
   _stopJobs() {
     for (const timer of this._jobs || []) clearInterval(timer);
     this._jobs?.clear();
@@ -135,6 +154,7 @@ export class DetailPage extends Page {
       this.chunks = []; this._after = 0; this._n = 0; this._samples = []; this._rqSamples = []; this._rq = null; this.search = ""; this.dir = "";
       this.job = this.scan = this.meter = this.mbResult = this.wrResult = null; this.copied = false;
       this._stopJobs();
+      if (this.connectionId) this._resumeJobs();
     }
     if (changed.has("state") && this.state) {
       if (this._boot && this.state.boot !== this._boot) { this.chunks = []; this._after = 0; }  // the app restarted

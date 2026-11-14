@@ -147,9 +147,12 @@ async def test_baud_detection_leaves_a_port_off_that_was_switched_off_meanwhile(
         state["switch_off"] = switch_off
         controller.config = AppConfig(connections=(c,))
         admin.commands.clear()
-        job_id = controller._new_job(c.id, 0)
+        job_id = controller._new_job(c.id, "detect", 0)
+        assert controller.running_jobs(c.id) == {"detect": job_id}  # a page opened again
+        assert controller.running_jobs("0000000b") == {}
         await controller._detect(job_id, c)
         assert controller.jobs[job_id]["state"] == "done"
+        assert controller.running_jobs(c.id) == {}
         assert admin.commands[-1] == f"setportenable c_0000000a {last}"
         assert c.id not in controller._paused
 

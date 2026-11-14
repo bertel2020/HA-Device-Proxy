@@ -1284,7 +1284,7 @@ class Controller:
         proxy = self._modbus(connection_id)
         if not 1 <= first <= last <= 247 or not 50 <= timeout_ms <= 5000:
             raise ValueError("units 1 to 247, timeout 50 to 5000 ms")
-        job_id = self._new_job(connection_id, last - first + 1)
+        job_id = self._new_job(connection_id, "scan", last - first + 1)
         self._spawn(job_id, self._scan(job_id, proxy, range(first, last + 1), timeout_ms / 1000))
         return job_id
 
@@ -1765,7 +1765,16 @@ class Controller:
             raise ValueError("the connection is not active")
         return proxy
 
-    def _new_job(self, connection_id: str, total: int) -> str:
+    def running_jobs(self, connection_id: str) -> dict[str, str]:
+        """The tool runs of this connection still running, as tool → job id: a page opened
+        again (or another browser) follows a run started before."""
+        return {
+            str(j["tool"]): job_id
+            for job_id, j in self.jobs.items()
+            if j.get("connection") == connection_id and j["state"] == "running" and "tool" in j
+        }
+
+    def _new_job(self, connection_id: str, tool: str, total: int) -> str:
         """A tool run, one at a time per connection; finished ones beyond the last 20 go."""
         if any(
             j.get("connection") == connection_id and j["state"] == "running"
@@ -1778,6 +1787,7 @@ class Controller:
         job_id = new_id()
         self.jobs[job_id] = {
             "connection": connection_id,
+            "tool": tool,
             "state": "running",
             "done": 0,
             "total": total,
@@ -1857,7 +1867,7 @@ class Controller:
             raise ValueError("no such connection")
         if c.kind != "serial" or not c.uses_device:
             raise ValueError("only for a serial device of this host")
-        job_id = self._new_job(connection_id, 0)
+        job_id = self._new_job(connection_id, "detect", 0)
         self._spawn(job_id, self._detect(job_id, c))
         return job_id
 
