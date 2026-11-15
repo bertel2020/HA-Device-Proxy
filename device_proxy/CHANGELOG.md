@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.7.0 - 2026-11-15
+
 - **Oberfläche, neuer Look**: Die Bereiche sind Reiter mit Symbol, die Zahl der Probleme steht als Zähler am Reiter „Verbindungen“. Oben neben dem Namen steht nur noch eine Zeile mit dem Zustand und der App-Version, die Version von ser2net steht im Tooltip. Farbschema, hell oder dunkel und Schriftgröße stellst du über das Paletten-Symbol oben rechts von jeder Seite aus um; die Einstellungsseite zeigt nur noch die aktuelle Wahl mit einem Knopf dorthin. Buttons und Felder haben gemeinsame, weniger runde Ecken, Zahlen stehen als Kacheln mit einem kleinen Label darüber. Bei Schriftgröße „Klein“ wird Text nicht kleiner als 10,5 px. Am Handy hebt die untere Leiste den gewählten Bereich hervor. Beim Öffnen stehen Kopfzeile und Reiter sofort da, und solange die Daten laden, zeigen graue Platzhalter die Form der Seite statt „Lädt …“; das gilt auch für das Bearbeiten-Formular.
 - **Oberfläche, Verbindungen**: Die Übersicht zeigt ihre Zahlen als Kacheln. Jede Verbindungskarte zeigt Clients, Datenrate mit Kurve und letzte Daten als Kacheln, darunter höchstens drei Clients; die übrigen findest du über „+N weitere“ auf der Detailseite. Am Handy ist der Hinweis zum fehlenden MQTT-Broker auf eine Zeile mit „Mehr“ eingeklappt.
 - **Oberfläche, Detailseite und Ereignisse**: Datenrate, Modbus-Anfragen, Leitungsfehler, Gateway-Zähler, Funkbelegung und Nachlieferungspuffer stehen als Kacheln, ebenso Abbrüche und Verfügbarkeit unter „Verlauf und Stabilität“. Fließen bei einem seriellen Gerät noch keine Daten, zeigt die Detailseite eine schmale Karte statt zwei halbleerer. Bricht ein Label auf zwei Zeilen um, stehen die Zahlen einer Reihe trotzdem auf einer Höhe.

@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.7.0 - 2026-11-15
+
 - Neuer Panel-Look:
   - `styles.js`: `--radius` (16 px, Karten), `--control-radius` (10 px, Buttons, Felder, `.seg`, `.note`), `--shadow`, Klasse `.label` (Großbuchstaben). Kacheln global: `.counters` und `.stats` ohne `.well`-Box, `.hint` per `order: -1` als Label darüber, Wert 24 px/300 mit `tabular-nums`; `.big` ebenso dünn. Schrift-Untergrenze: alle `calc(11px|12px * var(--fs, 1))` in `panel-src/src` als `max(10.5px, calc(…))`. `.foldnote` (unter 600 px einzeilig mit Knopf „Mehr“). `[tabindex="-1"]:focus` ohne Outline.
   - `app.js`: Navigation als Tabs mit Unterstrich und 16-px-Icons, `.count` als Badge auch auf dem Desktop, unter 960 px eigene Zeile; am Handy untere Leiste mit Pill. Header: `.status`-Zeile statt der Chips (ser2net, Probleme, App), Tooltip mit App- und ser2net-Version, Mitschnitt-Chip bleibt; `.brand` mit `flex: 1 1 0`, `nav` mit `flex: none`. Paletten-Button `#lookbtn` mit Menü (`menuitemradio`, Escape, Scrim), außerhalb des Headers gerendert, weil dessen `backdrop-filter` fixe Boxen einschließt; am Handy als Sheet von unten; öffnet auch auf `dp-look-open`.
