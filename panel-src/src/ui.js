@@ -313,7 +313,7 @@ export function movedNote(c, use) {
   return html`<div class="note warn" role="note" style="display:flex;flex-direction:column;gap:8px" @click=${(e) => e.stopPropagation()}>
     <span>${t(found.length === 1 ? "movedOne" : "movedMany", { d: c.device })}</span>
     ${found.map((d) => html`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere;flex:1;min-width:0">${d.stable}${d.product ? html` <span class="hint">· ${d.product}${d.serial ? ` · ${d.serial}` : ""}</span>` : ""}</span>
+      <span class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere;flex:1;min-width:0">${d.stable}${d.product ? html` <span class="hint">· ${d.product}${d.serial ? ` · ${d.serial}` : ""}</span>` : ""}</span>
       <button class="btn btn-s" @click=${(e) => { e.preventDefault(); use(d); }}>${t("movedUse")}</button></div>`)}
   </div>`;
 }

@@ -27,14 +27,14 @@ export class ImportDialog extends Page {
       background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
     .steps li.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
     .steps li.past { color: var(--accent-hover); }
-    .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: calc(12px * var(--fs, 1)); background: var(--line); color: var(--muted); }
+    .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: max(10.5px, calc(12px * var(--fs, 1))); background: var(--line); color: var(--muted); }
     .on .num, .past .num { background: var(--accent); color: var(--on-accent); }
     .drop { border: 2px dashed var(--input-line); border-radius: 16px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; background: var(--surface-2); }
     .drop.over { border-color: var(--accent); background: var(--accent-soft); }
     .formats p { margin: 6px 0 0; }
     .imp { min-width: 680px; }
     .imp td.nm { min-width: 130px; }
-    .imp td.dev { font-size: calc(12px * var(--fs, 1)); overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
+    .imp td.dev { font-size: max(10.5px, calc(12px * var(--fs, 1))); overflow-wrap: break-word; min-width: 120px; max-width: 200px; }
     .allt { display: none; }
     @media (max-width: 640px) {
       .steps { flex-wrap: nowrap; margin-bottom: 14px; }
@@ -57,9 +57,9 @@ export class ImportDialog extends Page {
     .foot { position: sticky; bottom: 0; z-index: 1; background: var(--surface); border-top: 1px solid var(--line-2); padding: 14px 0 6px; }
     .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: calc(13px * var(--fs, 1)); }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
-    .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .sum b { font-size: calc(24px * var(--fs, 1)); font-weight: 500; color: var(--text, inherit); }
-    td .notes { margin: 6px 0 0; padding-left: 16px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    td .notes { margin: 6px 0 0; padding-left: 16px; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
   `];
 
   constructor() {

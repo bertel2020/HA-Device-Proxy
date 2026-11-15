@@ -24,7 +24,7 @@ export class TracePage extends Page {
     .iconbtn[disabled] { opacity: .4; cursor: not-allowed; }
     .modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .view { max-height: 460px; overflow: auto; padding: 8px 4px; }
-    .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: calc(12px * var(--fs, 1)); color: var(--code-text); }
+    .view table { width: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--code-text); }
     .view td { border: none; padding: 2px 8px; white-space: pre; vertical-align: top; }
     .view td.hex, .view td.asc { white-space: pre; }
     .view td.fit { width: 1%; }
@@ -140,7 +140,7 @@ export class TracePage extends Page {
           </section>
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
-              <span class="hint mono" style="font-size: calc(12px * var(--fs, 1))">${PATH}</span></div>
+              <span class="hint mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${PATH}</span></div>
             <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
             ${files.length ? html`<div class="scroll"><table class="files" style="min-width:640px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
               <tbody>${[...files].sort((a, b) => b.modified - a.modified).map((f) => { const capturing = s.capture && s.capture.file === f.name; return html`<tr><td class="mono fname">${f.name}</td>

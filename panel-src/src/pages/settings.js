@@ -61,13 +61,13 @@ export class SettingsPage extends Page {
     .cl-track { position: relative; height: 16px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
     .cl-track i { position: absolute; top: 0; bottom: 0; min-width: 2px; background: var(--ok); }
     .cl-track i.repeat { background: var(--warn); min-width: 3px; } .cl-track i.refused { background: var(--bad); min-width: 3px; }
-    .cl-axis { display: flex; justify-content: space-between; margin-left: 160px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
-    .cl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .cl-axis { display: flex; justify-content: space-between; margin-left: 160px; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
+    .cl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .cl-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
     .cl-rows { display: flex; flex-direction: column; }
     .cl-r { display: grid; grid-template-columns: 112px 104px minmax(0, 1fr) 112px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-2); font-size: calc(13px * var(--fs, 1)); }
-    .cl-r.th { border: 0; padding: 0 0 5px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
-    .cl-r .chip { min-height: 20px; padding: 0 8px; font-size: calc(12px * var(--fs, 1)); margin-left: 6px; }
+    .cl-r.th { border: 0; padding: 0 0 5px; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
+    .cl-r .chip { min-height: 20px; padding: 0 8px; font-size: max(10.5px, calc(12px * var(--fs, 1))); margin-left: 6px; }
     .cl-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
     @media (max-width: 600px) {
       .cl-more { padding-left: 14px; }
@@ -97,10 +97,10 @@ export class SettingsPage extends Page {
     .act:hover { background: var(--surface-1); }
     .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .act b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: calc(14px * var(--fs, 1)); }
-    .act span { font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .act span { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .act.on { background: var(--accent-soft); border-color: var(--accent); }
     .act.on b { color: var(--accent-hover); }
-    pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: calc(12px * var(--fs, 1)); line-height: 1.6; white-space: pre; }
+    pre.runtime { margin: 0; max-height: 420px; overflow: auto; font-size: max(10.5px, calc(12px * var(--fs, 1))); line-height: 1.6; white-space: pre; }
     details.expert > summary { cursor: pointer; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; }
     details.expert > summary::before { content: "›"; font-size: calc(20px * var(--fs, 1)); line-height: 1; transition: transform .15s; }
     details.expert[open] > summary::before { transform: rotate(90deg); }
@@ -114,7 +114,7 @@ export class SettingsPage extends Page {
     .grp .fld { justify-content: flex-start; }
     .fld .hint { color: var(--muted); }
     .inp:disabled { opacity: .5; cursor: not-allowed; }
-    .day { font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
+    .day { font-size: max(10.5px, calc(12px * var(--fs, 1))); font-weight: 500; color: var(--muted); margin: 14px 0 4px; }
     .day:first-child { margin-top: 0; }
     .hrow { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; border-radius: 8px; }
     .hrow:hover { background: var(--line-2); }
@@ -124,7 +124,7 @@ export class SettingsPage extends Page {
     .hrow .tm { flex: none; width: 44px; font-size: calc(13px * var(--fs, 1)); color: var(--muted); font-variant-numeric: tabular-nums; }
     .hrow .tx { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
     .hbody { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px 69px; align-items: flex-start; }
-    textarea.editor { min-height: 260px; font-size: calc(12px * var(--fs, 1)); line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }
+    textarea.editor { min-height: 260px; font-size: max(10.5px, calc(12px * var(--fs, 1))); line-height: 1.6; background: var(--code-bg); color: var(--code-text); border-color: var(--code-bg); }
   `];
 
   connectedCallback() {
@@ -282,7 +282,7 @@ export class SettingsPage extends Page {
     const used = ids.rows.filter((r) => r.used).length;
     return html`<span class="hint">${t("mqttIdsCount", { n: ids.rows.length })}</span>
       ${used ? html`<span class="hint" style="color:var(--warn)">${t("mqttIdsWarn", { n: used })}</span>` : ""}
-      <div style="max-height:260px;overflow:auto"><table><tbody>${ids.rows.map((r) => html`<tr><td class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${r.old}</td><td class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${r.new}</td>
+      <div style="max-height:260px;overflow:auto"><table><tbody>${ids.rows.map((r) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${r.old}</td><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${r.new}</td>
         <td style="white-space:nowrap">${r.conflict ? html`<span class="chip bad">${t("mqttIdsTaken")}</span>` : r.used ? html`<span class="chip warn">${t("mqttIdsUsed", { n: r.used })}</span>` : ""}</td></tr>`)}</tbody></table></div>
       <div><button class="btn btn-p" @click=${this._applyIds}>${t("mqttIdsApply")}</button></div>`;
   }
@@ -678,7 +678,7 @@ export class SettingsPage extends Page {
           <div><h2 id="t-net">${t("sNet")}</h2><p class="hint" style="margin-top:4px">${t("sNetSub")}</p></div>
           <div class="choices" role="radiogroup" aria-labelledby="t-net" @keydown=${radioKeys}>${["local", "apps", "lan", "all"].map((v) => html`<button type="button" class="choice" role="radio"
             aria-checked=${s.settings.listen === v ? "true" : "false"} tabindex=${radioTab(s.settings.listen === v)} @click=${() => this._changeListen(v)}>
-            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size: calc(12px * var(--fs, 1))">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
+            <b style="font-weight:500">${t(`net_${v}`)}${v === "lan" ? html` <span class="chip" style="min-height:20px;padding:0 8px;font-size: max(10.5px, calc(12px * var(--fs, 1)))">${t("netDefault")}</span>` : ""}</b><span class="hint">${v === "lan" ? lanSub : t(`netsub_${v}`)}</span></button>`)}</div>
           ${s.settings.listen === "lan" ? html`<div class="grp" style="gap:12px">
             <div><h3>${t("lanTitle")}</h3><div class="hint" style="margin-top:2px">${t("lanSub")}</div></div>
             <div class="pills">

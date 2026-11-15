@@ -27,18 +27,20 @@ export class DeviceProxyApp extends LitElement {
     header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
     .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
-    .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; min-height: 60px; min-width: 0; flex: 1 1 auto; }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; min-height: 60px; min-width: 0; flex: 1 1 0; }
+    /* the title gives way first: its chips wrap under the name, so the tabs and the button stay on the row */
+    .brand .name { flex: none; }
     .brand .name { display: flex; flex-direction: column; }
     .brand b { font-size: calc(18px * var(--fs, 1)); display: block; line-height: 1.2; white-space: nowrap; }
     /* the sections as tabs with a line under the chosen one, as in fritzbox-network */
-    nav { display: flex; gap: 4px; align-self: stretch; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    nav { flex: none; display: flex; gap: 4px; align-self: stretch; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
     nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 56px; padding: 0 14px; font-weight: 500; color: var(--muted); text-decoration: none; white-space: nowrap;
       border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; }
     nav a:hover { color: var(--text); }
     nav a[aria-current="page"] { color: var(--accent-hover); border-bottom-color: var(--accent); }
     nav a svg { opacity: .85; }
     nav .count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--warn-soft); color: var(--warn);
-      font-size: calc(11px * var(--fs, 1)); font-weight: 600; line-height: 1; }
+      font-size: max(10.5px, calc(11px * var(--fs, 1))); font-weight: 600; line-height: 1; }
     .end { display: flex; align-items: center; gap: 4px; }
     .iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; }
     .iconbtn:hover, .iconbtn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-hover); }
@@ -66,12 +68,12 @@ export class DeviceProxyApp extends LitElement {
       header { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); }
       .bar, main, .offline { padding-left: 16px; padding-right: 16px; }
       /* the button stays beside the title; the chips wrap under the name instead */
-      .bar { flex-wrap: nowrap; gap: 0 8px; } .brand { flex: 1 1 0; }
+      .bar { flex-wrap: nowrap; gap: 0 8px; }
       main { padding-bottom: calc(var(--nav-b) + 32px); }
       nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; gap: 2px; padding: 4px 4px max(4px, env(safe-area-inset-bottom, 0px)); overflow: visible;
         order: 0; background: var(--surface); border-top: 1px solid var(--line); }
       nav a { position: relative; flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; min-height: 52px; height: 52px; padding: 4px 2px;
-        border-radius: 14px; border-bottom: none; margin-bottom: 0; font-size: calc(11px * var(--fs, 1)); }
+        border-radius: 14px; border-bottom: none; margin-bottom: 0; font-size: max(10.5px, calc(11px * var(--fs, 1))); }
       nav a span.nl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
       nav a[aria-current="page"] { background: var(--accent-soft); }
       nav a svg { width: 22px; height: 22px; opacity: 1; }
