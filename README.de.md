@@ -103,7 +103,7 @@ mypy
 python -m pytest
 ```
 
-Die Weboberfläche wird aus `panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf einem Desktop mit Beispielverbindungen und spielt mit `--replay datei.json` einen Testfall ab, der aus den Live-Daten einer Verbindung heruntergeladen wurde. `tools/screenshots.mjs` erzeugt die Screenshots oben, `tools/render_images.py` zeichnet `icon.png` und `logo.png`. `tools/soak_test.py` (Modbus) und `tools/soak_enocean.py` (EnOcean mit Ersatz-Gateway) lassen die Proxys minutenlang unter Last und Fehlern laufen und prüfen feste Grenzwerte; [tests/HARDWARE.md](tests/HARDWARE.md) listet die Prüfungen, die echte Geräte brauchen.
+Die Weboberfläche wird aus `panel-src/` gebaut (dort `npm ci && node build.mjs`); `tools/dev_server.py` startet sie auf einem Desktop mit Beispielverbindungen und spielt mit `--replay datei.json` einen Testfall ab, der aus den Live-Daten einer Verbindung heruntergeladen wurde. `tools/screenshots.mjs` erzeugt die Screenshots oben, `tools/render_images.py` zeichnet `icon.png` und `logo.png`, `tools/social-preview.html` das GitHub-Vorschaubild `screenshots/social-preview.png` (Befehl zum Rendern steht oben in der Datei). `tools/soak_test.py` (Modbus) und `tools/soak_enocean.py` (EnOcean mit Ersatz-Gateway) lassen die Proxys minutenlang unter Last und Fehlern laufen und prüfen feste Grenzwerte; [tests/HARDWARE.md](tests/HARDWARE.md) listet die Prüfungen, die echte Geräte brauchen.
 
 ### Übersetzungen
 

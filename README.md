@@ -103,7 +103,7 @@ mypy
 python -m pytest
 ```
 
-The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/screenshots.mjs` renders the screenshots above, `tools/render_images.py` draws `icon.png` and `logo.png`. `tools/soak_test.py` (Modbus) and `tools/soak_enocean.py` (EnOcean with a fallback) run the proxies for minutes under load and faults and check fixed limits; [tests/HARDWARE.md](tests/HARDWARE.md) lists the checks that need real devices.
+The web interface is built from `panel-src/` (`npm ci && node build.mjs` there); `tools/dev_server.py` runs it on a desktop with example connections, and with `--replay file.json` plays back a test case downloaded from a connection's live data. `tools/screenshots.mjs` renders the screenshots above, `tools/render_images.py` draws `icon.png` and `logo.png`, `tools/social-preview.html` the GitHub social preview `screenshots/social-preview.png` (render command at its top). `tools/soak_test.py` (Modbus) and `tools/soak_enocean.py` (EnOcean with a fallback) run the proxies for minutes under load and faults and check fixed limits; [tests/HARDWARE.md](tests/HARDWARE.md) lists the checks that need real devices.
 
 ### Translations
 
