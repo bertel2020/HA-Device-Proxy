@@ -6,6 +6,7 @@ import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo
 
 const KINDS = ["serial", "modbus", "enocean"];
 const FILTER_KEY = "device_proxy.filter";
+const CLIENTS_SHOWN = 3; // more go to the detail page
 
 /** Who may connect, in one short phrase: the network setting with its networks. */
 function reach(s) {
@@ -45,21 +46,19 @@ export class ConnectionsPage extends Page {
     .dev { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .meter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .slots { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-    .bar { display: block; width: 72px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-    .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
-    .bar.full i { background: var(--warn); }
-    .rate { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    /* clients, data and last data as tiles; the curve under the rate */
+    .figs { border-top: 1px solid var(--line-2); padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .figs .tile b { font-size: calc(22px * var(--fs, 1)); }
+    .figs .tile b small { font-size: calc(13px * var(--fs, 1)); color: var(--muted); font-weight: 400; letter-spacing: 0; }
+    .figs .tile b.when { font-size: calc(16px * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.7; }
+    .figs .tile b.none { color: var(--muted); }
+    .figs .tile svg { margin-top: 4px; max-width: 100%; }
     .client { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
     .tech { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
     .iconbtn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; color: var(--muted); }
     .iconbtn:hover { background: var(--line); color: var(--text); }
     .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
-    .last { display: flex; align-items: center; gap: 8px; font-size: calc(13px * var(--fs, 1)); color: var(--muted); min-width: 0; }
-    .last .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
-    .last.warn .dot { background: var(--warn); }
     .empty { text-align: center; padding: 48px 20px; align-items: center; }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
     .filters button { min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface);
@@ -88,13 +87,6 @@ export class ConnectionsPage extends Page {
     } finally {
       this.busy = "";
     }
-  }
-
-  /** Whether data still arrives: the one thing the overview is looked at for once a connection is set up. */
-  _last(c, stateClass) {
-    if (stateClass !== "ok") return html`<span></span>`; // otherwise the state chip says what is wrong
-    const quiet = c.last_data && c.silence_minutes && Date.now() / 1000 - c.last_data >= c.silence_minutes * 60;
-    return html`<span class="last ${quiet ? "warn" : ""}"><span class="dot"></span>${c.last_data ? t("lastDataAgo", { ago: fmtAgo(c.last_data) }) : t("noDataYet")}</span>`;
   }
 
   async _useMoved(c, d) {
@@ -127,6 +119,8 @@ export class ConnectionsPage extends Page {
     if (c.latency === "set" || c.latency === "already") chips.push("FTDI 1 ms");
     const tech = [t(`kind_${c.kind}`), ...chips].join(" · ");
     const stuck = c.clients.filter((cl) => cl.stuck);
+    const live = c.enabled && (c.present || proxied);
+    const quiet = c.last_data && c.silence_minutes && Date.now() / 1000 - c.last_data >= c.silence_minutes * 60;
     const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) }) : "";
     const hasChips = fallbackOf || fallback || recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
     return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""}" aria-label=${c.name} data-go
@@ -151,20 +145,21 @@ export class ConnectionsPage extends Page {
         ${modbus && m.failed ? html`<span class="chip warn">${t("mbFailedN", { n: m.failed })}</span>` : ""}
         ${stuck.map((cl) => html`<span class="chip bad">${t("stuck", { a: cl.address })}</span>`)}
       </div>` : ""}
-      <div class="clients">
-        <div class="meter">
-          <div class="slots"><span class="hint" style="font-weight:500">${tn("clientsLine", c.max_clients, { n: c.clients.length, m: c.max_clients })}</span>
-            <span class="bar ${c.clients.length >= c.max_clients ? "full" : ""}" aria-hidden="true"><i style="width:${Math.min(100, (c.clients.length / (c.max_clients || 1)) * 100)}%"></i></span></div>
-          ${c.enabled && (c.present || proxied) ? html`<div class="rate">${sparkline(rateHistory(c.id), { label: t("dataFromDevice") })}<span class="hint" style="font-weight:500">${fmtRate(c.rate_from_device)}</span></div>` : ""}
-        </div>
-        ${c.clients.map((cl) => html`<div class="client"><span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
-          <span class="hint">${cl.since ? t("since", { t: fmtSince(cl.since) }) : ""}</span></div>`)}
-        ${c.clients.length ? "" : off ? html`<div class="why">${t("disabledText")}</div>`
-          : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
-          : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
+      <div class="figs">
+        <div class="tile"><span class="label">${t("tileClients")}</span><b>${c.clients.length}<small> / ${c.max_clients}</small></b></div>
+        <div class="tile"><span class="label">${t("tileData")}</span>${live
+          ? html`<b>${fmtRate(c.rate_from_device)}</b>${sparkline(rateHistory(c.id), { w: 120, h: 22, label: t("dataFromDevice") })}` : html`<b class="none">–</b>`}</div>
+        <div class="tile ${stateClass === "ok" ? quiet ? "warn" : c.last_data ? "ok" : "" : ""}"><span class="label">${t("tileLast")}</span><b class="when">${c.last_data ? fmtAgo(c.last_data) : t("never")}</b></div>
       </div>
+      ${c.clients.length ? html`<div class="clients">
+        ${c.clients.slice(0, CLIENTS_SHOWN).map((cl) => html`<div class="client"><span><span class="mono" style="font-size: calc(13px * var(--fs, 1))">${cl.address}</span>${clientName(cl.address) ? html` <b style="font-family:inherit;font-weight:500">${clientName(cl.address)}</b>` : ""}</span>
+          <span class="hint">${cl.since ? t("since", { t: fmtSince(cl.since) }) : ""}</span></div>`)}
+        ${c.clients.length > CLIENTS_SHOWN ? html`<a class="hint" href="#/connection/${c.id}">${t("moreClients", { n: c.clients.length - CLIENTS_SHOWN })}</a>` : ""}
+      </div>` : off ? html`<div class="why">${t("disabledText")}</div>`
+        : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
+        : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       <div class="foot">
-        ${this._last(c, stateClass)}
+        <span></span>
         <div style="display:flex;gap:4px;align-items:center"><a class="btn btn-s" href="#/connection/${c.id}">${t("details")}</a>
           <a class="iconbtn" href="#/edit/${c.id}" aria-label=${t("edit")} title=${t("edit")}>${icon("pencil", 18)}</a></div>
       </div>

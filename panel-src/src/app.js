@@ -30,6 +30,10 @@ export class DeviceProxyApp extends LitElement {
     .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; min-height: 60px; min-width: 0; flex: 1 1 0; }
     /* the title gives way first: its chips wrap under the name, so the tabs and the button stay on the row */
     .brand .name { flex: none; }
+    /* one line under the name: what runs, and the version; ser2net's version in the tooltip. The problems count stands at the tab. */
+    .status { display: flex; align-items: center; gap: 6px; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; }
+    .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
+    .status .ver { color: var(--muted); }
     .brand .name { display: flex; flex-direction: column; }
     .brand b { font-size: calc(18px * var(--fs, 1)); display: block; line-height: 1.2; white-space: nowrap; }
     /* the sections as tabs with a line under the chosen one, as in fritzbox-network */
@@ -256,11 +260,9 @@ export class DeviceProxyApp extends LitElement {
     return html`
       <header><div class="bar">
         <div class="brand">${logo()}<div class="name"><b>${t("appTitle")}</b>
-          <span class="hint">${s ? `App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}` : ""}</span></div>
-          ${s && serial ? html`<span class="chip ${running ? "ok" : "bad"}"><span class="dot"></span>${t(running ? "running" : "notRunning")}</span>` : ""}
+          ${s ? html`<span class="status ${serial && !running ? "bad" : "ok"}" title=${`App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}`}><span
+            class="dot"></span>${t(serial ? (running ? "running" : "notRunning") : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : ""}</div>
           ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
-          ${s && problems ? (page === "connections" ? "" : html`<a class="chip warn" href="#/connections" style="text-decoration:none"><span class="dot"></span>${t("problems", { n: problems })}</a>`)
-            : s && !serial ? html`<span class="chip ok"><span class="dot"></span>${t("appRunning")}</span>` : ""}
         </div>
 
         <nav aria-label=${t("navMain")}>
