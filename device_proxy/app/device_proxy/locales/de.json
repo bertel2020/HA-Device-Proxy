@@ -444,6 +444,7 @@
     "savedReconnect": " Clients neu verbunden: {n}.",
     "deleteConfirm": "Verbindung „{n}“ löschen? Ihre Clients werden getrennt.",
     "errorsBelow": "Bitte die markierten Felder prüfen.",
+    "errorsTitle": "Noch zu korrigieren",
     "importTitle": "Verbindungen importieren",
     "stepChoose": "Datei wählen",
     "stepPreview": "Vorschau prüfen",

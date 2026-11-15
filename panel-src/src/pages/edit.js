@@ -71,6 +71,9 @@ export class EditPage extends Page {
     .grid2 > .fld > .lbl { align-self: end; }
     .fx { display: flex; flex-direction: column; gap: 4px; }
     .fx:empty { display: none; }
+    .errlist ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+    .tofield { all: unset; cursor: pointer; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+    .tofield:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; margin-top: 6px; }
     .grp h3 { margin: 0; font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
     .grp p { margin: 0; }
@@ -256,6 +259,13 @@ export class EditPage extends Page {
   }
 
   updated() {
+    // an error in a field of the folded advanced part: the part opens, so the field and its label are on the page
+    // (once for each set of errors: closed again by hand, it stays closed)
+    const keys = Object.keys(this._shown()).join();
+    if (keys !== this._openedFor) {
+      this._openedFor = keys;
+      if (!this.advanced && Object.keys(this._shown()).some((k) => !this.renderRoot.querySelector(`#e-${k}`))) this.advanced = true;
+    }
     if (!this._jump) return;
     const target = this.renderRoot.getElementById("fallback");
     if (!target) return;
@@ -299,6 +309,11 @@ export class EditPage extends Page {
     } catch (err) {
       this.errors = fieldErrors(err.data.errors);
       this.toast(err.data.errors ? t("errorsBelow") : `${t("error")}: ${err.message}`);
+      if (err.data.errors) {  // to the first field with an error, in the order of the page
+        await this.updateComplete;
+        const first = this.renderRoot.querySelector(".err[id^='e-']")?.id.slice(2) || Object.keys(this._shown())[0];
+        if (first) this._toField(first);
+      }
     } finally {
       this.saving = false;
     }
@@ -314,6 +329,29 @@ export class EditPage extends Page {
       this.discard(); // deleted: the unsaved changes went with it, leaving asks nothing
       navigate("#/connections");
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
+  }
+
+  /** The errors of the form in one list: each with its field's label (from the field on the page), a click goes to the field. */
+  _errorList() {
+    const shown = Object.entries(this._shown());
+    if (!shown.length) return "";
+    const label = (k) => {
+      const at = this.renderRoot?.querySelector(`#e-${k}`);
+      const box = at?.closest(".fld") || at?.parentElement;
+      return box?.querySelector(".lbl, legend")?.textContent.trim() || k;
+    };
+    return html`<div class="note bad errlist"><b>${t("errorsTitle")}</b><ul>${shown.map(([k, v]) => html`<li><button type="button" class="tofield"
+      @click=${() => this._toField(k)}>${label(k)}</button>: ${fieldError(v)}</li>`)}</ul></div>`;
+  }
+
+  /** To a field with an error: opens the advanced part when the field is in it, scrolls to it and focuses it. */
+  async _toField(key) {
+    let at = this.renderRoot.querySelector(`#e-${key}`);
+    if (!at && !this.advanced) { this.advanced = true; await this.updateComplete; at = this.renderRoot.querySelector(`#e-${key}`); }
+    const box = at?.closest(".fld") || at?.parentElement;
+    if (!box) return;
+    box.scrollIntoView({ block: "center" });
+    box.querySelector("input, select, textarea, button")?.focus({ preventScroll: true });
   }
 
   _shown() { return Object.fromEntries(Object.entries(this.errors).filter(([k]) => this.touched.has(k))); }
@@ -659,7 +697,7 @@ export class EditPage extends Page {
       </ol>
       ${d.bind && d.bind.startsWith("127.") ? html`<div class="note info">${this._follows(d)}</div>`
         : html`<div class="note ${d.remaddr && d.remaddr !== HA_ONLY ? "warn" : "info"}">${!d.remaddr ? this._follows(d) : d.remaddr === HA_ONLY ? t("eoHaOnlyNote") : t("eoLanNote", { a: d.remaddr })}</div>`}
-      ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+      ${this._errorList()}
     </section>`;
   }
 
@@ -674,7 +712,7 @@ export class EditPage extends Page {
         <li><b>${t(`link_${d.link}`)}</b><span class="hint mono" style="overflow-wrap:anywhere">${target}</span></li>
       </ol>
       ${this._follows(d) ? html`<div class="note info">${this._follows(d)}</div>` : ""}
-      ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+      ${this._errorList()}
     </section>`;
   }
 
@@ -799,7 +837,7 @@ export class EditPage extends Page {
           <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
             <button type="button" class="btn btn-g arrow" aria-expanded=${this.yamlOpen ? "true" : "false"} @click=${() => { this.yamlOpen = !this.yamlOpen; }}>${this.yamlOpen ? t("closeA") : t("open")}</button></div>
           ${this.yamlOpen ? html`<div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>` : ""}
-          ${Object.keys(this._shown()).length ? html`<div class="note bad">${Object.entries(this._shown()).map(([k, v]) => html`<div><span class="mono">${k}</span>: ${fieldError(v)}</div>`)}</div>` : ""}
+          ${this._errorList()}
         </section>`}
 
         <div class="actions">
