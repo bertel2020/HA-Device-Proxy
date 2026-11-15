@@ -714,6 +714,8 @@
     "size_normal": "Normal",
     "size_large": "Large",
     "lookTitle": "Appearance",
+    "noteMore": "More",
+    "lookHint": "Change it with the palette icon at the top right, on every page. Applies to this browser only.",
     "helpTitle": "Help with problems",
     "helpText": "Have a problem? Download the diagnostics package and attach it to a bug report.",
     "reportIssue": "Report a bug",

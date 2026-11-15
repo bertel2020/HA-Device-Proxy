@@ -59,6 +59,16 @@ export const base = css`
   .note.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }
   .note.ok { background: var(--ok-soft); color: var(--ok); }
   .note.info { background: var(--accent-soft); color: var(--accent-hover); }
+  /* a long note folds to one line on a phone: the start of the text and "More"; open, the whole text and its buttons */
+  .foldnote .more { display: none; }
+  @media (max-width: 600px) {
+    .foldnote { flex-wrap: nowrap !important; }
+    .foldnote.open { flex-wrap: wrap !important; }
+    .foldnote:not(.open) .txt { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .foldnote .more { display: inline-flex; min-height: 32px; flex: none; }
+    .foldnote:not(.open) .acts { display: none !important; }
+    .foldnote.open .more { display: none; }
+  }
   .code { background: var(--code-bg); color: var(--code-text); border-radius: 12px; padding: 14px 16px; font-size: max(10.5px, calc(12px * var(--fs, 1)));
     line-height: 1.7; white-space: pre; overflow-x: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; }
   .well { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }

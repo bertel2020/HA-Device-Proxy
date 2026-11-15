@@ -145,6 +145,7 @@ export class DeviceProxyApp extends LitElement {
     this.addEventListener("dp-toast", (e) => this.showToast(e.detail));
     this.addEventListener("dp-import-open", () => { this.importOpen = true; });
     this.addEventListener("dp-import-close", () => { this.importOpen = false; });
+    this.addEventListener("dp-look-open", () => { this.lookOpen = true; });
     this.addEventListener("dp-lang", (e) => { setLang(e.detail); document.documentElement.lang = e.detail; this.requestUpdate(); this._relayLang(); });
     document.documentElement.lang = lang;
     this._loadHistory();

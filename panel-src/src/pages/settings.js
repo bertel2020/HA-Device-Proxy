@@ -3,7 +3,7 @@ import { repeat } from "lit/directives/repeat.js";
 import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { LANGUAGES, changesText, fieldError, lang, noteText, t, tn } from "../i18n.js";
-import { look, MODES, SCHEMES, setLook, SIZES } from "../theme.js";
+import { look } from "../theme.js";
 import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, wholeNumber, withEffects } from "../ui.js";
 
 const REPEATS = 3; // from this many connections in a row a client counts as coming back all the time
@@ -917,11 +917,10 @@ export class SettingsPage extends Page {
               <span><select class="inp" style="max-width:200px" aria-label=${t("language")} @change=${(e) => this.dispatchEvent(new CustomEvent("dp-lang", { detail: e.target.value, bubbles: true, composed: true }))}>
                 ${LANGUAGES.map(([code, name]) => html`<option value=${code} .selected=${lang === code}>${name}</option>`)}</select>
                 <span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span></span>
-              ${[["lookScheme", "scheme", SCHEMES], ["lookMode", "mode", MODES], ["lookSize", "size", Object.keys(SIZES)]].map(([label, key, values]) => html`
-                <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t(label)}</span>
-                <span><span class="seg" role="group" aria-label=${t(label)}>${values.map((v) => html`<button aria-pressed=${look()[key] === v}
-                  @click=${() => { setLook({ [key]: v }); this.requestUpdate(); }}>${t(`${key}_${v}`)}</button>`)}</span>
-                  ${key === "size" ? html`<span class="hint" style="display:block;margin-top:4px">${t("langHint")}</span>` : ""}</span>`)}
+              <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("lookTitle")}</span>
+              <span><span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px">${[`scheme_${look().scheme}`, `mode_${look().mode}`, `size_${look().size}`].map((k) => t(k)).join(" · ")}
+                <button class="btn btn-g" style="min-height:32px" @click=${() => this.dispatchEvent(new CustomEvent("dp-look-open", { bubbles: true, composed: true }))}>${icon("palette", 16)}${t("changeBtn")}</button></span>
+                <span class="hint" style="display:block;margin-top:4px">${t("lookHint")}</span></span>
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">ser2net</span><span>${s.ser2net_version || "?"} · GPL-2.0</span>
               <span class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("source")}</span><a href="https://github.com/bertel2020/HA-Device-Proxy" target="_blank" rel="noopener" style="overflow-wrap:anywhere">github.com/bertel2020/HA-Device-Proxy</a>
             </div>
