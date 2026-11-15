@@ -27,7 +27,7 @@ export class ConnectionsPage extends Page {
     .tile b { font-size: calc(26px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tile b.txt { font-size: calc(18px * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.35; padding: 3px 0; white-space: normal; }
-    .tile small { font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .tile small { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .tile.warn b { color: var(--warn); } .tile.ok b { color: var(--ok); }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
@@ -42,7 +42,7 @@ export class ConnectionsPage extends Page {
     .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .title h2 { font-size: calc(18px * var(--fs, 1)); }
-    .dev { font-size: calc(12px * var(--fs, 1)); color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
+    .dev { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); overflow-wrap: anywhere; margin-top: 6px; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     .meter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

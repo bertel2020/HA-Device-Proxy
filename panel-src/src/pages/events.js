@@ -22,13 +22,14 @@ export class EventsPage extends Page {
     .lv[aria-pressed="true"].warning { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
     .lv[aria-pressed="true"].error { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
     .log { max-height: max(320px, calc(100vh - 330px)); overflow: auto; }
-    .dayrow { padding: 6px 16px; font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
+    .dayrow { padding: 6px 16px; font-size: max(10.5px, calc(12px * var(--fs, 1))); font-weight: 500; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line-2); position: sticky; top: 0; }
     .lv { display: inline-flex; align-items: center; gap: 6px; }
     .name { font-weight: 500; color: inherit; text-decoration: none; }
     a.name:hover { text-decoration: underline; }
     .line { display: grid; grid-template-columns: 130px 78px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 8px 16px; border-bottom: 1px solid var(--line-2); }
     @media (max-width: 600px) { .line { grid-template-columns: auto auto; } .line > :last-child { grid-column: 1 / -1; } }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .statcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .fig { font-size: calc(24px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
     .bars { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
     .bars span { flex: 1; min-width: 2px; border-radius: 2px; background: var(--line); }
   `];
@@ -105,22 +106,22 @@ export class EventsPage extends Page {
   _historyView() {
     if (!this.stats || !this.history) {
       const shown = this.state.connections.filter((c) => !this.conn || c.id === this.conn);
-      return html`<div class="stats" aria-busy="true">${shown.map((c, i) => html`<section class="card" aria-label=${c.name} style="min-height:150px"><b style="font-weight:500">${c.name}</b>${i ? "" : html`<span class="hint">${t("loading")}</span>`}</section>`)}</div>`;
+      return html`<div class="statcards" aria-busy="true">${shown.map((c, i) => html`<section class="card" aria-label=${c.name} style="min-height:150px"><b style="font-weight:500">${c.name}</b>${i ? "" : html`<span class="hint">${t("loading")}</span>`}</section>`)}</div>`;
     }
     const days = this.stats.days;
     const conns = this.state.connections.filter((c) => !this.conn || c.id === this.conn);
     const all = this._filtered(this.history).sort((a, b) => b.ts - a.ts);
     return html`
-      <div class="stats">${conns.map((c) => {
+      <div class="statcards">${conns.map((c) => {
         const st = this.stats.connections[c.id] || { drops: 0, availability: 1, per_day: Array(days).fill(0) };
         const max = Math.max(...st.per_day, 1);
         return html`<section class="card" aria-label=${c.name} style="gap:10px">
           <div class="row" style="flex-wrap:nowrap"><b style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${c.name}>${c.name}</b><span class="chip ${st.drops ? "warn" : "ok"}" style="flex:none">${st.drops ? t("unstable", { n: st.drops }) : t("stable")}</span></div>
           <div style="display:flex;gap:20px">
-            <div><div class="hint">${tn("drops", days, { d: days })}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${st.drops}</div></div>
-            <div><div class="hint">${t("availability")}</div><div style="font-size: calc(22px * var(--fs, 1));font-weight:500">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
+            <div><div class="label">${tn("drops", days, { d: days })}</div><div class="fig">${st.drops}</div></div>
+            <div><div class="label">${t("availability")}</div><div class="fig">${(st.availability * 100).toLocaleString(lang, { maximumFractionDigits: 2 })} %</div></div></div>
           <div class="bars" role="img" aria-label="${tn("drops", days, { d: days })}: ${st.drops}">${st.per_day.map((v, i) => html`<span title="${this._dayLabel(Date.now() / 1000 - (days - 1 - i) * 86400)}: ${v ? t("unstable", { n: v }) : t("stable")}" style="height:${v ? 20 + (v / max) * 80 : 8}%;${v ? "background:var(--warn)" : ""}"></span>`)}</div>
-          <div class="row hint" style="font-size: calc(12px * var(--fs, 1))"><span>${tn("daysAgo", days, { d: days })}</span><span>${t("today")}</span></div>
+          <div class="row hint" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))"><span>${tn("daysAgo", days, { d: days })}</span><span>${t("today")}</span></div>
         </section>`;
       })}</div>
       <section class="card" style="padding:0;gap:0;overflow:hidden" aria-labelledby="t-tl">

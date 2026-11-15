@@ -12,6 +12,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 ## Unreleased
 
 - Panel im Look von HA-fritzbox_network: `styles.js` mit `--radius` (16 px, Karten), `--control-radius` (10 px, Buttons/Felder/`.seg`/`.note`), `--shadow`, Klasse `.label` (Großbuchstaben); `.big` und `.stats b` dünner mit `tabular-nums`. `app.js`: Navigation als Tabs mit Unterstrich und 16-px-Icons, `.count` als Badge auch auf dem Desktop, ab 960 px eigene Zeile; Paletten-Button `#lookbtn` mit Menü (`menuitemradio`, Escape, Scrim) außerhalb des Headers gerendert, weil dessen `backdrop-filter` fixe Boxen einschließt; am Handy als Sheet von unten, untere Leiste mit Pill statt Strich. `connections.js`: `.band` als Karte mit `.tile`s. Neue Texte `lookTitle`, `tileState`, `tileClients` (de/en). Ecken in `events.js` (`.tabs`, `.lv`) an `--control-radius` angepasst.
+- Schrift-Untergrenze: alle `calc(11px|12px * var(--fs, 1))` in `panel-src/src` als `max(10.5px, calc(…))`. Kacheln: `.counters` und `.stats` global in `styles.js` (ohne `.well`-Box, `.hint` per `order: -1` als Label in Großbuchstaben darüber, Wert 24 px/300, `tabular-nums`); die eigene `.counters`-Regel in `detail.js` entfällt. Rate-Karte und Modbus-Karte nutzen `.big`. `events.js`: Kartenraster `.stats` heißt jetzt `.statcards` (sonst griffe die globale `.stats b` auf die Namen), Zahlen als `.label` + `.fig`. Header: `.brand` mit `flex: 1 1 0`, `nav` mit `flex: none`, damit die Chips umbrechen statt `.end` in eine eigene Zeile zu schieben.
 
 ## 1.6.2 - 2026-11-14
 

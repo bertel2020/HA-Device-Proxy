@@ -326,7 +326,7 @@ export class EnOceanSenders extends LitElement {
       ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
-            <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: calc(12px * var(--fs, 1))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
+            <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: max(10.5px, calc(12px * var(--fs, 1)))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
           <td>${this.names ? html`<input class="inp" style="min-width:140px" maxlength="40" aria-label=${t("eoSendersName")} .value=${this.names[r.id] ?? r.name ?? ""} @input=${(e) => { this.names = { ...this.names, [r.id]: e.target.value }; }}>` : r.name || ""}</td>
           <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString(lang)}</td><td>${fmtAgo(r.last)}</td>
@@ -456,8 +456,8 @@ export class EnOceanTools extends LitElement {
       ${check.level !== "empty" ? html`<div class="row"><span class="hint" style="color:${check.level === "ok" ? "var(--ok)" : "var(--bad)"}">${check.msg}</span>
         ${check.fix ? html`<button class="btn btn-g" @click=${() => { this.text = toHex(check.fix); }}>${check.fixLabel}</button>` : ""}</div>` : ""}
       <div><button class="btn btn-s" ?disabled=${!!blocked || check.level !== "ok" || this.busy === "send"} @click=${this._send}>${t("eoSend")}</button></div>
-      ${this.answers.map((a) => html`<div class="well"><div class="hint">${fmtTime(a.ts, false, true)} · ${t("eoSent")}</div><div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.sent}</div>
-        <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size: calc(12px * var(--fs, 1));overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
+      ${this.answers.map((a) => html`<div class="well"><div class="hint">${fmtTime(a.ts, false, true)} · ${t("eoSent")}</div><div class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${a.sent}</div>
+        <div class="hint">${a.answer ? t("eoAnswer") : t("eoNoAnswer")}</div>${a.answer ? html`<div class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${a.answer}</div>` : ""}</div>`)}
 
       <div style="border-top:1px solid var(--line-2);padding-top:12px"><b style="font-weight:500">${t("eoCapture")}</b><p class="hint">${t("eoCaptureSub")}</p></div>
       ${mine ? html`<div class="note info" role="status">${tn("eoCaptureRunning", cap.frames, { f: cap.file, n: cap.frames, since: fmtSince(cap.started) })}${cap.exclusive_peer ? html`<br>${t("eoCaptureLock", { peer: cap.exclusive_peer })}` : ""}</div>

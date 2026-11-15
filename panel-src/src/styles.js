@@ -1,6 +1,7 @@
 import { css } from "lit";
 
 // One look for all pages; the colours and --fs (text size) come from <html>, see theme.js.
+// Text below 12 px (12 px and 11 px at "small" text size) stops at 10.5 px, as in fritzbox-network: max(10.5px, calc(…)).
 export const tokens = css`
   :host {
     --header-h: 68px;
@@ -25,7 +26,7 @@ export const base = css`
     box-shadow: var(--shadow); }
   .card > .row:first-child { min-height: 32px; }
   /* the small label above a value or a group, as in fritzbox-network */
-  .label { font-size: calc(11px * var(--fs, 1)); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .label { font-size: max(10.5px, calc(11px * var(--fs, 1))); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   details.fold > summary { cursor: pointer; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; list-style: none; }
   details.fold > summary::-webkit-details-marker { display: none; }
   details.fold > summary::before { content: "›"; font-size: calc(20px * var(--fs, 1)); line-height: 1; transition: transform .15s; }
@@ -49,7 +50,7 @@ export const base = css`
   .btn-s:not(:hover) { color: var(--text); }
   .btn-d:hover { background: var(--bad-soft); }
   .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 11px; border-radius: 13px;
-    background: var(--neutral-soft); color: var(--neutral); font-size: calc(12px * var(--fs, 1)); font-weight: 500; white-space: nowrap; }
+    background: var(--neutral-soft); color: var(--neutral); font-size: max(10.5px, calc(12px * var(--fs, 1))); font-weight: 500; white-space: nowrap; }
   .chip.ok { background: var(--ok-soft); color: var(--ok); } .chip.warn { background: var(--warn-soft); color: var(--warn); }
   .chip.bad { background: var(--bad-soft); color: var(--bad); } .chip.info { background: var(--accent-soft); color: var(--accent-hover); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
@@ -58,7 +59,7 @@ export const base = css`
   .note.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }
   .note.ok { background: var(--ok-soft); color: var(--ok); }
   .note.info { background: var(--accent-soft); color: var(--accent-hover); }
-  .code { background: var(--code-bg); color: var(--code-text); border-radius: 12px; padding: 14px 16px; font-size: calc(12px * var(--fs, 1));
+  .code { background: var(--code-bg); color: var(--code-text); border-radius: 12px; padding: 14px 16px; font-size: max(10.5px, calc(12px * var(--fs, 1)));
     line-height: 1.7; white-space: pre; overflow-x: auto; font-family: "Roboto Mono", ui-monospace, Menlo, monospace; }
   .well { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
   .fld { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; min-width: 0; }
@@ -98,9 +99,13 @@ export const base = css`
   .track .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--level); transition: width .4s ease; }
   .track .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .35; }
   .scale { display: flex; justify-content: space-between; font-size: calc(13px * var(--fs, 1)); color: var(--muted); margin-top: 6px; }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .stats .well { display: flex; flex-direction: column; gap: 2px; }
-  .stats b { font-size: calc(20px * var(--fs, 1)); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+  /* figures as tiles, as in fritzbox-network: the label small and in capitals above, the value light below; no boxes */
+  .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 14px 20px; }
+  :is(.stats, .counters) .well { display: flex; flex-direction: column; gap: 2px; min-width: 0; background: none; padding: 0; border-radius: 0; }
+  :is(.stats, .counters) .well .hint { order: -1; font-size: max(10.5px, calc(11px * var(--fs, 1))); font-weight: 500; text-transform: uppercase; letter-spacing: .06em;
+    overflow-wrap: anywhere; hyphens: auto; }
+  :is(.stats, .counters) b { font-size: calc(24px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
   .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
   .switch[aria-checked="true"] { background: var(--accent); }
