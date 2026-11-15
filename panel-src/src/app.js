@@ -5,7 +5,7 @@ import { api } from "./api.js";
 import { lang, setClientNames, setLang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
 import { applyTheme, look, MODES, SCHEMES, setLook, SIZES } from "./theme.js";
-import { confirmDialog, connectionState, focused, icon, logo, recordRates, trapTab } from "./ui.js";
+import { confirmDialog, connectionState, focused, icon, logo, recordRates, sk, skeleton, trapTab } from "./ui.js";
 
 const POLL_MS = 2000;
 const POLL_TIMEOUT_MS = 10000;
@@ -237,7 +237,11 @@ export class DeviceProxyApp extends LitElement {
   _page() {
     const { page, id } = this.route;
     const s = this.state, ev = this.events;
-    if (!s) return html`<p class="hint">${t("loading")}</p>`;
+    if (!s) {  // the first state is on its way: the page's shape, with the title where it needs no data
+      const titles = { connections: "connectionsTitle", events: "eventsTitle", trace: "traceTitle", settings: "settingsTitle" };
+      const key = ["connection", "edit", "events", "trace", "settings"].includes(page) ? page : "connections";
+      return skeleton(key, titles[key] ? t(titles[key]) : "");
+    }
     switch (page) {
       case "connection": return html`<dp-detail .state=${s} .events=${ev} .connectionId=${id}></dp-detail>`;
       case "edit": return html`<dp-edit .state=${s} .connectionId=${id}></dp-edit>`;
@@ -262,7 +266,7 @@ export class DeviceProxyApp extends LitElement {
       <header><div class="bar">
         <div class="brand">${logo()}<div class="name"><b>${t("appTitle")}</b>
           ${s ? html`<span class="status ${serial && !running ? "bad" : "ok"}" title=${`App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}`}><span
-            class="dot"></span>${t(serial ? (running ? "running" : "notRunning") : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : ""}</div>
+            class="dot"></span>${t(serial ? (running ? "running" : "notRunning") : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : html`<span style="margin-top:5px">${sk("130px", 9)}</span>`}</div>
           ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
         </div>
 

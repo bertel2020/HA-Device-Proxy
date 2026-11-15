@@ -6,7 +6,7 @@ import { fieldError, retriesText, t, tn } from "../i18n.js";
 import { PROFILES } from "../modbus.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
-import { confirmDialog, effectsText, icon, navigate, proxyTarget, toggle, wholeNumber } from "../ui.js";
+import { confirmDialog, effectsText, icon, navigate, proxyTarget, skeleton, toggle, wholeNumber } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -688,7 +688,7 @@ export class EditPage extends Page {
 
   render() {
     const d = this.draft;
-    if (!d) return html`<p class="hint">${t("loading")}</p>`;
+    if (!d) return skeleton("edit");
     const devices = this.state.devices;
     const chosen = devices.find((x) => x.stable === d.device || x.by_id.includes(d.device) || x.by_path.includes(d.device));
     const advancedCount = ADVANCED.filter((k) => d[k]).length + ["rs485", "banner", "openstr", "closestr"].filter((k) => d[k]).length + (d.extra.length ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
