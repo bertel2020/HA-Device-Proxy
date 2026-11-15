@@ -444,6 +444,7 @@
     "savedReconnect": " Clients reconnected: {n}.",
     "deleteConfirm": "Delete connection “{n}”? Its clients are disconnected.",
     "errorsBelow": "Please check the marked fields.",
+    "errorsTitle": "Still to fix",
     "importTitle": "Import connections",
     "stepChoose": "Choose file",
     "stepPreview": "Check preview",
