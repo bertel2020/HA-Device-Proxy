@@ -714,6 +714,8 @@
     "size_normal": "Normal",
     "size_large": "Groß",
     "lookTitle": "Aussehen",
+    "noteMore": "Mehr",
+    "lookHint": "Stellst du über das Paletten-Symbol oben rechts um, auf jeder Seite. Gilt nur für diesen Browser.",
     "helpTitle": "Hilfe bei Problemen",
     "helpText": "Hast du ein Problem? Lade das Diagnose-Paket und häng es an eine Fehlermeldung.",
     "reportIssue": "Fehler melden",

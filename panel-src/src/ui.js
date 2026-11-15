@@ -101,9 +101,11 @@ export function mqttNote(page, s) {
   const lost = s.mqtt.broker && s.mqtt.error;
   if (s.mqtt.broker ? !lost : mqttHidden()) return "";
   const hide = () => { try { localStorage.setItem(MQTT_HIDDEN, "1"); } catch { /* private window */ } page.requestUpdate(); };
-  return html`<div class="note ${lost ? "warn" : "info"}" role="status" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between">
-    <span>${lost ? t("mqttNoteLost", { b: s.mqtt.broker, e: s.mqtt.error }) : t("mqttNoteNone")}</span>
-    <span style="display:flex;gap:8px;align-items:center">${lost ? "" : html`<button class="btn btn-g" @click=${hide}>${t("mqttNoteHide")}</button>`}<a class="btn btn-s" href="#/settings/mqtt" style="text-decoration:none">${t(lost ? "mqttNoteCheck" : "mqttNoteSet")}</a></span></div>`;
+  const open = () => { page._mqttOpen = true; page.requestUpdate(); };
+  return html`<div class="note foldnote ${lost ? "warn" : "info"} ${page._mqttOpen ? "open" : ""}" role="status" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between">
+    <span class="txt">${lost ? t("mqttNoteLost", { b: s.mqtt.broker, e: s.mqtt.error }) : t("mqttNoteNone")}</span>
+    <button class="btn btn-g more" aria-expanded="false" @click=${open}>${t("noteMore")}</button>
+    <span class="acts" style="display:flex;gap:8px;align-items:center">${lost ? "" : html`<button class="btn btn-g" @click=${hide}>${t("mqttNoteHide")}</button>`}<a class="btn btn-s" href="#/settings/mqtt" style="text-decoration:none">${t(lost ? "mqttNoteCheck" : "mqttNoteSet")}</a></span></div>`;
 }
 
 /** The way back after a change that broke a connection: the configuration before it. */
