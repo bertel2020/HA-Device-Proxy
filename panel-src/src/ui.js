@@ -32,6 +32,31 @@ const ICONS = {
   palette: "M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.9-9-7.9zM7.5 11.5h.01M10 7.5h.01M14 7.5h.01M16.5 11h.01",
 };
 
+/** A grey bar that stands for a line of text or a figure while a page loads. */
+export const sk = (w = "100%", h = 10, r = 5) => html`<span class="sk" style="width:${w};height:${h}px;border-radius:${r}px"></span>`;
+
+const skTiles = (n) => html`<div class="sk-tiles">${Array.from({ length: n }, (_, i) => html`<div>${sk(`${50 + (i * 13) % 30}%`, 8)}${sk(`${30 + (i * 17) % 40}%`, 22)}</div>`)}</div>`;
+const skConn = (i) => html`<section class="card"><div class="sk-row">${sk("36px", 36, 10)}${sk(`${35 + i * 10}%`, 14)}</div>${sk(`${55 + i * 8}%`, 9)}
+  <div style="border-top:1px solid var(--line-2);padding-top:12px">${skTiles(3)}</div></section>`;
+const skFields = (n) => html`<div class="grid2">${Array.from({ length: n }, () => html`<div class="sk-fld">${sk("40%", 9)}${sk("100%", 42, 10)}</div>`)}</div>`;
+
+/** The placeholder of a page while its data loads, in the shape of the page: the title is real where it is known. */
+export function skeleton(page, title = "") {
+  const head = html`<div style="display:flex;flex-direction:column;gap:10px">${title ? html`<h1>${title}</h1>` : sk("45%", 28, 8)}${sk("60%", 10)}</div>`;
+  const body = {
+    connections: () => html`${head}<section class="card">${skTiles(4)}</section><div class="sk-cards">${skConn(0)}${skConn(1)}</div>`,
+    connection: () => html`${sk("160px", 9)}${head}<div class="pair">${[0, 1].map(() => html`<section class="card">${sk("40%", 14)}${sk("30%", 30)}${sk("100%", 60, 8)}</section>`)}</div>
+      <section class="card">${sk("30%", 14)}${sk("100%", 9)}${sk("80%", 9)}</section>`,
+    edit: () => html`${sk("160px", 9)}${sk("40%", 28, 8)}<section class="card">${sk("25%", 14)}${skFields(1)}</section><section class="card">${sk("30%", 14)}${skFields(2)}${skFields(2)}</section>`,
+    events: () => html`${head}<div class="sk-row">${sk("180px", 40, 10)}${sk("100%", 40, 10)}</div>
+      <section class="card">${Array.from({ length: 6 }, (_, i) => html`<div class="sk-row">${sk("70px", 9)}${sk("54px", 20, 10)}${sk(`${40 + (i * 11) % 45}%`, 9)}</div>`)}</section>`,
+    settings: () => html`<div class="sk-side"><div style="display:flex;flex-direction:column;gap:14px">${title ? html`<h1>${title}</h1>` : sk("70%", 26, 8)}${[0, 1, 2, 3, 4, 5].map((i) => sk(`${50 + (i * 9) % 35}%`, 10))}</div>
+      <section class="card">${sk("35%", 14)}${sk("70%", 9)}${skFields(2)}${sk("100%", 60, 10)}</section></div>`,
+    trace: () => html`${head}${sk("320px", 42, 10)}<section class="card">${sk("40%", 14)}${sk("100%", 160, 10)}</section>`,
+  }[page] || (() => html`${head}<section class="card">${sk("40%", 14)}${sk("100%", 9)}</section>`);
+  return html`<div class="skel" aria-busy="true"><span class="sr">${t("loading")}</span>${body()}</div>`;
+}
+
 export const icon = (name, size = 18) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${svg`<path d=${ICONS[name]}></path>`}</svg>`;
 

@@ -126,6 +126,19 @@ export const base = css`
     outline: 3px solid var(--focus); outline-offset: 2px; }
   /* a dialog box takes the focus when it opens (tabindex -1); it is not a control, so no ring around the whole box */
   [tabindex="-1"]:focus { outline: none; }
+  /* while a page loads: grey bars in the shape of what comes; shown only after 300 ms, so a quick answer does not flash */
+  .skel { display: flex; flex-direction: column; gap: 20px; opacity: 0; animation: skel-in .2s ease .3s forwards; }
+  @keyframes skel-in { to { opacity: 1; } }
+  .sk { display: block; max-width: 100%; background: linear-gradient(90deg, var(--line) 0%, var(--line-2) 50%, var(--line) 100%); background-size: 200% 100%;
+    animation: sk-shine 1.4s linear infinite; }
+  @keyframes sk-shine { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+  .skel .sk-row { display: flex; align-items: center; gap: 10px; }
+  .skel .sk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px 24px; }
+  .skel .sk-tiles > div, .skel .sk-fld { display: flex; flex-direction: column; gap: 8px; }
+  .skel .sk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+  .skel .sk-side { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .skel .sk-side { grid-template-columns: minmax(0, 1fr); } .skel .sk-side > :first-child > :not(h1) { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .sk { animation: none; } .skel { animation-duration: .01s; } }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
   /* touch: links, chips and the small buttons take taps in a taller area than they show; an invisible extension, so nothing moves */
