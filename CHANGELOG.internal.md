@@ -12,6 +12,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 ## Unreleased
 
 - GitHub-Vorschaubild (Social Preview) `screenshots/social-preview.png`, 1280×640: Icon, Name, Kernsatz, acht Funktionen (ser2net 4, Modbus-Proxy, EnOcean-Proxy, Gateway-Ersatz, zweites oder Test-HA, Replay, Schreibschutz je Client, Live-Daten) und der englische Modbus-Screenshot. Quelle `tools/social-preview.html`, gerendert mit headless Chrome (Befehl oben in der Datei); hochgeladen wird es von Hand unter Settings → General → Social preview. README (de/en) nennt es unter Development.
+- GitHub Discussions eingeschaltet; `.github/ISSUE_TEMPLATE/config.yml` hat als ersten Kontakt-Link „Question / Frage“ auf die Kategorie Q&A.
 
 ## 1.7.0 - 2026-11-15
 

@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Question / Frage
+    url: https://github.com/bertel2020/HA-Device-Proxy/discussions/categories/q-a
+    about: Questions about setup and use go to Discussions (Q&A). / Fragen zu Einrichtung und Nutzung bitte in Discussions (Q&A).
   - name: Security problem / Sicherheitsproblem
     url: https://github.com/bertel2020/HA-Device-Proxy/blob/main/SECURITY.md
     about: Please do not report these in a public issue. / Bitte nicht in einem öffentlichen Issue melden.
