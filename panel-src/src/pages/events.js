@@ -13,11 +13,11 @@ export class EventsPage extends Page {
   };
 
   static styles = [...Page.styles, css`
-    .tabs { display: inline-flex; background: var(--line); border-radius: 22px; padding: 4px; }
-    .tabs button { min-height: 40px; padding: 0 18px; border: none; border-radius: 18px; cursor: pointer; font: inherit; font-weight: 500; background: transparent; color: var(--muted); }
+    .tabs { display: inline-flex; background: var(--line); border-radius: calc(var(--control-radius) + 4px); padding: 4px; }
+    .tabs button { min-height: 40px; padding: 0 18px; border: none; border-radius: var(--control-radius); cursor: pointer; font: inherit; font-weight: 500; background: transparent; color: var(--muted); }
     .tabs button[aria-selected="true"] { background: var(--surface); color: var(--accent-hover); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
     .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 20px; }
-    .lv { min-height: 40px; padding: 0 14px; border-radius: 20px; cursor: pointer; font: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500; border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
+    .lv { min-height: 40px; padding: 0 14px; border-radius: var(--control-radius); cursor: pointer; font: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500; border: 1px solid var(--input-line); background: var(--surface); color: var(--muted); }
     .lv[aria-pressed="true"].info { background: var(--accent-soft); color: var(--accent-hover); border-color: var(--accent); }
     .lv[aria-pressed="true"].warning { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
     .lv[aria-pressed="true"].error { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }

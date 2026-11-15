@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- Panel im Look von HA-fritzbox_network: `styles.js` mit `--radius` (16 px, Karten), `--control-radius` (10 px, Buttons/Felder/`.seg`/`.note`), `--shadow`, Klasse `.label` (Großbuchstaben); `.big` und `.stats b` dünner mit `tabular-nums`. `app.js`: Navigation als Tabs mit Unterstrich und 16-px-Icons, `.count` als Badge auch auf dem Desktop, ab 960 px eigene Zeile; Paletten-Button `#lookbtn` mit Menü (`menuitemradio`, Escape, Scrim) außerhalb des Headers gerendert, weil dessen `backdrop-filter` fixe Boxen einschließt; am Handy als Sheet von unten, untere Leiste mit Pill statt Strich. `connections.js`: `.band` als Karte mit `.tile`s. Neue Texte `lookTitle`, `tileState`, `tileClients` (de/en). Ecken in `events.js` (`.tabs`, `.lv`) an `--control-radius` angepasst.
+
 ## 1.6.2 - 2026-11-14
 
 - CI: Job `release` nach `publish` (nur main, alle Jobs grün): legt `v<version>` als GitHub-Release an, falls es noch fehlt. Notes = Abschnitt `## <version> - …` aus `device_proxy/CHANGELOG.md` plus `.github/release-footer.md` (Stern, Issue mit Diagnose-Paket, Spenden, Anleitung; deutsch und englisch). Der Tag sitzt auf dem Commit, der die Version in `config.yaml` gesetzt hat. Fehlt der Abschnitt, wird der Job rot.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Oberfläche, neuer Look**: Das Panel sieht jetzt aus wie FRITZ!Box Network. Die Bereiche sind Reiter mit Symbol und einer Linie unter dem gewählten, die Zahl der Probleme steht als Zähler am Reiter. Farbschema, hell oder dunkel und Schriftgröße stellst du über das Paletten-Symbol oben rechts von jeder Seite aus um. Buttons und Felder haben gemeinsame, weniger runde Ecken. Die Übersicht auf „Verbindungen“ zeigt ihre Zahlen als Kacheln. Am Handy hebt die untere Leiste den gewählten Bereich hervor.
+
 ## 1.6.2 - 2026-11-14
 
 - **Modbus TCP, erreichbar**: Nimmt ein Gerät Verbindungen an, antwortet aber nicht (etwa Dongle wach, Wechselrichter schläft), gilt es nach drei Anfragen ohne Antwort als nicht erreichbar. Vorher blieb es „erreichbar“, wenn die App einmal vor dem Gerät gestartet war, und es kam keine Benachrichtigung.
