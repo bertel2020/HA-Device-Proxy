@@ -94,7 +94,7 @@ export class SettingsPage extends Page {
     ol.hist li { padding: 0; gap: 0; }
     .acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
     .act { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--input-line); border-radius: 12px; cursor: pointer; }
-    .act:hover { background: var(--surface-1); }
+    .act:hover { background: var(--surface-2); }
     .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .act b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: calc(14px * var(--fs, 1)); }
     .act span { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }

@@ -124,6 +124,8 @@ export const base = css`
   .switch[disabled] { opacity: .5; cursor: default; }
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
     outline: 3px solid var(--focus); outline-offset: 2px; }
+  /* a dialog box takes the focus when it opens (tabindex -1); it is not a control, so no ring around the whole box */
+  [tabindex="-1"]:focus { outline: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
   /* touch: links, chips and the small buttons take taps in a taller area than they show; an invisible extension, so nothing moves */

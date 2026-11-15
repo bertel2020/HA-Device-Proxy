@@ -55,7 +55,7 @@ export class ImportDialog extends Page {
       .imp td[data-l]:empty { display: none; }
     }
     .foot { position: sticky; bottom: 0; z-index: 1; background: var(--surface); border-top: 1px solid var(--line-2); padding: 14px 0 6px; }
-    .gone { background: var(--warn-bg, #fdf1dc); color: var(--warn-text, #7a4a00); border-radius: 10px; padding: 10px 12px; font-size: calc(13px * var(--fs, 1)); }
+    .gone { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-line); border-radius: var(--control-radius); padding: 10px 12px; font-size: calc(13px * var(--fs, 1)); }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
     .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .sum b { font-size: calc(24px * var(--fs, 1)); font-weight: 500; color: var(--text, inherit); }

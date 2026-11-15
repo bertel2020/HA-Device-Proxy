@@ -66,6 +66,11 @@ export class EditPage extends Page {
     form { display: contents; }
     .grid2 { align-items: start; }
     .fld { justify-content: flex-start; }
+    /* fields side by side share the rows: label, field, hint; a label on two lines does not push its field below the others */
+    .grid2 > .fld:not(:has(> :nth-child(4))) { display: grid; grid-row: span 3; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); row-gap: 6px; align-content: start; }
+    .grid2 > .fld > .lbl { align-self: end; }
+    .fx { display: flex; flex-direction: column; gap: 4px; }
+    .fx:empty { display: none; }
     .grp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line-2); padding-top: 16px; margin-top: 6px; }
     .grp h3 { margin: 0; font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
     .grp p { margin: 0; }
@@ -326,7 +331,7 @@ export class EditPage extends Page {
       <input class="inp ${mono ? "mono" : ""}" type=${type} .value=${String(value ?? "")} inputmode=${number ? "numeric" : "text"} ?disabled=${disabled}
         aria-invalid=${this._shown()[key] ? "true" : "false"} aria-describedby="e-${key}"
         @input=${(e) => this._set({ [key]: number ? wholeNumber(e, value) : e.target.value })}>
-      ${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</label>`;
+      <span class="fx">${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</span></label>`;
   }
 
   _trace() {
@@ -409,8 +414,7 @@ export class EditPage extends Page {
 
           <span class="hint">${t(`linksub_${d.link}`)}</span></div>
         ${onBus(d) ? html`${this._devicePicker(chosen)}<div class="grid2">${this._serialFormat()}</div>` : html`<div class="grid2">
-          ${this._input("host", t("mbHost"), { mono: true })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>
-          <span class="hint">${t("mbHostHint")}</span>`}
+          ${this._input("host", t("mbHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("mbHostPort"), { number: true })}</div>`}
         ${d.link === "rtu_listen" ? html`<div class="grid2">${this._input("listen_max_age_s", t("mbListenAge"), { number: true, hint: t("mbListenAgeHint") })}</div>` : html`<div class="grid2">
           ${this._input("request_timeout_ms", t("mbTimeout"), { number: true, hint: t("mbTimeoutHint") })}
           ${this._input("retries", t("mbRetries"), { number: true, hint: t("mbRetriesHint") })}
