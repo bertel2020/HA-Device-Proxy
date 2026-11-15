@@ -21,12 +21,14 @@ export class ConnectionsPage extends Page {
   static properties = { state: { attribute: false }, busy: { state: true }, filter: { state: true } };
 
   static styles = [...Page.styles, css`
-    .band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
-      padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px var(--shadow-c); font-size: calc(14px * var(--fs, 1)); }
-    .band b { font-weight: 500; }
-    .band .warn { color: var(--warn); }
-    .band .ok { color: var(--ok); }
-    .band a { font-size: calc(13px * var(--fs, 1)); }
+    /* the figures of all connections as tiles: the label above, the value, a small line below (as in fritzbox-network) */
+    .band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px 24px; padding: 16px 20px; margin-bottom: 16px; }
+    .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .tile b { font-size: calc(26px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile b.txt { font-size: calc(18px * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.35; padding: 3px 0; white-space: normal; }
+    .tile small { font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .tile.warn b { color: var(--warn); } .tile.ok b { color: var(--ok); }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
@@ -201,13 +203,15 @@ export class ConnectionsPage extends Page {
         · <a href="#/settings">${t("toSettings")}</a></div>` : ""}
       ${brokenNote ? html`<div style="margin-bottom:20px">${brokenNote}</div>` : ""}
       ${brokerNote ? html`<div style="margin-bottom:20px">${brokerNote}</div>` : ""}
-      <div class="band">
-        <span><b>${active}</b> ${t("bandOf", { n: all.length })}</span>
-        ${problems ? html`<span class="warn"><b>${problems}</b> ${t("bandProblems")}</span>` : html`<span class="ok">${t("bandFine")}</span>`}
-        ${clients ? html`<span><b>${clients}</b> ${t("bandClients")}</span>` : ""}
-        ${errors ? html`<span class="warn"><b>${errors}</b> ${t("tileErrors")}</span>` : ""}
-        <span>${t("tileReach")}: <b>${reach(s)}</b> · <a href="#/settings" @click=${(e) => { e.preventDefault(); navigate("#/settings"); setTimeout(() => window.scrollTo(0, 0)); }}>${t("changeBtn")}</a></span>
-      </div>
+      <section class="card band" aria-label=${t("connectionsTitle")}>
+        <div class="tile"><span class="label">${t("navConnections")}</span><b>${active}</b><small>${t("bandOf", { n: all.length })}</small></div>
+        <div class="tile ${problems ? "warn" : "ok"}"><span class="label">${t("tileState")}</span>
+          ${problems ? html`<b>${problems}</b><small>${t("bandProblems")}</small>` : html`<b class="txt">${t("bandFine")}</b>`}</div>
+        <div class="tile"><span class="label">${t("tileClients")}</span><b>${clients}</b><small>${t("bandClients")}</small></div>
+        ${errors ? html`<div class="tile warn"><span class="label">${t("tileErrors")}</span><b>${errors}</b></div>` : ""}
+        <div class="tile"><span class="label">${t("tileReach")}</span><b class="txt">${reach(s)}</b>
+          <small><a href="#/settings" @click=${(e) => { e.preventDefault(); navigate("#/settings"); setTimeout(() => window.scrollTo(0, 0)); }}>${t("changeBtn")}</a></small></div>
+      </section>
       ${KINDS.filter((k) => counts[k]).length > 1 || problems ? html`<div class="filters" role="group" aria-label=${t("filterLabel")}>
         <button aria-pressed=${filter === "all" ? "true" : "false"} @click=${() => this._filter("all")}>${t("filterAll", { n: all.length })}</button>
         ${problems ? html`<button aria-pressed=${filter === "problems" ? "true" : "false"} style="color:var(--warn)" @click=${() => this._filter("problems")}>${t("filterProblems", { n: problems })}</button>` : ""}

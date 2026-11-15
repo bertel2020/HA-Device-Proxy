@@ -4,6 +4,9 @@ import { css } from "lit";
 export const tokens = css`
   :host {
     --header-h: 68px;
+    /* the shapes of fritzbox-network: cards share one corner, buttons, fields and switches of a group another; chips stay pills */
+    --radius: 16px; --control-radius: 10px;
+    --shadow: 0 1px 2px color-mix(in srgb, var(--shadow-c) 45%, transparent), 0 8px 24px -16px var(--shadow-c);
     color: var(--text); font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; font-size: calc(14px * var(--fs, 1));
   }
 `;
@@ -18,9 +21,11 @@ export const base = css`
   .sub { color: var(--muted); margin-top: 6px; }
   .hint { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
   .mono { font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
-    box-shadow: 0 1px 2px var(--shadow-c), 0 6px 18px -10px var(--shadow-c); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+    box-shadow: var(--shadow); }
   .card > .row:first-child { min-height: 32px; }
+  /* the small label above a value or a group, as in fritzbox-network */
+  .label { font-size: calc(11px * var(--fs, 1)); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   details.fold > summary { cursor: pointer; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--accent-hover); display: flex; align-items: center; gap: 8px; min-height: 32px; list-style: none; }
   details.fold > summary::-webkit-details-marker { display: none; }
   details.fold > summary::before { content: "›"; font-size: calc(20px * var(--fs, 1)); line-height: 1; transition: transform .15s; }
@@ -31,7 +36,7 @@ export const base = css`
   .cols, .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 18px;
-    border-radius: 20px; font-family: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 500; text-decoration: none; cursor: pointer;
+    border-radius: var(--control-radius); font-family: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 500; text-decoration: none; cursor: pointer;
     border: 1px solid transparent; background: none; color: var(--accent); }
   .btn { transition: background .15s, color .15s, box-shadow .15s; }
   .btn[disabled] { opacity: .55; cursor: default; }
@@ -41,13 +46,14 @@ export const base = css`
   .btn-s:hover:not([disabled]), .btn-g:hover:not([disabled]) { background: var(--accent-soft); color: var(--accent-hover); }
   .btn-g { padding: 0 12px; }
   .btn-d { color: var(--bad); padding: 0 12px; }
+  .btn-s:not(:hover) { color: var(--text); }
   .btn-d:hover { background: var(--bad-soft); }
   .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 11px; border-radius: 13px;
     background: var(--neutral-soft); color: var(--neutral); font-size: calc(12px * var(--fs, 1)); font-weight: 500; white-space: nowrap; }
   .chip.ok { background: var(--ok-soft); color: var(--ok); } .chip.warn { background: var(--warn-soft); color: var(--warn); }
   .chip.bad { background: var(--bad-soft); color: var(--bad); } .chip.info { background: var(--accent-soft); color: var(--accent-hover); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-  .note { border-radius: 12px; padding: 12px 14px; }
+  .note { border-radius: var(--control-radius); padding: 12px 14px; }
   .note.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }
   .note.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }
   .note.ok { background: var(--ok-soft); color: var(--ok); }
@@ -59,7 +65,7 @@ export const base = css`
   .actions { display: flex; justify-content: flex-end; }
   .lbl { font-size: calc(13px * var(--fs, 1)); font-weight: 500; color: var(--muted); }
   .err { font-size: calc(13px * var(--fs, 1)); color: var(--bad); }
-  .inp { min-height: 42px; padding: 0 12px; border: 1px solid var(--input-line); border-radius: 10px; font: inherit;
+  .inp { min-height: 42px; padding: 0 12px; border: 1px solid var(--input-line); border-radius: var(--control-radius); font: inherit;
     color: var(--text); background: var(--surface); width: 100%; }
   .inp[aria-invalid="true"] { border-color: var(--bad); }
   .inp:disabled { color: var(--muted); background: var(--surface-2); cursor: not-allowed; }
@@ -68,7 +74,7 @@ export const base = css`
   .chk { display: flex; align-items: flex-start; gap: 10px; min-height: 32px; cursor: pointer; }
   .chk input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
   /* where the options do not fit they go on a second line; the gap shows the background as the dividing lines, in both directions */
-  .seg { display: inline-flex; flex-wrap: wrap; gap: 1px; max-width: 100%; background: var(--input-line); border: 1px solid var(--input-line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 1px; max-width: 100%; background: var(--input-line); border: 1px solid var(--input-line); border-radius: var(--control-radius); overflow: hidden; align-self: flex-start; }
   .seg button { flex: 1 1 auto; min-height: 38px; padding: 0 14px; border: none; cursor: pointer; font-family: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 500;
     background: var(--surface); color: var(--text); }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
@@ -85,7 +91,7 @@ export const base = css`
   .meter { --level: var(--accent); }
   .meter.ok { --level: var(--ok); } .meter.warn { --level: var(--warn); border-color: var(--warn-line); } .meter.bad { --level: var(--bad); border-color: var(--bad-line); }
   .meter.info { --level: var(--accent); }
-  .big { font-size: calc(34px * var(--fs, 1)); font-weight: 500; line-height: 1.1; letter-spacing: -.01em; }
+  .big { font-size: calc(32px * var(--fs, 1)); font-weight: 300; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .big small { font-size: calc(14px * var(--fs, 1)); font-weight: 400; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
   .meter.warn .big, .meter.bad .big { color: var(--level); }
   .track { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-2); }
@@ -94,7 +100,7 @@ export const base = css`
   .scale { display: flex; justify-content: space-between; font-size: calc(13px * var(--fs, 1)); color: var(--muted); margin-top: 6px; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stats .well { display: flex; flex-direction: column; gap: 2px; }
-  .stats b { font-size: calc(18px * var(--fs, 1)); font-weight: 500; }
+  .stats b { font-size: calc(20px * var(--fs, 1)); font-weight: 400; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
   .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
   .switch[aria-checked="true"] { background: var(--accent); }
