@@ -20,6 +20,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
   - `edit.js`: `.grid2 > .fld` als Subgrid über drei Zeilen (Label, Feld, `.fx` mit Fehler und Hinweis), nur bei höchstens drei Kindern; `_input` legt Fehler und Hinweis in `.fx`; `mbHostHint` als Hinweis von `host`.
   - `settings.js`: statt drei `.seg` für Schema, Modus und Größe eine Zusammenfassung mit Knopf (`dp-look-open`); `.act:hover` auf `--surface-2` (war das nicht definierte `--surface-1`). `import.js`: `.gone` auf `--warn-soft`/`--warn`/`--warn-line` (war `--warn-bg`/`--warn-text` mit festen Fallbacks).
   - Lade-Zustand: `sk()` und `skeleton(page, title)` in `ui.js` (Vorlagen für `connections`, `connection`, `edit`, `events`, `settings`, `trace`), Stile `.skel`/`.sk` in `styles.js` (erst nach 300 ms per `animation-delay` sichtbar, Schimmer aus bei `prefers-reduced-motion`, `aria-busy` und `.sr`-Text). `app.js` zeigt ohne ersten Status Kopfzeile, Reiter und das Skelett der Route, in der Statuszeile einen Balken; `edit.js` ohne Entwurf `skeleton("edit")`.
+  - `.stats`/`.counters` > `.well` mit zwei Kindern als Subgrid über zwei Zeilen (Label, Wert), damit ein umbrechendes Label den Wert nicht verschiebt.
+  - README-Screenshots (`screenshots/de`, `screenshots/en`) im neuen Look neu erzeugt; `tools/screenshots.mjs` blendet den MQTT-Hinweis aus (Dev-Server ohne Broker) und sagt im Kopf, dass kein anderer Dev-Server laufen darf (sonst „Port belegt“ auf den Bildern).
   - Texte neu: `lookTitle`, `lookHint`, `tileState`, `tileClients`, `tileData`, `tileLast`, `moreClients`, `noteMore`; entfernt: `lastDataAgo`, `noDataYet`.
 
 ## 1.6.2 - 2026-11-14

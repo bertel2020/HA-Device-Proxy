@@ -115,6 +115,9 @@ export const base = css`
   :is(.stats, .counters) .well { display: flex; flex-direction: column; gap: 2px; min-width: 0; background: none; padding: 0; border-radius: 0; }
   :is(.stats, .counters) .well .hint { order: -1; font-size: max(10.5px, calc(11px * var(--fs, 1))); font-weight: 500; text-transform: uppercase; letter-spacing: .06em;
     overflow-wrap: anywhere; hyphens: auto; }
+  /* a label on two lines does not push its value below the others: label and value rows are shared across the tiles */
+  :is(.stats, .counters) > .well:not(:has(> :nth-child(3))) { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 2px; align-content: start; }
+  :is(.stats, .counters) > .well > .hint { align-self: end; }
   :is(.stats, .counters) b { font-size: calc(24px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
   .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
