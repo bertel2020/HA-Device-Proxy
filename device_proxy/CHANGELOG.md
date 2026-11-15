@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- **Oberfläche, neuer Look**: Das Panel sieht jetzt aus wie FRITZ!Box Network. Die Bereiche sind Reiter mit Symbol und einer Linie unter dem gewählten, die Zahl der Probleme steht als Zähler am Reiter. Farbschema, hell oder dunkel und Schriftgröße stellst du über das Paletten-Symbol oben rechts von jeder Seite aus um. Buttons und Felder haben gemeinsame, weniger runde Ecken. Die Übersicht auf „Verbindungen“ zeigt ihre Zahlen als Kacheln. Am Handy hebt die untere Leiste den gewählten Bereich hervor.
+- **Oberfläche, neuer Look**: Die Bereiche sind Reiter mit Symbol und einer Linie unter dem gewählten, die Zahl der Probleme steht als Zähler am Reiter. Farbschema, hell oder dunkel und Schriftgröße stellst du über das Paletten-Symbol oben rechts von jeder Seite aus um. Buttons und Felder haben gemeinsame, weniger runde Ecken. Die Übersicht auf „Verbindungen“ zeigt ihre Zahlen als Kacheln. Am Handy hebt die untere Leiste den gewählten Bereich hervor.
 - **Oberfläche, Kacheln und Schrift**: Auf der Detailseite zeigen die Karten ihre Zahlen jetzt als Kacheln: Datenrate, Modbus-Anfragen, Leitungsfehler, Gateway-Zähler, Funkbelegung und Nachlieferungspuffer. Auch die Karten unter „Verlauf und Stabilität“ zeigen ihre Zahlen so. Bei Schriftgröße „Klein“ wird kleiner Text nicht mehr kleiner als 10,5 px. Das Paletten-Symbol bleibt in der Kopfzeile, auch wenn neben dem Namen mehrere Chips stehen.
+- **Oberfläche, Übersicht und Detailseite**: Oben neben dem Namen steht nur noch eine Zeile mit dem Zustand und der App-Version, die Version von ser2net steht im Tooltip. Die Zahl der Probleme steht weiter am Reiter „Verbindungen“. Die Verbindungskarten zeigen Clients, Datenrate mit Kurve und letzte Daten als drei Kacheln. Darunter stehen höchstens drei Clients, die übrigen findest du über „+N weitere“ auf der Detailseite. Fließen bei einem seriellen Gerät noch keine Daten, zeigt die Detailseite eine schmale Karte statt zwei halbleerer.
 
 ## 1.6.2 - 2026-11-14
 

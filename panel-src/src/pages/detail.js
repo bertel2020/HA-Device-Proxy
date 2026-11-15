@@ -45,6 +45,8 @@ export class DetailPage extends Page {
   };
 
   static styles = [...Page.styles, css`
+    .quiet { padding: 16px 20px; }
+    .quiet .note-s { font-size: calc(13px * var(--fs, 1)); color: var(--muted); line-height: 1.35; padding-top: 4px; }
     .kv { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px 16px; }
     .kv > :nth-child(odd) { color: var(--muted); }
     .live { max-height: 340px; overflow: auto; }
@@ -849,6 +851,14 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               : html`<p class="hint">${t("noEntries")}</p>`}
           </section>`;
     const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;
+    // no data yet and no line counters: one slim card instead of two half-empty ones; the curve and the counters come with the data
+    const quiet = !c.last_data && !le;
+    const quietCard = html`<section class="card quiet" aria-label=${t("dataFromDevice")}>
+            <div class="counters">
+              <div class="well"><span class="hint">${t("dataFromDevice")}</span><b>${fmtRate(c.rate_from_device)}</b></div>
+              <div class="well"><span class="hint">${t("tileLast")}</span><b>${t("never")}</b></div>
+              <div class="well"><span class="hint">${t("line")}</span><span class="note-s">${!c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</span></div>
+            </div></section>`;
     // connect-state-measure-act-set up: what is wrong first, what is needed once only last
     const body = enocean ? html`
       ${issuesCard(issues(c, s.capture, mainOf(c, s.connections)))}
@@ -874,7 +884,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._maintenance(c)}
       ${recentCard}`
     : html`
-      ${pair(rateCard, stateCard)}
+      ${quiet ? quietCard : pair(rateCard, stateCard)}
       ${clientsCard}
       ${this._live(c.kind)}
       ${this.state.source === "custom" ? "" : this._tools(c)}
