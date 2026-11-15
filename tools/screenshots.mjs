@@ -3,6 +3,8 @@
 // Needs Google Chrome (macOS path below, or CHROME=/path) and Node 22+; starts and stops the dev
 // server (tools/dev_server.py, port 8401) and the browser itself. The status line is patched to
 // show a running ser2net and the current app version.
+// The dev server has no MQTT broker; its note is hidden, as after "Hide". Stop other dev servers
+// first: they hold the same device ports, and the pictures would show them as taken.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -69,7 +71,7 @@ async function shot(file, height, prepare) {
 const go = async (lang, hash) => {
   await send("Page.navigate", { url: BASE });
   await sleep(800);
-  await evalJs(`localStorage.setItem('device_proxy.lang','${lang}'); location.hash='${hash}'; location.reload(); 1`);
+  await evalJs(`localStorage.setItem('device_proxy.lang','${lang}'); localStorage.setItem('device_proxy.mqtt_note_hidden','1'); location.hash='${hash}'; location.reload(); 1`);
   await sleep(2500);
 };
 
