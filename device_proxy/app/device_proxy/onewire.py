@@ -449,6 +449,8 @@ class OneWireProxy:
         self._server: asyncio.Server | None = None
         self._open = 0  # client connections now
         self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)
+        self._own: tuple[asyncio.StreamReader, asyncio.StreamWriter] | None = None  # ask()
+        self._own_lock = asyncio.Lock()
         # link "usb": the own owserver, the adapters found, the watchdog's counts
         self.owserver = (
             OwServer(free_port(), self._owserver_ended, cache_s=c.owserver_cache_s)
@@ -501,6 +503,7 @@ class OneWireProxy:
 
     async def _shutdown(self) -> None:
         self.listening = False
+        self._drop_own()
         if self._server is not None:
             self._server.close()
         for client in self.clients.values():
@@ -527,20 +530,40 @@ class OneWireProxy:
             self.on_event(level, kind, **values)
 
     async def ask(self, kind: int, path: str, size: int = 0) -> tuple[int, bytes]:
-        """One request of the app itself: (return value, payload)."""
-        writer = None
-        try:
-            async with asyncio.timeout(PROBE_TIMEOUT):
-                reader, writer = await self._connect()
-                writer.write(request(kind, path, size=size))
-                await writer.drain()
-                while True:
-                    data, ret, payload = await read_answer(reader)
-                    if payload != PING:
-                        return ret, data[HEADER.size :]
-        finally:
-            if writer is not None:
-                writer.close()
+        """One request of the app itself: (return value, payload). They share one kept
+        connection (the owserver's persistence), not one each: the statistics alone are a
+        dozen a minute. One the owserver has closed meanwhile is tried once more anew."""
+        async with self._own_lock:
+            for again in (False, True):
+                fresh = self._own is None
+                try:
+                    async with asyncio.timeout(PROBE_TIMEOUT):
+                        if self._own is None:
+                            self._own = await self._connect()
+                        reader, writer = self._own
+                        writer.write(request(kind, path, PERSISTENCE, size))
+                        await writer.drain()
+                        while True:
+                            data, ret, payload = await read_answer(reader)
+                            if payload != PING:
+                                break
+                except (OSError, asyncio.IncompleteReadError, ProtocolError):
+                    self._drop_own()
+                    if fresh or again:
+                        raise
+                    continue  # the kept one was gone (owserver restarted): once anew
+                except TimeoutError:
+                    self._drop_own()
+                    raise
+                if not HEADER.unpack(data[: HEADER.size])[3] & PERSISTENCE:
+                    self._drop_own()  # this owserver does not keep it
+                return ret, data[HEADER.size :]
+        raise AssertionError("not reached")
+
+    def _drop_own(self) -> None:
+        if self._own is not None:
+            self._own[1].close()
+            self._own = None
 
     async def read_info(self) -> None:
         """Name, address and version of the owserver's first adapter, and its own version;

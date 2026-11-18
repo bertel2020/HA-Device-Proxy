@@ -53,6 +53,7 @@ class FakeOwserver:
         }
         self.ping = False
         self.served: list[tuple[int, int, str]] = []  # (connection, type, path)
+        self.writers: set[asyncio.StreamWriter] = set()
         self.dirall = DIRALL
         self.connections = 0
         self._server: asyncio.Server | None = None
@@ -70,6 +71,7 @@ class FakeOwserver:
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.connections += 1
         connection = self.connections
+        self.writers.add(writer)
         try:
             while True:
                 head = await reader.readexactly(HEADER.size)
@@ -86,9 +88,10 @@ class FakeOwserver:
                 await writer.drain()
                 if not keep:
                     break
-        except asyncio.IncompleteReadError:
+        except (asyncio.IncompleteReadError, ConnectionError):
             pass
         finally:
+            self.writers.discard(writer)
             writer.close()
 
     def _answer(self, kind: int, path: str, data: bytes) -> list[bytes]:
@@ -581,3 +584,17 @@ async def test_a_connection_that_sends_no_request_is_closed(
     await _until(lambda: setup.proxy.state()["connections"] == 0)
     assert setup.proxy.clients == {}  # it never asked: no client
     writer.close()
+
+
+async def test_the_apps_own_requests_share_one_connection(setup: Setup) -> None:
+    await setup.proxy.read_statistics()
+    await setup.proxy.read_info()
+    own = [
+        n for n, kind, path in setup.server.served if path.startswith(("/statistics", "/system"))
+    ]
+    assert own and len(set(own)) == 1  # a dozen requests, one connection
+    # the owserver closes it (a restart): the next request goes on a new one
+    for writer in list(setup.server.writers):
+        writer.transport.abort()
+    ret, value = await setup.proxy.ask(MSG_READ, "/statistics/errors/CRC8_errors", 32)
+    assert ret >= 0 and value.strip() == b"3"
