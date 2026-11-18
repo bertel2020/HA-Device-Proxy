@@ -909,8 +909,9 @@ class AppConfig:
             if c.remote:
                 # two proxies for one device would take its connections from each other
                 checks.append(("host", (c.host.lower(), c.host_port)))
-            if c.onewire_usb:
-                # the app's owserver opens the USB adapter; a second one would fight it
+            if c.onewire_usb and c.enabled:
+                # the app's owserver opens the USB adapter; a second one running would fight
+                # it (a switched off one may stay, as a spare)
                 if usb_bus:
                     e[f"connections.{index}.link"] = f"the USB adapter is used by {usb_bus}"
                 usb_bus = usb_bus or c.name
