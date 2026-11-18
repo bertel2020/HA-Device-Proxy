@@ -1538,7 +1538,9 @@
     "owCacheHint": "Wie lange der eigene owserver einen gelesenen Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (sein timeout_volatile). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit. 0: immer vom Bus. Lesen über /uncached/ geht immer an den Bus. Standard 15.",
     "owCacheOff": "aus, immer vom Bus",
     "owChipUsual": "(üblich)",
-    "owChipUsualHint": "Der übliche Chip dieser Familie; der owserver hat den genauen noch nicht genannt."
+    "owChipUsualHint": "Der übliche Chip dieser Familie; der owserver hat den genauen noch nicht genannt.",
+    "owMore": "+{n} Werte",
+    "owLess": "weniger"
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

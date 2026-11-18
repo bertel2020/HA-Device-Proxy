@@ -50,6 +50,7 @@ TEMPERATURE_FAMILIES = {"10", "22", "28", "3B", "42"}
 TRANSIENT_FAMILIES = {"01", "02", "04", "06", "08", "0A", "0C"}
 TEMPERATURE = re.compile(r"(temperature(9|10|11|12)?|fasttemp)")
 VALUE_MAX = 40  # longer answers (memory pages) are no value to show
+VALUES_MAX = 32  # properties kept per device; the one read longest ago goes first
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
 # /statistics/errors/<name> of the owserver; BUS_* are summed up as bus errors
 STATISTICS = (
@@ -249,6 +250,8 @@ class Bus:
         if not shown.isprintable():
             return []
         old = device.values.get(prop)
+        if old is None and len(device.values) >= VALUES_MAX:
+            del device.values[min(device.values, key=lambda p: device.values[p].at)]
         if old is None or old.text != shown:
             device.values[prop] = Value(shown, now, now)
         else:

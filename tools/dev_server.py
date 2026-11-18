@@ -172,7 +172,13 @@ async def onewire_client(port: int, stop: asyncio.Event) -> None:
     """Like Home Assistant's 1-Wire integration: a connection for each read."""
     await asyncio.sleep(1)
     while not stop.is_set():
-        for path in (f"/{OW_DEVICES[0]}/temperature", f"/{OW_DEVICES[1]}/temperature"):
+        for path in (
+            f"/{OW_DEVICES[0]}/temperature",
+            f"/{OW_DEVICES[1]}/temperature",
+            f"/{OW_DEVICES[2]}/PIO.A",
+            f"/{OW_DEVICES[2]}/PIO.B",
+            f"/{OW_DEVICES[2]}/sensed.A",
+        ):
             try:
                 reader, writer = await asyncio.open_connection("127.0.0.1", port)
                 writer.write(onewire.request(2, path, size=8192))

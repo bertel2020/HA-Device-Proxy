@@ -480,7 +480,8 @@ wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist.
 **Geräte am Bus**: Die Seite der Verbindung listet jedes Gerät, das der owserver nennt, mit
 eigenem Namen (**Namen bearbeiten**), seinem Chip (wie der owserver ihn nennt, einmal gefragt;
 bis dahin der übliche seiner Familie) und dem letzten Wert, den deine Programme
-gelesen haben (die App liest selbst keine Werte). Die App merkt sich die Geräte, auch über
+gelesen haben (die App liest selbst keine Werte); **+N Werte** zeigt alle anderen, die vom Gerät gelesen
+wurden, etwa die Ausgänge eines DS2408 oder Feuchte und Spannung eines DS2438. Die App merkt sich die Geräte, auch über
 Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
 und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
 antwortet** an ist; ein absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später
