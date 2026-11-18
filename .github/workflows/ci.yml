@@ -101,8 +101,13 @@ jobs:
     # packages are public (GitHub → Packages → Package settings → Change visibility).
     # Also when another job failed: a version in config.yaml without its image cannot be
     # installed. The run stays red then, and needs only keeps the order.
+    # Another branch publishes only a test version ("1.8.0-dev1": with a "-") and only when
+    # every job passed, never as "latest": a test instance installs it from
+    # <repository URL>#<branch>, everyone else stays on the version in main's config.yaml.
     name: Publish image (${{ matrix.arch }})
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/')
+      && (github.ref == 'refs/heads/main' || success()) }}
     needs: [tests, panel, lint, build, integration]
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -124,6 +129,15 @@ jobs:
         run: |
           version=$(sed -n 's/^version: "\(.*\)"/\1/p' device_proxy/config.yaml)
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          image=ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+            printf 'tags<<EOF\n%s:%s\n%s:latest\nEOF\n' "$image" "$version" "$image" >> "$GITHUB_OUTPUT"
+          elif [ "${version#*-}" != "$version" ]; then
+            printf 'tags<<EOF\n%s:%s\nEOF\n' "$image" "$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "Branch ${GITHUB_REF#refs/heads/}: $version is no test version, nothing published"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -131,15 +145,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Already published?
         id: exists
+        if: steps.version.outputs.skip != 'true'
         run: |
           image=ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy
           if docker manifest inspect "$image:${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-        if: steps.exists.outputs.skip != 'true'
+        if: steps.version.outputs.skip != 'true' && steps.exists.outputs.skip != 'true'
       - name: Build and push
-        if: steps.exists.outputs.skip != 'true'
+        if: steps.version.outputs.skip != 'true' && steps.exists.outputs.skip != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: device_proxy
@@ -147,9 +162,7 @@ jobs:
           push: true
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,scope=${{ matrix.arch }},mode=max
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-device_proxy:latest
+          tags: ${{ steps.version.outputs.tags }}
           labels: |
             io.hass.name=Device Proxy
             io.hass.type=addon

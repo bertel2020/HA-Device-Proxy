@@ -24,6 +24,7 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
   - Tests: `tests/test_onewire.py` (Protokoll, Durchreichen, Persistenz mit Pings und DIR, Schreibrechte, Abweisen und Ablauf von Clients, nicht erreichbarer owserver, Konfiguration, Neustart-Schlüssel, Entitäten), `test_kinds.py` (Controller, Snapshot, Adressen, Probleme, MQTT).
   - `tests/HARDWARE.md`: Abschnitt 1-Wire (W1–W5) für den Test gegen einen echten owserver.
   - Noch nicht: owserver im Image (libusb) und USB-Adapter direkt an der App; das kommt mit Schritt 2.
+- CI, Job `publish`: auch andere Branches veröffentlichen ein Image, aber nur eine Testversion (Version mit „-“, etwa `1.8.0-dev1`), nur wenn alle Jobs grün sind und nie als `latest`; eine Version ohne „-“ auf einem Branch wird übersprungen. Die Tags kommen aus dem Schritt `version`. Eine Testinstanz installiert so `<Repository-URL>#<Branch>`; wer `main` nutzt, bleibt auf dessen Version. Branch `onewire` steht auf `1.8.0-dev1`; vor dem Merge nach `main` kommt dort wieder eine echte Version hin.
 - DOCS (de/en): Abschnitt „1-Wire buses“/„1-Wire-Busse“ und Punkt in der Einleitung; README (de/en): Kurztext, Einleitung und Highlight; `config.yaml` `description`.
 
 ## 1.7.0 - 2026-11-15
