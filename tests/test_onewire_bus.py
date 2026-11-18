@@ -194,3 +194,38 @@ def test_a_ds2438_temperature_that_does_not_move_but_no_85(tmp_path: Path) -> No
         clock.now += onewire_bus.FROZEN_AFTER / onewire_bus.FROZEN_READS
     row = b.rows()[0]
     assert row["frozen"] and row["bad"] == 0
+
+
+def test_a_single_reading_far_off_is_an_outlier_a_jump_that_stays_is_not(tmp_path: Path) -> None:
+    clock = Clock()
+    b = bus(tmp_path / "d.json", clock)
+    b.listed([SENSOR, OTHER])
+
+    def read(device: str, value: str) -> list[onewire_bus.Event]:
+        clock.now += 10
+        return b.answered(f"/{device}/temperature", 9, value.encode())
+
+    read(SENSOR, "21.5")
+    assert read(SENSOR, "127.94") == []  # a jump: waits for the next read
+    assert read(SENSOR, "127.94") == []  # the same again (the owserver's cache): still waits
+    events = read(SENSOR, "21.5625")  # back: the jump was an outlier
+    assert events == [
+        (
+            "warning",
+            "onewire_value_spike",
+            {"device": SENSOR, "path": "temperature", "value": "127.94"},
+        )
+    ]
+    assert read(SENSOR, "-0.0625") == [] and read(SENSOR, "21.5") == []  # once an hour
+    row = next(r for r in b.rows() if r["id"] == SENSOR)
+    assert (row["spikes"], row["spike_value"]) == (2, "-0.0625")
+    # a heating that starts: the jump stays, no outlier
+    read(OTHER, "20")
+    read(OTHER, "45")
+    read(OTHER, "46")
+    assert next(r for r in b.rows() if r["id"] == OTHER)["spikes"] == 0
+    # 85 °C is counted as such, not as an outlier, and does not move the value before
+    read(OTHER, "85")
+    read(OTHER, "46.5")
+    other = next(r for r in b.rows() if r["id"] == OTHER)
+    assert (other["bad"], other["spikes"]) == (1, 0)

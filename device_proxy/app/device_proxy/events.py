@@ -50,6 +50,7 @@ SUMMED = {
     "onewire_device_missing",
     "onewire_device_back",
     "onewire_value_85",
+    "onewire_value_spike",
     "enocean_failover",
     "enocean_failback",
     "client_refused",
@@ -154,6 +155,10 @@ MESSAGES = {
     "onewire_device_missing": "1-Wire device missing: {label}",
     "onewire_device_back": "1-Wire device back: {label}",
     "onewire_device_new": "New 1-Wire device on the bus: {label}",
+    "onewire_value_spike": (
+        "{label} answered {value} °C once ({path}) and was back at the next read: "
+        "a read garbled on the line"
+    ),
     "onewire_value_85": (
         "{label} answered 85 °C ({path}): a conversion that did not finish, power or bus"
     ),

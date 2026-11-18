@@ -1553,7 +1553,9 @@
     "owWriteRefused": "refused",
     "owWriteRefusedHint": "Write access does not allow this client to write; the write never reached the bus.",
     "owWritePending": "waiting",
-    "owWriteAt": "Time"
+    "owWriteAt": "Time",
+    "owSpike": "outliers × {n}, last {v} °C {t}",
+    "owSpikeHint": "A single temperature far off (more than 10 °C) that was back at the next read: a read garbled on the line. Now and then is harmless; often points to a long or noisy bus, a missing pull-up or a loose contact."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",
