@@ -52,6 +52,7 @@ class FakeOwserver:
             "/statistics/errors/CRC8_tries": b"         300",
         }
         self.ping = False
+        self.served: list[tuple[int, int, str]] = []  # (connection, type, path)
         self.dirall = DIRALL
         self.connections = 0
         self._server: asyncio.Server | None = None
@@ -68,6 +69,7 @@ class FakeOwserver:
 
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.connections += 1
+        connection = self.connections
         try:
             while True:
                 head = await reader.readexactly(HEADER.size)
@@ -75,6 +77,7 @@ class FakeOwserver:
                 body = await reader.readexactly(payload)
                 path, _, data = body.partition(b"\0")
                 self.requests.append((kind, path.decode(), data))
+                self.served.append((connection, kind, path.decode()))
                 keep = flags & onewire.PERSISTENCE
                 if self.ping:
                     writer.write(HEADER.pack(0, -1, 0, 0, 0, 0))
@@ -238,7 +241,6 @@ async def test_reads_pass_through_and_a_host_is_one_client(setup: Setup) -> None
 
 async def test_a_persistent_connection_with_pings_and_a_directory(setup: Setup) -> None:
     setup.server.ping = True
-    before = setup.server.connections  # the app's own (device list, supply of the sensors)
     reader, writer = await asyncio.open_connection("127.0.0.1", setup.proxy.port)
     flags = onewire.PERSISTENCE
 
@@ -254,7 +256,11 @@ async def test_a_persistent_connection_with_pings_and_a_directory(setup: Setup) 
     writer.write(request(MSG_READ, f"/{SWITCH}/PIO.A", flags, 1))  # the same connection
     received = [await message() for _ in range(2)]
     assert received[1][2] == b"0"
-    assert setup.server.connections == before + 1  # both requests on one connection
+    # both requests on one connection to the owserver (the app's own requests, such as the
+    # sensors' supply, may run meanwhile on others)
+    (dir_on,) = [n for n, kind, path in setup.server.served if kind == MSG_DIR]
+    (read_on,) = [n for n, kind, path in setup.server.served if path == f"/{SWITCH}/PIO.A"]
+    assert dir_on == read_on
     assert setup.proxy.state()["connections"] == 1
     writer.close()
     await _until(lambda: setup.proxy.state()["connections"] == 0)
