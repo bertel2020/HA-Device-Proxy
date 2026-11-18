@@ -181,3 +181,16 @@ def test_every_property_read_is_kept_up_to_a_limit(tmp_path: Path) -> None:
     values = b.rows()[0]["values"]
     assert len(values) == onewire_bus.VALUES_MAX
     assert "page.0" not in values and f"page.{onewire_bus.VALUES_MAX + 4}" in values
+
+
+def test_a_ds2438_temperature_that_does_not_move_but_no_85(tmp_path: Path) -> None:
+    clock = Clock()
+    b = bus(tmp_path / "d.json", clock)
+    humidity = "26.0123456789AB"
+    b.listed([humidity])
+    for _ in range(onewire_bus.FROZEN_READS):
+        assert b.answered(f"/{humidity}/temperature", 9, b"     85") == []  # no power-on value
+        b.answered(f"/{humidity}/humidity", 9, b"     55.1")
+        clock.now += onewire_bus.FROZEN_AFTER / onewire_bus.FROZEN_READS
+    row = b.rows()[0]
+    assert row["frozen"] and row["bad"] == 0
