@@ -433,8 +433,10 @@ undo it.
 the diagnostics.*
 
 A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. The source is
-an owserver in the network, for example the one on another computer or VM that has the USB
-adapter (DS9490R, DS1490F) today. Home Assistant's 1-Wire integration, owhttpd, pyownet scripts
+either an owserver in the network, for example the one on another computer or VM that has the
+USB adapter (DS9490R, DS1490F) today, or **USB adapter of this host**: then the adapter is on
+Home Assistant's computer (or passed through to its VM) and the app runs its own owserver for
+it. Home Assistant's 1-Wire integration, owhttpd, pyownet scripts
 and other systems connect to the app's port instead, with the same protocol. The default port is
 4304, the usual owserver port, so a program only needs the new address.
 
@@ -462,7 +464,18 @@ Moving from an owserver on another computer:
 2. Point the programs to the app one at a time: in Home Assistant, set up the 1-Wire integration
    with the host of Home Assistant and the connection's port. Each one can go back to the old
    address until all of them work.
-3. Later the USB adapter can move to Home Assistant itself (a coming version of the app).
+3. Move the USB adapter to Home Assistant: in Proxmox, pass it (USB ID 04fa:2490) through to
+   Home Assistant's VM instead of the old one, and switch the connection's source to **USB
+   adapter of this host**. The form says whether it finds the adapter. The programs keep their
+   address and port.
+
+**The app's own owserver** (source USB adapter) listens on 127.0.0.1 only; the programs reach
+the bus through the connection's port as before. owserver takes the adapter from the kernel's
+ds2490 driver itself. The DS2490 in these adapters is known to stop answering after a while:
+when the device list stays unanswered twice in a row (about a minute), the app starts owserver
+again; after two such restarts without an answer it gives the adapter a USB reset, at most once
+in 10 minutes. **Restart** and **USB reset** on the connection's page do the same by hand. The
+connection's page shows whether owserver runs, its restarts and resets and its last messages.
 
 ## Maintenance: one computer alone
 

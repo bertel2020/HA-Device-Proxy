@@ -328,7 +328,8 @@ export class DetailPage extends Page {
   /** Close the device or proxy and open it again; for a USB adapter also a USB reset. */
   _restart(c) {
     if (!c.enabled || (c.kind === "serial" && this.state.source === "custom")) return "";
-    const usb = c.device && c.usb && c.usb.vendor_id && (c.kind !== "serial" || c.source === "device");
+    const usb = (c.device && c.usb && c.usb.vendor_id && (c.kind !== "serial" || c.source === "device"))
+      || (c.kind === "onewire" && c.link === "usb" && !!(c.onewire?.adapters || []).length);
     const busy = this.restarting === c.id;
     return foldCard("device_proxy.restart", "t-restart", t("restartTitle"), t("restartSub"), html`
       <p class="hint" style="margin:0">${t("restartText")}${usb ? ` ${t("usbResetText")}` : ""}</p>
@@ -770,7 +771,7 @@ export class DetailPage extends Page {
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
             </div>` : onewire ? html`<div class="kv">
-              <span>${t("owSource")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">owserver · ${proxyTarget(c)}</span>
+              <span>${t("owSource")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${c.link === "usb" ? t("owLink_usb") : `owserver · ${proxyTarget(c)}`}</span>
               <span>${t("network")}</span><span>Port ${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("mbWrite")}</span><span>${writeRule(c)}</span>

@@ -200,7 +200,7 @@ export const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.leng
 export const dirLabel = (direction, kind) => (direction === "rx" || direction === "tx" ? t(`${kind === "modbus" || kind === "onewire" ? "dirmb" : "dir"}_${direction}`) : direction.toUpperCase());
 
 export const usesDevice = (c) => (c.kind === "serial" && c.source !== "tcp") || c.link === "rtu" || c.link === "rtu_listen" || c.link === "serial";
-export const proxyTarget = (c) => usesDevice(c) ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
+export const proxyTarget = (c) => usesDevice(c) ? c.device : c.kind === "onewire" && c.link === "usb" ? "USB" : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;
 export const modbusTarget = proxyTarget;
 
 export const fmtSerial = (c) => `${c.baud} ${c.data_bits}${c.parity.toUpperCase()}${c.stop_bits}`;

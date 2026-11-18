@@ -19,6 +19,14 @@ request until IDLE_AFTER seconds without one, and max_clients limits the hosts.
 
 The app reads the device list (DIRALL "/", from the owserver's cache) every PROBE_SECONDS:
 that is the reachability check and the list of devices with their family.
+
+With link "usb" the 1-Wire USB adapter (DS2490 inside the DS9490R and DS1490F) is on this
+host, and the app runs its own owserver for it (OwServer): on 127.0.0.1 and a free port, so
+only the proxy reaches it, and the proxy works as with an owserver in the network. owserver
+takes the adapter from the kernel's ds2490 driver itself. The DS2490 is known to stop
+answering after a while: WATCHDOG_MISSES device lists in a row without an answer start
+owserver again, and after RESET_AFTER such restarts without an answer the adapter gets a USB
+reset (as unplugging it does), at most once in RESET_PAUSE.
 """
 
 from __future__ import annotations
@@ -26,19 +34,24 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import logging
 import re
 import socket
 import struct
 import time
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 from .clients import plain_host
+from .devices import UsbDevice, reset_node, usb_devices
 from .modbus import keepalive, may_write
 from .model import Connection, from_this_host, peer_allowed
 from .trace import Chunk
+
+_LOGGER = logging.getLogger(__name__)
 
 EventSink = Callable[..., None]  # (level, kind, **params)
 TraceSink = Callable[[Chunk], None]
@@ -78,6 +91,18 @@ CLOSE_TIMEOUT = 2.0
 ANSWERS_KEPT = 100  # answer times the average is taken over
 CONNECTIONS_PER_HOST = 32  # open connections of one host at a time; more are refused
 
+OWSERVER = "owserver"
+ADAPTER = ("04fa", "2490")  # vendor and product of the DS2490 (DS9490R, DS1490F)
+OWSERVER_DELAYS = (1, 2, 5, 10, 30)  # seconds before starting an ended owserver again
+OWSERVER_STABLE = 60.0  # a run this long resets the delay
+OWSERVER_STOP = 5.0  # seconds owserver gets to end before it is killed
+FIRST_PROBE = 3.0  # seconds the own owserver gets to open the adapter before the first look
+WATCHDOG_MISSES = 2  # device lists in a row without an answer: owserver starts again
+RESET_AFTER = 2  # such restarts without an answer since: the adapter gets a USB reset
+RESET_PAUSE = 600.0  # at most one automatic USB reset in this many seconds
+USB_BACK = 3.0  # seconds after a USB reset before owserver opens the adapter again
+LOG_KEPT = 20  # owserver's last log lines in the state
+
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
 # family code → the usual chip (the owserver tells the exact one in <id>/type)
 FAMILIES = {
@@ -116,6 +141,14 @@ class Stats:
     refused: int = 0  # connections turned away (networks, max_clients)
     last_error: str = ""
     last_error_at: float = 0.0
+
+
+@dataclass
+class Watchdog:
+    misses: int = 0  # device lists in a row without an answer
+    restarts: int = 0  # owserver started again since the bus last answered
+    resets: int = 0  # USB resets since the start
+    last_reset: float | None = None
 
 
 @dataclass(eq=False)
@@ -209,6 +242,150 @@ def error_name(ret: int) -> str:
     return errno.errorcode.get(-ret, str(ret))
 
 
+def free_port() -> int:
+    """A port nothing listens on now, on 127.0.0.1 (for the own owserver)."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+class OwServer:
+    """The app's own owserver on the USB adapter: started again when it ends."""
+
+    def __init__(
+        self, port: int, on_exit: Callable[[int | None, float], None], binary: str = ""
+    ) -> None:
+        self.port = port
+        self.on_exit = on_exit  # (exit code, seconds until the next start)
+        self.binary = binary or OWSERVER
+        self.restarts = 0  # after it ended by itself
+        self.starts = 0
+        self.started_at: float | None = None
+        self.last_exit: int | None = None
+        self.start_error = ""
+        self.log: deque[str] = deque(maxlen=LOG_KEPT)
+        self._proc: asyncio.subprocess.Process | None = None
+        self._again = False  # restart() asked for it: no delay, no event
+        self._started = asyncio.Event()  # a new owserver process is there
+        self._paused = False  # restart_with(): no new start until the adapter is reset
+        self._resume = asyncio.Event()
+
+    @property
+    def running(self) -> bool:
+        return self._proc is not None and self._proc.returncode is None
+
+    def command(self) -> list[str]:
+        # -u: the first USB adapter; errors to stderr (2), which the app logs
+        return [
+            self.binary, "--foreground", "--error_print=2", "--error_level=1",
+            "-u", "-p", f"127.0.0.1:{self.port}",
+        ]  # fmt: skip
+
+    async def run(self) -> None:
+        failures = 0
+        loop = asyncio.get_running_loop()
+        try:
+            while True:
+                while self._paused:
+                    self._resume.clear()
+                    await self._resume.wait()
+                started = loop.time()
+                code = await self._run_once()
+                if self._again:
+                    self._again = False
+                    continue
+                if loop.time() - started >= OWSERVER_STABLE:
+                    failures = 0
+                delay = OWSERVER_DELAYS[min(failures, len(OWSERVER_DELAYS) - 1)]
+                failures += 1
+                self.restarts += 1
+                self.on_exit(code, delay)
+                await asyncio.sleep(delay)
+        finally:
+            # also when cancelled a second time while waiting: owserver must not stay
+            await asyncio.shield(self.terminate())
+
+    async def _run_once(self) -> int | None:
+        try:
+            self._proc = await asyncio.create_subprocess_exec(
+                *self.command(),
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+        except OSError as err:
+            self.start_error = str(err)
+            self.last_exit = None
+            return None
+        self.start_error, self.started_at = "", time.time()
+        self.starts += 1
+        self._started.set()
+        assert self._proc.stdout is not None
+        while True:
+            try:
+                raw = await self._proc.stdout.readline()
+            except ValueError:  # a line over 64 KiB
+                continue
+            if not raw:
+                break
+            if line := raw.decode(errors="replace").strip():
+                self.log.append(line)
+                _LOGGER.info("owserver: %s", line)
+        self.last_exit = await self._proc.wait()
+        return self.last_exit
+
+    async def restart(self) -> None:
+        """End owserver; run() starts it again at once (waited for, up to OWSERVER_STOP)."""
+        if not self.running:
+            return
+        self._again = True
+        self._started.clear()
+        await self.terminate()
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self._started.wait(), OWSERVER_STOP)
+
+    async def restart_with(self, between: Callable[[], None]) -> None:
+        """End owserver, run between (in a thread), start it again after USB_BACK."""
+        running = self.running
+        self._again = running
+        self._started.clear()
+        self._paused = True
+        await self.terminate()
+        try:
+            await asyncio.to_thread(between)
+        finally:
+            await asyncio.sleep(USB_BACK)  # the adapter comes back on the bus
+            self._paused = False
+            self._resume.set()
+        if running:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._started.wait(), OWSERVER_STOP)
+
+    async def terminate(self) -> None:
+        proc = self._proc
+        if proc is None or proc.returncode is not None:
+            return
+        with contextlib.suppress(ProcessLookupError):
+            proc.terminate()
+        try:
+            await asyncio.wait_for(proc.wait(), OWSERVER_STOP)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            await proc.wait()
+
+    def state(self) -> dict[str, Any]:
+        return {
+            "running": self.running,
+            "port": self.port,
+            "started_at": self.started_at if self.running else None,
+            "restarts": self.restarts,
+            "last_exit": self.last_exit,
+            "start_error": self.start_error,
+            "log": list(self.log),
+        }
+
+
 class OneWireProxy:
     def __init__(
         self,
@@ -238,6 +415,13 @@ class OneWireProxy:
         self._last_answer_ms: float | None = None
         self._server: asyncio.Server | None = None
         self._open = 0  # client connections now
+        # link "usb": the own owserver, the adapters found, the watchdog's counts
+        self.owserver = OwServer(free_port(), self._owserver_ended) if c.onewire_usb else None
+        self.adapters: list[UsbDevice] = []
+        self.find_adapters: Callable[[], list[UsbDevice]] = lambda: usb_devices(*ADAPTER)
+        self.reset_adapter: Callable[[str], None] = lambda node: reset_node(Path(node))
+        self.watchdog = Watchdog()
+        self._reset_at = -RESET_PAUSE  # loop time of the last automatic USB reset
 
     # running
 
@@ -258,6 +442,8 @@ class OneWireProxy:
                 asyncio.create_task(self._probe_loop()),
                 asyncio.create_task(self._sweep_loop()),
             ]
+            if self.owserver is not None:
+                tasks.append(asyncio.create_task(self.owserver.run()))
             await asyncio.gather(*tasks)
         finally:
             for task in tasks:
@@ -288,16 +474,21 @@ class OneWireProxy:
     # the owserver
 
     async def _connect(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        if self.owserver is not None:
+            host, port = "127.0.0.1", self.owserver.port
+        else:
+            host, port = self.c.host, self.c.host_port
         try:
-            return await asyncio.wait_for(
-                asyncio.open_connection(self.c.host, self.c.host_port), CONNECT_TIMEOUT
-            )
+            return await asyncio.wait_for(asyncio.open_connection(host, port), CONNECT_TIMEOUT)
         except TimeoutError:
             raise ConnectionError("no answer") from None
 
     async def _probe_loop(self) -> None:
+        if self.owserver is not None:
+            await asyncio.sleep(FIRST_PROBE)
         while True:
             await self.probe()
+            await self.look_after()
             await asyncio.sleep(PROBE_SECONDS)
 
     async def probe(self) -> None:
@@ -327,6 +518,64 @@ class OneWireProxy:
         self.probe_ms = round((loop.time() - started) * 1000, 1)
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
+
+    # the own owserver (link "usb")
+
+    def _owserver_ended(self, code: int | None, delay: float) -> None:
+        assert self.owserver is not None
+        error = self.owserver.start_error or (self.owserver.log[-1] if self.owserver.log else "")
+        self.on_event("warning", "onewire_owserver_ended", code=code, delay=delay, error=error)
+
+    async def look_after(self) -> None:
+        """The watchdog, after each look at the device list: owserver again, then a USB
+        reset, when the bus keeps not answering."""
+        if self.owserver is None:
+            return
+        self.adapters = await asyncio.to_thread(self.find_adapters)
+        w = self.watchdog
+        if self.reachable is not False:
+            w.misses = w.restarts = 0
+            return
+        w.misses += 1
+        if w.misses < WATCHDOG_MISSES:
+            return
+        w.misses = 0
+        loop = asyncio.get_running_loop()
+        if (
+            w.restarts >= RESET_AFTER
+            and self.adapters
+            and loop.time() - self._reset_at >= RESET_PAUSE
+        ):
+            self._reset_at = loop.time()
+            w.restarts = 0
+            with contextlib.suppress(OSError, ValueError):  # said by usb_reset's event
+                await self.usb_reset(reason="watchdog")
+            return
+        w.restarts += 1
+        if self.owserver.running:  # one that ended is started again by OwServer anyway
+            self.on_event("warning", "onewire_restarted", reason="no answer")
+            await self.owserver.restart()
+
+    async def usb_reset(self, reason: str = "manual") -> str:
+        """End owserver, reset the adapter, let owserver open it again; the adapter's place.
+        Raises ValueError without an adapter, OSError when the reset fails."""
+        if self.owserver is None:
+            raise ValueError("the bus is not on a USB adapter of this host")
+        self.adapters = await asyncio.to_thread(self.find_adapters)
+        if not self.adapters:
+            raise ValueError("no 1-Wire USB adapter found")
+        adapter = self.adapters[0]
+        owserver = self.owserver
+        try:
+            # owserver lets the adapter go; reset; owserver opens it again (run() starts it)
+            await owserver.restart_with(lambda: self.reset_adapter(adapter.node))
+        except OSError as err:
+            self.on_event("error", "onewire_usb_reset_failed", place=adapter.place, error=str(err))
+            raise
+        self.watchdog.resets += 1
+        self.watchdog.last_reset = time.time()
+        self.on_event("warning", "onewire_usb_reset", place=adapter.place, reason=reason)
+        return adapter.place
 
     def _up(self) -> None:
         if self.reachable is not True:
@@ -538,6 +787,12 @@ class OneWireProxy:
         s = self.stats
         answers = list(self._answers)
         return {
+            "source": self.c.link,
+            "owserver": self.owserver.state() if self.owserver is not None else None,
+            "adapters": [
+                {"place": a.place, "product": a.product, "driver": a.driver} for a in self.adapters
+            ],
+            "watchdog": asdict(self.watchdog) if self.owserver is not None else None,
             "listening": self.listening,
             "listen_error": self.listen_error,
             "reachable": self.reachable,

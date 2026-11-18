@@ -200,6 +200,12 @@ def usb_reset(path: str, dev_root: Path = DEV, sys_root: Path = SYS) -> str:
     """Reset the USB adapter of a serial device; its place on the bus. The device goes away
     and comes back after about a second, possibly with another tty number."""
     node, place = usb_node(path, dev_root, sys_root)
+    reset_node(node)
+    return place
+
+
+def reset_node(node: Path) -> None:
+    """USBDEVFS_RESET on a USB device's node under /dev/bus/usb."""
     try:
         fd = os.open(node, os.O_WRONLY)
     except OSError as err:
@@ -208,4 +214,34 @@ def usb_reset(path: str, dev_root: Path = DEV, sys_root: Path = SYS) -> str:
         fcntl.ioctl(fd, USBDEVFS_RESET, 0)
     finally:
         os.close(fd)
-    return place
+
+
+@dataclass(frozen=True)
+class UsbDevice:
+    """A USB device that is no serial port (a 1-Wire adapter): where it is and which kernel
+    driver holds its first interface ("" for none)."""
+
+    place: str  # on the bus, e.g. 1-1.3
+    node: str  # /dev/bus/usb/001/004
+    product: str
+    driver: str
+
+
+def usb_devices(
+    vendor: str, product: str, dev_root: Path = DEV, sys_root: Path = SYS
+) -> list[UsbDevice]:
+    """The USB devices with this vendor and product ID (hex, as in lsusb)."""
+    found = []
+    for path in sorted((sys_root / "bus" / "usb" / "devices").glob("*")):
+        if ":" in path.name or _read(path / "idVendor") != vendor:
+            continue
+        if _read(path / "idProduct") != product:
+            continue
+        bus, number = _read(path / "busnum"), _read(path / "devnum")
+        if not (bus.isdigit() and number.isdigit()):
+            continue
+        interface = path / f"{path.name}:1.0" / "driver"
+        driver = os.path.basename(os.path.realpath(interface)) if interface.exists() else ""
+        node = dev_root / "bus" / "usb" / f"{int(bus):03d}" / f"{int(number):03d}"
+        found.append(UsbDevice(path.name, str(node), _read(path / "product"), driver))
+    return found

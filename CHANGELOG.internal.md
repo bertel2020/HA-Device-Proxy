@@ -11,6 +11,16 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- 1-Wire, Schritt 2 (USB-Adapter an der App):
+  - Image: owfs 3.2p4 aus dem Release-Tarball (SHA-256 geprüft) mit `libusb-dev` gebaut, nur `owserver` (alle anderen Module, Bindings, Zeroconf, i2c, w1, parport, ftdi aus); der Build bricht ab, wenn configure USB weglässt (`OW_USB = 1` im Makefile). Laufzeit `libusb`; `owserver --version` (endet mit Fehlercode) wird über die Ausgabe geprüft. Alpines `owfs` ist ohne libusb gebaut. owfs löst den Kernel-Treiber ds2490 selbst (`libusb_detach_kernel_driver`).
+  - `model`: `LINKS["onewire"] = ("owserver", "usb")`, Eigenschaft `onewire_usb` (nicht `remote`, kein Gerät, `upstream` „USB“); `AppConfig.validate` erlaubt nur eine Verbindung auf dem USB-Adapter (Fehler am Feld `link`).
+  - `onewire.OwServer`: owserver im Vordergrund (`--foreground --error_print=2 --error_level=1 -u -p 127.0.0.1:<freier Port>`), Ausgabe ins App-Log und die letzten 20 Zeilen in den Zustand, Neustart mit 1/2/5/10/30 s Pause (Ereignis `onewire_owserver_ended`), `restart()` wartet auf den neuen Prozess, `restart_with()` hält den Neustart an, bis der USB-Reset durch ist; beim Stoppen `terminate` unter `shield`.
+  - Watchdog `look_after()` nach jeder Geräteliste: 2 Mal ohne Antwort → owserver neu (`onewire_restarted`), nach 2 solchen Neustarts → USB-Reset des ersten Adapters (`onewire_usb_reset`, Fehler `onewire_usb_reset_failed`), höchstens einmal in 600 s. Erste Geräteliste 3 s nach dem Start.
+  - `devices`: `usb_devices(vendor, product)` (sysfs, mit Kernel-Treiber der ersten Schnittstelle), `reset_node()` aus `usb_reset` herausgelöst. Controller: `_reset_usb` setzt bei 1-Wire über USB den Adapter zurück (Knopf „USB-Reset“, nach Ende des Proxys); Snapshot `onewire_adapters` für das Formular.
+  - Panel: Quelle „owserver im Netz“/„USB-Adapter an diesem Rechner“, gefundene Adapter mit Kernel-Treiber (außer `usbfs`), Hinweis ohne Adapter; owserver-Karte mit eigenem owserver, Neustarts, Resets, Startfehler und letzten Meldungen; USB-Reset-Knopf, wenn ein Adapter da ist; `proxyTarget` „USB“.
+  - Tests: `tests/fake_owserver.py` (owserver-Ersatz, Modi „hang“ und „fail“), eigener owserver mit Argumenten und Geräteliste, Neustart nach Ende, Watchdog bis zum USB-Reset und zurück, nur ein USB-Bus, `usb_devices` aus einem sysfs-Baum, Reset-Knopf im Controller. `tests/HARDWARE.md` W6–W10.
+  - DOCS (de/en): Quelle USB, Schritt 3 des Umzugs, eigener owserver und Watchdog.
+
 ## 1.8.0 - 2026-11-18
 
 - GitHub-Vorschaubild (Social Preview) `screenshots/social-preview.png`, 1280×640: Icon, Name, Kernsatz, acht Funktionen (ser2net 4, Modbus-Proxy, EnOcean-Proxy, Gateway-Ersatz, zweites oder Test-HA, Replay, Schreibschutz je Client, Live-Daten) und der englische Modbus-Screenshot. Quelle `tools/social-preview.html`, gerendert mit headless Chrome (Befehl oben in der Datei); hochgeladen wird es von Hand unter Settings → General → Social preview. README (de/en) nennt es unter Development.

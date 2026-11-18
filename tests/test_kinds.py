@@ -172,3 +172,29 @@ async def test_a_onewire_bus_in_the_controller(tmp_path: Path) -> None:
     finally:
         controller.config = AppConfig()
         await controller._reconcile_proxies()
+
+
+async def test_the_reset_button_of_a_onewire_usb_bus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from device_proxy import onewire
+    from device_proxy.devices import UsbDevice
+
+    db = Database(tmp_path / "h.db")
+    controller = Controller(
+        Store(db, tmp_path / "c.json"), EventLog(db), tmp_path / "s.yaml",
+        trace=TraceHub(tmp_path / "t", tmp_path / "shm"),
+    )  # fmt: skip
+    bus = Connection("1-Wire", "", 14304, kind="onewire", link="usb")
+    resets: list[Path] = []
+    adapter = UsbDevice("1-1.2", "/dev/bus/usb/001/004", "DS1490F", "")
+    monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [adapter])
+    monkeypatch.setattr(controller_module, "reset_node", resets.append)
+    monkeypatch.setattr(onewire, "USB_BACK", 0)
+    result: dict[str, object] = {}
+    await controller._reset_usb(bus, result)
+    assert result == {"usb": "1-1.2"} and resets == [Path("/dev/bus/usb/001/004")]
+    monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [])
+    result = {}
+    await controller._reset_usb(bus, result)
+    assert result == {"usb_error": "no 1-Wire USB adapter found"}

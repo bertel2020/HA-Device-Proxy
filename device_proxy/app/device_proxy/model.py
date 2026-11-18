@@ -61,7 +61,9 @@ KINDS = ("serial", "modbus", "enocean", "onewire")
 LINKS = {  # how a proxy reaches its device
     "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),
     "enocean": ("serial", "tcp"),
-    "onewire": ("owserver",),  # another owserver in the network (onewire.py)
+    # another owserver in the network, or a USB adapter of this host with the app's own
+    # owserver (onewire.py)
+    "onewire": ("owserver", "usb"),
 }
 OWSERVER_PORT = 4304
 SERIAL_LINKS = {"rtu", "rtu_listen", "serial"}  # the links that open a serial device of this host
@@ -305,16 +307,23 @@ class Connection:
         return self.link in SERIAL_LINKS
 
     @property
+    def onewire_usb(self) -> bool:
+        """A 1-Wire bus on a USB adapter of this host: no serial device, no network address."""
+        return self.kind == "onewire" and self.link == "usb"
+
+    @property
     def remote(self) -> bool:
         """Reaches its device over the network (host and host_port): a proxy, or a serial
         connection on a serial bridge."""
-        return not self.uses_device
+        return not self.uses_device and not self.onewire_usb
 
     @property
     def upstream(self) -> str:
         """Where a proxy's device is, for messages."""
         if self.uses_device:
             return f"{self.device} {self.serial_format}"
+        if self.onewire_usb:
+            return "USB"
         host = f"[{self.host}]" if ":" in self.host else self.host
         return f"{host}:{self.host_port}"
 
@@ -879,6 +888,7 @@ class AppConfig:
         }
         status_port = self.settings.enocean_status_port
         enocean = any(c.kind == "enocean" for c in self.connections)
+        usb_bus = ""  # the 1-Wire connection on the USB adapter
         for index, c in enumerate(self.connections):
             if enocean and c.port == status_port:
                 e[f"connections.{index}.port"] = "used by the status for the EnOcean integration"
@@ -888,6 +898,11 @@ class AppConfig:
             if c.remote:
                 # two proxies for one device would take its connections from each other
                 checks.append(("host", (c.host.lower(), c.host_port)))
+            if c.onewire_usb:
+                # the app's owserver opens the USB adapter; a second one would fight it
+                if usb_bus:
+                    e[f"connections.{index}.link"] = f"the USB adapter is used by {usb_bus}"
+                usb_bus = usb_bus or c.name
             for key, value in checks:
                 if value in seen[key]:
                     e[f"connections.{index}.{key}"] = f"also used by {seen[key][value]}"
