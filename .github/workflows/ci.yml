@@ -23,6 +23,9 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: python -m pytest -q
+      # the 1-Wire proxy under load with an owserver that goes away and hangs (45 s): no
+      # answer at the wrong client, no connection left
+      - run: python tools/soak_onewire.py --ci
 
   panel:
     name: Web interface bundle up to date

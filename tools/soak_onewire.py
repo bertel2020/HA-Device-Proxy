@@ -1,6 +1,7 @@
 """Runs the 1-Wire proxy under load for a while, the owserver failing now and then.
 
     .venv/bin/python tools/soak_onewire.py [minutes]   (default 5)
+    .venv/bin/python tools/soak_onewire.py --ci        (45 s, outages every 16 s: in CI)
 
 A fake owserver with a few devices answers every read with the path it was asked for and a
 counter, so an answer that went to the wrong client shows. Clients as Home Assistant's
@@ -213,10 +214,12 @@ async def dropper(port: int, stop: asyncio.Event) -> None:
     while not stop.is_set():
         with contextlib.suppress(OSError):
             _reader, writer = await asyncio.open_connection("127.0.0.1", port)
-            message = onewire.request(MSG_READ, f"/{RNG.choice(DEVICES)}/temperature")
-            writer.write(message[: RNG.randint(1, len(message))])
-            await asyncio.sleep(RNG.uniform(0, 0.2))
-            writer.transport.abort()
+            try:
+                message = onewire.request(MSG_READ, f"/{RNG.choice(DEVICES)}/temperature")
+                writer.write(message[: RNG.randint(1, len(message))])
+                await asyncio.sleep(RNG.uniform(0, 0.2))
+            finally:  # also when the run ends meanwhile: a socket left open is not the proxy's
+                writer.transport.abort()
         await asyncio.sleep(RNG.uniform(0.1, 0.5))
 
 
@@ -332,4 +335,7 @@ async def main(minutes: float) -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--ci"]:  # short, but both kinds of outage, twice "down" and once "hang"
+        OUTAGE_EVERY, OUTAGE_SECONDS = 16, 4
+        sys.exit(asyncio.run(main(0.75)))
     sys.exit(asyncio.run(main(float(sys.argv[1]) if len(sys.argv) > 1 else 5)))
