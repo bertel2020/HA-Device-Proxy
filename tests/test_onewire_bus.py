@@ -169,3 +169,15 @@ def test_the_exact_chip_is_asked_once_and_kept(tmp_path: Path) -> None:
     assert b.devices[SENSOR].chip == "DS18B20"
     b.listed([SWITCH])
     assert b.needs_type() == [SWITCH]
+
+
+def test_every_property_read_is_kept_up_to_a_limit(tmp_path: Path) -> None:
+    clock = Clock()
+    b = bus(tmp_path / "d.json", clock)
+    b.listed([SWITCH])
+    for i in range(onewire_bus.VALUES_MAX + 5):
+        clock.now += 1
+        b.answered(f"/{SWITCH}/page.{i}", 1, b"0")
+    values = b.rows()[0]["values"]
+    assert len(values) == onewire_bus.VALUES_MAX
+    assert "page.0" not in values and f"page.{onewire_bus.VALUES_MAX + 4}" in values

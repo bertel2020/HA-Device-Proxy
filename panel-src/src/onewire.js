@@ -67,25 +67,30 @@ export function names(text) {
   return out;
 }
 
-/** The value to show: a temperature first, else the first property read. */
-function shown(d) {
-  const entries = Object.entries(d.values || {});
-  const [prop, v] = entries.find(([p]) => TEMPERATURE.test(p)) || entries[0] || [];
-  if (!v) return html`<span class="hint">${t("owNoValue")}</span>`;
+/** A value as it reads best: a temperature in °C, anything else as the owserver says it. */
+function formatted(prop, v) {
   const number = Number(v.value);
-  const text = TEMPERATURE.test(prop) && !Number.isNaN(number) ? `${number.toLocaleString(lang, { maximumFractionDigits: 2 })} °C` : `${prop} = ${v.value}`;
-  return html`${text} <span class="hint">· ${fmtAgo(v.at)}</span>`;
+  return TEMPERATURE.test(prop) && !Number.isNaN(number) ? `${number.toLocaleString(lang, { maximumFractionDigits: 2 })} °C` : v.value;
+}
+
+/** The value to show in the row: a temperature first, else the property read last. */
+function main(d) {
+  const entries = Object.entries(d.values || {});
+  return entries.find(([p]) => TEMPERATURE.test(p)) || entries.sort((a, b) => b[1].at - a[1].at)[0];
 }
 
 /** The devices on the bus: also the known ones that are missing now, with names of your own. */
 export class OneWireDevices extends LitElement {
-  static properties = { connection: { attribute: false }, settings: { attribute: false }, edit: { state: true }, error: { state: true } };
+  static properties = { connection: { attribute: false }, settings: { attribute: false }, edit: { state: true }, error: { state: true }, open: { state: true } };
 
   static styles = [tokens, base, css`
     :host { display: block; }
     td, th { font-size: calc(13px * var(--fs, 1)); vertical-align: top; }
     .id { font-family: "Roboto Mono", ui-monospace, Menlo, monospace; white-space: nowrap; }
     .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .more { min-height: 24px; padding: 0 6px; margin-left: 4px; font-size: max(10.5px, calc(12px * var(--fs, 1))); }
+    tr.values td { padding-top: 0; border-top: 0; }
+    .all { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 12px; font-size: max(10.5px, calc(12px * var(--fs, 1))); }
   `];
 
   _refresh() { this.dispatchEvent(new CustomEvent("dp-refresh", { bubbles: true, composed: true })); }
@@ -105,6 +110,16 @@ export class OneWireDevices extends LitElement {
       await api(`api/tools/${this.connection.id}/onewire/forget`, { method: "POST", body: { device: d.id } });
       this._refresh();
     } catch (err) { this.error = err.message; }
+  }
+
+  /** The main value, and a button for all the others the programs read. */
+  _value(d) {
+    const found = main(d);
+    if (!found) return html`<span class="hint">${t("owNoValue")}</span>`;
+    const [prop, v] = found, more = Object.keys(d.values).length - 1, open = this.open?.has(d.id);
+    const toggle = () => { const next = new Set(this.open || []); if (open) next.delete(d.id); else next.add(d.id); this.open = next; };
+    return html`${TEMPERATURE.test(prop) ? formatted(prop, v) : `${prop} = ${formatted(prop, v)}`} <span class="hint">· ${fmtAgo(v.at)}</span>${more ? html`<button class="btn btn-g more" aria-expanded=${open ? "true" : "false"}
+      @click=${toggle}>${open ? t("owLess") : t("owMore", { n: more })}</button>` : ""}`;
   }
 
   _chips(d) {
@@ -138,9 +153,11 @@ export class OneWireDevices extends LitElement {
               @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint">–</span>`}</td>
             <td><span class="id">${d.id}</span></td>
             <td>${d.chip || html`${d.type || d.family} <span class="hint" title=${t("owChipUsualHint")}>${t("owChipUsual")}</span>`}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
-            <td>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
+            <td>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : this._value(d)}</td>
             <td><div class="chips">${this._chips(d)}</div></td>
-            <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>`;
+            <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>
+            ${this.open?.has(d.id) ? html`<tr class="values"><td></td><td colspan="5"><div class="all">${Object.entries(d.values || {}).sort(([a], [b]) => a.localeCompare(b))
+              .map(([prop, v]) => html`<span class="mono">${prop}</span><span>${formatted(prop, v)}</span><span class="hint">${fmtAgo(v.at)}</span>`)}</div></td></tr>` : ""}`;
         })}</tbody></table></div>
         <p class="hint" style="margin:0">${t("owValuesHint")}</p>`
         : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${o.reachable === false ? t("owNoList") : o.devices_at ? t("owNoDevices") : t("owNotRead")}</p>`}

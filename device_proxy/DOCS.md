@@ -452,7 +452,8 @@ does not answer, the connection shows **not reachable** and the app notifies you
 **Devices on the bus**: the connection's page lists every device the owserver names, with a
 name of your own (**Edit names**), its chip (as the owserver names it, asked once; until then
 the usual one of its family) and the last value your programs read (the
-app reads no values itself). The app remembers the devices, also over restarts: one that is
+app reads no values itself); **+N values** shows all the others read from the device, such as the
+outputs of a DS2408 or the humidity and voltage of a DS2438. The app remembers the devices, also over restarts: one that is
 missing from the device list twice in a row shows as **missing since**, and the app notifies
 you if **Notify when the device is missing or not reachable** is on; one taken off on purpose
 is removed with **Forget**. A device that appears later is marked **new**. iButtons (the reader of a DS1490F, families 01,
