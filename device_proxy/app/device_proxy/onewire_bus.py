@@ -223,8 +223,7 @@ class Bus:
         device = self.devices.get(device_id)
         text = value.split(b"\0", 1)[0].decode("ascii", "replace").strip()
         if device is not None and ret >= 0 and text and text.isprintable():
-            device.chip = text[:32]
-            self.save()
+            device.chip = text[:32]  # kept with the next save(): the caller saves once
 
     def needs_power(self) -> list[str]:
         """Temperature sensors on the bus whose supply was not asked for yet in this run."""

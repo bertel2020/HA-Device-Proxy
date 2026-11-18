@@ -165,6 +165,7 @@ def test_the_exact_chip_is_asked_once_and_kept(tmp_path: Path) -> None:
     b.typed(SENSOR, 8, b"DS18B20\0")
     b.typed(SWITCH, -2, b"")  # no answer: not asked again in this run
     assert b.needs_type() == []
+    b.save()  # as the proxy does once after asking
     assert {r["id"]: r["chip"] for r in b.rows()} == {SENSOR: "DS18B20", SWITCH: ""}
     # kept in the file: known while the sensor is missing, and not asked again
     b = bus(path, clock)
