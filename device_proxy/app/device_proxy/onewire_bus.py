@@ -12,6 +12,10 @@ faults: 85 °C, the DS18x20's power-on value, which an owserver passes on when a
 did not finish (parasite power, a weak bus), and a value that stays exactly the same for
 FROZEN_AFTER seconds while it is read FROZEN_READS times (a real sensor moves by 1/16 °C).
 
+How each temperature sensor is powered, read once per run of the app when it is first listed
+(<id>/power: 1 its own supply, 0 parasite power from the data line): parasite power is the
+usual cause of the 85 °C.
+
 From the owserver's own statistics (STATISTICS): CRC and bus errors since it started.
 """
 
@@ -85,6 +89,7 @@ class Device:
     last_error_at: float | None = None
     bad: int = 0  # 85 °C answers
     bad_at: float | None = None
+    power: str = ""  # "external", "parasite", "" not known
 
     @property
     def family(self) -> str:
@@ -134,6 +139,7 @@ class Bus:
             if DEVICE_ID.fullmatch(device_id) and isinstance(seen, dict):
                 first, last = float(seen.get("first", 0)), float(seen.get("last", 0))
                 self.devices[device_id] = Device(device_id, first, last)
+        self.power_asked: set[str] = set()  # this run
         self.statistics: dict[str, int] | None = None
         self.statistics_at: float | None = None
         self.errors_rising_at: float | None = None
@@ -173,6 +179,21 @@ class Bus:
         if changed or now - self._saved >= SAVE_EVERY:
             self.save()
         return events
+
+    def needs_power(self) -> list[str]:
+        """Temperature sensors on the bus whose supply was not asked for yet in this run."""
+        return [
+            d.id
+            for d in self.devices.values()
+            if d.family in TEMPERATURE_FAMILIES and d.absent == 0 and d.id not in self.power_asked
+        ]
+
+    def powered(self, device_id: str, ret: int, value: bytes) -> None:
+        self.power_asked.add(device_id)
+        device = self.devices.get(device_id)
+        text = value.split(b"\0", 1)[0].strip()
+        if device is not None and ret >= 0 and text in (b"0", b"1"):
+            device.power = "external" if text == b"1" else "parasite"
 
     def missing(self) -> list[str]:
         return [d.id for d in self.devices.values() if d.missing_since is not None]
@@ -263,6 +284,7 @@ class Bus:
                     "bad": d.bad,
                     "bad_at": d.bad_at,
                     "frozen": frozen,
+                    "power": d.power,
                 }
             )
         return rows

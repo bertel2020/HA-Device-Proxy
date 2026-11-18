@@ -591,6 +591,12 @@ class OneWireProxy:
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
         self._emit(self.bus.listed(self.devices))
+        for device_id in self.bus.needs_power():  # once per sensor and run, as it is listed
+            try:
+                answered, supply = await self.ask(MSG_READ, f"/{device_id}/power", 8)
+            except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
+                break  # next time
+            self.bus.powered(device_id, answered, supply)
 
     # the own owserver (link "usb")
 

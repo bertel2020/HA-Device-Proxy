@@ -140,3 +140,16 @@ def test_an_ibutton_comes_and_goes_without_being_missing(tmp_path: Path) -> None
     assert row["transient"] and not row["present"] and row["missing_since"] is None
     assert row["last"] == clock.now - 30 * (onewire_bus.MISSING_AFTER + 2)
     assert b.listed([SENSOR, button]) == []  # put on again: known, nothing to say
+
+
+def test_the_supply_of_each_temperature_sensor_is_asked_once(tmp_path: Path) -> None:
+    b = bus(tmp_path / "d.json", Clock())
+    b.listed([SENSOR, OTHER, SWITCH])
+    assert b.needs_power() == [SENSOR, OTHER]  # thermometers only
+    b.powered(SENSOR, 12, b"           0")
+    b.powered(OTHER, -2, b"")  # no answer: not known, not asked again in this run
+    assert b.needs_power() == []
+    rows = {r["id"]: r["power"] for r in b.rows()}
+    assert rows == {SENSOR: "parasite", OTHER: "", SWITCH: ""}
+    b.powered(SENSOR, 12, b"           1")
+    assert next(r for r in b.rows() if r["id"] == SENSOR)["power"] == "external"

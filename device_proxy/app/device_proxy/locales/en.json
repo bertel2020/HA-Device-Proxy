@@ -1528,7 +1528,10 @@
     "owValuesHint": "Values are the ones your programs read, the app reads none itself. Missing: not on the device list twice in a row; the app remembers the devices over restarts.",
     "owIButtonOn": "iButton on the reader",
     "owIButtonOff": "iButton, last on the reader {t}",
-    "owIButtonHint": "iButtons are put on the reader and taken off again, so they never count as missing."
+    "owIButtonHint": "iButtons are put on the reader and taken off again, so they never count as missing.",
+    "owParasite": "parasite power",
+    "owParasiteHint": "The sensor takes its power from the data line (VDD not wired or on GND). On a longer bus or with several sensors converting at once that is the usual cause of 85 °C; a third wire for VDD helps.",
+    "owBadParasite": "85 °C from a sensor on parasite power: its conversion did not get enough current. A third wire for VDD, a shorter bus or fewer sensors converting at once help."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

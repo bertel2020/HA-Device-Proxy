@@ -108,7 +108,8 @@ export class OneWireDevices extends LitElement {
     if (d.transient) out.push(html`<span class="chip ${d.present ? "ok" : ""}" title=${t("owIButtonHint")}>${d.present ? t("owIButtonOn") : t("owIButtonOff", { t: fmtAgo(d.last) })}</span>`);
     else if (d.missing_since) out.push(html`<span class="chip bad">${t("owMissingSince", { t: fmtAgo(d.missing_since) })}</span>`);
     if (d.new && !d.missing_since) out.push(html`<span class="chip info">${t("owNew")}</span>`);
-    if (d.bad) out.push(html`<span class="chip warn" title=${t("owBadHint")}>${t("owBad", { n: num(d.bad), t: fmtAgo(d.bad_at) })}</span>`);
+    if (d.bad) out.push(html`<span class="chip warn" title=${t(d.power === "parasite" ? "owBadParasite" : "owBadHint")}>${t("owBad", { n: num(d.bad), t: fmtAgo(d.bad_at) })}</span>`);
+    if (d.power === "parasite") out.push(html`<span class="chip ${d.bad ? "warn" : ""}" title=${t("owParasiteHint")}>${t("owParasite")}</span>`);
     if (d.frozen) out.push(html`<span class="chip warn" title=${t("owFrozenHint")}>${t("owFrozen")}</span>`);
     if (d.errors) out.push(html`<span class="chip warn" title=${d.last_error || ""}>${t("owDeviceErrors", { n: num(d.errors) })}</span>`);
     return out;
