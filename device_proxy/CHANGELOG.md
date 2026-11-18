@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.9.1 - 2026-11-18
+
 - **1-Wire, HTTP-Port (Beta)**: Programme, die den Bus über HTTP vom owhttpd lesen (Port 2121, etwa 1-Wire-Module für IP-Symcon), können jetzt direkt die App nutzen. In der Verbindung den **HTTP-Port (owhttpd)** setzen; die App startet owhttpd selbst.
   - Am HTTP-Port gelten dieselben erlaubten Clients, Höchstzahl und Sperren wie am owserver-Port; das Programm erscheint mit seiner Adresse unter den Clients, seine Werte unter „Geräte am Bus“.
   - Schreiben über HTTP nur mit „Schreibzugriff: Alle Clients“, sonst läuft owhttpd nur lesend.
