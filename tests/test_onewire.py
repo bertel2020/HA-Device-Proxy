@@ -44,6 +44,7 @@ class FakeOwserver:
         self.values = {
             f"/{SENSOR}/temperature": b"     21.5",
             f"/{SWITCH}/PIO.A": b"0",
+            f"/{SENSOR}/power": b"           0",
             "/statistics/errors/CRC8_errors": b"           3",
             "/statistics/errors/CRC8_tries": b"         300",
         }
@@ -234,6 +235,7 @@ async def test_reads_pass_through_and_a_host_is_one_client(setup: Setup) -> None
 
 async def test_a_persistent_connection_with_pings_and_a_directory(setup: Setup) -> None:
     setup.server.ping = True
+    before = setup.server.connections  # the app's own (device list, supply of the sensors)
     reader, writer = await asyncio.open_connection("127.0.0.1", setup.proxy.port)
     flags = onewire.PERSISTENCE
 
@@ -249,7 +251,7 @@ async def test_a_persistent_connection_with_pings_and_a_directory(setup: Setup) 
     writer.write(request(MSG_READ, f"/{SWITCH}/PIO.A", flags, 1))  # the same connection
     received = [await message() for _ in range(2)]
     assert received[1][2] == b"0"
-    assert setup.server.connections == 1 + 1  # the probe's and this one
+    assert setup.server.connections == before + 1  # both requests on one connection
     assert setup.proxy.state()["connections"] == 1
     writer.close()
     await _until(lambda: setup.proxy.state()["connections"] == 0)
@@ -517,6 +519,7 @@ async def test_values_and_counters_reach_the_state(setup: Setup) -> None:
     sensor = next(d for d in state["devices"] if d["id"] == SENSOR)
     assert sensor["values"]["temperature"]["value"] == "21.5" and sensor["type"] == "DS18B20"
     assert state["statistics"]["crc_errors"] == 3 and state["statistics"]["crc_share"] == 1.0
+    assert sensor["power"] == "parasite"  # asked once when it was listed
     # the owserver no longer lists the switch: missing after MISSING_AFTER lists
     setup.server.dirall = f"/{SENSOR},/{ADAPTER}"
     for _ in range(onewire_bus.MISSING_AFTER):

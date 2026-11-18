@@ -1528,7 +1528,10 @@
     "owValuesHint": "Die Werte sind die, die deine Programme lesen; die App liest selbst keine. Fehlt: zweimal hintereinander nicht in der Geräteliste; die App merkt sich die Geräte über Neustarts.",
     "owIButtonOn": "iButton aufgelegt",
     "owIButtonOff": "iButton, zuletzt aufgelegt {t}",
-    "owIButtonHint": "iButtons werden aufgelegt und wieder abgenommen; sie gelten deshalb nie als fehlend."
+    "owIButtonHint": "iButtons werden aufgelegt und wieder abgenommen; sie gelten deshalb nie als fehlend.",
+    "owParasite": "parasitär versorgt",
+    "owParasiteHint": "Der Sensor nimmt seinen Strom aus der Datenleitung (VDD nicht angeschlossen oder auf GND). Bei längerem Bus oder mehreren Sensoren, die gleichzeitig wandeln, ist das die übliche Ursache für 85 °C; eine dritte Ader für VDD hilft.",
+    "owBadParasite": "85 °C von einem parasitär versorgten Sensor: Seine Wandlung bekam nicht genug Strom. Eine dritte Ader für VDD, ein kürzerer Bus oder weniger gleichzeitig wandelnde Sensoren helfen."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",
