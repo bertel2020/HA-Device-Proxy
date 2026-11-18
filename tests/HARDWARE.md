@@ -61,6 +61,16 @@ Unerwartetes steht.
 | E4 | Nachliefern | App neu starten, während Sensoren senden | Integration bekommt die Telegramme aus der Zwischenzeit | (bereits auf HA OS getestet) | |
 | E5 | Funkbelegung | Viele Befehle in kurzer Zeit (Szene mit vielen Aktoren) | Funkbelegung steigt, Warnung bei 80 % des 1-%-Limits | pytest | |
 
+## 1-Wire (owserver im Netz)
+
+| # | Fall | Schritte | Erwartet | Automatisch | Ergebnis |
+| --- | --- | --- | --- | --- | --- |
+| W1 | Quelle | 1-Wire-Verbindung mit dem owserver der alten VM als Quelle anlegen | „erreichbar“, Geräte am Bus wie `owdir` auf der VM, der DS1420 des Adapters (Familie 81) dabei | `test_onewire.py` | |
+| W2 | Home Assistant | 1-Wire-Integration mit Host von HA und Port der Verbindung einrichten | Sensoren mit Werten; ein Client „Home Assistant“, Lesezugriffe mit Wert in den Live-Daten | Dev-Server | |
+| W3 | Weitere Systeme | Ein zweites System (owhttpd, Skript mit pyownet) auf die App umstellen | Beide bekommen Werte, je Rechner eine Zeile in den Clients | `test_onewire.py` | |
+| W4 | Schreiben | Schreibzugriff „Nur diese“ ohne den Rechner, dann einen Ausgang (DS2408/DS2413) schalten | Abgewiesen mit EACCES, Ausgang unverändert, Ereignis nennt Client und Pfad | `test_onewire.py` | |
+| W5 | owserver weg | owserver auf der VM stoppen, nach einer Minute wieder starten | „nicht erreichbar“ und Benachrichtigung, danach wieder „erreichbar“ ohne Eingriff | `test_onewire.py` | |
+
 ## App, Supervisor, Ingress
 
 | # | Fall | Schritte | Erwartet | Automatisch | Ergebnis |

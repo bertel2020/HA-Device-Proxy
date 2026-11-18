@@ -2,6 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
+import { clientsTable as owClients, devicesCard, oneWireCard } from "../onewire.js";
 import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, has, lang, retriesText, t, tn } from "../i18n.js";
 import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle, wholeNumber } from "../ui.js";
@@ -606,7 +607,8 @@ export class DetailPage extends Page {
   }
 
   _live(kind) {
-    const modbus = kind === "modbus", enocean = kind === "enocean";
+    const modbus = kind === "modbus", enocean = kind === "enocean", onewire = kind === "onewire";
+    const asked = modbus || onewire; // lines are requests and answers: the badge says so
     const all = this.chunks.slice(-300).reverse(); // newest first, like the event log
     const rows = (enocean ? all.filter((ch) => this._matches(ch)) : all).slice(0, 120);
     const sender = (info) => (info.match(/[0-9A-F]{2}(-[0-9A-F]{2}){3}/) || [])[0];
@@ -624,16 +626,16 @@ export class DetailPage extends Page {
         <div class="row"><div><h2 id="t-live" style="display:inline">${t("live")}</h2>
           <span class="hint"> · <span class="dot" style="color:${last ? "var(--ok)" : "var(--muted)"}"></span>${last ? `${t("liveLast", { ago: fmtAgo(last.ts) })}${rate ? ` · ${t(modbus ? "liveRateMb" : "liveRate", { n: rate.toLocaleString(lang) })}` : ""}` : t("liveNone")}</span></div>
           <button class="btn btn-g" @click=${() => this._setOpen(true)}>${t("liveShow")}</button></div>
-        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(lang, { hour12: false })} · ${dirLabel(last.direction, kind)} · ${line}</div>`
-          : html`<p class="hint" style="margin:0">${t(enocean ? "liveEmptyEo" : modbus ? "liveEmptyMb" : "liveEmpty")} ${t("liveAutoOpen")}</p>`}
+        ${last ? html`<div class="mono hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${new Date(last.ts * 1000).toLocaleTimeString(lang, { hour12: false })} · ${dirLabel(last.direction, asked ? "modbus" : kind)} · ${line}</div>`
+          : html`<p class="hint" style="margin:0">${t(enocean ? "liveEmptyEo" : modbus ? "liveEmptyMb" : onewire ? "liveEmptyOw" : "liveEmpty")} ${t("liveAutoOpen")}</p>`}
       </section>`;
     }
     return html`<section class="card" aria-labelledby="t-live">
-      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : "liveSub")}${only ? ` ${t("liveClientOnly", { a: only })}` : ""}</p></div>
+      <div class="row"><div><h2 id="t-live">${t("live")}</h2><p class="hint">${t(enocean ? "liveSubEo" : modbus ? "liveSubMb" : onewire ? "liveSubOw" : "liveSub")}${only ? ` ${t("liveClientOnly", { a: only })}` : ""}</p></div>
         <div style="display:flex;flex-wrap:wrap;gap:4px">
-          ${modbus || enocean ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
+          ${modbus || enocean || onewire ? "" : html`<button class="btn btn-g" aria-pressed=${this.ascii ? "true" : "false"} @click=${() => { this.ascii = !this.ascii; }}>${this.ascii ? t("hexOnly") : t("hexAscii")}</button>`}
           <button class="btn btn-g" @click=${() => { this.paused = !this.paused; }}>${this.paused ? t("resume") : t("pause")}</button>
-          <a class="btn btn-g" href=${url(`api/tools/${this.connectionId}/testcase`)} download title=${t(enocean ? "testcaseTipEo" : modbus ? "testcaseTipMb" : "testcaseTipSerial")}>${t("testcase")}</a>
+          <a class="btn btn-g" href=${url(`api/tools/${this.connectionId}/testcase`)} download title=${t(enocean ? "testcaseTipEo" : modbus || onewire ? "testcaseTipMb" : "testcaseTipSerial")}>${t("testcase")}</a>
           <button class="btn btn-g" @click=${() => this._setOpen(false)}>${t("liveHide")}</button>
         </div></div>
       ${enocean ? html`<div class="row" style="justify-content:flex-start;gap:8px">
@@ -643,12 +645,12 @@ export class DetailPage extends Page {
       ${rows.length ? html`<div class="code live" style="padding:8px 4px"><table><tbody>
         ${rows.map((ch) => html`<tr>
           <td class="fit" style="color:#8f9ba8">${new Date(ch.ts * 1000).toLocaleTimeString(lang, { hour12: false })}.${String(Math.floor(ch.ts * 1000) % 1000).padStart(3, "0")}</td>
-          <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, modbus ? "modbus" : kind)}</span></td>
+          <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, asked ? "modbus" : kind)}</span></td>
           <td class=${ch.info ? "frame" : ""}>${ch.info ? html`<div class="info" style="color:#9fb3c8">${enocean && sender(ch.info) ? html`<a href="#" style="color:inherit" title=${t("eoOnlySender")}
             @click=${(e) => { e.preventDefault(); this.search = sender(ch.info); }}>${ch.info}</a>` : eoInfo(infoOf(ch))}</div>` : ""}${ch.direction === "open" || ch.direction === "close" ? ch.text : ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ""}${enocean ? html`<div style="display:flex;gap:4px;margin-top:2px"><button class="btn btn-g" style="min-height:24px;padding:0 6px;font-size: max(10.5px, calc(12px * var(--fs, 1)));color:#9ccbf0" @click=${() => this._copy(`f${ch.seq}`, ch.hex)}>${this.copied === `f${ch.seq}` ? t("copied") : t("copy")}</button>
             <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: max(10.5px, calc(12px * var(--fs, 1)));color:#9ccbf0" @click=${() => this._take(ch.hex)}>${t("eoTake")}</button></div>` : ""}</td>
           ${!ch.info && !enocean && this.ascii && ch.hex ? html`<td style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}
-        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size: calc(14px * var(--fs, 1))">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : "liveEmpty")}</div>`}
+        </tr>`)}</tbody></table></div>` : html`<div class="well hint" style="font-size: calc(14px * var(--fs, 1))">${t(enocean ? (all.length ? "eoNoMatch" : "liveEmptyEo") : modbus ? "liveEmptyMb" : onewire ? "liveEmptyOw" : "liveEmpty")}</div>`}
     </section>`;
   }
 
@@ -755,6 +757,7 @@ export class DetailPage extends Page {
     const usb = c.usb;
     const modbus = c.kind === "modbus", m = c.modbus || {};
     const enocean = c.kind === "enocean", eo = c.enocean || {};
+    const onewire = c.kind === "onewire";
     const conf = html`
           <section class="card" aria-labelledby="t-conf">
             <div class="row"><h2 id="t-conf">${t("connectionCard")}</h2><a href="#/edit/${c.id}" style="font-size: calc(13px * var(--fs, 1))">${t("edit")}</a></div>
@@ -766,6 +769,12 @@ export class DetailPage extends Page {
               <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("eoGap")}</span><span>${c.send_gap_ms} ms</span>
               <span>${t("eoReplay")}</span><span>${t("eoReplayConf", { n: c.replay_size, m: Math.round(c.replay_max_age_s / 60) })}${c.replay_persist ? ` · ${t("eoPersisted")}` : ""}</span>
+            </div>` : onewire ? html`<div class="kv">
+              <span>${t("owSource")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">owserver · ${proxyTarget(c)}</span>
+              <span>${t("network")}</span><span>Port ${c.port}</span>
+              <span>${t("who")}</span><span>${who(c, s)}</span>
+              <span>${t("mbWrite")}</span><span>${writeRule(c)}</span>
+              ${c.timeout ? html`<span>${t("mbIdle")}</span><span>${c.timeout} s</span>` : ""}
             </div>` : modbus ? html`<div class="kv">
               <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
               <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" || c.link === "rtu_listen" ? ` · ${fmtSerial(c)}` : ""}</span>
@@ -809,6 +818,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 <td>${this._share(c, cl)}</td>
                 <td style="text-align:right;white-space:nowrap">${cl.time_avg_ms ? `${cl.time_avg_ms} ms` : "–"}</td><td style="text-align:right;white-space:nowrap">${cl.requests > cl.cached ? `${cl.wait_avg_ms} ms` : "–"}</td>
                 <td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
+            : c.clients.length && onewire ? owClients(c, (address) => clientLabel(this, address))
             : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
@@ -828,7 +838,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
                 <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>`;
-    const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : html`<section class="card" aria-labelledby="t-line">
+    const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : onewire ? oneWireCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
               ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
@@ -872,6 +882,15 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._maintenance(c)}
       ${conf}
       ${recentCard}`
+    : onewire ? html`
+      ${pair(stateCard, conf)}
+      ${devicesCard(c)}
+      ${clientsCard}
+      ${this._live(c.kind)}
+      ${this._addresses(c)}
+      ${this._restart(c)}
+      ${this._maintenance(c)}
+      ${recentCard}`
     : modbus ? html`
       ${pair(stateCard, conf)}
       ${clientsCard}
@@ -900,7 +919,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           <span class="chip ${stateClass}"><span class="dot"></span>${t(stateKey)}</span>
           ${c.kept_open ? html`<span class="chip info">${t("keptOpen")}</span>` : ""}
           <span class="hint" style="font-size: calc(13px * var(--fs, 1))">${tn("clientsLine", c.max_clients, { n: c.clients.length, m: c.max_clients })}</span>
-          ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
+          ${c.trace !== "off" ? html`<a class="chip info" href="#/trace/${c.id}" style="text-decoration:none" title=${t("recording", { m: t(`${modbus || onewire ? "trmb" : "tr"}_${c.trace}`) })}><span class="dot"></span>${t("recordingShort")}</a>` : ""}
           ${enocean ? html`<span class="chip">${c.esp_protocol.toUpperCase()}</span>${eo.base_id ? html`<span class="chip info mono">Base-ID ${eo.base_id}</span>` : ""}${this._fallbackChip(c)}` : ""}</div>
         <div class="row">
           <a class="btn btn-s" href="#/trace/${c.id}">${t("navTrace")}</a>

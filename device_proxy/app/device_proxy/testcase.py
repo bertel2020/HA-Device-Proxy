@@ -78,7 +78,7 @@ def build(
     connection: dict[str, Any] = {"kind": c.kind}
     if c.kind == "enocean":
         connection |= {"esp_protocol": c.esp_protocol, "model": c.model}
-    elif c.kind == "modbus":
+    elif c.kind in ("modbus", "onewire"):
         connection |= {"link": c.link}
     if c.uses_device:
         connection |= {"baud": c.baud, "format": c.serial_format}
@@ -93,7 +93,8 @@ def build(
                 "t": round(ch.ts - start, 3),
                 "dir": ch.direction,
                 "hex": raw.hex(),
-                "info": ch.info.rsplit(" · ", 1)[0] if c.kind == "modbus" else "",  # no client
+                # without the client
+                "info": ch.info.rsplit(" · ", 1)[0] if c.kind in ("modbus", "onewire") else "",
             }
             for ch, raw in zip(frames, data, strict=True)
         ],

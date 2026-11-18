@@ -25,6 +25,7 @@ const ICONS = {
   serial: "M3 8h14l-2 8H5zM7 12h.01M10 12h.01M13 12h.01M17 12h4",
   modbus: "M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01M12 10v4",
   enocean: "M12 13v8M9 21h6M8.5 9.5a5 5 0 0 1 7 0M5.6 6.6a9 9 0 0 1 12.8 0M12 13h.01",
+  onewire: "M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0zM2 21h4M18 21h4M6 21c0-1 .5-2 1.5-2.5M18 21c0-1-.5-2-1.5-2.5",
   plug: "M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4",
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   pulse: "M22 12h-4l-3 9L9 3l-3 9H2",
@@ -196,7 +197,7 @@ export function wholeNumber(e, old) {
 export const lines16 = (items, sep) => Array.from({ length: Math.ceil(items.length / 16) }, (_, i) => items.slice(i * 16, i * 16 + 16).join(sep)).join("\n");
 
 /** The badge word of a live line: the direction as seen from the device, or the Modbus request/answer. */
-export const dirLabel = (direction, kind) => (direction === "rx" || direction === "tx" ? t(`${kind === "modbus" ? "dirmb" : "dir"}_${direction}`) : direction.toUpperCase());
+export const dirLabel = (direction, kind) => (direction === "rx" || direction === "tx" ? t(`${kind === "modbus" || kind === "onewire" ? "dirmb" : "dir"}_${direction}`) : direction.toUpperCase());
 
 export const usesDevice = (c) => (c.kind === "serial" && c.source !== "tcp") || c.link === "rtu" || c.link === "rtu_listen" || c.link === "serial";
 export const proxyTarget = (c) => usesDevice(c) ? c.device : `${c.host.includes(":") ? `[${c.host}]` : c.host}:${c.host_port}`;

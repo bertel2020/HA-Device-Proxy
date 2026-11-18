@@ -5,7 +5,7 @@
 <h1 align="center">Device Proxy</h1>
 
 <p align="center">
-  Share serial, USB, Modbus and EnOcean devices with several programs: ser2net, a Modbus proxy and an EnOcean proxy as a Home Assistant app.
+  Share serial, USB, Modbus, EnOcean and 1-Wire devices with several programs: ser2net, a Modbus proxy, an EnOcean proxy and an owserver proxy as a Home Assistant app.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 <p align="center"><em><a href="https://github.com/bertel2020/HA-Device-Proxy/blob/main/README.de.md">Deutsche Version</a></em></p>
 
-Device Proxy is a Home Assistant app (formerly add-on) that makes a device usable by several programs at once. Serial and USB devices (smart meter reading heads, Z-Wave or Zigbee sticks, RS232 devices) are shared over TCP with [ser2net 4](https://github.com/cminyard/ser2net). Modbus devices (Modbus TCP, Modbus RTU on RS485, RTU over TCP) are shared with several Modbus TCP clients through the app's own Modbus proxy. EnOcean gateways (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH, Symcon LAN …) are shared through its own EnOcean proxy, with replay for Home Assistant restarts.
+Device Proxy is a Home Assistant app (formerly add-on) that makes a device usable by several programs at once. Serial and USB devices (smart meter reading heads, Z-Wave or Zigbee sticks, RS232 devices) are shared over TCP with [ser2net 4](https://github.com/cminyard/ser2net). Modbus devices (Modbus TCP, Modbus RTU on RS485, RTU over TCP) are shared with several Modbus TCP clients through the app's own Modbus proxy. EnOcean gateways (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH, Symcon LAN …) are shared through its own EnOcean proxy, with replay for Home Assistant restarts. A 1-Wire bus behind an owserver (OWFS) is shared through the app, which shows the devices on the bus and who asks what.
 
 Everything is set up in a web interface in the sidebar: no YAML, no command line. The app's **Configuration** tab in the Supervisor stays empty on purpose; everything is in the sidebar entry **Device Proxy**. Status, live data, traces and events show what is happening on the line.
 
@@ -57,6 +57,7 @@ Device Proxy sits in between. It holds the device and lets several clients use i
 - **Connections in a web interface**: device from a list with stable names, templates (smart meter SML or D0, Z-Wave or Zigbee stick, Modbus), all important ser2net options and a live `ser2net.yaml` preview. Saving rebuilds only that connection; the others keep their clients.
 - **Modbus proxy**: one Modbus device or RS485 bus for several Modbus TCP clients. Requests go to the device one after another and each answer back to the client that asked; timeouts, retries and pauses are adjustable, with starting values for inverters from SolarEdge, Huawei (SUN2000), Fronius, SMA, Kostal (Plenticore), Sungrow and Victron (GX). Writes only from Home Assistant and apps by default, and limited to certain registers per client if you like, a cache for reads, a bus scan, a register reader that turns a register into a Home Assistant entity without YAML, and an access check that tells whether a client may read or write and which rule decides. It can also only listen on an RS485 bus that has a master already and serve what it hears.
 - **EnOcean gateways**: one FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH or Symcon LAN for the EnOcean Eltako integration, eo_man and PCT14 at once. Whole frames in turn, answers to the program that asked, telegrams missed during a Home Assistant restart replayed with their reception time, discovery by the integration with the gateway's model. Live frames with sender and kind, a list of senders with names of your own and a CSV export, air time against the 1 % limit, gateway test, changing the base ID (with the changes left), sending a checked frame, captures with a lock for PCT14. A second gateway with the same base ID can stand in when one fails, without the programs reconnecting. Replaces the EnOcean Proxy app.
+- **1-Wire buses**: an owserver (OWFS) for Home Assistant's 1-Wire integration, owhttpd and other systems on the usual port 4304. Every request passes unchanged; the app lists the devices on the bus with their chip, counts requests and errors per computer, shows each read with its value in the live data, says when the owserver stops answering, and can keep writes (switch outputs) to the computers you name.
 - **Status at a glance**: device present, clients with address and bytes, data rate, last data, line errors from the driver, Modbus requests and answer times; clients that stop reading are spotted.
 - **Live data and traces** without taking a client place, decoded for Modbus; recording to rotating files without disconnecting anyone.
 - **Smart meter tools**: SML (with CRC check) and D0 decoded, baud rate detection.

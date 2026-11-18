@@ -54,12 +54,16 @@ TEMPLATES = (
     "modbus",
     *MODBUS_PROFILES,
     *ENOCEAN_TEMPLATES,
+    "onewire",
 )
-KINDS = ("serial", "modbus", "enocean")  # shared by ser2net, or by a proxy in the app (kinds.py)
+# shared by ser2net, or by a proxy in the app (kinds.py)
+KINDS = ("serial", "modbus", "enocean", "onewire")
 LINKS = {  # how a proxy reaches its device
     "modbus": ("tcp", "rtu", "rtu_tcp", "rtu_listen"),
     "enocean": ("serial", "tcp"),
+    "onewire": ("owserver",),  # another owserver in the network (onewire.py)
 }
+OWSERVER_PORT = 4304
 SERIAL_LINKS = {"rtu", "rtu_listen", "serial"}  # the links that open a serial device of this host
 ESP_PROTOCOLS = ("esp2", "esp3")
 # the gateway's model for the EnOcean Eltako integration (discovery), with the protocol it
@@ -290,6 +294,8 @@ class Connection:
     fallback_probe_s: int = 10  # seconds between base ID reads of this gateway
     fallback_misses: int = 3  # unanswered reads in a row: it counts as failed ("probe")
     fallback_stable_s: int = 60  # seconds it must run steadily before it takes over again
+    # 1-Wire (kind "onewire", onewire.py): link "owserver" at host and host_port; who may
+    # write is write_access and write_clients, as for Modbus
 
     @property
     def uses_device(self) -> bool:
@@ -357,6 +363,8 @@ class Connection:
             values.setdefault("write_clients", MODBUS_WRITE_CLIENTS)
         if values.get("template") in ("zwave", "zigbee") and "remaddr" not in data:
             values["remaddr"] = ZWAVE_CLIENTS  # saved ones always have the field
+        if values.get("kind") == "onewire" and "host_port" not in data:
+            values["host_port"] = OWSERVER_PORT
         if "model" not in data and values.get("kind") == "enocean":
             # saved before there was the field: the model of its template, if it fits
             model = TEMPLATE_MODELS.get(values.get("template", ""), "")
@@ -455,6 +463,8 @@ class Connection:
             self._validate_modbus(e)
         elif self.kind == "enocean":
             self._validate_enocean(e)
+        elif self.kind == "onewire":
+            self._validate_writers(e)
         if e:
             raise ValidationError(e)
 
@@ -474,6 +484,15 @@ class Connection:
             e["host_port"] = "is this connection's own port"
         elif not 1 <= self.host_port <= 65535:
             e["host_port"] = "between 1 and 65535"
+
+    def _validate_writers(self, e: dict[str, str]) -> None:
+        if self.write_access not in WRITE_ACCESS:
+            e["write_access"] = f"one of {', '.join(WRITE_ACCESS)}"
+        elif self.write_access == "listed":
+            try:
+                parse_networks(self.write_clients)
+            except ValueError as err:
+                e["write_clients"] = str(err)
 
     def _validate_enocean(self, e: dict[str, str]) -> None:
         if self.esp_protocol not in ESP_PROTOCOLS:
@@ -540,13 +559,7 @@ class Connection:
             e["probe_function"] = "3 or 4"
         if not 0 <= self.probe_address <= 65535:
             e["probe_address"] = "0 to 65535"
-        if self.write_access not in WRITE_ACCESS:
-            e["write_access"] = f"one of {', '.join(WRITE_ACCESS)}"
-        elif self.write_access == "listed":
-            try:
-                parse_networks(self.write_clients)
-            except ValueError as err:
-                e["write_clients"] = str(err)
+        self._validate_writers(e)
         try:
             parse_ranges(self.write_registers)
         except ValueError as err:

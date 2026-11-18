@@ -16,6 +16,9 @@ The app shares devices with several programs at once:
 - **EnOcean gateways** (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH …) through the app's own
   EnOcean proxy: several programs (Home Assistant, eo_man, PCT14) share one gateway (see
   [EnOcean gateways](#enocean-gateways)).
+- **1-Wire buses** through an owserver (OWFS): the programs that read the sensors connect to the
+  app instead of the owserver, and the app shows which devices are on the bus and who asks what
+  (see [1-Wire buses](#1-wire-buses)).
 
 Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
 of its own, so its **Configuration** tab in the Supervisor is empty on purpose: open **Device Proxy**
@@ -423,6 +426,40 @@ of connection, device or host and port, baud rate) is swapped between the two co
 old hardware is then switched off (default), kept as fallback, or its connection deleted. Both
 connections restart, and the replay bridges the short gap. The configuration history can
 undo it.
+
+## 1-Wire buses
+
+A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. The source is
+an owserver in the network, for example the one on another computer or VM that has the USB
+adapter (DS9490R, DS1490F) today. Home Assistant's 1-Wire integration, owhttpd, pyownet scripts
+and other systems connect to the app's port instead, with the same protocol. The default port is
+4304, the usual owserver port, so a program only needs the new address.
+
+Every request goes to the owserver unchanged, so the owserver's cache, persistent connections and
+all message types work as before. On the way the app counts requests and errors, measures the
+answer time and shows each request with its path in the live data and the trace (a read with the
+value it got). Every 30 seconds it reads the device list from the owserver: that is the
+reachability check, and the connection's page lists the devices with their family and the usual
+chip (28 = DS18B20, 3A = DS2413, 81 = the ID chip inside the USB adapter …). When the owserver
+does not answer, the connection shows **not reachable** and the app notifies you if
+**Notify when the device is missing or not reachable** is on.
+
+Most owserver programs open a new connection for each request. A client is therefore a computer,
+not a connection: it counts as connected from its first request until it has asked nothing for
+5 minutes, and **Computers at most** limits the computers.
+
+**Write access**: owserver has no login, so whoever reaches it may switch outputs (DS2408,
+DS2413) or change settings. **All clients** keeps it so. **Only these** lets the addresses given
+write, **Nobody** makes the bus read only. A refused write gets the error EACCES from the app and
+never reaches the bus; the event log names the client and the path.
+
+Moving from an owserver on another computer:
+
+1. Add a 1-Wire connection with that owserver's address as the source.
+2. Point the programs to the app one at a time: in Home Assistant, set up the 1-Wire integration
+   with the host of Home Assistant and the connection's port. Each one can go back to the old
+   address until all of them work.
+3. Later the USB adapter can move to Home Assistant itself (a coming version of the app).
 
 ## Maintenance: one computer alone
 

@@ -1,0 +1,641 @@
+"""1-Wire: an owserver (OWFS) shared with several programs, with a look at the bus.
+
+The source is an owserver in the network (link "owserver": host and host_port), for example
+the one that has the USB adapter today. Clients connect here instead, with the same
+protocol: Home Assistant's onewire integration, owhttpd, pyownet scripts, other systems.
+
+owserver already serves several clients itself; what the proxy adds is one place to see who
+asks what, whether the bus answers and which devices are on it. Every client connection
+gets a connection of its own to the owserver, and the bytes pass unchanged, so persistent
+connections, the owserver's keepalive pings and every message type work as before. On the
+way the proxy reads the message headers (24 bytes each, then the path): it counts requests,
+errors and the time to the answer, writes the path to the trace, and answers a write of a
+client that may not write (write_access, as for Modbus) itself with the owserver's error
+-EACCES; that write never reaches the bus.
+
+Most owserver clients (pyownet, which Home Assistant uses) open a connection for each
+request. So a client here is a host, not a connection: it counts as connected from its first
+request until IDLE_AFTER seconds without one, and max_clients limits the hosts.
+
+The app reads the device list (DIRALL "/", from the owserver's cache) every PROBE_SECONDS:
+that is the reachability check and the list of devices with their family.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import errno
+import re
+import socket
+import struct
+import time
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from typing import Any
+
+from .clients import plain_host
+from .modbus import keepalive, may_write
+from .model import Connection, from_this_host, peer_allowed
+from .trace import Chunk
+
+EventSink = Callable[..., None]  # (level, kind, **params)
+TraceSink = Callable[[Chunk], None]
+
+HEADER = struct.Struct(">iiiiii")  # version, payload, type or ret, flags, size, offset
+SERVER_MESSAGE = 1 << 16  # version: a message from another owserver, with tokens after it
+TOKEN_SIZE = 16
+MAX_TOKENS = 64
+MAX_REQUEST = 65536  # payload of a request: a path and the data to write
+MAX_ANSWER = 1 << 20  # payload of an answer: a large directory
+PING = -1  # payload of the owserver's "still working" message, which has no body
+PERSISTENCE = 0x04  # flags: the connection stays open for the next request
+
+MSG = {
+    0: "error",
+    1: "nop",
+    2: "read",
+    3: "write",
+    4: "dir",
+    5: "size",
+    6: "presence",
+    7: "dirall",
+    8: "get",
+    9: "dirallslash",
+    10: "getslash",
+}
+MSG_WRITE, MSG_DIR, MSG_DIRALL = 3, 4, 7
+DIRS = {"dir", "dirall", "dirallslash"}
+
+CONNECT_TIMEOUT = 5.0  # seconds to reach the owserver
+PROBE_SECONDS = 30.0  # between two reads of the device list
+PROBE_TIMEOUT = 10.0
+IDLE_AFTER = 300.0  # seconds without a request: the host is no longer a client
+SWEEP = 10.0  # seconds between two looks for such hosts
+LISTEN_RETRY = 10.0
+CLOSE_TIMEOUT = 2.0
+ANSWERS_KEPT = 100  # answer times the average is taken over
+CONNECTIONS_PER_HOST = 32  # open connections of one host at a time; more are refused
+
+DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
+# family code → the usual chip (the owserver tells the exact one in <id>/type)
+FAMILIES = {
+    "01": "DS2401",
+    "05": "DS2405",
+    "10": "DS18S20",
+    "12": "DS2406",
+    "1D": "DS2423",
+    "20": "DS2450",
+    "22": "DS1822",
+    "26": "DS2438",
+    "28": "DS18B20",
+    "29": "DS2408",
+    "3A": "DS2413",
+    "3B": "DS1825",
+    "42": "DS28EA00",
+    "7E": "EDS00xx",
+    "81": "DS1420",  # the ID chip inside the DS9490 and DS1490F USB adapters
+    "EF": "HobbyBoards",
+}
+
+
+class ProtocolError(ValueError):
+    """Bytes that are no owserver message: the connection is closed."""
+
+
+@dataclass
+class Stats:
+    bytes_to_device: int = 0
+    bytes_from_device: int = 0
+    requests: dict[str, int] = field(
+        default_factory=lambda: dict.fromkeys(("read", "write", "dir", "other"), 0)
+    )
+    errors: int = 0  # answers with a negative return value
+    blocked: int = 0  # writes turned away (write_access)
+    refused: int = 0  # connections turned away (networks, max_clients)
+    last_error: str = ""
+    last_error_at: float = 0.0
+
+
+@dataclass(eq=False)
+class _Host:
+    """One client: a host, with all its connections."""
+
+    address: str  # the host ("192.168.1.20"); owserver clients connect again for each request
+    host: str
+    since: float
+    last: float  # wall time of its last request
+    active: float  # loop time of its last request, for IDLE_AFTER
+    local: bool = False  # on this host (counts as 127.0.0.1 for write_access)
+    writers: set[asyncio.StreamWriter] = field(default_factory=set)
+    requests: int = 0
+    errors: int = 0
+    blocked: int = 0
+    bytes_in: int = 0  # from the client
+    bytes_out: int = 0  # to the client
+    last_path: str = ""
+
+
+def restart_key(c: Connection, listen: str) -> Connection:
+    """What a running proxy depends on: a change of anything else does not restart it."""
+    return replace(
+        c,
+        name="",
+        trace="off",
+        notify_missing=False,
+        notify_no_client=False,
+        silence_minutes=0,
+        silence_restart="",
+        power_switch="",
+        template="generic",
+        remaddr=f"{c.remaddr}|{listen}",
+        # read for every client or request
+        max_clients=1,
+        timeout=0,
+        write_access="all",
+        write_clients="",
+    )
+
+
+def request(kind: int, path: str, flags: int = 0, size: int = 0) -> bytes:
+    """A client's message: header and the path ending in NUL."""
+    payload = path.encode() + b"\0"
+    return HEADER.pack(0, len(payload), kind, flags, size, 0) + payload
+
+
+def answer(ret: int, payload: bytes = b"", flags: int = 0) -> bytes:
+    """An owserver's message: header and payload."""
+    return HEADER.pack(0, len(payload), ret, flags, len(payload), 0) + payload
+
+
+async def read_request(reader: asyncio.StreamReader) -> tuple[bytes, int, int, str]:
+    """One client message: (all its bytes, type, flags, path); EOF before a header raises
+    IncompleteReadError."""
+    head = await reader.readexactly(HEADER.size)
+    version, payload, kind, flags, _size, _offset = HEADER.unpack(head)
+    tokens = version & 0xFFFF if version & SERVER_MESSAGE else 0
+    if not 0 <= payload <= MAX_REQUEST or tokens > MAX_TOKENS:
+        raise ProtocolError(f"not an owserver request (payload {payload})")
+    body = await reader.readexactly(payload + tokens * TOKEN_SIZE)
+    path = body[:payload].split(b"\0", 1)[0].decode("utf-8", "replace")
+    return head + body, kind, flags, path
+
+
+async def read_answer(reader: asyncio.StreamReader) -> tuple[bytes, int, int]:
+    """One owserver message: (all its bytes, return value, payload length; PING for a
+    keepalive)."""
+    head = await reader.readexactly(HEADER.size)
+    _version, payload, ret, _flags, _size, _offset = HEADER.unpack(head)
+    if payload == PING:
+        return head, ret, PING
+    if not 0 <= payload <= MAX_ANSWER:
+        raise ProtocolError(f"not an owserver answer (payload {payload})")
+    return head + await reader.readexactly(payload), ret, payload
+
+
+def parse_devices(payload: bytes) -> list[str]:
+    """The device IDs in a DIRALL answer ("/28.A1B2C3D4E5F6,/bus.0,/settings,…")."""
+    text = payload.split(b"\0", 1)[0].decode("ascii", "replace")
+    found = []
+    for entry in text.split(","):
+        name = entry.strip().strip("/").rsplit("/", 1)[-1].upper()
+        if DEVICE_ID.fullmatch(name) and name not in found:
+            found.append(name)
+    return found
+
+
+def error_name(ret: int) -> str:
+    return errno.errorcode.get(-ret, str(ret))
+
+
+class OneWireProxy:
+    def __init__(
+        self,
+        c: Connection,
+        listen: str,
+        on_event: EventSink,
+        on_trace: TraceSink,
+    ) -> None:
+        self.c = c
+        self.listen = listen
+        self.key = restart_key(c, listen)
+        self.on_event = on_event
+        self.on_trace = on_trace
+        self.stats = Stats()
+        self.clients: dict[str, _Host] = {}
+        self.only: str | None = None
+        self.refuse: Callable[[str, str], bool] = lambda _host, _name: False
+        self.listening = False
+        self.listen_error = ""
+        self.reachable: bool | None = None
+        self.reachable_since = time.time()
+        self.devices: list[str] = []
+        self.devices_at: float | None = None
+        self.probe_ms: float | None = None
+        self.port = c.port  # the port listened on (tests: the one the system picked for 0)
+        self._answers: deque[float] = deque(maxlen=ANSWERS_KEPT)  # ms
+        self._last_answer_ms: float | None = None
+        self._server: asyncio.Server | None = None
+        self._open = 0  # client connections now
+
+    # running
+
+    async def run(self) -> None:
+        failed = False
+        tasks: list[asyncio.Task[None]] = []
+        try:
+            while self._server is None:
+                try:
+                    await self._start_server()
+                except OSError as err:
+                    self.listen_error = str(err)
+                    if not failed:
+                        failed = True
+                        self.on_event("error", "listen_failed", port=self.c.port, error=str(err))
+                    await asyncio.sleep(LISTEN_RETRY)
+            tasks = [
+                asyncio.create_task(self._probe_loop()),
+                asyncio.create_task(self._sweep_loop()),
+            ]
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await self._shutdown()
+
+    async def _start_server(self) -> None:
+        host = self.c.bind or ("127.0.0.1" if self.listen == "local" else None)
+        self._server = await asyncio.start_server(
+            self._client, host, self.c.port, reuse_address=True
+        )
+        sockets = sorted(self._server.sockets, key=lambda s: s.family != socket.AF_INET)
+        self.port = int(sockets[0].getsockname()[1])
+        self.listening, self.listen_error = True, ""
+
+    async def _shutdown(self) -> None:
+        self.listening = False
+        if self._server is not None:
+            self._server.close()
+        for client in self.clients.values():
+            for writer in list(client.writers):
+                writer.transport.abort()
+        if self._server is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(self._server.wait_closed(), CLOSE_TIMEOUT)
+
+    # the owserver
+
+    async def _connect(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        try:
+            return await asyncio.wait_for(
+                asyncio.open_connection(self.c.host, self.c.host_port), CONNECT_TIMEOUT
+            )
+        except TimeoutError:
+            raise ConnectionError("no answer") from None
+
+    async def _probe_loop(self) -> None:
+        while True:
+            await self.probe()
+            await asyncio.sleep(PROBE_SECONDS)
+
+    async def probe(self) -> None:
+        """Read the device list: is the owserver there, and what is on the bus."""
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        writer = None
+        try:
+            async with asyncio.timeout(PROBE_TIMEOUT):
+                reader, writer = await self._connect()
+                writer.write(request(MSG_DIRALL, "/"))
+                await writer.drain()
+                while True:
+                    _data, ret, payload = await read_answer(reader)
+                    if payload != PING:
+                        break
+                body = _data[HEADER.size :]
+        except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError) as err:
+            self._down(_text(err))
+            return
+        finally:
+            if writer is not None:
+                writer.close()
+        if ret < 0:
+            self._down(f"device list: {error_name(ret)}")
+            return
+        self.probe_ms = round((loop.time() - started) * 1000, 1)
+        self.devices, self.devices_at = parse_devices(body), time.time()
+        self._up()
+
+    def _up(self) -> None:
+        if self.reachable is not True:
+            if self.reachable is False:
+                self.on_event("info", "onewire_back", target=self.c.upstream)
+            self.reachable, self.reachable_since = True, time.time()
+
+    def _down(self, error: str) -> None:
+        self.stats.last_error, self.stats.last_error_at = error, time.time()
+        if self.reachable is not False:
+            self.reachable, self.reachable_since = False, time.time()
+            self.on_event("warning", "onewire_down", target=self.c.upstream, error=error)
+
+    # clients
+
+    async def _sweep_loop(self) -> None:
+        while True:
+            await asyncio.sleep(SWEEP)
+            self.sweep()
+
+    def sweep(self) -> None:
+        """Hosts without a request for IDLE_AFTER and no open connection are gone."""
+        now = asyncio.get_running_loop().time()
+        for key, client in list(self.clients.items()):
+            if not client.writers and now - client.active >= IDLE_AFTER:
+                del self.clients[key]
+                self.on_event(
+                    "info",
+                    "client_disconnected",
+                    address=client.address,
+                    bytes_to_client=client.bytes_out,
+                    bytes_from_client=client.bytes_in,
+                )
+
+    def _allowed(self, writer: asyncio.StreamWriter) -> tuple[str, bool] | None:
+        """(host, on this host) of a new connection, or None when it is turned away."""
+        peer = writer.get_extra_info("peername") or ("?", 0)
+        host = plain_host(str(peer[0]))
+        if self.refuse(host, self.c.name):
+            self.on_event("info", "client_refused_blocked", address=host)
+            return None
+        sock = writer.get_extra_info("sockname")
+        if not peer_allowed(self.c.remaddr, self.listen, peer, sock):
+            self.stats.refused += 1
+            self.on_event("warning", "client_refused_network", address=host)
+            return None
+        if self.only and host != self.only:
+            self.on_event("info", "client_refused_exclusive", address=host, only=self.only)
+            return None
+        return host, from_this_host(peer, sock)
+
+    def _client_for(self, host: str, local: bool) -> _Host | None:
+        """The client of a host that sent its first request; None: one too many."""
+        client = self.clients.get(host)
+        if client is not None:
+            if len(client.writers) >= CONNECTIONS_PER_HOST:
+                self.stats.refused += 1
+                return None
+            return client
+        if len(self.clients) >= self.c.max_clients:
+            self.stats.refused += 1
+            self.on_event("warning", "client_refused", address=host)
+            return None
+        now = time.time()
+        client = _Host(host, host, now, now, asyncio.get_running_loop().time(), local)
+        self.clients[host] = client
+        self.on_event("info", "client_connected", address=host)
+        return client
+
+    async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        allowed = self._allowed(writer)
+        if allowed is None:
+            writer.close()
+            return
+        keepalive(writer.get_extra_info("socket"))
+        self._open += 1
+        client: _Host | None = None
+        upstream: asyncio.StreamWriter | None = None
+        pumps: list[asyncio.Task[None]] = []
+        try:
+            try:
+                first = await asyncio.wait_for(read_request(reader), self.c.timeout or None)
+            except (asyncio.IncompleteReadError, TimeoutError, OSError, ProtocolError):
+                return  # connected and asked nothing (a port check): no client
+            client = self._client_for(*allowed)
+            if client is None:
+                return
+            client.writers.add(writer)
+            try:
+                up_reader, upstream = await self._connect()
+            except OSError as err:  # ConnectionError too
+                self._down(_text(err))
+                return
+            waiting: deque[tuple[float, str, str]] = deque()  # (loop time, type, path)
+            pumps = [
+                asyncio.create_task(
+                    self._requests(client, reader, writer, upstream, waiting, first)
+                ),
+                asyncio.create_task(self._answers_to(client, up_reader, writer, waiting)),
+            ]
+            await asyncio.wait(pumps, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for pump in pumps:
+                pump.cancel()
+            await asyncio.gather(*pumps, return_exceptions=True)
+            if upstream is not None:
+                upstream.close()
+            writer.close()
+            if client is not None:
+                client.writers.discard(writer)
+                client.active = asyncio.get_running_loop().time()
+            self._open -= 1
+
+    async def _requests(
+        self,
+        client: _Host,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        upstream: asyncio.StreamWriter,
+        waiting: deque[tuple[float, str, str]],
+        message: tuple[bytes, int, int, str],
+    ) -> None:
+        loop = asyncio.get_running_loop()
+        with contextlib.suppress(asyncio.IncompleteReadError, OSError, ProtocolError, TimeoutError):
+            while True:
+                data, kind, _flags, path = message
+                name = MSG.get(kind, f"type {kind}")
+                client.requests += 1
+                client.bytes_in += len(data)
+                client.last, client.active, client.last_path = time.time(), loop.time(), path
+                bucket = "dir" if name in DIRS else name if name in ("read", "write") else "other"
+                self.stats.requests[bucket] += 1
+                self._trace("tx", data, f"{name} {path} · {client.address}")
+                if kind == MSG_WRITE and not may_write(self.c, client.host, client.local):
+                    client.blocked += 1
+                    self.stats.blocked += 1
+                    self.on_event(
+                        "warning", "onewire_write_blocked", address=client.address, path=path
+                    )
+                    refusal = answer(-errno.EACCES)
+                    writer.write(refusal)  # no persistence: the client connects again
+                    client.bytes_out += len(refusal)
+                    self._trace("rx", refusal, f"EACCES {path} · {client.address}")
+                    await writer.drain()
+                    return
+                upstream.write(data)
+                self.stats.bytes_to_device += len(data)
+                waiting.append((loop.time(), name, path))
+                await upstream.drain()
+                message = await asyncio.wait_for(read_request(reader), self.c.timeout or None)
+
+    async def _answers_to(
+        self,
+        client: _Host,
+        up_reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        waiting: deque[tuple[float, str, str]],
+    ) -> None:
+        loop = asyncio.get_running_loop()
+        with contextlib.suppress(asyncio.IncompleteReadError, OSError, ProtocolError):
+            while True:
+                data, ret, payload = await read_answer(up_reader)
+                writer.write(data)
+                client.bytes_out += len(data)
+                self.stats.bytes_from_device += len(data)
+                if payload == PING:
+                    await writer.drain()
+                    continue
+                self._up()
+                sent, name, path = waiting[0] if waiting else (loop.time(), "?", "")
+                if ret < 0:
+                    client.errors += 1
+                    self.stats.errors += 1
+                    self.stats.last_error = f"{error_name(ret)} {path}"
+                    self.stats.last_error_at = time.time()
+                # a directory comes as one message per entry and an empty one at the end
+                if waiting and (name != "dir" or payload == 0 or ret < 0):
+                    waiting.popleft()
+                    ms = round((loop.time() - sent) * 1000, 1)
+                    self._answers.append(ms)
+                    self._last_answer_ms = ms
+                self._trace("rx", data, f"{_said(name, path, ret, data)} · {client.address}")
+                await writer.drain()
+
+    def _trace(self, direction: str, data: bytes, info: str) -> None:
+        self.on_trace(Chunk(time.time(), direction, data, info=info))
+
+    def disconnect_clients(self, keep: str | None = None) -> int:
+        """Close the open connections (the programs connect again)."""
+        count = 0
+        for client in self.clients.values():
+            if client.host == keep:
+                continue
+            for writer in list(client.writers):
+                writer.close()
+                count += 1
+        return count
+
+    def disconnect_host(self, host: str) -> int:
+        client = self.clients.get(host)
+        if client is None:
+            return 0
+        writers = list(client.writers)
+        for writer in writers:
+            writer.close()
+        return len(writers)
+
+    def state(self) -> dict[str, Any]:
+        s = self.stats
+        answers = list(self._answers)
+        return {
+            "listening": self.listening,
+            "listen_error": self.listen_error,
+            "reachable": self.reachable,
+            "reachable_since": self.reachable_since,
+            "target": self.c.upstream,
+            "last_error": s.last_error,
+            "last_error_at": s.last_error_at or None,
+            "devices": [
+                {"id": d, "family": d[:2], "type": FAMILIES.get(d[:2], "")} for d in self.devices
+            ],
+            "devices_at": self.devices_at,
+            "probe_ms": self.probe_ms,
+            "requests": dict(s.requests),
+            "errors": s.errors,
+            "blocked": s.blocked,
+            "refused": s.refused,
+            "answer_ms": {
+                "last": self._last_answer_ms,
+                "avg": round(sum(answers) / len(answers), 1) if answers else None,
+            },
+            "connections": self._open,
+        }
+
+
+# what the app shows of a 1-Wire connection (kinds.py)
+
+
+def loaded(c: Connection) -> dict[str, Any]:
+    """The values of the "onewire_loaded" event at start."""
+    return {"target": c.upstream, "port": c.port, "max_clients": c.max_clients}
+
+
+def client_row(client: _Host) -> dict[str, Any]:
+    return {
+        "address": client.address,
+        "since": client.since,
+        "bytes_to_client": client.bytes_out,
+        "bytes_from_client": client.bytes_in,
+        "requests": client.requests,
+        "errors": client.errors,
+        "blocked": client.blocked,
+        "last_request": client.last,
+        "last_path": client.last_path,
+        "connections": len(client.writers),
+        "queued": 0,
+        "stuck": False,
+    }
+
+
+def mqtt_entities(
+    prefix: str, c: Connection, entity: Callable[..., dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    key = f"device_proxy_{c.id}"
+    return {
+        f"{prefix}/binary_sensor/{key}/reachable/config": entity(
+            "reachable",
+            value_template="{{ 'ON' if value_json.reachable else 'OFF' }}",
+            device_class="connectivity",
+        ),
+        f"{prefix}/sensor/{key}/onewire_devices/config": entity(
+            "onewire_devices",
+            value_template="{{ value_json.onewire_devices }}",
+            state_class="measurement",
+            icon="mdi:thermometer-lines",
+        ),
+        f"{prefix}/sensor/{key}/requests/config": entity(
+            "requests",
+            value_template="{{ value_json.requests }}",
+            state_class="total_increasing",
+            icon="mdi:swap-vertical",
+            entity_category="diagnostic",
+        ),
+    }
+
+
+def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "reachable": state["reachable"] is True,
+        "onewire_devices": len(state["devices"]),
+        "requests": sum(state["requests"].values()),
+    }
+
+
+def _said(name: str, path: str, ret: int, data: bytes) -> str:
+    """An answer for the trace: the error, or for a read the value ("21.5")."""
+    if ret < 0:
+        return f"{error_name(ret)} {path}"
+    value = data[HEADER.size :].split(b"\0", 1)[0]
+    if name in ("read", "get") and 0 < len(value) <= 40 and value.isascii():
+        text = value.decode().strip()
+        if text.isprintable():
+            return f"{name} {path} = {text}"
+    return f"{name} {path}"
+
+
+def _text(err: BaseException) -> str:
+    if isinstance(err, TimeoutError):
+        return "no answer"
+    if isinstance(err, asyncio.IncompleteReadError):
+        return "connection closed"
+    return str(err) or type(err).__name__

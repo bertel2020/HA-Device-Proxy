@@ -4,7 +4,8 @@
 
 Three serial example connections, a simulated smart meter in the trace (the first one), a
 Modbus TCP device simulated on 127.0.0.1 with a client polling it through the proxy, a
-Modbus device that is not reachable, and some events. Nothing is shared on the network;
+Modbus device that is not reachable, an owserver with three 1-Wire devices and a client
+reading a temperature through the proxy, and some events. Nothing is shared on the network;
 ser2net shows as not running. Data lives in a temporary folder that is removed at the end.
 """
 
@@ -24,7 +25,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "app"))
 
 from device_proxy import controller as controller_module  # noqa: E402
-from device_proxy import enocean, esp, process, testcase  # noqa: E402
+from device_proxy import enocean, esp, onewire, process, testcase  # noqa: E402
 from device_proxy.clients import KnownClients  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
@@ -116,6 +117,50 @@ async def modbus_client(port: int, stop: asyncio.Event) -> None:
         head = await reader.readexactly(7)
         await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1)
         await asyncio.sleep(2)
+
+
+OW_DEVICES = ("28.A1B2C3D4E5F6", "28.0F1E2D3C4B5A", "3A.112233445566", "81.0000005F2A1B")
+
+
+async def owserver(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    """An owserver with two temperature sensors, a switch and the adapter's ID chip."""
+    try:
+        while True:
+            data, kind, flags, path = await onewire.read_request(reader)
+            keep = flags & onewire.PERSISTENCE
+            if kind == onewire.MSG_DIRALL:
+                text = ",".join(f"/{d}" for d in OW_DEVICES) + ",/bus.0,/settings,/system"
+                body = onewire.answer(0, text.encode() + b"\0", keep)
+            elif kind == 2 and path.endswith("/temperature"):
+                value = f"{20 + (time.time() / 60) % 3:12.4f}".encode()
+                await asyncio.sleep(0.02)
+                body = onewire.answer(len(value), value, keep)
+            elif kind == 2 and path.lstrip("/").split("/")[0] in OW_DEVICES:
+                body = onewire.answer(1, b"0", keep)
+            else:
+                body = onewire.answer(-2, b"", keep)  # ENOENT
+            writer.write(body)
+            await writer.drain()
+            if not keep:
+                break
+    except (asyncio.IncompleteReadError, ConnectionError, ValueError):
+        pass
+    writer.close()
+
+
+async def onewire_client(port: int, stop: asyncio.Event) -> None:
+    """Like Home Assistant's 1-Wire integration: a connection for each read."""
+    await asyncio.sleep(1)
+    while not stop.is_set():
+        for path in (f"/{OW_DEVICES[0]}/temperature", f"/{OW_DEVICES[1]}/temperature"):
+            try:
+                reader, writer = await asyncio.open_connection("127.0.0.1", port)
+                writer.write(onewire.request(2, path, size=8192))
+                await onewire.read_answer(reader)
+                writer.close()
+            except (OSError, asyncio.IncompleteReadError):
+                pass
+        await asyncio.sleep(5)
 
 
 def _esp2(hseq_org: str, data: str, sender: str, status: str = "30") -> bytes:
@@ -336,6 +381,8 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
         gateway_port = gateway.sockets[0].getsockname()[1]
         spare = await asyncio.start_server(esp2_gateway, "127.0.0.1", 0)  # same base ID
         spare_port = spare.sockets[0].getsockname()[1]
+        bus = await asyncio.start_server(owserver, "127.0.0.1", 0)
+        bus_port = bus.sockets[0].getsockname()[1]
         enocean.BASE_ID_FILE = data / "enocean_base_ids.json"
         db = Database(data / "history.db")
         events = EventLog(db)
@@ -430,6 +477,19 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     bind="127.0.0.1",
                 ),
                 Connection(
+                    "1-Wire-Bus",
+                    "",
+                    14304 + offset,
+                    kind="onewire",
+                    template="onewire",
+                    link="owserver",
+                    host="127.0.0.1",
+                    host_port=bus_port,
+                    max_clients=10,
+                    bind="127.0.0.1",
+                    trace="both",
+                ),
+                Connection(
                     "NIBE S1155",
                     "",
                     15021 + offset,
@@ -501,6 +561,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
         feeder = asyncio.create_task(meter(trace, alias, stop))
         poller = asyncio.create_task(modbus_client(15020 + offset, stop))
         home_assistant = asyncio.create_task(enocean_client(19100 + offset, stop))
+        sensors = asyncio.create_task(onewire_client(14304 + offset, stop))
         if case is not None and replayed is not None and replayed.kind == "serial":
             asyncio.create_task(replay_serial(case, trace, replayed.alias, stop))
         print(f"Open http://127.0.0.1:{port}/  (Ctrl+C ends)")
@@ -511,6 +572,8 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
             feeder.cancel()
             poller.cancel()
             home_assistant.cancel()
+            sensors.cancel()
+            bus.close()
             gateway.close()
             spare.close()
             device.close()

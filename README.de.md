@@ -5,7 +5,7 @@
 <h1 align="center">Device Proxy</h1>
 
 <p align="center">
-  Serielle, USB-, Modbus- und EnOcean-Geräte mit mehreren Programmen teilen: ser2net, ein Modbus-Proxy und ein EnOcean-Proxy als Home-Assistant-App.
+  Serielle, USB-, Modbus-, EnOcean- und 1-Wire-Geräte mit mehreren Programmen teilen: ser2net, ein Modbus-Proxy, ein EnOcean-Proxy und ein owserver-Proxy als Home-Assistant-App.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 <p align="center"><em><a href="https://github.com/bertel2020/HA-Device-Proxy/blob/main/README.md">English version</a></em></p>
 
-Device Proxy ist eine Home-Assistant-App (früher Add-on), die ein Gerät für mehrere Programme gleichzeitig nutzbar macht. Serielle und USB-Geräte (Lesekopf am Stromzähler, Z-Wave- oder Zigbee-Stick, RS232-Geräte) werden mit [ser2net 4](https://github.com/cminyard/ser2net) über TCP geteilt. Modbus-Geräte (Modbus TCP, Modbus RTU an RS485, RTU über TCP) teilt der eigene Modbus-Proxy der App mit mehreren Modbus-TCP-Clients. EnOcean-Gateways (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH, Symcon LAN …) teilt ihr eigener EnOcean-Proxy, mit Nachlieferung bei Neustarts von Home Assistant.
+Device Proxy ist eine Home-Assistant-App (früher Add-on), die ein Gerät für mehrere Programme gleichzeitig nutzbar macht. Serielle und USB-Geräte (Lesekopf am Stromzähler, Z-Wave- oder Zigbee-Stick, RS232-Geräte) werden mit [ser2net 4](https://github.com/cminyard/ser2net) über TCP geteilt. Modbus-Geräte (Modbus TCP, Modbus RTU an RS485, RTU über TCP) teilt der eigene Modbus-Proxy der App mit mehreren Modbus-TCP-Clients. EnOcean-Gateways (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH, Symcon LAN …) teilt ihr eigener EnOcean-Proxy, mit Nachlieferung bei Neustarts von Home Assistant. Einen 1-Wire-Bus hinter einem owserver (OWFS) teilt die App ebenfalls und zeigt dabei die Geräte am Bus und wer was fragt.
 
 Eingerichtet wird alles in einer Weboberfläche in der Seitenleiste, ohne YAML und ohne Kommandozeile. Der Reiter **Konfiguration** der App im Supervisor bleibt mit Absicht leer; alles steckt im Seitenleisten-Eintrag **Device Proxy**. Status, Live-Daten, Mitschnitt und Ereignisse zeigen, was auf der Leitung passiert.
 
@@ -57,6 +57,7 @@ Device Proxy sitzt dazwischen. Die App hält das Gerät, lässt mehrere Clients 
 - **Verbindungen in einer Weboberfläche**: Gerät aus einer Liste mit stabilen Namen, Vorlagen (Zähler SML oder D0, Z-Wave- oder Zigbee-Stick, Modbus), alle wichtigen ser2net-Optionen und eine Vorschau der `ser2net.yaml` beim Tippen. Speichern baut nur diese Verbindung neu auf; die anderen behalten ihre Clients.
 - **Modbus-Proxy**: ein Modbus-Gerät oder RS485-Bus für mehrere Modbus-TCP-Clients. Anfragen gehen nacheinander ans Gerät, jede Antwort zurück an den, der gefragt hat; Timeouts, Wiederholungen und Pausen sind einstellbar, mit Startwerten für Wechselrichter von SolarEdge, Huawei (SUN2000), Fronius, SMA, Kostal (Plenticore), Sungrow und Victron (GX). Schreiben standardmäßig nur aus Home Assistant und den Apps, auf Wunsch je Client auf bestimmte Register begrenzt, Zwischenspeicher für Lesezugriffe, Bus-Scan, Register lesen und als Entität in Home Assistant anlegen, ganz ohne YAML, und ein Zugriffstest, der sagt, ob ein Client lesen oder schreiben darf und welche Regel entscheidet. Er kann auch nur mithören, auf einem RS485-Bus mit eigenem Master, und das Gehörte bereitstellen.
 - **EnOcean-Gateways**: ein FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH oder Symcon LAN gleichzeitig für die Integration EnOcean Eltako, eo_man und PCT14. Ganze Telegramme der Reihe nach, Antworten an das fragende Programm, Telegramme aus einem Neustart von Home Assistant mit Empfangszeit nachgeliefert, Erkennung durch die Integration samt Modell des Gateways. Live-Telegramme mit Absender und Art, eine Senderliste mit eigenen Namen und CSV-Export, Funkzeit gegenüber dem 1-%-Limit, Gateway-Test, Base-ID ändern (mit den übrigen Änderungen), geprüftes Senden, Mitschnitt mit Sperre für PCT14. Ein zweites Gateway mit derselben Base-ID springt bei einem Ausfall ein, ohne dass die Programme neu verbinden. Löst die App EnOcean Proxy ab.
+- **1-Wire-Busse**: ein owserver (OWFS) für die 1-Wire-Integration von Home Assistant, owhttpd und andere Systeme auf dem üblichen Port 4304. Jede Anfrage geht unverändert durch; die App listet die Geräte am Bus mit ihrem Chip, zählt Anfragen und Fehler je Rechner, zeigt jeden Lesezugriff mit seinem Wert in den Live-Daten, meldet, wenn der owserver nicht mehr antwortet, und kann das Schreiben (Ausgänge schalten) auf die Rechner beschränken, die du nennst.
 - **Status auf einen Blick**: Gerät vorhanden, Clients mit Adresse und Bytes, Datenrate, letzte Daten, Leitungsfehler vom Treiber, Modbus-Anfragen und Antwortzeiten; Clients, die nicht mehr lesen, werden erkannt.
 - **Live-Daten und Mitschnitt** ohne Client-Platz, bei Modbus dekodiert; Aufzeichnung in rotierende Dateien, ohne jemanden zu trennen.
 - **Werkzeuge für Zähler**: SML (mit CRC-Prüfung) und D0 auswerten, Baudrate erkennen.

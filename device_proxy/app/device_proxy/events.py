@@ -40,6 +40,9 @@ SUMMED = {
     "modbus_back",
     "enocean_down",
     "enocean_back",
+    "onewire_down",
+    "onewire_back",
+    "onewire_write_blocked",
     "enocean_failover",
     "enocean_failback",
     "client_refused",
@@ -55,8 +58,10 @@ SUMMED = {
     "proxy_restarted",
     "auto_restart_failed",
 }
-GONE = {"device_missing", "modbus_down", "enocean_down"}  # the device is away (for the history) ...
-BACK = {"device_back", "device", "modbus_back", "enocean_back"}  # ... and there again
+# the device is away (for the history) ...
+GONE = {"device_missing", "modbus_down", "enocean_down", "onewire_down"}
+# ... and there again
+BACK = {"device_back", "device", "modbus_back", "enocean_back", "onewire_back"}
 LIFE = {"app_started", "app_stopped"}  # nobody watches in between; a device still away says so
 APP = "App"  # the name of events that belong to no connection
 # values that entries written by an older version do not have
@@ -127,6 +132,12 @@ MESSAGES = {
         "{state}: EnOcean {protocol} {target} · port {port} · up to {max_clients} clients"
     ),
     "enocean_down": "Gateway not reachable: {target} ({error})",
+    "onewire_loaded": (
+        "{state}: 1-Wire owserver {target} · port {port} · up to {max_clients} clients"
+    ),
+    "onewire_down": "owserver not reachable: {target} ({error})",
+    "onewire_back": "owserver reachable again: {target}",
+    "onewire_write_blocked": "Write refused from {address}: {path}",
     "enocean_back": "Gateway reachable again: {target}",
     "enocean_failover": (
         "Goes on through the fallback {fallback} ({reason}), {unanswered} commands unanswered"
@@ -152,7 +163,7 @@ MESSAGES = {
     "client_new": "New client, never seen before: {address}",
     "client_blocked": "Client blocked, kept out of every connection: {address}",
     "client_blocked_not_custom": (
-        "Client blocked, kept out of the app's Modbus and EnOcean connections, "
+        "Client blocked, kept out of the app's Modbus, EnOcean and 1-Wire connections, "
         "not of the ports of the own ser2net.yaml: {address}"
     ),
     "client_unblocked": "Client released: {address}",

@@ -212,6 +212,7 @@ export class ImportDialog extends Page {
   _kind(c) {
     if (c.kind === "modbus") return t(`link_${c.link}`);
     if (c.kind === "enocean") return `${c.esp_protocol.toUpperCase()} · ${t(`eolink_${c.link}`)}`;
+    if (c.kind === "onewire") return "owserver";
     return `${fmtSerial(c)} · ${c.mode === "raw" ? t("modeRaw") : c.mode === "rfc2217" ? "RFC 2217" : c.mode}`;
   }
 

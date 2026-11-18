@@ -16,6 +16,9 @@ Die App teilt Geräte mit mehreren Programmen gleichzeitig:
 - **EnOcean-Gateways** (FAM-USB, FAM14, FGW14-USB, USB300, MGW-ETH …) über den eigenen
   EnOcean-Proxy der App: mehrere Programme (Home Assistant, eo_man, PCT14) teilen sich ein
   Gateway (siehe [EnOcean-Gateways](#enocean-gateways)).
+- **1-Wire-Busse** über einen owserver (OWFS): die Programme, die die Sensoren lesen, verbinden
+  sich mit der App statt mit dem owserver, und die App zeigt, welche Geräte am Bus hängen und wer
+  was fragt (siehe [1-Wire-Busse](#1-wire-busse)).
 
 Eingerichtet wird alles auf der Seite der App in der Seitenleiste (**Device Proxy**). Die App hat
 keine eigenen Optionen; ihr Reiter **Konfiguration** im Supervisor bleibt deshalb mit Absicht leer.
@@ -450,6 +453,42 @@ Art der Verbindung, Gerät oder Host und Port, Baudrate) wird zwischen den beide
 getauscht. Die alte Hardware wird danach ausgeschaltet (Standard), als Ersatz behalten oder ihre
 Verbindung gelöscht. Beide Verbindungen starten neu, und die Nachlieferung überbrückt die kurze
 Lücke. Die Konfig-Historie kann das rückgängig machen.
+
+## 1-Wire-Busse
+
+Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die Quelle
+ist ein owserver im Netz, etwa der auf einem anderen Rechner oder einer VM, an dem heute der
+USB-Adapter (DS9490R, DS1490F) hängt. Die 1-Wire-Integration von Home Assistant, owhttpd,
+Skripte mit pyownet und andere Systeme verbinden sich stattdessen mit dem Port der App, mit
+demselben Protokoll. Vorgegeben ist Port 4304, der übliche Port des owserver, ein Programm braucht
+dann nur die neue Adresse.
+
+Jede Anfrage geht unverändert an den owserver, sein Cache, dauerhafte Verbindungen und alle
+Nachrichtenarten funktionieren also wie bisher. Unterwegs zählt die App Anfragen und Fehler, misst
+die Antwortzeit und zeigt jede Anfrage mit ihrem Pfad in den Live-Daten und im Mitschnitt (ein
+Lesezugriff mit dem gelesenen Wert). Alle 30 Sekunden liest sie die Geräteliste vom owserver: Das
+ist die Prüfung, ob er erreichbar ist, und die Seite der Verbindung listet die Geräte mit Familie
+und üblichem Chip (28 = DS18B20, 3A = DS2413, 81 = der ID-Chip im USB-Adapter …). Antwortet der
+owserver nicht, steht die Verbindung auf **nicht erreichbar**, und die App benachrichtigt dich,
+wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist.
+
+Die meisten owserver-Programme öffnen für jede Anfrage eine neue Verbindung. Ein Client ist
+deshalb ein Rechner, keine Verbindung: Er gilt ab seiner ersten Anfrage als verbunden, bis er
+5 Minuten lang nichts gefragt hat, und **Rechner höchstens** begrenzt die Rechner.
+
+**Schreibzugriff**: owserver hat keine Anmeldung, wer ihn erreicht, darf Ausgänge schalten
+(DS2408, DS2413) oder Einstellungen ändern. **Alle Clients** lässt es so. **Nur diese** lässt die
+angegebenen Adressen schreiben, **Niemand** macht den Bus nur lesbar. Ein abgewiesener
+Schreibversuch bekommt von der App den Fehler EACCES und erreicht den Bus nie; die Ereignisse
+nennen Client und Pfad.
+
+Umzug von einem owserver auf einem anderen Rechner:
+
+1. Eine 1-Wire-Verbindung mit der Adresse dieses owserver als Quelle anlegen.
+2. Die Programme eins nach dem anderen auf die App umstellen: In Home Assistant die
+   1-Wire-Integration mit dem Host von Home Assistant und dem Port der Verbindung einrichten. Jedes
+   kann zur alten Adresse zurück, bis alle laufen.
+3. Später kann der USB-Adapter zu Home Assistant selbst umziehen (eine kommende Version der App).
 
 ## Wartung: ein Rechner allein
 

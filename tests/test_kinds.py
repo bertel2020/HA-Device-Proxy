@@ -139,3 +139,36 @@ async def test_a_proxy_that_ended_by_an_error_starts_again(
     finally:
         controller.config = AppConfig()
         await controller._reconcile_proxies()
+
+
+async def test_a_onewire_bus_in_the_controller(tmp_path: Path) -> None:
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    bus = Connection(
+        "1-Wire", "", 14304, id="0000000d", kind="onewire", link="owserver",
+        host="127.0.0.1", host_port=9,
+    )  # fmt: skip
+    config = AppConfig(connections=(bus,))
+    store.save(AppConfig(), config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    try:
+        assert await controller._reconcile_proxies() == ["1-Wire"]
+        proxy = controller.proxies["0000000d"]
+        async with asyncio.timeout(5):
+            while proxy.reachable is not False:
+                await asyncio.sleep(0.01)
+        (row,) = controller.snapshot()["connections"]  # type: ignore[misc]
+        assert row["onewire"]["devices"] == [] and row["running"]
+        assert row["addresses"][0]["urls"] == {"owserver": "127.0.0.1:14304"}
+        assert "device_proxy_0000000d_unreachable" in controller.problems()
+        topics = controller.mqtt.configs()
+        assert any(t.endswith("device_proxy_0000000d/onewire_devices/config") for t in topics)
+        # who may write is read for every request: no restart
+        controller.config = replace(config, connections=(replace(bus, write_access="none"),))
+        assert await controller._reconcile_proxies() == []
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()

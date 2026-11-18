@@ -74,6 +74,8 @@ def addresses(c: Connection, settings: Settings, lan_ip: str | None) -> list[dic
         shown = f"[{host}]" if ":" in host else host
         if c.kind == "modbus":
             urls = {"modbus": f"{shown}:{c.port}"}
+        elif c.kind == "onewire":
+            urls = {"owserver": f"{shown}:{c.port}"}
         elif c.mode == "rfc2217":
             urls = {"rfc2217": f"rfc2217://{shown}:{c.port}"}
         else:
