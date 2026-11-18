@@ -1,5 +1,6 @@
 """What the app knows about the devices on a 1-Wire bus."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -244,3 +245,14 @@ def test_a_search_by_hand_does_not_count_towards_missing(tmp_path: Path) -> None
         b.listed([SWITCH])
     assert b.missing() == [SENSOR]
     assert kinds(b.listed([SENSOR, SWITCH], count=False)) == [("onewire_device_back", SENSOR)]
+
+
+def test_the_devices_of_deleted_connections_are_left_out(tmp_path: Path) -> None:
+    path = tmp_path / "d.json"
+    bus(path, Clock()).listed([SENSOR])
+    Bus("0000000e", path, Clock()).listed([SWITCH])
+    onewire_bus.prune(set(), path)  # no 1-Wire connection at all (a config not read)
+    assert set(json.loads(path.read_text())) == {"0000000d", "0000000e"}
+    onewire_bus.prune({"0000000d"}, path)
+    assert set(json.loads(path.read_text())) == {"0000000d"}
+    onewire_bus.prune({"0000000d"}, tmp_path / "none.json")  # no file: nothing to do

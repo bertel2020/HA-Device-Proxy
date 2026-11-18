@@ -407,5 +407,26 @@ class Bus:
             _LOGGER.debug("1-Wire devices not kept: %s", err)
 
 
+def prune(keep: set[str], path: Path | None = None) -> None:
+    """Leave out the devices of connections that are gone (deleted). Not without any 1-Wire
+    connection: a configuration that could not be read must not take the devices along."""
+    if not keep:
+        return
+    path = path or KNOWN_FILE
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if not isinstance(data, dict) or set(data) <= keep:
+        return
+    kept = {k: v for k, v in data.items() if k in keep}
+    try:
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(kept), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as err:
+        _LOGGER.debug("1-Wire devices not pruned: %s", err)
+
+
 def _errors(values: dict[str, int]) -> int:
     return sum(v for k, v in values.items() if k.endswith("_errors"))
