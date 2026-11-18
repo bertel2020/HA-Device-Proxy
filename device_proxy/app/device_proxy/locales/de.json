@@ -1553,7 +1553,9 @@
     "owWriteRefused": "abgewiesen",
     "owWriteRefusedHint": "Der Schreibzugriff erlaubt diesem Client kein Schreiben; der Schreibversuch hat den Bus nie erreicht.",
     "owWritePending": "wartet",
-    "owWriteAt": "Zeit"
+    "owWriteAt": "Zeit",
+    "owSpike": "Ausreißer × {n}, zuletzt {v} °C {t}",
+    "owSpikeHint": "Eine einzelne Temperatur weit daneben (mehr als 10 °C), beim nächsten Lesen wieder zurück: ein auf der Leitung verfälschter Lesezugriff. Ab und zu ist harmlos; häufig deutet es auf einen langen oder gestörten Bus, einen fehlenden Pull-up oder einen Wackelkontakt."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",
@@ -1643,7 +1645,8 @@
     "onewire_device_missing": "1-Wire-Gerät fehlt: {label}",
     "onewire_device_back": "1-Wire-Gerät wieder da: {label}",
     "onewire_device_new": "Neues 1-Wire-Gerät am Bus: {label}",
-    "onewire_value_85": "{label} meldet 85 °C ({path}): Wandlung nicht fertig, Strom oder Bus"
+    "onewire_value_85": "{label} meldet 85 °C ({path}): Wandlung nicht fertig, Strom oder Bus",
+    "onewire_value_spike": "{label} meldete einmal {value} °C ({path}) und war beim nächsten Lesen zurück: ein auf der Leitung verfälschter Lesezugriff"
   },
   "notes": {
     "device_missing_unstable": "Gerät {device} ist gerade nicht angeschlossen und kann sich nach einem Neustart ändern – besser einen by-id- oder by-path-Namen wählen.",

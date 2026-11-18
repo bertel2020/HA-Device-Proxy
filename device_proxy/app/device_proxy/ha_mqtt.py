@@ -126,6 +126,7 @@ EVENT_TYPES = {
         "onewire_device_back",
         "onewire_device_new",
         "onewire_value_85",
+        "onewire_value_spike",
         "client_new",
         *_REFUSED,
         *_RESTARTS,

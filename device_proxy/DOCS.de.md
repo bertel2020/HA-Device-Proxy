@@ -491,7 +491,9 @@ statt die zwischengespeicherte Liste des owserver zu nehmen, praktisch beim Verk
 einer zuletzt aufgelegt war. Zwei typische Fehler von Temperatursensoren werden
 markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde (meist
 parasitäre Versorgung, ein langer Bus oder ein Wackelkontakt), und eine Temperatur, die sich
-2 Stunden und 20 Abfragen lang **nicht bewegt** (auch beim DS2438). Bei jedem Temperatursensor fragt die App den
+2 Stunden und 20 Abfragen lang **nicht bewegt** (auch beim DS2438), und **Ausreißer**: eine einzelne
+Temperatur mehr als 10 °C daneben, die beim nächsten Lesen wieder zurück ist, ein auf einer
+langen oder gestörten Leitung verfälschter Lesezugriff. Bei jedem Temperatursensor fragt die App den
 owserver einmal, ob er **parasitär versorgt** ist (keine eigene Ader für VDD), die übliche
 Ursache für 85 °C. Die owserver-Karte zeigt Name und Version des
 Adapters und die Version des owserver, wie der owserver sie meldet, und die CRC- und Busfehler

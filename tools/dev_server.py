@@ -139,7 +139,10 @@ async def owserver(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -
             elif kind == 2 and path.endswith("/temperature"):
                 # the second sensor gives the 85 °C of an unfinished conversion now and then
                 bad = OW_DEVICES[1] in path and int(time.time() / 5) % 6 == 0
-                value = f"{85 if bad else 20 + (time.time() / 60) % 3:12.4f}".encode()
+                # and the first one a garbled read (127.94 °C) about every three minutes
+                spike = OW_DEVICES[0] in path and int(time.time() / 5) % 36 == 0
+                normal = 20 + (time.time() / 60) % 3
+                value = f"{85 if bad else 127.94 if spike else normal:12.4f}".encode()
                 await asyncio.sleep(0.02)
                 body = onewire.answer(len(value), value, keep)
             elif kind == 2 and path in (

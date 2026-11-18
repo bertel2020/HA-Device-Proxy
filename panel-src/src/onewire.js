@@ -142,6 +142,7 @@ export class OneWireDevices extends LitElement {
     if (d.new && !d.missing_since) out.push(html`<span class="chip info">${t("owNew")}</span>`);
     if (d.bad) out.push(html`<span class="chip warn" title=${t(d.power === "parasite" ? "owBadParasite" : "owBadHint")}>${t("owBad", { n: num(d.bad), t: fmtAgo(d.bad_at) })}</span>`);
     if (d.power === "parasite") out.push(html`<span class="chip ${d.bad ? "warn" : ""}" title=${t("owParasiteHint")}>${t("owParasite")}</span>`);
+    if (d.spikes) out.push(html`<span class="chip warn" title=${t("owSpikeHint")}>${t("owSpike", { n: num(d.spikes), v: Number(d.spike_value).toLocaleString(lang), t: fmtAgo(d.spike_at) })}</span>`);
     if (d.frozen) out.push(html`<span class="chip warn" title=${t("owFrozenHint")}>${t("owFrozen")}</span>`);
     if (d.errors) out.push(html`<span class="chip warn" title=${d.last_error || ""}>${t("owDeviceErrors", { n: num(d.errors) })}</span>`);
     return out;

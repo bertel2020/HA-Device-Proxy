@@ -11,6 +11,9 @@ last value of every property read, errors per device, and for temperatures two t
 faults: 85 °C, the DS18x20's power-on value, which an owserver passes on when a conversion
 did not finish (parasite power, a weak bus), and a value that stays exactly the same for
 FROZEN_AFTER seconds while it is read FROZEN_READS times (a real sensor moves by 1/16 °C).
+And outliers: a temperature that jumps by more than SPIKE °C and is back within SETTLE °C of
+the value before at the next read that differs (a read garbled on a long or noisy line, such
+as 127.94 °C); a jump that stays is a real change.
 
 The exact chip of each device, read once (<id>/type, e.g. "DS18B20") and kept with the
 device, so the list names it while it is missing too.
@@ -43,7 +46,9 @@ SAVE_EVERY = 600.0  # seconds between two saves only for the times last seen
 FROZEN_AFTER = 7200.0
 FROZEN_READS = 20
 POWER_ON = 85.0
-BAD_EVENT_EVERY = 3600.0  # at most one 85 °C event per device in this time
+BAD_EVENT_EVERY = 3600.0  # at most one 85 °C or outlier event per device in this time
+SPIKE = 10.0  # °C between two reads: a jump to look at
+SETTLE = 2.0  # °C: back this close to the value before, the jump was an outlier
 TEMPERATURE_FAMILIES = {"10", "22", "28", "3B", "42"}
 # a temperature that does not move is a fault on these too: the DS2438 (humidity sensors,
 # battery monitors) has one, but no 85 °C power-on value
@@ -83,6 +88,14 @@ class Value:
 
 
 @dataclass
+class Track:
+    """A temperature's last good value and a jump that waits for the next read."""
+
+    number: float
+    jump: float | None = None
+
+
+@dataclass
 class Device:
     id: str
     first: float
@@ -98,6 +111,10 @@ class Device:
     bad_at: float | None = None
     power: str = ""  # "external", "parasite", "" not known
     chip: str = ""  # what the owserver says in <id>/type; "" not asked yet
+    tracks: dict[str, Track] = field(default_factory=dict)  # per temperature property
+    spikes: int = 0  # outliers
+    spike_at: float | None = None
+    spike_value: str = ""
 
     @property
     def family(self) -> str:
@@ -259,20 +276,46 @@ class Bus:
             device.values[prop] = Value(shown, now, now)
         else:
             old.at, old.reads = now, old.reads + 1
-        if not (device.family in TEMPERATURE_FAMILIES and TEMPERATURE.fullmatch(prop)):
+        if not (device.family in FROZEN_FAMILIES and TEMPERATURE.fullmatch(prop)):
             return []
         try:
             number = float(shown)
         except ValueError:
             return []
-        if number != POWER_ON:
-            return []
+        if number != POWER_ON or device.family not in TEMPERATURE_FAMILIES:
+            return self._outlier(device, prop, number, now)
         device.bad += 1
         quiet = device.bad_at is not None and now - device.bad_at < BAD_EVENT_EVERY
         device.bad_at = now
         if quiet:
             return []
         return [("warning", "onewire_value_85", {"device": device_id, "path": prop})]
+
+    def _outlier(self, device: Device, prop: str, number: float, now: float) -> list[Event]:
+        track = device.tracks.get(prop)
+        if track is None:
+            device.tracks[prop] = Track(number)
+            return []
+        if track.jump is None:
+            if abs(number - track.number) > SPIKE:
+                track.jump = number  # a jump: an outlier or a real change, the next read says
+            else:
+                track.number = number
+            return []
+        if abs(number - track.jump) < 0.01:
+            return []  # the same answer again (the owserver's cache): still waiting
+        jump, track.jump = track.jump, None
+        if abs(number - track.number) > SETTLE:
+            track.number = number  # it stayed away: a real change
+            return []
+        track.number = number
+        device.spikes += 1
+        quiet = device.spike_at is not None and now - device.spike_at < BAD_EVENT_EVERY
+        device.spike_at, device.spike_value = now, f"{jump:g}"
+        if quiet:
+            return []
+        return [("warning", "onewire_value_spike", {"device": device.id, "path": prop,
+                                                    "value": device.spike_value})]  # fmt: skip
 
     # the owserver's statistics
 
@@ -314,6 +357,9 @@ class Bus:
                     "frozen": frozen,
                     "power": d.power,
                     "chip": d.chip,
+                    "spikes": d.spikes,
+                    "spike_at": d.spike_at,
+                    "spike_value": d.spike_value,
                 }
             )
         return rows

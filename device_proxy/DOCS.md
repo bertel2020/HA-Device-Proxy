@@ -462,7 +462,8 @@ instead of using the owserver's cached list, handy while wiring. iButtons (the r
 the reader last. Two typical faults
 of temperature sensors are marked: **85 °C**, the value of a DS18x20 whose conversion did not
 finish (usually parasite power, a long bus or a loose contact), and a temperature that **does
-not move** for 2 hours and 20 reads (also on a DS2438). For each temperature sensor the app asks the owserver once
+not move** for 2 hours and 20 reads (also on a DS2438), and **outliers**: a single temperature
+more than 10 °C off that is back at the next read, a read garbled on a long or noisy line. For each temperature sensor the app asks the owserver once
 whether it is on **parasite power** (no wire of its own for VDD), the usual cause of 85 °C. The owserver card shows the adapter's name and version and the
 owserver's version as the owserver reports them, and the owserver's CRC and bus errors since it
 started, with a hint when they rise. Over MQTT there is the number of missing devices.
