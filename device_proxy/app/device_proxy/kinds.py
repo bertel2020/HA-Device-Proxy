@@ -1,4 +1,4 @@
-"""The kinds of connection beside ser2net's "serial" ones (Modbus, EnOcean): each runs a
+"""The kinds of connection beside ser2net's "serial" ones (Modbus, EnOcean, 1-Wire): each runs a
 proxy in the app.
 
 A kind says how its proxy is built, which changes restart it, and what it adds to the
@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from . import enocean, listen, modbus
+from . import enocean, listen, modbus, onewire
 from .model import Connection
 from .trace import Chunk
 
@@ -87,5 +87,14 @@ PROXIED: dict[str, Kind] = {
         client_row=enocean.client_row,
         mqtt_entities=enocean.mqtt_entities,
         mqtt_state=enocean.mqtt_state,
+    ),
+    "onewire": Kind(
+        icon="mdi:thermometer-lines",
+        build=onewire.OneWireProxy,
+        restart_key=onewire.restart_key,
+        loaded=onewire.loaded,
+        client_row=onewire.client_row,
+        mqtt_entities=onewire.mqtt_entities,
+        mqtt_state=onewire.mqtt_state,
     ),
 }

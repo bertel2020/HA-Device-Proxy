@@ -4,6 +4,7 @@ import { Page } from "../app.js";
 import { DEFAULTS as ENOCEAN, HA_ONLY, MODELS, TEMPLATES as EO_TEMPLATES } from "../enocean.js";
 import { fieldError, retriesText, t, tn } from "../i18n.js";
 import { PROFILES } from "../modbus.js";
+import { DEFAULTS as ONEWIRE, OWSERVER_PORT } from "../onewire.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
 import { confirmDialog, effectsText, icon, navigate, proxyTarget, skeleton, toggle, wholeNumber } from "../ui.js";
@@ -43,6 +44,7 @@ const MODBUS_ADVANCED = ["kickolduser", "low_latency"];
 // Modbus: what is folded into "Erweitert" and counts when it differs from the default
 const MODBUS_TUNING = ["register_entities", "connect_delay_ms", "request_gap_ms", "cache_ms", "device_connections", "probe_seconds", "unit_map", "unit_routes", "timeout", "kickolduser", "low_latency"];
 const ENOCEAN_ADVANCED = ["kickolduser", "low_latency"];
+const ONEWIRE_ADVANCED = []; // only the idle time and the trace, counted below
 const ENOCEAN_BAUDS = [9600, 19200, 57600, 115200];
 const BUS_GATEWAYS = ["fam14", "fgw14_usb"]; // on the RS485 bus of the series 14, not radio only
 const ADVANCED = ["rtscts", "xonxoff", "hangup_when_done", "nobreak", "low_latency", "kickolduser", "nodelay", "keep_open"];
@@ -148,7 +150,7 @@ export class EditPage extends Page {
     this.otherDevice = !!this.draft.device && !this.state.devices.some((d) => d.stable === this.draft.device || d.by_id.includes(this.draft.device) || d.by_path.includes(this.draft.device));
     this.errors = {};
     this.touched = new Set(existing ? Object.keys(DEFAULTS) : []);
-    const flags = { modbus: MODBUS_ADVANCED, enocean: ENOCEAN_ADVANCED }[this.draft.kind] || ADVANCED;
+    const flags = { modbus: MODBUS_ADVANCED, enocean: ENOCEAN_ADVANCED, onewire: ONEWIRE_ADVANCED }[this.draft.kind] || ADVANCED;
     this.advanced = this.draft.kind === "modbus" ? MODBUS_TUNING.concat("trace").some((k) => this.draft[k] !== (DEFAULTS[k] ?? "off"))
       : flags.some((k) => this.draft[k]) || !!(this.draft.unit_map || this.draft.extra.length || this.draft.timeout || this.draft.trace !== "off");
     this.replayOpen = this.draft.replay_size !== DEFAULTS.replay_size || this.draft.replay_max_age_s !== DEFAULTS.replay_max_age_s || this.draft.replay_persist;
@@ -167,6 +169,11 @@ export class EditPage extends Page {
       let port = 502;
       while (ports.includes(port)) port++;
       return { ...MODBUS, port, device: "" };
+    }
+    if (kind === "onewire") {
+      let port = OWSERVER_PORT;
+      while (ports.includes(port)) port++;
+      return { ...ONEWIRE, port };
     }
     if (kind === "enocean") {
       let port = 9100;
@@ -196,7 +203,7 @@ export class EditPage extends Page {
     const x = (d.kind === "serial" ? d.source === "device" : d.link === "serial")
       && this.state.devices.find((v) => v.stable === d.device || v.by_id.includes(d.device) || v.by_path.includes(d.device));
     const fromDevice = x ? deviceName(x.manufacturer, x.product) : "";
-    const base = d.kind === "enocean" ? fromDevice || (d.template && d.template !== "enocean" ? t(`tpl_${d.template}`) : t("kind_enocean"))
+    const base = d.kind === "onewire" ? t("kind_onewire") : d.kind === "enocean" ? fromDevice || (d.template && d.template !== "enocean" ? t(`tpl_${d.template}`) : t("kind_enocean"))
       : (d.template !== "generic" && t(`nameTpl_${d.template}`)) || fromDevice || t("nameTpl_generic");
     this._auto = uniqueName(base, this.state.connections.map((c) => c.name));
     this.draft = { ...d, name: this._auto };
@@ -375,7 +382,7 @@ export class EditPage extends Page {
   _trace() {
     const d = this.draft;
     return html`<label class="fld"><span class="lbl">${t("traceMode")}</span><select class="inp" @change=${(e) => this._set({ trace: e.target.value })}>
-      ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} .selected=${d.trace === v}>${t(d.kind === "modbus" ? `trmb_${v}` : `tr_${v}`)}</option>`)}</select></label>`;
+      ${["off", "rx", "tx", "both"].map((v) => html`<option value=${v} .selected=${d.trace === v}>${t(d.kind === "modbus" || d.kind === "onewire" ? `trmb_${v}` : `tr_${v}`)}</option>`)}</select></label>`;
   }
 
   /** Units that live on other Modbus connections: one port for several devices. */
@@ -685,6 +692,66 @@ export class EditPage extends Page {
     </section>`;
   }
 
+  /** 1-Wire: the owserver to share, the port for the programs, who may write. */
+  _onewireSections() {
+    const d = this.draft;
+    const advancedCount = (d.timeout ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
+    return html`
+      <section class="card" aria-labelledby="t-owsrc">
+        <div><h2 id="t-owsrc">${t("owSource")}</h2><p class="hint" style="margin-top:4px">${t("owSourceSub")}</p></div>
+        <div class="grid2">${this._input("host", t("owHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("owHostPort"), { number: true, hint: t("owHostPortHint") })}</div>
+      </section>
+
+      <section class="card" aria-labelledby="t-owproxy">
+        <div><h2 id="t-owproxy">${t("ifNetOnly")}</h2><p class="hint" style="margin-top:4px">${t("owNetSub")}</p></div>
+        <div class="grid2">
+          ${this._input("port", t("owPort"), { number: true, hint: t("owPortHint") })}
+          ${this._input("max_clients", t("owMaxClients"), { number: true, hint: t("owMaxClientsHint") })}
+        </div>
+        ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
+        ${d.remaddr !== HA_ONLY ? html`<div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button>
+          ${d.remaddr ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button>` : ""}</div>` : html`<div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button></div>`}
+        ${this._input("bind", t("bind"), { mono: true, hint: t("bindHint") })}
+        <span class="hint">${this._follows(d)}</span>${this._bindWarn(d)}
+      </section>
+
+      <section class="card" aria-labelledby="t-write">
+        <div><h2 id="t-write">${t("mbWrite")}</h2><p class="hint" style="margin-top:4px">${t("owWriteSub")}</p></div>
+        <div class="seg" role="group" aria-labelledby="t-write">${["all", "listed", "none"].map((v) => html`<button type="button" aria-pressed=${d.write_access === v ? "true" : "false"}
+          @click=${() => this._set(v === "listed" && !d.write_clients ? { write_access: v, write_clients: HA_ONLY } : { write_access: v })}>${t(`wa_${v}`)}</button>`)}</div>
+        <span class="hint">${t(`owwasub_${d.write_access}`)}</span>
+        ${d.write_access === "listed" ? this._input("write_clients", t("mbWriteClients"), { mono: true, hint: t("mbWriteClientsHint") }) : ""}
+      </section>
+
+      <section class="card" aria-labelledby="t-adv">
+        <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
+          <span><h2 id="t-adv">${t("tuning")}</h2><span class="hint">${t("owTuningSub")}</span></span>
+          <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+        ${this.advanced ? html`
+          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true, hint: t("owIdleHint") })}</div>
+          ${this._trace()}` : ""}
+      </section>
+
+      <section class="card" aria-labelledby="t-app">
+        <h2 id="t-app">${t("alerts")}</h2>
+        <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}</div>
+      </section>`;
+  }
+
+  _onewirePreview() {
+    const d = this.draft;
+    return html`<section class="card" aria-labelledby="t-prev">
+      <div><h2 id="t-prev">${t("mbPreview")}</h2><p class="hint" style="margin-top:4px">${t("owPreviewSub")}</p></div>
+      <ol class="flow">
+        <li><b>${tn("mbFlowClients", d.max_clients, { n: d.max_clients })}</b><span class="hint">${t("owFlowClients", { p: d.port })}</span></li>
+        <li><b>${t("owFlowProxy")}</b><span class="hint">${t(`owFlowWrite_${d.write_access}`)}</span></li>
+        <li><b>owserver</b><span class="hint mono" style="overflow-wrap:anywhere">${d.host || "–"}:${d.host_port}</span></li>
+      </ol>
+      ${this._follows(d) ? html`<div class="note info">${this._follows(d)}</div>` : ""}
+      ${this._errorList()}
+    </section>`;
+  }
+
   _enoceanPreview() {
     const d = this.draft;
     const target = d.link === "serial" ? `${d.device || "–"} · ${d.baud}` : `${d.host || "–"}:${d.host_port}`;
@@ -737,13 +804,13 @@ export class EditPage extends Page {
       <div class="cols"><form class="main-col" @submit=${this._save} novalidate>
         ${isNew ? html`<section class="card" aria-labelledby="t-kind">
           <div><h2 id="t-kind">${t("kind")}</h2><p class="hint" style="margin-top:4px">${t("kindSub")}</p></div>
-          <div class="choices">${["serial", "modbus", "enocean"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
+          <div class="choices">${["serial", "modbus", "enocean", "onewire"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
             @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
         </section>` : ""}
-        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : this._mbProfiles()}<section class="card" aria-labelledby="t-base">
+        ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : d.kind === "modbus" ? this._mbProfiles() : ""}<section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>
           ${this._input("name", t("name"))}
-        </section>${d.kind === "modbus" ? this._modbusSections(chosen) : this._enoceanSections(chosen)}` : html`
+        </section>${d.kind === "modbus" ? this._modbusSections(chosen) : d.kind === "onewire" ? this._onewireSections() : this._enoceanSections(chosen)}` : html`
         ${this._tplCard("t-tpl", t("template"), t("templateSub"), Object.keys(TEMPLATES), (k) => this._serialTemplate(k))}
 
         <section class="card" aria-labelledby="t-base">
@@ -820,20 +887,20 @@ export class EditPage extends Page {
               ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
         </section>`}
 
-        <section class="card" aria-labelledby="t-power">
+        ${d.kind === "onewire" ? "" : html`<section class="card" aria-labelledby="t-power">
           <div><h2 id="t-power">${t("powerTitle")}</h2><p class="hint" style="margin-top:4px">${t("powerSub")}</p></div>
           <label class="fld"><span class="lbl">${t("powerSwitch")}</span>
             <input class="inp mono" list="dp-switches" placeholder="switch.usb_hub" aria-invalid=${this._shown().power_switch ? "true" : "false"} .value=${d.power_switch || ""} @input=${(e) => this._set({ power_switch: e.target.value.trim() })}>
             <datalist id="dp-switches">${(this.switches || []).map((s) => html`<option value=${s}></option>`)}</datalist>
             ${this._err("power_switch")}<span class="hint">${t("powerSwitchHint")}</span></label>
-        </section>
+        </section>`}
 
         <section class="card" aria-labelledby="t-on">
           <div class="fold"><div><h2 id="t-on">${isNew ? t("startNow") : t("enabled")}</h2><p class="hint" style="margin-top:4px">${isNew ? t("startNowSub") : t("enabledSub")}</p></div>
             ${toggle(d.enabled, isNew ? t("startNow") : t("enabled"), (v) => this._set({ enabled: v }))}</div>
         </section>
 
-        ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : html`<section class="card" aria-labelledby="t-prev">
+        ${d.kind === "modbus" ? this._modbusPreview() : d.kind === "enocean" ? this._enoceanPreview() : d.kind === "onewire" ? this._onewirePreview() : html`<section class="card" aria-labelledby="t-prev">
           <div class="fold"><div><h2 id="t-prev">${t("preview")}</h2><p class="hint" style="margin-top:4px">${t("previewSub")}</p></div>
             <button type="button" class="btn btn-g arrow" aria-expanded=${this.yamlOpen ? "true" : "false"} @click=${() => { this.yamlOpen = !this.yamlOpen; }}>${this.yamlOpen ? t("closeA") : t("open")}</button></div>
           ${this.yamlOpen ? html`<div class="code" style="white-space:pre-wrap">${this.yaml ? this.yaml.replace(/([,;])(?=\S)/g, "$1\u200b") : "…"}</div>` : ""}

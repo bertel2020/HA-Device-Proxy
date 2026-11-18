@@ -582,7 +582,7 @@ export class SettingsPage extends Page {
     const text = await file.text();
     try {
       const p = await api("api/restore/preview", { method: "POST", body: { text } });
-      const kinds = ["serial", "modbus", "enocean"].filter((k) => p.kinds[k]).map((k) => `${p.kinds[k]} ${t(`kindName_${k}`)}`).join(", ");
+      const kinds = ["serial", "modbus", "enocean", "onewire"].filter((k) => p.kinds[k]).map((k) => `${p.kinds[k]} ${t(`kindName_${k}`)}`).join(", ");
       const question = t("backupConfirm", { when: p.created || "–", n: p.total, kinds: kinds || "–", cur: p.current });
       if (!(await confirmDialog(this, withEffects(question, effectsText(p.effects)), t("restoreDo")))) return;
       await api("api/restore", { method: "POST", body: { text } });

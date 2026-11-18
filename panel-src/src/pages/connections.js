@@ -4,7 +4,7 @@ import { Page } from "../app.js";
 import { clientName, lang, plain, t, tn } from "../i18n.js";
 import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo, fmtRate, fmtSince, fmtSerial, icon, navigate, proxyTarget, rateHistory, sparkline, toggle } from "../ui.js";
 
-const KINDS = ["serial", "modbus", "enocean"];
+const KINDS = ["serial", "modbus", "enocean", "onewire"];
 const FILTER_KEY = "device_proxy.filter";
 const CLIENTS_SHOWN = 3; // more go to the detail page
 
@@ -105,14 +105,17 @@ export class ConnectionsPage extends Page {
     const errors = c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0;
     const modbus = c.kind === "modbus", m = c.modbus || {};
     const enocean = c.kind === "enocean", eo = c.enocean;
+    const onewire = c.kind === "onewire", ow = c.onewire;
     const proxied = c.kind !== "serial";
     const chips = modbus ? [t(`link_${c.link}`), `Port ${c.port}`]
       : enocean ? [`${c.esp_protocol.toUpperCase()} · ${c.link === "serial" ? c.baud : "TCP"}`, `Port ${c.port}`]
+      : onewire ? ["owserver", `Port ${c.port}`]
       : [fmtSerial(c), c.mode, `Port ${c.port}`];
     if (modbus && (c.link === "rtu" || c.link === "rtu_listen")) chips.splice(1, 0, fmtSerial(c));
     if (modbus && m.answered) chips.push(t("mbAvg", { ms: m.time_avg_ms }));
     if (enocean && eo) chips.push(t("eoDutyChip", { p: eo.duty_cycle.of_limit.toLocaleString(lang) }));
     if (enocean && eo && eo.base_id) chips.push(`ID ${eo.base_id}`);
+    if (onewire && ow && ow.devices_at) chips.push(t("owDevicesN", { n: ow.devices.length }));
     const fallbackOf = enocean && eo?.serves ? eo.serves : "";
     const fallback = enocean && c.fallback ? (this.state.connections.find((x) => x.id === c.fallback) || {}).name : "";
     if (c.nodelay && !proxied) chips.push("nodelay");
@@ -121,7 +124,7 @@ export class ConnectionsPage extends Page {
     const stuck = c.clients.filter((cl) => cl.stuck);
     const live = c.enabled && (c.present || proxied);
     const quiet = c.last_data && c.silence_minutes && Date.now() / 1000 - c.last_data >= c.silence_minutes * 60;
-    const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus ? "trmb" : "tr"}_${c.trace}`) }) : "";
+    const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus || onewire ? "trmb" : "tr"}_${c.trace}`) }) : "";
     const hasChips = fallbackOf || fallback || recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
     return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""}" aria-label=${c.name} data-go
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
@@ -157,7 +160,7 @@ export class ConnectionsPage extends Page {
         ${c.clients.length > CLIENTS_SHOWN ? html`<a class="hint" href="#/connection/${c.id}">${t("moreClients", { n: c.clients.length - CLIENTS_SHOWN })}</a>` : ""}
       </div>` : off ? html`<div class="why">${t("disabledText")}</div>`
         : missing ? html`<div class="why">${t("missingHint", { d: c.device })}</div>${movedNote(c, (d) => this._useMoved(c, d))}`
-        : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
+        : proxied && (c[c.kind] || {}).reachable === false ? html`<div class="why">${t(enocean ? "eoDownText" : onewire ? "owDownText" : "mbDownText", { e: plain((c[c.kind] || {}).last_error || "?") })}</div>` : ""}
       <div class="foot">
         <span></span>
         <div style="display:flex;gap:4px;align-items:center"><a class="btn btn-s" href="#/connection/${c.id}">${t("details")}</a>

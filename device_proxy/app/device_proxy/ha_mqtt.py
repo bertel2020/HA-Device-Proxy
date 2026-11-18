@@ -115,6 +115,14 @@ EVENT_TYPES = {
         *_REFUSED,
         *_RESTARTS,
     ),
+    "onewire": (
+        "onewire_down",
+        "onewire_back",
+        "onewire_write_blocked",
+        "client_new",
+        *_REFUSED,
+        *_RESTARTS,
+    ),
 }
 APP_EVENT_TYPES: tuple[str, ...] = ("ser2net_restart", "ser2net_start_failed")
 

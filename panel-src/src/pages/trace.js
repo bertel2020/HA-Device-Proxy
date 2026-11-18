@@ -94,7 +94,7 @@ export class TracePage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
-  _label(c, mode) { return t(c.kind === "modbus" ? `trmb_${mode}` : `tr_${mode}`); }
+  _label(c, mode) { return t(c.kind === "modbus" || c.kind === "onewire" ? `trmb_${mode}` : `tr_${mode}`); }
 
   async _delete(name) {
     if (!(await confirmDialog(this, t("deleteFile", { n: name }), t("delete")))) return;
@@ -136,7 +136,7 @@ export class TracePage extends Page {
               <td class="fit" style="color:#8f9ba8">${this._time(ch.ts)}</td>
               <td class="fit"><span class="dir ${ch.direction === "rx" ? "rx" : ch.direction === "tx" ? "tx" : "mark"}">${dirLabel(ch.direction, current && current.kind)}</span></td>
               ${ch.info ? html`<td class="fit info ${ch.info.length > 21 ? "long" : ""}" style="color:#9fb3c8">${ch.info}</td>` : ""}<td class="hex ${ch.info ? "frame" : ""}">${ch.hex ? (ch.info ? ch.hex : lines16(ch.hex.split(" "), " ")) : ch.text}</td>${!ch.info && this.ascii && ch.hex ? html`<td class="asc" style="color:#9fb3c8">${lines16(ch.text.replace(/[^\x20-\x7e]/g, ".").split(""), "")}</td>` : ""}</tr>`)}</tbody></table></div>`
-              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : "liveEmpty")}</p>`}
+              : html`<p class="hint" style="padding:32px 20px;text-align:center;font-size: calc(14px * var(--fs, 1))">${t(current && current.kind === "modbus" ? "liveEmptyMb" : current && current.kind === "enocean" ? "liveEmptyEo" : current && current.kind === "onewire" ? "liveEmptyOw" : "liveEmpty")}</p>`}
           </section>
           <section class="card" aria-labelledby="t-files">
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
