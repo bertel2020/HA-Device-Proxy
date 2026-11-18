@@ -1315,6 +1315,13 @@ class Controller:
             raise ValueError("the connection is not active")
         return proxy
 
+    async def onewire_scan(self, connection_id: str) -> dict[str, Any]:
+        """Search the 1-Wire bus now, not the owserver's cached list."""
+        proxy = self.proxies.get(connection_id)
+        if not isinstance(proxy, OneWireProxy):
+            raise ValueError("the connection is not active")
+        return await proxy.scan()
+
     def onewire_forget(self, connection_id: str, device: str) -> bool:
         """A 1-Wire device taken off the bus on purpose: not missing any more."""
         proxy = self.proxies.get(connection_id)

@@ -544,3 +544,12 @@ async def test_values_and_counters_reach_the_state(setup: Setup) -> None:
     assert setup.proxy.state()["missing"] == [SWITCH]
     assert ("onewire_device_missing", {"device": SWITCH}) in setup.events
     assert setup.proxy.forget(SWITCH) and setup.proxy.state()["missing"] == []
+
+
+async def test_a_search_of_the_bus_now(setup: Setup) -> None:
+    result = await setup.proxy.scan()
+    assert result["devices"] == [SENSOR, ADAPTER, SWITCH] and result["ms"] is not None
+    assert (MSG_DIRALL, "/uncached/", b"") in setup.server.requests  # not the cached list
+    setup.proxy.c = replace(setup.proxy.c, host_port=1)
+    with pytest.raises(ValueError):
+        await setup.proxy.scan()
