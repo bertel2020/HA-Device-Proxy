@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.9.0 - 2026-11-18
+
 - **1-Wire, USB-Adapter an Home Assistant (Beta)**: Eine 1-Wire-Verbindung kann jetzt auch den USB-Adapter (DS9490R, DS1490F) nutzen, der an Home Assistant steckt oder in dessen VM durchgereicht ist: Quelle **USB-Adapter an diesem Rechner**.
   - Die App startet dafür ihren eigenen owserver. Die Programme verbinden sich weiter mit dem Port der Verbindung, ein Umzug vom owserver im Netz ändert für sie nichts.
   - Das Formular sagt, ob es den Adapter findet.
