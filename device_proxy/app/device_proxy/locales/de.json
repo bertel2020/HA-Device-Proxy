@@ -1545,7 +1545,15 @@
     "owScanning": "Suche läuft …",
     "owScanHint": "Eine frische Suche auf dem Bus statt der zwischengespeicherten Liste des owserver: praktisch beim Verkabeln.",
     "owScanned": "Suche fertig: {n} Geräte am Bus ({ms} ms).",
-    "owScanFailed": "Suche fehlgeschlagen"
+    "owScanFailed": "Suche fehlgeschlagen",
+    "owWrites": "Schreibzugriffe",
+    "owWritesSub": "die letzten 100 seit dem Start, auch abgewiesene",
+    "owWriteWhat": "Gerät und Eigenschaft",
+    "owWriteOk": "ausgeführt",
+    "owWriteRefused": "abgewiesen",
+    "owWriteRefusedHint": "Der Schreibzugriff erlaubt diesem Client kein Schreiben; der Schreibversuch hat den Bus nie erreicht.",
+    "owWritePending": "wartet",
+    "owWriteAt": "Zeit"
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

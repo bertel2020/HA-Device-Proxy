@@ -474,7 +474,8 @@ not a connection: it counts as connected from its first request until it has ask
 **Write access**: owserver has no login, so whoever reaches it may switch outputs (DS2408,
 DS2413) or change settings. **All clients** keeps it so. **Only these** lets the addresses given
 write, **Nobody** makes the bus read only. A refused write gets the error EACCES from the app and
-never reaches the bus; the event log names the client and the path.
+never reaches the bus; the event log names the client and the path. The card **Writes** lists the
+last 100 writes since the start with client, device, value and result, also the refused ones.
 
 Moving from an owserver on another computer:
 

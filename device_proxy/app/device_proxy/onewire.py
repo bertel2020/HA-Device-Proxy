@@ -55,6 +55,7 @@ from .trace import Chunk
 _LOGGER = logging.getLogger(__name__)
 
 EventSink = Callable[..., None]  # (level, kind, **params)
+Waiting = tuple[float, str, str, dict[str, Any] | None]  # a request sent to the owserver
 TraceSink = Callable[[Chunk], None]
 
 HEADER = struct.Struct(">iiiiii")  # version, payload, type or ret, flags, size, offset
@@ -104,6 +105,7 @@ RESET_AFTER = 2  # such restarts without an answer since: the adapter gets a USB
 RESET_PAUSE = 600.0  # at most one automatic USB reset in this many seconds
 USB_BACK = 3.0  # seconds after a USB reset before owserver opens the adapter again
 LOG_KEPT = 20  # owserver's last log lines in the state
+WRITES_KEPT = 100  # the last writes (switching an output), allowed or refused
 STATISTICS_SECONDS = 60.0  # between two reads of the owserver's error counters
 INFO_SECONDS = 600.0  # between two reads of the adapter's name and the owserver's version
 # what the owserver says about its first adapter and itself; 2.x had /system/adapter/
@@ -440,6 +442,7 @@ class OneWireProxy:
         self._last_answer_ms: float | None = None
         self._server: asyncio.Server | None = None
         self._open = 0  # client connections now
+        self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)
         # link "usb": the own owserver, the adapters found, the watchdog's counts
         self.owserver = (
             OwServer(free_port(), self._owserver_ended, cache_s=c.owserver_cache_s)
@@ -800,7 +803,7 @@ class OneWireProxy:
             except OSError as err:  # ConnectionError too
                 self._down(_text(err))
                 return
-            waiting: deque[tuple[float, str, str]] = deque()  # (loop time, type, path)
+            waiting: deque[Waiting] = deque()  # (loop time, type, path, a write's entry)
             pumps = [
                 asyncio.create_task(
                     self._requests(client, reader, writer, upstream, waiting, first)
@@ -826,7 +829,7 @@ class OneWireProxy:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         upstream: asyncio.StreamWriter,
-        waiting: deque[tuple[float, str, str]],
+        waiting: deque[Waiting],
         message: tuple[bytes, int, int, str],
     ) -> None:
         loop = asyncio.get_running_loop()
@@ -840,7 +843,13 @@ class OneWireProxy:
                 bucket = "dir" if name in DIRS else name if name in ("read", "write") else "other"
                 self.stats.requests[bucket] += 1
                 self._trace("tx", data, f"{name} {path} · {client.address}")
-                if kind == MSG_WRITE and not may_write(self.c, client.host, client.local):
+                entry = None
+                if kind == MSG_WRITE:  # who switched what, also when it was refused
+                    entry = {"at": time.time(), "client": client.address, "path": path,
+                             "value": written(data), "result": "…"}  # fmt: skip
+                    self.writes.append(entry)
+                if entry is not None and not may_write(self.c, client.host, client.local):
+                    entry["result"] = "EACCES"
                     client.blocked += 1
                     self.stats.blocked += 1
                     self.on_event(
@@ -854,7 +863,7 @@ class OneWireProxy:
                     return
                 upstream.write(data)
                 self.stats.bytes_to_device += len(data)
-                waiting.append((loop.time(), name, path))
+                waiting.append((loop.time(), name, path, entry))
                 await upstream.drain()
                 message = await asyncio.wait_for(read_request(reader), self.c.timeout or None)
 
@@ -863,7 +872,7 @@ class OneWireProxy:
         client: _Host,
         up_reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-        waiting: deque[tuple[float, str, str]],
+        waiting: deque[Waiting],
     ) -> None:
         loop = asyncio.get_running_loop()
         with contextlib.suppress(asyncio.IncompleteReadError, OSError, ProtocolError):
@@ -876,7 +885,7 @@ class OneWireProxy:
                     await writer.drain()
                     continue
                 self._up()
-                sent, name, path = waiting[0] if waiting else (loop.time(), "?", "")
+                sent, name, path, entry = waiting[0] if waiting else (loop.time(), "?", "", None)
                 if ret < 0:
                     client.errors += 1
                     self.stats.errors += 1
@@ -885,6 +894,8 @@ class OneWireProxy:
                 # a directory comes as one message per entry and an empty one at the end
                 if waiting and (name != "dir" or payload == 0 or ret < 0):
                     waiting.popleft()
+                    if entry is not None:
+                        entry["result"] = "ok" if ret >= 0 else error_name(ret)
                     ms = round((loop.time() - sent) * 1000, 1)
                     self._answers.append(ms)
                     self._last_answer_ms = ms
@@ -943,6 +954,7 @@ class OneWireProxy:
             "missing": self.bus.missing(),
             "statistics": self.bus.statistics_state(),
             "info": dict(self.info),
+            "writes": [dict(w) for w in reversed(self.writes)],  # the newest first
             "devices_at": self.devices_at,
             "probe_ms": self.probe_ms,
             "requests": dict(s.requests),
@@ -1021,6 +1033,14 @@ def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
         "onewire_missing": len(state["missing"]),
         "requests": sum(state["requests"].values()),
     }
+
+
+def written(data: bytes) -> str:
+    """The value a write request carries after its path, as text when it is one."""
+    payload = HEADER.unpack(data[: HEADER.size])[1]
+    value = data[HEADER.size : HEADER.size + payload].partition(b"\0")[2]
+    text = value.decode("ascii", "replace")
+    return text[:40] if value.isascii() and text.isprintable() else value[:20].hex(" ")
 
 
 def _said(name: str, path: str, ret: int, data: bytes) -> str:

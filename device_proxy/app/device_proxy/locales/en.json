@@ -1545,7 +1545,15 @@
     "owScanning": "Searching …",
     "owScanHint": "A fresh search on the bus instead of the owserver's cached list: useful while wiring.",
     "owScanned": "Search done: {n} devices on the bus ({ms} ms).",
-    "owScanFailed": "Search failed"
+    "owScanFailed": "Search failed",
+    "owWrites": "Writes",
+    "owWritesSub": "the last 100 since the start, also the refused ones",
+    "owWriteWhat": "Device and property",
+    "owWriteOk": "done",
+    "owWriteRefused": "refused",
+    "owWriteRefusedHint": "Write access does not allow this client to write; the write never reached the bus.",
+    "owWritePending": "waiting",
+    "owWriteAt": "Time"
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

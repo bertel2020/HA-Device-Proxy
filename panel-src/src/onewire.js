@@ -180,6 +180,29 @@ export class OneWireDevices extends LitElement {
   }
 }
 
+const DEVICE = /([0-9A-F]{2}\.[0-9A-F]{12})\/?(.*)$/i;
+
+/** The last writes (switching an output, a setting), allowed or refused, the newest first. */
+export function writesCard(c, settings, label) {
+  const writes = (c.onewire || {}).writes || [];
+  if (!writes.length) return "";
+  const named = names(settings?.onewire_names);
+  const result = (r) => r === "ok" ? html`<span class="chip ok">${t("owWriteOk")}</span>`
+    : r === "EACCES" ? html`<span class="chip bad" title=${t("owWriteRefusedHint")}>${t("owWriteRefused")}</span>`
+    : r === "…" ? html`<span class="chip">${t("owWritePending")}</span>` : html`<span class="chip warn">${r}</span>`;
+  return html`<section class="card" aria-labelledby="t-owwr">
+    <div class="row"><h2 id="t-owwr">${t("owWrites")}</h2><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("owWritesSub")}</span></div>
+    <div class="scroll"><table><thead><tr><th>${t("owWriteAt")}</th><th>${t("clientTh")}</th><th>${t("owWriteWhat")}</th><th>${t("owValue")}</th><th>${t("owState")}</th></tr></thead>
+      <tbody>${writes.map((w) => {
+        const [, id, prop] = DEVICE.exec(w.path) || [];
+        const what = id ? html`${named[id.toUpperCase()] || html`<span class="mono">${id.toUpperCase()}</span>`} <span class="mono hint">${prop}</span>` : html`<span class="mono">${w.path}</span>`;
+        return html`<tr><td style="white-space:nowrap">${fmtTime(w.at, false, true)}</td>
+          <td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${w.client}${label(w.client)}</td>
+          <td>${what}</td><td class="mono">${w.value}</td><td>${result(w.result)}</td></tr>`;
+      })}</tbody></table></div>
+  </section>`;
+}
+
 /** The clients: one row per computer (owserver clients connect again for each request). */
 export function clientsTable(c, label) {
   return html`<div class="scroll"><table><thead><tr>
