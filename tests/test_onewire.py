@@ -423,6 +423,11 @@ async def test_the_own_owserver_on_the_usb_adapter(fake_owserver: Path) -> None:
         assert args[args.index("-p") + 1] == f"127.0.0.1:{proxy.owserver.port}"
         assert "-u" in args and "--foreground" in args
         assert "--timeout_volatile=15" in args  # the cache for read values
+        await proxy.owserver.restart()  # each start picks a free port again
+        await _until(lambda: len(fake_owserver.read_text().splitlines()) == 2)
+        again = fake_owserver.read_text().splitlines()[1].split()
+        assert again[again.index("-p") + 1] == f"127.0.0.1:{proxy.owserver.port}"
+        await proxy._owserver_ready()
         assert proxy.devices == ["28.A1B2C3D4E5F6", "81.0000005F2A1B"]
         assert await ask(proxy.port, MSG_READ, "/28.A1B2C3D4E5F6/temperature") == (9, b"     21.5")
         await proxy.look_after()

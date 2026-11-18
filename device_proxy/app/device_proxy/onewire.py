@@ -333,6 +333,9 @@ class OwServer:
             await asyncio.shield(self.terminate())
 
     async def _run_once(self) -> int | None:
+        # a free port for each start: one taken meanwhile by another program would keep
+        # owserver from listening on every start again
+        self.port = free_port()
         try:
             self._proc = await asyncio.create_subprocess_exec(
                 *self.command(),
