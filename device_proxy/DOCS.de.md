@@ -485,7 +485,8 @@ wurden, etwa die Ausgänge eines DS2408 oder Feuchte und Spannung eines DS2438. 
 Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
 und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
 antwortet** an ist; ein absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später
-dazugekommenes Gerät ist als **neu** markiert. iButtons (die Lesemulde eines DS1490F, Familien
+dazugekommenes Gerät ist als **neu** markiert. **Bus jetzt absuchen** sucht sofort auf dem Bus,
+statt die zwischengespeicherte Liste des owserver zu nehmen, praktisch beim Verkabeln. iButtons (die Lesemulde eines DS1490F, Familien
 01, 02, 04, 06, 08, 0A, 0C) kommen und gehen: Sie gelten nie als fehlend, die Liste sagt, wann
 einer zuletzt aufgelegt war. Zwei typische Fehler von Temperatursensoren werden
 markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde (meist

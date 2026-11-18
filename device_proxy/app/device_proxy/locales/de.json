@@ -1540,7 +1540,12 @@
     "owChipUsual": "(üblich)",
     "owChipUsualHint": "Der übliche Chip dieser Familie; der owserver hat den genauen noch nicht genannt.",
     "owMore": "+{n} Werte",
-    "owLess": "weniger"
+    "owLess": "weniger",
+    "owScan": "Bus jetzt absuchen",
+    "owScanning": "Suche läuft …",
+    "owScanHint": "Eine frische Suche auf dem Bus statt der zwischengespeicherten Liste des owserver: praktisch beim Verkabeln.",
+    "owScanned": "Suche fertig: {n} Geräte am Bus ({ms} ms).",
+    "owScanFailed": "Suche fehlgeschlagen"
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

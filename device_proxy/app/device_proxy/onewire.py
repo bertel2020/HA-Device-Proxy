@@ -85,6 +85,7 @@ DIRS = {"dir", "dirall", "dirallslash"}
 CONNECT_TIMEOUT = 5.0  # seconds to reach the owserver
 PROBE_SECONDS = 30.0  # between two reads of the device list
 PROBE_TIMEOUT = 10.0
+SCAN_TIMEOUT = 30.0  # a search of the whole bus, not the cached list
 IDLE_AFTER = 300.0  # seconds without a request: the host is no longer a client
 SWEEP = 10.0  # seconds between two looks for such hosts
 LISTEN_RETRY = 10.0
@@ -598,15 +599,21 @@ class OneWireProxy:
             await self.look_after()
             await asyncio.sleep(PROBE_SECONDS)
 
-    async def probe(self) -> None:
+    async def scan(self) -> dict[str, Any]:
+        """Search the bus now (uncached), not the owserver's cached list: for wiring."""
+        if not await self.probe(uncached=True):
+            raise ValueError(self.stats.last_error or "the owserver does not answer")
+        return {"devices": list(self.devices), "ms": self.probe_ms}
+
+    async def probe(self, uncached: bool = False) -> bool:
         """Read the device list: is the owserver there, and what is on the bus."""
         loop = asyncio.get_running_loop()
         started = loop.time()
         writer = None
         try:
-            async with asyncio.timeout(PROBE_TIMEOUT):
+            async with asyncio.timeout(SCAN_TIMEOUT if uncached else PROBE_TIMEOUT):
                 reader, writer = await self._connect()
-                writer.write(request(MSG_DIRALL, "/"))
+                writer.write(request(MSG_DIRALL, "/uncached/" if uncached else "/"))
                 await writer.drain()
                 while True:
                     _data, ret, payload = await read_answer(reader)
@@ -615,13 +622,13 @@ class OneWireProxy:
                 body = _data[HEADER.size :]
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError) as err:
             self._down(_text(err))
-            return
+            return False
         finally:
             if writer is not None:
                 writer.close()
         if ret < 0:
             self._down(f"device list: {error_name(ret)}")
-            return
+            return False
         self.probe_ms = round((loop.time() - started) * 1000, 1)
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
@@ -641,6 +648,7 @@ class OneWireProxy:
         if loop.time() - self._info_at >= INFO_SECONDS:
             self._info_at = loop.time()
             await self.read_info()
+        return True
 
     # the own owserver (link "usb")
 

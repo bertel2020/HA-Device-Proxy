@@ -1540,7 +1540,12 @@
     "owChipUsual": "(usual)",
     "owChipUsualHint": "The usual chip of this family; the owserver has not named the exact one yet.",
     "owMore": "+{n} values",
-    "owLess": "fewer"
+    "owLess": "fewer",
+    "owScan": "Search the bus now",
+    "owScanning": "Searching …",
+    "owScanHint": "A fresh search on the bus instead of the owserver's cached list: useful while wiring.",
+    "owScanned": "Search done: {n} devices on the bus ({ms} ms).",
+    "owScanFailed": "Search failed"
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

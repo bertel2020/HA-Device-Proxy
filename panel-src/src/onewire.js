@@ -81,7 +81,8 @@ function main(d) {
 
 /** The devices on the bus: also the known ones that are missing now, with names of your own. */
 export class OneWireDevices extends LitElement {
-  static properties = { connection: { attribute: false }, settings: { attribute: false }, edit: { state: true }, error: { state: true }, open: { state: true } };
+  static properties = { connection: { attribute: false }, settings: { attribute: false }, edit: { state: true }, error: { state: true }, open: { state: true },
+    scanning: { state: true }, scanned: { state: true } };
 
   static styles = [tokens, base, css`
     :host { display: block; }
@@ -102,6 +103,18 @@ export class OneWireDevices extends LitElement {
       this.error = "";
       this._refresh();
     } catch (err) { this.error = fieldError((err.data.errors || {}).onewire_names || err.message); }
+  }
+
+  /** A fresh search of the bus (uncached): what is wired right now. */
+  async _scan() {
+    this.scanning = true;
+    this.error = "";
+    try {
+      const r = await api(`api/tools/${this.connection.id}/onewire/scan`, { method: "POST" });
+      this.scanned = t("owScanned", { n: r.devices.length, ms: num(Math.round(r.ms)) });
+      this._refresh();
+    } catch (err) { this.scanned = ""; this.error = `${t("owScanFailed")}: ${err.message}`; }
+    this.scanning = false;
   }
 
   async _forget(d, label) {
@@ -143,7 +156,9 @@ export class OneWireDevices extends LitElement {
       ${devices.length ? html`<div style="display:flex;flex-wrap:wrap;gap:8px">
         ${this.edit ? html`<button class="btn btn-s" @click=${() => this._save()}>${t("eoSendersSave")}</button>
           <button class="btn btn-g" @click=${() => { this.edit = undefined; this.error = ""; }}>${t("cancel")}</button>`
-        : html`<button class="btn btn-g" @click=${() => { this.edit = {}; }}>${t("owNamesEdit")}</button>`}</div>
+        : html`<button class="btn btn-g" @click=${() => { this.edit = {}; }}>${t("owNamesEdit")}</button>
+          <button class="btn btn-g" ?disabled=${this.scanning} title=${t("owScanHint")} @click=${() => this._scan()}>${this.scanning ? t("owScanning") : t("owScan")}</button>`}</div>
+        ${this.scanned ? html`<div class="note ok" role="status">${this.scanned}</div>` : ""}
         ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}
         <div class="scroll"><table><thead><tr><th>${t("owName")}</th><th>${t("owId")}</th><th>${t("owChip")}</th><th>${t("owValue")}</th><th>${t("owState")}</th><th></th></tr></thead>
         <tbody>${devices.map((d) => {

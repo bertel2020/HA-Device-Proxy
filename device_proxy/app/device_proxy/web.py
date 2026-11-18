@@ -196,6 +196,7 @@ class WebServer:
         self._route("PUT", r"api/enocean/sender-names", self.enocean_sender_names)
         self._route("PUT", r"api/onewire/names", self.onewire_names)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/onewire/forget", self.onewire_forget)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/onewire/scan", self.onewire_scan)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/testcase", self.testcase)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
@@ -1045,6 +1046,12 @@ class WebServer:
             return replace(config, settings=settings)
 
         return await self._save(build)
+
+    async def onewire_scan(self, request: Request) -> Response:
+        try:
+            return ok(await self.c.onewire_scan(request.params["id"]))
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
 
     async def onewire_forget(self, request: Request) -> Response:
         device = request.json().get("device")
