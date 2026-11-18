@@ -429,48 +429,76 @@ undo it.
 
 ## 1-Wire buses
 
-*Beta, new in 1.8.0: if something does not work with your owserver, please open an issue with
-the diagnostics.*
+*Beta: new in 1.8.0, the USB adapter on Home Assistant in 1.9.0. If something does not work
+with your owserver or adapter, please open an issue with the diagnostics.*
 
-A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. The source is
-either an owserver in the network, for example the one on another computer or VM that has the
-USB adapter (DS9490R, DS1490F) today, or **USB adapter of this host**: then the adapter is on
-Home Assistant's computer (or passed through to its VM) and the app runs its own owserver for
-it. Home Assistant's 1-Wire integration, owhttpd, pyownet scripts
-and other systems connect to the app's port instead, with the same protocol. The default port is
-4304, the usual owserver port, so a program only needs the new address.
+A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. Home
+Assistant's 1-Wire integration, owhttpd, pyownet scripts and other systems connect to the
+app's port instead of the owserver, with the same protocol. The default port is 4304, the usual
+owserver port, so a program only needs the new address.
 
-Every request goes to the owserver unchanged, so the owserver's cache, persistent connections and
-all message types work as before. On the way the app counts requests and errors, measures the
-answer time and shows each request with its path in the live data and the trace (a read with the
-value it got). Every 30 seconds it reads the device list from the owserver: that is the
-reachability check, and the connection's page lists the devices with their family and the usual
-chip (28 = DS18B20, 3A = DS2413, 81 = the ID chip inside the USB adapter …). When the owserver
-does not answer, the connection shows **not reachable** and the app notifies you if
-**Notify when the device is missing or not reachable** is on.
+### Source
 
-**Devices on the bus**: the connection's page lists every device the owserver names, with a
-name of your own (**Edit names**), its chip (as the owserver names it, asked once; until then
-the usual one of its family) and the last value your programs read (the
-app reads no values itself); **+N values** shows all the others read from the device, such as the
-outputs of a DS2408 or the humidity and voltage of a DS2438. The app remembers the devices, also over restarts: one that is
-missing from the device list twice in a row shows as **missing since**, and the app notifies
-you if **Notify when the device is missing or not reachable** is on; one taken off on purpose
-is removed with **Forget**. A device that appears later is marked **new** for a day. **Search the bus now** searches the bus at once
-instead of using the owserver's cached list, handy while wiring. iButtons (the reader of a DS1490F, families 01,
-02, 04, 06, 08, 0A, 0C) come and go: they never count as missing, the list says when one was on
-the reader last. Two typical faults
-of temperature sensors are marked: **85 °C**, the value of a DS18x20 whose conversion did not
-finish (usually parasite power, a long bus or a loose contact), and a temperature that **does
-not move** for 2 hours and 20 reads (also on a DS2438), and **outliers**: a single temperature
-more than 10 °C off that is back at the next read, a read garbled on a long or noisy line. For each temperature sensor the app asks the owserver once
-whether it is on **parasite power** (no wire of its own for VDD), the usual cause of 85 °C. The owserver card shows the adapter's name and version and the
-owserver's version as the owserver reports them, and the owserver's CRC and bus errors since it
-started, with a hint when they rise. Over MQTT there is the number of missing devices.
+- **owserver in the network**: an owserver on another computer or VM, for example the one that
+  has the USB adapter today. Any adapter that owserver supports works.
+- **USB adapter of this host**: a DS9490R or DS1490F (USB ID 04fa:2490) plugged into Home
+  Assistant's computer or passed through to its VM. The app runs its own owserver for it (see
+  [The app's own owserver](#the-apps-own-owserver)). The form says whether it finds the
+  adapter; only one connection at a time can use it (a switched-off second one may stay as a
+  spare).
+
+Every request goes to the owserver unchanged, so the owserver's cache, persistent connections
+and all message types work as before. On the way the app counts requests and errors, measures
+the answer time and shows each request with its path in the live data and the trace (a read
+with the value it got). Every 30 seconds it reads the device list from the owserver: that is the
+reachability check. When the owserver does not answer, the connection shows **not reachable**
+and the app notifies you if **Notify when the device is missing or not reachable** is on.
+
+### Devices on the bus
+
+The card **Devices on the bus** lists every device the owserver names:
+
+- **Name**: one of your own, with **Edit names**; events and notifications use it.
+- **Chip**: as the owserver names it (asked once per device), until then the usual chip of its
+  family, marked "(usual)". Family 81 is the ID chip inside the USB adapter.
+- **Last value**: the one your programs read last; the app reads no values itself, so the bus
+  carries nothing extra. **+N values** shows all the others read from the device, such as the
+  outputs of a DS2408 or the humidity and voltage of a DS2438.
+- **State**: what the app noticed (below).
+
+The app remembers the devices, also over restarts. One that is missing from the device list
+twice in a row (about a minute) shows as **missing since**, and the app notifies you with its
+name if **Notify when the device is missing or not reachable** is on; one taken off on purpose
+is removed with **Forget**. A device that appears later is marked **new** for a day. iButtons
+on the reader of a DS1490F (families 01, 02, 04, 06, 08, 0A, 0C) come and go: they never count as
+missing, the list says when one was on the reader last.
+
+**Search the bus now** searches the bus at once instead of the owserver's cached list, handy
+while wiring. It does not count towards "missing".
+
+### Faults on the bus
+
+- **85 °C**: the value of a DS18x20 whose conversion did not finish, usually parasite power, a
+  long bus or a loose contact. Counted with the time of the last one.
+- **Parasite power**: for each temperature sensor the app asks the owserver once whether it has
+  a wire of its own for VDD. Parasite power is the usual cause of 85 °C; the hint says so.
+- **Value does not move**: the same temperature for 2 hours and 20 reads (also on a DS2438): a
+  cache set too long or a sensor that hangs. A working sensor moves by 1/16 °C now and then.
+- **Outliers**: a single temperature more than 10 °C off that is back at the next read, such as
+  127.94 °C: a read garbled on a long or noisy line. Now and then is harmless; often points to
+  the bus.
+- **Bus errors**: the owserver card shows the owserver's CRC and bus errors since it started,
+  with a hint when they rise, and the adapter's name and version and the owserver's version as
+  the owserver reports them.
+
+85 °C and outliers are also events, at most once an hour per device.
+
+### Clients and write access
 
 Most owserver programs open a new connection for each request. A client is therefore a computer,
 not a connection: it counts as connected from its first request until it has asked nothing for
-5 minutes, and **Computers at most** limits the computers.
+5 minutes, and **Computers at most** limits the computers. A connection that sends no request
+within 30 seconds is closed.
 
 **Write access**: owserver has no login, so whoever reaches it may switch outputs (DS2408,
 DS2413) or change settings. **All clients** keeps it so. **Only these** lets the addresses given
@@ -478,7 +506,7 @@ write, **Nobody** makes the bus read only. A refused write gets the error EACCES
 never reaches the bus; the event log names the client and the path. The card **Writes** lists the
 last 100 writes since the start with client, device, value and result, also the refused ones.
 
-Moving from an owserver on another computer:
+### Moving from an owserver on another computer
 
 1. Add a 1-Wire connection with that owserver's address as the source.
 2. Point the programs to the app one at a time: in Home Assistant, set up the 1-Wire integration
@@ -486,19 +514,26 @@ Moving from an owserver on another computer:
    address until all of them work.
 3. Move the USB adapter to Home Assistant: in Proxmox, pass it (USB ID 04fa:2490) through to
    Home Assistant's VM instead of the old one, and switch the connection's source to **USB
-   adapter of this host**. The form says whether it finds the adapter. The programs keep their
-   address and port.
+   adapter of this host**. The programs keep their address and port.
+4. Switch the owserver on the old computer off.
 
-**The app's own owserver** (source USB adapter) listens on 127.0.0.1 only; the programs reach
-the bus through the connection's port as before. owserver takes the adapter from the kernel's
-ds2490 driver itself. The DS2490 in these adapters is known to stop answering after a while:
-when the device list stays unanswered twice in a row (about a minute), the app starts owserver
-again; after two such restarts without an answer it gives the adapter a USB reset, at most once
-in 10 minutes. **Restart** and **USB reset** on the connection's page do the same by hand. The
-connection's page shows whether owserver runs, its restarts and resets and its last messages.
+### The app's own owserver
+
+With the source **USB adapter of this host** the app runs owserver itself, on 127.0.0.1 only;
+the programs reach the bus through the connection's port as before. owserver takes the adapter
+from the kernel's ds2490 driver itself.
+
+The DS2490 in these adapters is known to stop answering after a while. When the device list
+stays unanswered twice in a row (about a minute), the app starts owserver again; after two such
+restarts without an answer it gives the adapter a USB reset, as if it were unplugged, at most
+once in 10 minutes. **USB reset** on the connection's page and the button in Home Assistant do
+that by hand; the clients and what the app knows about the bus stay. The owserver card shows
+whether owserver runs, its restarts and resets and its last messages.
+
 Under **Advanced**, **Cache for read values** sets how long the own owserver answers a value
-from its cache instead of asking the bus (15 s by default, 0 always from the bus): when several
-programs read the same sensors, a value around their poll interval saves bus time.
+from its cache instead of asking the bus (15 s by default, 0 always from the bus). When several
+programs read the same sensors, a value around their poll interval saves bus time; reads of
+`/uncached/` always go to the bus.
 
 ## Maintenance: one computer alone
 
@@ -513,12 +548,14 @@ start and once at the end.
 ## Restart and USB reset
 
 When a device hangs, **Restart** on a connection's page restarts it: the device is closed and
-opened again (for Modbus and EnOcean the proxy), all clients are disconnected and connect again.
+opened again (for Modbus, EnOcean and 1-Wire the proxy), all clients are disconnected and connect again.
 For a USB adapter of this host, **USB reset** also resets the adapter, as if it were unplugged
 and plugged in again, only without cutting the power. That often helps when the adapter's chip
 hangs (FTDI, CP210x, CH340). A hung firmware in the device itself sometimes still needs a power
 cycle, e.g. with a switchable socket on the USB hub. After the reset the adapter may get another
-tty number; with the path under `/dev/serial/by-id` the connection finds it again.
+tty number; with the path under `/dev/serial/by-id` the connection finds it again. For a 1-Wire
+bus on a USB adapter of this host, **USB reset** resets the adapter without restarting the
+connection (see [The app's own owserver](#the-apps-own-owserver)).
 
 Automatically: in a serial connection's form, **Then** sets what happens after the minutes
 without data ("Warn when no data for"): only warn, restart the connection, or USB reset and
@@ -576,7 +613,7 @@ while a client is connected, so with no other client switch on **Keep the device
 **Events** shows the live log (filter by connection, level and text) and the history:
 drops and availability per connection over 30 days and a timeline. Repeating events, such as
 a stick that keeps dropping out, are summed up per client; the row says how often and when last.
-With Modbus and EnOcean, refused clients appear
+With Modbus, EnOcean and 1-Wire, refused clients appear
 too: all places taken, network not allowed, maintenance or blocked. With serial connections
 ser2net decides by itself and does not tell the app. The start and end of the app, MQTT and
 problems with the configuration, the history or the list of blocked clients are here as well. A
@@ -606,7 +643,7 @@ App; a name of your own goes first.
 Below it is the computer's history: a timeline per connection over 7 days or 24 hours and the recent
 connections with duration and data. Short visits close together, from a polling client or when the
 connection keeps dropping, are summed up in one row and marked yellow. Refused attempts (red) exist
-for Modbus and EnOcean; on serial connections the amount of data is as exact as the last status read.
+for Modbus, EnOcean and 1-Wire; on serial connections the amount of data is as exact as the last status read.
 The history is kept as long as the event history and goes when the computer is removed.
 
 The ports have no login, so a computer that connects for the first time is reported: an event and,
@@ -621,7 +658,7 @@ works from the list or with **Block an IP address**. It is disconnected at once.
 a single client, so on serial connections that would let it in, all clients reconnect once when you
 block or release it. A block applies to the IP address: a device that gets a new one is no longer
 blocked. Home Assistant, its apps and this host cannot be blocked. Ports of an own `ser2net.yaml`
-are not covered. With Modbus and EnOcean the line shows how often the computer was refused since
+are not covered. With Modbus, EnOcean and 1-Wire the line shows how often the computer was refused since
 the start; ser2net does not report that.
 
 **Remove** takes a computer that is not connected off the list, with its name; if it connects again
@@ -638,7 +675,8 @@ Optionally a notify service (e.g. the companion app on a phone) gets them too.
   time (serial devices, only while the device is open). A Modbus port that cannot be opened
   is always reported. An EnOcean gateway: not reachable, and air time at 80 % of the limit;
   with a fallback: running on the fallback (instead of "not reachable", with the reason), and
-  the fallback not ready (switched off, not connected, other base ID, not answering).
+  the fallback not ready (switched off, not connected, other base ID, not answering). A 1-Wire
+  bus: owserver not reachable, and devices missing from the bus (with their names).
 - For all (**Settings → Notifications**): a client stops reading, line errors rise, ser2net
   keeps restarting, your own `ser2net.yaml` cannot be used.
 
@@ -672,7 +710,10 @@ from the gateway, air time (share of the 1 % limit), the switch and the buttons;
 also "Fallback gateway active" (a problem while it stands in), "Active gateway" (the name of the
 one in use), "Fallback gateway ready" and the buttons "Switch to the fallback gateway" and "Back
 to its own gateway" (as on the card **Gateways**). "Gateway reachable" stays the gateway's own
-hardware.
+hardware. A 1-Wire bus has: device reachable (the owserver), clients, 1-Wire devices, missing
+1-Wire devices, requests, the switch and the buttons, with a USB adapter of this host also
+**USB reset**. The values of the sensors come from Home Assistant's 1-Wire integration, not from
+the app.
 
 The buttons are meant for automations, e.g. restarting a stick that hangs.
 **Disconnect clients** is also on a connection's page, next to its clients.
@@ -683,7 +724,8 @@ change and where automations, scripts, scenes or groups use the ID. There, and i
 templates, you have to enter the new IDs yourself.
 
 **Events as triggers**: Each connection has an entity "Events". Its attribute `event_type` says what
-happened, such as `modbus_down`, `device_missing`, `client_new` or `write_blocked`, along with details
+happened, such as `modbus_down`, `device_missing`, `client_new`, `write_blocked`,
+`onewire_device_missing` or `onewire_value_85`, along with details
 like `address` and `message`. Repeats the app sums up are not sent one by one. A trigger is a state
 change of this entity with the condition `trigger.to_state.attributes.event_type == 'modbus_down'`.
 
@@ -729,12 +771,14 @@ ser2net ignores the modem lines only with `local`; the forms set it for new conn
 import keeps what the file says.
 
 **Export as ser2net YAML** writes the serial connections as a ser2net 4 `ser2net.yaml` for any
-ser2net; Modbus and EnOcean connections are not part of it, because the app serves them itself.
+ser2net; Modbus, EnOcean and 1-Wire connections are not part of it, because the app serves them
+itself.
 
 ## Backup and restore
 
 **Settings → Back up and transfer** saves everything the app was set up with – all
-connections (serial, Modbus, EnOcean) and the settings – as one JSON file. **Restore from
+connections (serial, Modbus, EnOcean, 1-Wire) and the settings, with the names of the 1-Wire
+devices – as one JSON file. **Restore from
 backup** shows what the file holds and replaces the current configuration after you confirm;
 the old state stays in the configuration history. The file contains the MQTT login, so do not
 pass it on. Client names are in it, the list of known and blocked computers is not. The app's data is also part of Home Assistant's own backups, except the recorded
@@ -746,8 +790,8 @@ For setups the forms cannot express, **Settings → ser2net.yaml → Own file**
 uses your file as it is (`/addon_configs/<…>_device_proxy/ser2net.yaml`, editable in the app with
 a check). It must not contain an admin section: the app adds its own. Status, events,
 history, notifications and MQTT keep working, with ser2net's connection names; the forms,
-"keep open" and the meter tools are not used meanwhile. Modbus and EnOcean connections are
-not ser2net's and keep working; their ports must not appear in your file.
+"keep open" and the meter tools are not used meanwhile. Modbus, EnOcean and 1-Wire connections
+are not ser2net's and keep working; their ports must not appear in your file.
 
 Your file is used without limits, so it can do anything ser2net can – including options such
 as `connback`, which can start programs. Whoever can write the app's config folder (e.g.
@@ -758,7 +802,9 @@ over Samba) can do that as well; the forms and the import only take harmless fur
 When Home Assistant runs as a VM, pass the USB adapters through to the VM. Identical
 adapters without a serial number can only be told apart when they are passed through by
 USB port, not by vendor and product ID. If a stick keeps disconnecting, try switching the
-USB3 option of the passed-through device.
+USB3 option of the passed-through device. A 1-Wire USB adapter (DS9490R, DS1490F) is passed
+through the same way (USB ID 04fa:2490); it must not be passed through to another VM at the same
+time.
 
 ## Test cases for issues
 
@@ -793,6 +839,9 @@ attach it to a public issue.
 | Modbus "port in use" | Another app (e.g. ha-modbusproxy) still listens on the port: stop it. |
 | Modbus "not reachable" | Address and port of the device; does the device allow only one connection that another program still holds? |
 | Modbus answers 0x0B | The device does not answer in time: raise the timeout, check the unit id; for RTU baud rate, format and wiring (A/B). |
+| 1-Wire "not reachable" | Source owserver: address and port, is the owserver running? Source USB: is the adapter passed through (the form says whether it finds it)? The owserver card shows owserver's last messages. |
+| 1-Wire sensor missing | Wiring and pull-up; **Search the bus now** after fixing it. Taken off on purpose: **Forget**. |
+| 1-Wire 85 °C or outliers | Parasite power (the chip says so), a long or star-shaped bus, too many sensors converting at once; a third wire for VDD helps. |
 
 ## Files
 
@@ -801,4 +850,4 @@ attach it to a public issue.
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | your own configuration (optional) |
 | `/addon_configs/<…>_device_proxy/import/` | a file to take over at the start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | recorded traces and EnOcean captures (`.jsonl`), not in Home Assistant's backups |
-| app data (in the backup) | connections, settings, history, configuration versions, known and blocked clients |
+| app data (in the backup) | connections, settings, history, configuration versions, known and blocked clients, the 1-Wire devices seen per connection |

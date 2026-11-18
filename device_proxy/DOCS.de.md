@@ -456,53 +456,80 @@ Lücke. Die Konfig-Historie kann das rückgängig machen.
 
 ## 1-Wire-Busse
 
-*Beta, neu in 1.8.0: Wenn etwas mit deinem owserver nicht geht, bitte ein Issue mit dem
-Diagnose-Paket anlegen.*
+*Beta: neu in 1.8.0, der USB-Adapter an Home Assistant in 1.9.0. Wenn etwas mit deinem owserver
+oder Adapter nicht geht, bitte ein Issue mit dem Diagnose-Paket anlegen.*
 
-Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die Quelle
-ist entweder ein owserver im Netz, etwa der auf einem anderen Rechner oder einer VM, an dem heute
-der USB-Adapter (DS9490R, DS1490F) hängt, oder **USB-Adapter an diesem Rechner**: Dann steckt der
-Adapter am Rechner von Home Assistant (oder ist in dessen VM durchgereicht), und die App startet
-dafür ihren eigenen owserver. Die 1-Wire-Integration von Home Assistant, owhttpd,
-Skripte mit pyownet und andere Systeme verbinden sich stattdessen mit dem Port der App, mit
-demselben Protokoll. Vorgegeben ist Port 4304, der übliche Port des owserver, ein Programm braucht
-dann nur die neue Adresse.
+Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die
+1-Wire-Integration von Home Assistant, owhttpd, Skripte mit pyownet und andere Systeme verbinden
+sich mit dem Port der App statt mit dem owserver, mit demselben Protokoll. Vorgegeben ist Port
+4304, der übliche Port des owserver, ein Programm braucht dann nur die neue Adresse.
+
+### Quelle
+
+- **owserver im Netz**: ein owserver auf einem anderen Rechner oder einer VM, etwa der, an dem
+  heute der USB-Adapter hängt. Es geht jeder Adapter, den dieser owserver kann.
+- **USB-Adapter an diesem Rechner**: ein DS9490R oder DS1490F (USB-ID 04fa:2490), der am Rechner
+  von Home Assistant steckt oder in dessen VM durchgereicht ist. Die App startet dafür ihren
+  eigenen owserver (siehe [Der eigene owserver der App](#der-eigene-owserver-der-app)). Das
+  Formular sagt, ob es den Adapter findet; ihn kann nur eine Verbindung zugleich nutzen (eine
+  abgeschaltete zweite darf als Ersatz bleiben).
 
 Jede Anfrage geht unverändert an den owserver, sein Cache, dauerhafte Verbindungen und alle
 Nachrichtenarten funktionieren also wie bisher. Unterwegs zählt die App Anfragen und Fehler, misst
 die Antwortzeit und zeigt jede Anfrage mit ihrem Pfad in den Live-Daten und im Mitschnitt (ein
 Lesezugriff mit dem gelesenen Wert). Alle 30 Sekunden liest sie die Geräteliste vom owserver: Das
-ist die Prüfung, ob er erreichbar ist, und die Seite der Verbindung listet die Geräte mit Familie
-und üblichem Chip (28 = DS18B20, 3A = DS2413, 81 = der ID-Chip im USB-Adapter …). Antwortet der
-owserver nicht, steht die Verbindung auf **nicht erreichbar**, und die App benachrichtigt dich,
-wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist.
+ist die Prüfung, ob er erreichbar ist. Antwortet der owserver nicht, steht die Verbindung auf
+**nicht erreichbar**, und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät
+fehlt oder nicht antwortet** an ist.
 
-**Geräte am Bus**: Die Seite der Verbindung listet jedes Gerät, das der owserver nennt, mit
-eigenem Namen (**Namen bearbeiten**), seinem Chip (wie der owserver ihn nennt, einmal gefragt;
-bis dahin der übliche seiner Familie) und dem letzten Wert, den deine Programme
-gelesen haben (die App liest selbst keine Werte); **+N Werte** zeigt alle anderen, die vom Gerät gelesen
-wurden, etwa die Ausgänge eines DS2408 oder Feuchte und Spannung eines DS2438. Die App merkt sich die Geräte, auch über
-Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
-und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
-antwortet** an ist; ein absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später
-dazugekommenes Gerät ist einen Tag lang als **neu** markiert. **Bus jetzt absuchen** sucht sofort auf dem Bus,
-statt die zwischengespeicherte Liste des owserver zu nehmen, praktisch beim Verkabeln. iButtons (die Lesemulde eines DS1490F, Familien
-01, 02, 04, 06, 08, 0A, 0C) kommen und gehen: Sie gelten nie als fehlend, die Liste sagt, wann
-einer zuletzt aufgelegt war. Zwei typische Fehler von Temperatursensoren werden
-markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde (meist
-parasitäre Versorgung, ein langer Bus oder ein Wackelkontakt), und eine Temperatur, die sich
-2 Stunden und 20 Abfragen lang **nicht bewegt** (auch beim DS2438), und **Ausreißer**: eine einzelne
-Temperatur mehr als 10 °C daneben, die beim nächsten Lesen wieder zurück ist, ein auf einer
-langen oder gestörten Leitung verfälschter Lesezugriff. Bei jedem Temperatursensor fragt die App den
-owserver einmal, ob er **parasitär versorgt** ist (keine eigene Ader für VDD), die übliche
-Ursache für 85 °C. Die owserver-Karte zeigt Name und Version des
-Adapters und die Version des owserver, wie der owserver sie meldet, und die CRC- und Busfehler
-des owserver seit seinem Start, mit einem Hinweis, wenn sie steigen. Über MQTT gibt es
-die Zahl der fehlenden Geräte.
+### Geräte am Bus
+
+Die Karte **Geräte am Bus** listet jedes Gerät, das der owserver nennt:
+
+- **Name**: ein eigener, über **Namen bearbeiten**; Ereignisse und Benachrichtigungen nennen ihn.
+- **Chip**: wie der owserver ihn nennt (einmal je Gerät gefragt), bis dahin der übliche Chip
+  seiner Familie, markiert mit „(üblich)“. Familie 81 ist der ID-Chip im USB-Adapter.
+- **Letzter Wert**: der, den deine Programme zuletzt gelesen haben; die App liest selbst keine
+  Werte, der Bus hat also nichts zusätzlich zu tun. **+N Werte** zeigt alle anderen, die vom
+  Gerät gelesen wurden, etwa die Ausgänge eines DS2408 oder Feuchte und Spannung eines DS2438.
+- **Zustand**: was der App aufgefallen ist (unten).
+
+Die App merkt sich die Geräte, auch über Neustarts. Eines, das zweimal hintereinander in der
+Geräteliste fehlt (etwa eine Minute), steht auf **fehlt seit**, und die App benachrichtigt dich
+mit seinem Namen, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist; ein
+absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später dazugekommenes Gerät ist
+einen Tag lang als **neu** markiert. iButtons in der Lesemulde eines DS1490F (Familien 01, 02,
+04, 06, 08, 0A, 0C) kommen und gehen: Sie gelten nie als fehlend, die Liste sagt, wann einer
+zuletzt aufgelegt war.
+
+**Bus jetzt absuchen** sucht sofort auf dem Bus, statt die zwischengespeicherte Liste des owserver
+zu nehmen, praktisch beim Verkabeln. Die Suche zählt nicht für „fehlt“.
+
+### Fehler am Bus
+
+- **85 °C**: der Wert eines DS18x20, dessen Wandlung nicht fertig wurde, meist parasitäre
+  Versorgung, ein langer Bus oder ein Wackelkontakt. Gezählt, mit dem Zeitpunkt des letzten.
+- **Parasitär versorgt**: Bei jedem Temperatursensor fragt die App den owserver einmal, ob er eine
+  eigene Ader für VDD hat. Parasitäre Versorgung ist die übliche Ursache für 85 °C; der Hinweis
+  sagt das.
+- **Wert bewegt sich nicht**: dieselbe Temperatur 2 Stunden und 20 Abfragen lang (auch beim
+  DS2438): ein zu lang eingestellter Cache oder ein hängender Sensor. Ein Sensor, der arbeitet,
+  bewegt sich ab und zu um 1/16 °C.
+- **Ausreißer**: eine einzelne Temperatur mehr als 10 °C daneben, die beim nächsten Lesen wieder
+  zurück ist, etwa 127,94 °C: ein auf einer langen oder gestörten Leitung verfälschter
+  Lesezugriff. Ab und zu ist harmlos, häufig deutet es auf den Bus.
+- **Busfehler**: Die owserver-Karte zeigt die CRC- und Busfehler des owserver seit seinem Start,
+  mit einem Hinweis, wenn sie steigen, dazu Name und Version des Adapters und die Version des
+  owserver, wie der owserver sie meldet.
+
+85 °C und Ausreißer sind auch Ereignisse, höchstens einmal pro Stunde und Gerät.
+
+### Clients und Schreibzugriff
 
 Die meisten owserver-Programme öffnen für jede Anfrage eine neue Verbindung. Ein Client ist
 deshalb ein Rechner, keine Verbindung: Er gilt ab seiner ersten Anfrage als verbunden, bis er
-5 Minuten lang nichts gefragt hat, und **Rechner höchstens** begrenzt die Rechner.
+5 Minuten lang nichts gefragt hat, und **Rechner höchstens** begrenzt die Rechner. Eine
+Verbindung, die innerhalb von 30 Sekunden keine Anfrage schickt, schließt die App.
 
 **Schreibzugriff**: owserver hat keine Anmeldung, wer ihn erreicht, darf Ausgänge schalten
 (DS2408, DS2413) oder Einstellungen ändern. **Alle Clients** lässt es so. **Nur diese** lässt die
@@ -511,7 +538,7 @@ Schreibversuch bekommt von der App den Fehler EACCES und erreicht den Bus nie; d
 nennen Client und Pfad. Die Karte **Schreibzugriffe** listet die letzten 100 seit dem Start mit
 Client, Gerät, Wert und Ergebnis, auch die abgewiesenen.
 
-Umzug von einem owserver auf einem anderen Rechner:
+### Umzug von einem owserver auf einem anderen Rechner
 
 1. Eine 1-Wire-Verbindung mit der Adresse dieses owserver als Quelle anlegen.
 2. Die Programme eins nach dem anderen auf die App umstellen: In Home Assistant die
@@ -519,20 +546,27 @@ Umzug von einem owserver auf einem anderen Rechner:
    kann zur alten Adresse zurück, bis alle laufen.
 3. Den USB-Adapter zu Home Assistant umziehen: In Proxmox den Adapter (USB-ID 04fa:2490) statt an
    die alte VM an die VM von Home Assistant durchreichen und die Quelle der Verbindung auf
-   **USB-Adapter an diesem Rechner** stellen. Das Formular sagt, ob es den Adapter findet. Die
-   Programme behalten Adresse und Port.
+   **USB-Adapter an diesem Rechner** stellen. Die Programme behalten Adresse und Port.
+4. Den owserver auf dem alten Rechner abschalten.
 
-**Der eigene owserver der App** (Quelle USB-Adapter) hört nur auf 127.0.0.1; die Programme
-erreichen den Bus wie bisher über den Port der Verbindung. owserver übernimmt den Adapter selbst
-vom Kernel-Treiber ds2490. Der DS2490 in diesen Adaptern bleibt bekanntlich nach einer Weile
-stehen: Bleibt die Geräteliste zweimal hintereinander ohne Antwort (etwa eine Minute), startet
-die App owserver neu; nach zwei solchen Neustarts ohne Antwort setzt sie den Adapter per USB-Reset
-zurück, höchstens einmal in 10 Minuten. **Neu starten** und **USB-Reset** auf der Seite der
-Verbindung machen dasselbe von Hand. Die Seite zeigt, ob owserver läuft, seine Neustarts und
-Resets und seine letzten Meldungen. Unter **Erweitert** legt **Messwerte zwischenspeichern** fest,
-wie lange der eigene owserver einen Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu
-fragen (Standard 15 s, 0 immer vom Bus): Lesen mehrere Programme dieselben Sensoren, spart ein
-Wert um ihre Abfragezeit Buszeit.
+### Der eigene owserver der App
+
+Mit der Quelle **USB-Adapter an diesem Rechner** startet die App owserver selbst, nur auf
+127.0.0.1; die Programme erreichen den Bus wie bisher über den Port der Verbindung. owserver
+übernimmt den Adapter selbst vom Kernel-Treiber ds2490.
+
+Der DS2490 in diesen Adaptern bleibt bekanntlich nach einer Weile stehen. Bleibt die Geräteliste
+zweimal hintereinander ohne Antwort (etwa eine Minute), startet die App owserver neu; nach zwei
+solchen Neustarts ohne Antwort setzt sie den Adapter per USB-Reset zurück, als würde er ab- und
+angesteckt, höchstens einmal in 10 Minuten. **USB-Reset** auf der Seite der Verbindung und der
+Knopf in Home Assistant machen das von Hand; die Clients und was die App über den Bus weiß,
+bleiben. Die owserver-Karte zeigt, ob owserver läuft, seine Neustarts und Resets und seine
+letzten Meldungen.
+
+Unter **Erweitert** legt **Messwerte zwischenspeichern** fest, wie lange der eigene owserver einen
+Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (Standard 15 s, 0 immer vom
+Bus). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit;
+Lesen über `/uncached/` geht immer an den Bus.
 
 ## Wartung: ein Rechner allein
 
@@ -547,13 +581,15 @@ Verbindungen von ser2net verbinden sich die Clients einmal am Anfang und einmal 
 ## Neu starten und USB-Reset
 
 Hängt ein Gerät, startet **Neu starten** auf der Seite einer Verbindung sie neu: Das Gerät wird
-geschlossen und wieder geöffnet (bei Modbus und EnOcean der Proxy), alle Clients werden getrennt
+geschlossen und wieder geöffnet (bei Modbus, EnOcean und 1-Wire der Proxy), alle Clients werden getrennt
 und verbinden sich wieder. Bei einem USB-Adapter dieses Rechners setzt **USB-Reset** den Adapter
 zusätzlich zurück, als würde er ab- und wieder angesteckt, nur ohne den Strom zu unterbrechen.
 Das hilft oft, wenn der Chip des Adapters hängt (FTDI, CP210x, CH340). Eine aufgehängte Firmware
 im Gerät selbst braucht manchmal trotzdem einen Neustart ohne Strom, z. B. über eine schaltbare
 Steckdose am USB-Hub. Nach dem Reset kann der Adapter eine andere tty-Nummer bekommen; mit dem
-Pfad unter `/dev/serial/by-id` findet die Verbindung ihn wieder.
+Pfad unter `/dev/serial/by-id` findet die Verbindung ihn wieder. Bei einem 1-Wire-Bus an einem
+USB-Adapter dieses Rechners setzt **USB-Reset** den Adapter zurück, ohne die Verbindung neu zu
+starten (siehe [Der eigene owserver der App](#der-eigene-owserver-der-app)).
 
 Automatisch: Im Formular einer seriellen Verbindung legt **Dann** fest, was nach den Minuten
 ohne Daten („Warnen, wenn keine Daten seit“) geschieht: nur warnen, die Verbindung neu starten
@@ -613,7 +649,7 @@ anderen Client **Gerät offen halten** einschalten.
 Historie: Abbrüche und Verfügbarkeit je Verbindung über 30 Tage und eine Zeitleiste. Sich
 wiederholende Ereignisse, etwa ein Stick, der immer wieder wegfällt, werden je Client zusammengefasst;
 die Zeile nennt, wie oft und wann zuletzt. Bei
-Modbus und EnOcean erscheinen auch abgewiesene Clients: Plätze belegt, Netz nicht erlaubt, Wartung
+Modbus, EnOcean und 1-Wire erscheinen auch abgewiesene Clients: Plätze belegt, Netz nicht erlaubt, Wartung
 oder blockiert. Bei seriellen Verbindungen entscheidet ser2net selbst und meldet das der App nicht.
 Auch der Start und das Ende der App, MQTT und Probleme mit Konfiguration, Historie oder Blockliste
 stehen hier. Warnung heißt, dass etwas Aufmerksamkeit braucht; eigene Handlungen sind Info. Die
@@ -643,7 +679,7 @@ Supervisor-Netz App; ein eigener Name geht vor.
 Darunter steht der Verlauf des Rechners: eine Zeitleiste je Verbindung über 7 Tage oder 24 Stunden
 und die letzten Verbindungen mit Dauer und Datenmenge. Kurze Besuche kurz hintereinander, etwa von
 einem pollenden Client oder bei Abbrüchen, sind zu einer Zeile zusammengefasst und gelb markiert.
-Abgewiesene Versuche (rot) gibt es bei Modbus und EnOcean; bei seriellen Verbindungen ist die
+Abgewiesene Versuche (rot) gibt es bei Modbus, EnOcean und 1-Wire; bei seriellen Verbindungen ist die
 Datenmenge so genau wie der letzte Statusabruf. Der Verlauf bleibt so lange wie die Historie und
 verschwindet, wenn der Rechner entfernt wird.
 
@@ -661,7 +697,7 @@ kann keinen einzelnen Client trennen, an seriellen Verbindungen, die ihn zulasse
 sich deshalb beim Blockieren und Freigeben alle Clients einmal neu. Die Sperre gilt für die
 IP-Adresse: bekommt das Gerät eine neue, ist es nicht mehr gesperrt. Home Assistant, seine Apps und
 dieser Host lassen sich nicht blockieren. Für Ports aus einer eigenen `ser2net.yaml` gilt die Sperre
-nicht. Bei Modbus und EnOcean zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde;
+nicht. Bei Modbus, EnOcean und 1-Wire zeigt die Zeile, wie oft der Rechner seit dem Start abgewiesen wurde;
 ser2net meldet das nicht.
 
 **Entfernen** nimmt einen nicht verbundenen Rechner samt Namen aus der Liste; verbindet er sich
@@ -679,6 +715,7 @@ Optional bekommt sie auch ein Notify-Dienst (z. B. die Companion-App auf einem H
   lässt, wird immer gemeldet. Ein EnOcean-Gateway: nicht erreichbar, und Funkzeit bei 80 % des
   Limits; mit Ersatz-Gateway: läuft über den Ersatz (statt „nicht erreichbar“, mit Grund), und
   der Ersatz ist nicht bereit (ausgeschaltet, nicht verbunden, andere Base-ID, antwortet nicht).
+  Ein 1-Wire-Bus: owserver nicht erreichbar, und Geräte fehlen am Bus (mit ihren Namen).
 - Für alle (**Einstellungen → Benachrichtigungen**): ein Client hört auf zu lesen, Leitungsfehler
   steigen, ser2net startet immer wieder neu, die eigene `ser2net.yaml` ist nicht verwendbar.
 
@@ -712,7 +749,10 @@ Telegramme vom Gateway, Funkzeit (Anteil am 1-%-Limit), den Schalter und die But
 Ersatz-Gateway außerdem „Ersatz-Gateway aktiv“ (ein Problem, solange es einspringt), „Aktives
 Gateway“ (der Name des genutzten), „Ersatz-Gateway bereit“ und die Buttons „Auf Ersatz-Gateway
 umschalten“ und „Zurück zum eigenen Gateway“ (wie auf der Karte **Gateways**). „Gateway
-erreichbar“ bleibt die eigene Hardware des Gateways.
+erreichbar“ bleibt die eigene Hardware des Gateways. Ein 1-Wire-Bus hat: Gerät erreichbar (der
+owserver), Clients, 1-Wire-Geräte, fehlende 1-Wire-Geräte, Anfragen, den Schalter und die Buttons,
+bei einem USB-Adapter dieses Rechners auch **USB-Reset**. Die Werte der Sensoren kommen aus der
+1-Wire-Integration von Home Assistant, nicht von der App.
 
 Die Buttons sind für Automationen gedacht, z. B. um einen hängenden Stick neu zu starten. **Clients trennen** gibt es auch auf der Seite einer Verbindung, neben ihren Clients.
 
@@ -722,7 +762,8 @@ nennt jede Änderung und wo Automationen, Skripte, Szenen oder Gruppen die ID be
 Dashboards und Vorlagen musst du die neuen IDs selbst eintragen.
 
 **Ereignisse als Auslöser**: Jede Verbindung hat eine Entität „Ereignisse“. Ihr Attribut `event_type`
-nennt, was passiert ist, etwa `modbus_down`, `device_missing`, `client_new` oder `write_blocked`, dazu
+nennt, was passiert ist, etwa `modbus_down`, `device_missing`, `client_new`, `write_blocked`,
+`onewire_device_missing` oder `onewire_value_85`, dazu
 die Details wie `address` und `message`. Wiederholungen, die die App zusammenfasst, werden nicht
 einzeln gesendet. Ein Auslöser ist ein Zustandswechsel dieser Entität mit der Bedingung
 `trigger.to_state.attributes.event_type == 'modbus_down'`.
@@ -772,13 +813,14 @@ ser2net ignoriert die Modemleitungen nur mit `local`; die Formulare setzen es f�
 Verbindungen, ein Import übernimmt, was in der Datei steht.
 
 **Als ser2net-YAML exportieren** schreibt die seriellen Verbindungen als ser2net-4-`ser2net.yaml`
-für jeden ser2net; Modbus- und EnOcean-Verbindungen gehören nicht dazu, weil die App sie selbst
-bedient.
+für jeden ser2net; Modbus-, EnOcean- und 1-Wire-Verbindungen gehören nicht dazu, weil die App sie
+selbst bedient.
 
 ## Sichern und Wiederherstellen
 
 **Einstellungen → Sichern und Übertragen** speichert alles, womit die App eingerichtet wurde –
-alle Verbindungen (seriell, Modbus, EnOcean) und die Einstellungen – als eine JSON-Datei. **Aus
+alle Verbindungen (seriell, Modbus, EnOcean, 1-Wire) und die Einstellungen, mit den Namen der
+1-Wire-Geräte – als eine JSON-Datei. **Aus
 Sicherung wiederherstellen** zeigt, was die Datei enthält, und ersetzt nach einer Bestätigung die
 aktuelle Konfiguration; der alte Stand bleibt in der Konfig-Historie. Die Datei enthält die
 MQTT-Anmeldung, also nicht weitergeben. Die Namen der Clients sind dabei, die Liste der bekannten
@@ -793,8 +835,8 @@ Eigene Datei** deine Datei so, wie sie ist (`/addon_configs/<…>_device_proxy/s
 der App mit Prüfung bearbeitbar). Sie darf keinen Admin-Abschnitt enthalten: die App fügt ihren
 eigenen hinzu. Status, Ereignisse, Historie, Benachrichtigungen und MQTT funktionieren weiter,
 mit den Verbindungsnamen von ser2net; die Formulare, „Gerät offen halten“ und die Zählerwerkzeuge
-werden währenddessen nicht genutzt. Modbus- und EnOcean-Verbindungen gehören nicht zu ser2net und
-laufen weiter; ihre Ports dürfen nicht in deiner Datei vorkommen.
+werden währenddessen nicht genutzt. Modbus-, EnOcean- und 1-Wire-Verbindungen gehören nicht zu
+ser2net und laufen weiter; ihre Ports dürfen nicht in deiner Datei vorkommen.
 
 Deine Datei wird ohne Einschränkung verwendet, sie kann also alles, was ser2net kann – auch
 Optionen wie `connback`, die Programme starten können. Wer den Konfigurationsordner der App
@@ -806,7 +848,8 @@ harmlose weitere Optionen.
 Läuft Home Assistant als VM, die USB-Adapter an die VM durchreichen. Gleiche Adapter ohne
 Seriennummer lassen sich nur unterscheiden, wenn sie nach USB-Port durchgereicht werden, nicht
 nach Hersteller- und Produkt-ID. Trennt sich ein Stick immer wieder, die USB3-Option des
-durchgereichten Geräts umschalten.
+durchgereichten Geräts umschalten. Ein 1-Wire-USB-Adapter (DS9490R, DS1490F) wird genauso
+durchgereicht (USB-ID 04fa:2490); er darf nicht zugleich an eine andere VM durchgereicht sein.
 
 ## Testfälle für Fehlermeldungen
 
@@ -842,6 +885,9 @@ bevor du es an ein öffentliches Issue hängst.
 | Modbus „Port belegt“ | Eine andere App (z. B. ha-modbusproxy) lauscht noch auf dem Port: stoppen. |
 | Modbus „nicht erreichbar“ | Adresse und Port des Geräts; lässt das Gerät nur eine Verbindung zu, die ein anderes Programm noch hält? |
 | Modbus antwortet 0x0B | Das Gerät antwortet nicht rechtzeitig: Timeout erhöhen, Unit-ID prüfen; bei RTU Baudrate, Format und Verdrahtung (A/B). |
+| 1-Wire „nicht erreichbar“ | Quelle owserver: Adresse und Port, läuft der owserver? Quelle USB: ist der Adapter durchgereicht (das Formular sagt, ob es ihn findet)? Die owserver-Karte zeigt die letzten Meldungen des owserver. |
+| 1-Wire-Sensor fehlt | Verkabelung und Pull-up; nach dem Beheben **Bus jetzt absuchen**. Absichtlich entfernt: **Vergessen**. |
+| 1-Wire 85 °C oder Ausreißer | Parasitäre Versorgung (der Chip sagt es), ein langer oder sternförmiger Bus, zu viele Sensoren, die gleichzeitig wandeln; eine dritte Ader für VDD hilft. |
 
 ## Dateien
 
@@ -850,4 +896,4 @@ bevor du es an ein öffentliches Issue hängst.
 | `/addon_configs/<…>_device_proxy/ser2net.yaml` | deine eigene Konfiguration (optional) |
 | `/addon_configs/<…>_device_proxy/import/` | eine Datei zum Übernehmen beim Start (`ser2net.yaml`, `ser2net.conf`, `modbus-proxy.yaml`) |
 | `/addon_configs/<…>_device_proxy/trace/` | aufgezeichnete Mitschnitte und EnOcean-Aufzeichnungen (`.jsonl`), nicht in den Sicherungen von Home Assistant |
-| App-Daten (in der Sicherung) | Verbindungen, Einstellungen, Historie, Konfigurationsstände, bekannte und blockierte Clients |
+| App-Daten (in der Sicherung) | Verbindungen, Einstellungen, Historie, Konfigurationsstände, bekannte und blockierte Clients, die je Verbindung gesehenen 1-Wire-Geräte |

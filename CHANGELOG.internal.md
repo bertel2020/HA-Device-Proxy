@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- DOCS (de/en): Abschnitt 1-Wire neu gegliedert (Quelle, Geräte am Bus, Fehler am Bus, Clients und Schreibzugriff, Umzug, eigener owserver) und auf den Stand von 1.9.0 gebracht; 1-Wire auch in Neu starten und USB-Reset, Ereignisse, Clients, Benachrichtigungen, MQTT-Entitäten und Ereignistypen, Export, Sichern, eigene `ser2net.yaml`, Proxmox, „Wenn etwas nicht geht“ (drei Zeilen) und Dateien. README (de/en): Highlight 1-Wire mit allen Funktionen von 1.9.0 und „Beta“, Sicherheit (Schreibzugriff, Gerätenamen in der Diagnose), Schnellstart mit Port 4304.
+
 ## 1.9.0 - 2026-11-18
 
 - 1-Wire, Schritt 2 (USB-Adapter an der App):
