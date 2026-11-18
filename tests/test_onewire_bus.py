@@ -49,6 +49,8 @@ def test_missing_back_and_new_devices_also_after_a_restart(tmp_path: Path) -> No
     clock.now += onewire_bus.NEW_AFTER
     assert kinds(b.listed([SENSOR, SWITCH, OTHER])) == [("onewire_device_new", OTHER)]
     assert next(r for r in b.rows() if r["id"] == OTHER)["new"]
+    clock.now += onewire_bus.NEW_FOR
+    assert not next(r for r in b.rows() if r["id"] == OTHER)["new"]  # a day later: known
     # taken off on purpose: forgotten, no longer missing
     for _ in range(onewire_bus.MISSING_AFTER):
         b.listed([SENSOR, SWITCH])
