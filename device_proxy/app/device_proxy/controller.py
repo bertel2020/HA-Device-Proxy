@@ -34,7 +34,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, esp, health, i18n, model, onewire, testcase
+from . import custom, esp, health, i18n, model, onewire, onewire_bus, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, host_of, is_local, local_kind, parse_names, plain_host
@@ -720,6 +720,8 @@ class Controller:
         the connections that were (re)started or stopped."""
         listen = self.config.settings.access
         wanted = {c.id: c for c in self.config.proxied if c.enabled}
+        # the devices seen on 1-Wire buses that were deleted (switched off ones stay)
+        onewire_bus.prune({c.id for c in self.config.connections if c.kind == "onewire"})
         touched: list[str] = []
         for connection_id, proxy in list(self.proxies.items()):
             c = wanted.get(connection_id)
