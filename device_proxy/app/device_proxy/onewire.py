@@ -626,6 +626,12 @@ class OneWireProxy:
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
         self._emit(self.bus.listed(self.devices))
+        for device_id in self.bus.needs_type():  # the exact chip, once per device
+            try:
+                answered, chip = await self.ask(MSG_READ, f"/{device_id}/type", 32)
+            except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
+                break  # next time
+            self.bus.typed(device_id, answered, chip)
         for device_id in self.bus.needs_power():  # once per sensor and run, as it is listed
             try:
                 answered, supply = await self.ask(MSG_READ, f"/{device_id}/power", 8)
@@ -922,7 +928,8 @@ class OneWireProxy:
             "last_error_at": s.last_error_at or None,
             # also the known ones that are missing now, first
             "devices": [
-                {**row, "type": FAMILIES.get(row["family"], "")} for row in self.bus.rows()
+                {**row, "type": row["chip"] or FAMILIES.get(row["family"], "")}
+                for row in self.bus.rows()
             ],
             "present": len(self.devices),
             "missing": self.bus.missing(),

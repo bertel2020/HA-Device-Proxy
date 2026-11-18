@@ -12,6 +12,9 @@ faults: 85 °C, the DS18x20's power-on value, which an owserver passes on when a
 did not finish (parasite power, a weak bus), and a value that stays exactly the same for
 FROZEN_AFTER seconds while it is read FROZEN_READS times (a real sensor moves by 1/16 °C).
 
+The exact chip of each device, read once (<id>/type, e.g. "DS18B20") and kept with the
+device, so the list names it while it is missing too.
+
 How each temperature sensor is powered, read once per run of the app when it is first listed
 (<id>/power: 1 its own supply, 0 parasite power from the data line): parasite power is the
 usual cause of the 85 °C.
@@ -90,6 +93,7 @@ class Device:
     bad: int = 0  # 85 °C answers
     bad_at: float | None = None
     power: str = ""  # "external", "parasite", "" not known
+    chip: str = ""  # what the owserver says in <id>/type; "" not asked yet
 
     @property
     def family(self) -> str:
@@ -138,8 +142,10 @@ class Bus:
         for device_id, seen in self._load().get(connection_id, {}).items():
             if DEVICE_ID.fullmatch(device_id) and isinstance(seen, dict):
                 first, last = float(seen.get("first", 0)), float(seen.get("last", 0))
-                self.devices[device_id] = Device(device_id, first, last)
+                chip = str(seen.get("type", ""))[:32]
+                self.devices[device_id] = Device(device_id, first, last, chip=chip)
         self.power_asked: set[str] = set()  # this run
+        self.type_asked: set[str] = set()
         self.statistics: dict[str, int] | None = None
         self.statistics_at: float | None = None
         self.errors_rising_at: float | None = None
@@ -179,6 +185,22 @@ class Bus:
         if changed or now - self._saved >= SAVE_EVERY:
             self.save()
         return events
+
+    def needs_type(self) -> list[str]:
+        """Devices on the bus whose chip is not known yet (asked once per run)."""
+        return [
+            d.id
+            for d in self.devices.values()
+            if not d.chip and d.absent == 0 and d.id not in self.type_asked
+        ]
+
+    def typed(self, device_id: str, ret: int, value: bytes) -> None:
+        self.type_asked.add(device_id)
+        device = self.devices.get(device_id)
+        text = value.split(b"\0", 1)[0].decode("ascii", "replace").strip()
+        if device is not None and ret >= 0 and text and text.isprintable():
+            device.chip = text[:32]
+            self.save()
 
     def needs_power(self) -> list[str]:
         """Temperature sensors on the bus whose supply was not asked for yet in this run."""
@@ -285,6 +307,7 @@ class Bus:
                     "bad_at": d.bad_at,
                     "frozen": frozen,
                     "power": d.power,
+                    "chip": d.chip,
                 }
             )
         return rows
@@ -317,7 +340,8 @@ class Bus:
     def save(self) -> None:
         data = self._load()
         data[self.connection_id] = {
-            d.id: {"first": round(d.first), "last": round(d.last)} for d in self.devices.values()
+            d.id: {"first": round(d.first), "last": round(d.last), "type": d.chip}
+            for d in self.devices.values()
         }
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)

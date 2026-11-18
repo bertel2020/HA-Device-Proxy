@@ -45,6 +45,7 @@ class FakeOwserver:
             f"/{SENSOR}/temperature": b"     21.5",
             f"/{SWITCH}/PIO.A": b"0",
             f"/{SENSOR}/power": b"           0",
+            f"/{SWITCH}/type": b"DS2413",
             "/bus.0/interface/settings/name": b"DS9490",
             "/system/configuration/version": b"3.2p4",
             "/statistics/errors/CRC8_errors": b"           3",
@@ -531,6 +532,9 @@ async def test_values_and_counters_reach_the_state(setup: Setup) -> None:
     assert sensor["values"]["temperature"]["value"] == "21.5" and sensor["type"] == "DS18B20"
     assert state["statistics"]["crc_errors"] == 3 and state["statistics"]["crc_share"] == 1.0
     assert sensor["power"] == "parasite"  # asked once when it was listed
+    switch = next(d for d in state["devices"] if d["id"] == SWITCH)
+    assert (switch["chip"], switch["type"]) == ("DS2413", "DS2413")  # said by the owserver
+    assert (sensor["chip"], sensor["type"]) == ("", "DS18B20")  # not said: the usual one
     # what the owserver says about its adapter; what it does not have (address) stays out
     assert state["info"] == {"name": "DS9490", "owserver": "3.2p4"}
     # the owserver no longer lists the switch: missing after MISSING_AFTER lists

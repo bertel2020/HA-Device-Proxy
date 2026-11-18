@@ -153,3 +153,19 @@ def test_the_supply_of_each_temperature_sensor_is_asked_once(tmp_path: Path) -> 
     assert rows == {SENSOR: "parasite", OTHER: "", SWITCH: ""}
     b.powered(SENSOR, 12, b"           1")
     assert next(r for r in b.rows() if r["id"] == SENSOR)["power"] == "external"
+
+
+def test_the_exact_chip_is_asked_once_and_kept(tmp_path: Path) -> None:
+    clock, path = Clock(), tmp_path / "d.json"
+    b = bus(path, clock)
+    b.listed([SENSOR, SWITCH])
+    assert b.needs_type() == [SENSOR, SWITCH]
+    b.typed(SENSOR, 8, b"DS18B20\0")
+    b.typed(SWITCH, -2, b"")  # no answer: not asked again in this run
+    assert b.needs_type() == []
+    assert {r["id"]: r["chip"] for r in b.rows()} == {SENSOR: "DS18B20", SWITCH: ""}
+    # kept in the file: known while the sensor is missing, and not asked again
+    b = bus(path, clock)
+    assert b.devices[SENSOR].chip == "DS18B20"
+    b.listed([SWITCH])
+    assert b.needs_type() == [SWITCH]

@@ -137,7 +137,7 @@ export class OneWireDevices extends LitElement {
             <td>${this.edit ? html`<input class="inp" style="min-width:140px" maxlength="64" aria-label="${t("owName")} ${d.id}" .value=${this.edit[d.id] ?? named[d.id] ?? ""}
               @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint">–</span>`}</td>
             <td><span class="id">${d.id}</span></td>
-            <td>${d.type || d.family}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
+            <td>${d.chip || html`${d.type || d.family} <span class="hint" title=${t("owChipUsualHint")}>${t("owChipUsual")}</span>`}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
             <td>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
             <td><div class="chips">${this._chips(d)}</div></td>
             <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>`;
