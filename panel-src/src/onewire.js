@@ -28,6 +28,7 @@ export function oneWireCard(c) {
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
       <span class="hint">${t("owSource")}</span><span class="mono" style="overflow-wrap:anywhere">${c.link === "usb" ? usbSource(o) : proxyTarget(c)}</span>
       ${o.owserver ? html`<span class="hint">${t("owOwn")}</span><span>${o.owserver.running ? t("owOwnRunning", { t: fmtAgo(o.owserver.started_at) }) : t("owOwnStopped")}${o.owserver.restarts ? ` · ${t("owOwnRestarts", { n: num(o.owserver.restarts) })}` : ""}${o.watchdog?.resets ? ` · ${t("owOwnResets", { n: num(o.watchdog.resets) })}` : ""}</span>` : ""}
+      ${o.info && (o.info.name || o.info.owserver) ? html`<span class="hint">${t("owAdapter")}</span><span>${adapterText(o.info)}</span>` : ""}
       <span class="hint">${t("owAnswer")}</span><span>${o.answer_ms?.avg != null ? t("owAnswerVal", { a: num(o.answer_ms.avg), l: num(o.answer_ms.last) }) : "–"}</span>
       <span class="hint">${t("owListRead")}</span><span>${o.devices_at ? `${fmtAgo(o.devices_at)}${o.probe_ms != null ? ` · ${num(o.probe_ms)} ms` : ""}` : t("never")}</span>
       <span class="hint">${t("owKinds")}</span><span>${t("owKindsVal", { r: num(r.read), w: num(r.write), d: num(r.dir), o: num(r.other) })}</span>
@@ -43,6 +44,9 @@ export function oneWireCard(c) {
     ${o.last_error ? html`<div class="note ${o.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${o.last_error}${o.last_error_at ? ` · ${fmtTime(o.last_error_at, true, true)}` : ""}</div>` : ""}
   </section>`;
 }
+
+/** "DS9490 · version 3 · owserver 3.2p4" from what the owserver says about itself. */
+const adapterText = (info) => [info.name, info.version ? t("owAdapterVersion", { v: info.version }) : "", info.owserver ? `owserver ${info.owserver}` : ""].filter(Boolean).join(" · ");
 
 const usbSource = (o) => {
   const a = (o.adapters || [])[0];

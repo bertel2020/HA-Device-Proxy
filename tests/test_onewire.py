@@ -45,6 +45,8 @@ class FakeOwserver:
             f"/{SENSOR}/temperature": b"     21.5",
             f"/{SWITCH}/PIO.A": b"0",
             f"/{SENSOR}/power": b"           0",
+            "/bus.0/interface/settings/name": b"DS9490",
+            "/system/configuration/version": b"3.2p4",
             "/statistics/errors/CRC8_errors": b"           3",
             "/statistics/errors/CRC8_tries": b"         300",
         }
@@ -520,6 +522,8 @@ async def test_values_and_counters_reach_the_state(setup: Setup) -> None:
     assert sensor["values"]["temperature"]["value"] == "21.5" and sensor["type"] == "DS18B20"
     assert state["statistics"]["crc_errors"] == 3 and state["statistics"]["crc_share"] == 1.0
     assert sensor["power"] == "parasite"  # asked once when it was listed
+    # what the owserver says about its adapter; what it does not have (address) stays out
+    assert state["info"] == {"name": "DS9490", "owserver": "3.2p4"}
     # the owserver no longer lists the switch: missing after MISSING_AFTER lists
     setup.server.dirall = f"/{SENSOR},/{ADAPTER}"
     for _ in range(onewire_bus.MISSING_AFTER):
