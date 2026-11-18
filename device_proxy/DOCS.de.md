@@ -456,6 +456,9 @@ Lücke. Die Konfig-Historie kann das rückgängig machen.
 
 ## 1-Wire-Busse
 
+*Beta, neu in 1.8.0: Wenn etwas mit deinem owserver nicht geht, bitte ein Issue mit dem
+Diagnose-Paket anlegen.*
+
 Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die Quelle
 ist ein owserver im Netz, etwa der auf einem anderen Rechner oder einer VM, an dem heute der
 USB-Adapter (DS9490R, DS1490F) hängt. Die 1-Wire-Integration von Home Assistant, owhttpd,

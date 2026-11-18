@@ -1487,7 +1487,9 @@
     "owDevicesN": "{n} devices",
     "owDownText": "owserver not reachable: {e}",
     "liveEmptyOw": "No requests yet. As soon as a program asks, requests and answers show here.",
-    "liveSubOw": "Requests to the owserver and its answers, with the path and the client."
+    "liveSubOw": "Requests to the owserver and its answers, with the path and the client.",
+    "beta": "Beta",
+    "owBetaNote": "1-Wire is new and not yet tested with every owserver setup. If something does not work, please open an issue with the diagnostics from Settings."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",
