@@ -93,6 +93,9 @@ LISTEN_RETRY = 10.0
 CLOSE_TIMEOUT = 2.0
 ANSWERS_KEPT = 100  # answer times the average is taken over
 CONNECTIONS_PER_HOST = 32  # open connections of one host at a time; more are refused
+# a new connection must bring its first request within this time; owserver clients send it
+# at once, so one that sends nothing (or half a header) only holds a place
+FIRST_REQUEST = 30.0
 
 OWSERVER = "owserver"
 ADAPTER = ("04fa", "2490")  # vendor and product of the DS2490 (DS9490R, DS1490F)
@@ -791,7 +794,8 @@ class OneWireProxy:
         pumps: list[asyncio.Task[None]] = []
         try:
             try:
-                first = await asyncio.wait_for(read_request(reader), self.c.timeout or None)
+                limit = min(self.c.timeout, FIRST_REQUEST) if self.c.timeout else FIRST_REQUEST
+                first = await asyncio.wait_for(read_request(reader), limit)
             except (asyncio.IncompleteReadError, TimeoutError, OSError, ProtocolError):
                 return  # connected and asked nothing (a port check): no client
             client = self._client_for(*allowed)

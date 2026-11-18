@@ -556,3 +556,16 @@ async def test_a_search_of_the_bus_now(setup: Setup) -> None:
     setup.proxy.c = replace(setup.proxy.c, host_port=1)
     with pytest.raises(ValueError):
         await setup.proxy.scan()
+
+
+async def test_a_connection_that_sends_no_request_is_closed(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(onewire, "FIRST_REQUEST", 0.2)
+    reader, writer = await asyncio.open_connection("127.0.0.1", setup.proxy.port)
+    writer.write(request(MSG_READ, f"/{SENSOR}/temperature")[:10])  # half a header, then silence
+    await _until(lambda: setup.proxy.state()["connections"] == 1)
+    assert await asyncio.wait_for(reader.read(), 2) == b""  # closed by the proxy
+    await _until(lambda: setup.proxy.state()["connections"] == 0)
+    assert setup.proxy.clients == {}  # it never asked: no client
+    writer.close()
