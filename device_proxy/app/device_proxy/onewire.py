@@ -665,12 +665,15 @@ class OneWireProxy:
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
         self._emit(self.bus.listed(self.devices, count=not uncached))
-        for device_id in self.bus.needs_type():  # the exact chip, once per device
+        untyped = self.bus.needs_type()
+        for device_id in untyped:  # the exact chip, once per device
             try:
                 answered, chip = await self.ask(MSG_READ, f"/{device_id}/type", 32)
             except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
                 break  # next time
             self.bus.typed(device_id, answered, chip)
+        if untyped:
+            self.bus.save()  # the chips, once for all of them
         for device_id in self.bus.needs_power():  # once per sensor and run, as it is listed
             try:
                 answered, supply = await self.ask(MSG_READ, f"/{device_id}/power", 8)
