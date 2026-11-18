@@ -272,6 +272,9 @@ async def test_writes_only_from_allowed_clients(setup: Setup) -> None:
     assert (await ask(port, MSG_WRITE, path, b"0"))[0] == 0
     assert setup.proxy.state()["blocked"] == 1
     assert ("onewire_write_blocked", {"address": "127.0.0.1", "path": path}) in setup.events
+    # every write in the log, the newest first, with its value and how it ended
+    log = [(w["path"], w["value"], w["result"]) for w in setup.proxy.state()["writes"]]
+    assert log == [(path, "0", "ok"), (path, "0", "EACCES"), (path, "1", "ok")]
 
 
 async def test_clients_refused_and_gone(setup: Setup, monkeypatch: pytest.MonkeyPatch) -> None:

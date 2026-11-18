@@ -506,7 +506,8 @@ deshalb ein Rechner, keine Verbindung: Er gilt ab seiner ersten Anfrage als verb
 (DS2408, DS2413) oder Einstellungen ändern. **Alle Clients** lässt es so. **Nur diese** lässt die
 angegebenen Adressen schreiben, **Niemand** macht den Bus nur lesbar. Ein abgewiesener
 Schreibversuch bekommt von der App den Fehler EACCES und erreicht den Bus nie; die Ereignisse
-nennen Client und Pfad.
+nennen Client und Pfad. Die Karte **Schreibzugriffe** listet die letzten 100 seit dem Start mit
+Client, Gerät, Wert und Ergebnis, auch die abgewiesenen.
 
 Umzug von einem owserver auf einem anderen Rechner:
 
