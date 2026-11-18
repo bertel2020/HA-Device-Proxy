@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.9.1 - 2026-11-18
+
 - 1-Wire, HTTP-Port: Feld `http_port` (0 aus; nur bei Art onewire, nicht gleich `port`, nicht reserviert, in `AppConfig.validate` mit den Ports aller Verbindungen geprüft; Warnung „belegt“ über `port_problem(c, port)`). Image: owfs mit owhttpd gebaut (`--disable-owhttpd` weg, keine weiteren Abhängigkeiten), Prüfung `owhttpd --version`.
   - `onewire.OwHttpd(OwServer)`: `owhttpd --foreground … -s 127.0.0.1:<innerer Port> -p 127.0.0.1:<freier Port>`, `--readonly`, wenn `write_access` nicht „all“ ist; Neustart wie owserver, Ereignis `onewire_owhttpd_ended`. `OwServer.name` für die Zeilen im App-Log.
   - `OneWireProxy._http_run`: innerer owserver-Port nur auf 127.0.0.1 für owhttpd (`_inner_client`, ein eigener `_Host` „HTTP“, nicht in `clients`), der HTTP-Port für die Programme (`_http_client`: `_allowed`, erste Zeile innerhalb `FIRST_REQUEST`, sonst Port-Check; `_client_for` mit der echten Adresse; Bytes unverändert zu owhttpd und zurück, `_pipe`; ohne owhttpd 503). `_serve` aus `_client` herausgelöst, für beide Wege. Zustand `http` (Port, lauscht, Fehler, owhttpd, Anfragen); `restart_key` startet neu, wenn sich mit HTTP-Port „alle dürfen schreiben“ ändert. Adressen: `urls["http"]`.
