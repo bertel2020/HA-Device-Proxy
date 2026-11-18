@@ -1,8 +1,9 @@
 """A ZIP for bug reports: versions, configuration, status, devices, recent events.
 
 IP addresses are replaced (of clients and the host; only the default private ranges and
-loopback stay), host names of Modbus devices and the notify service are replaced, and
-clients are counted, not listed, so the file can be attached to an issue.
+loopback stay), host names of Modbus devices, owservers and the notify service are replaced,
+the names given to 1-Wire devices are left out of the events (their IDs stay), and clients
+are counted, not listed, so the file can be attached to an issue.
 """
 
 from __future__ import annotations
@@ -59,6 +60,22 @@ def masked(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return [masked(v) for v in value]
     return value
+
+
+def unnamed(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """1-Wire events without the names given to the devices: the ID instead of the label."""
+    out = []
+    for event in events:
+        params = event.get("params") or {}
+        label, device = params.get("label"), params.get("device")
+        if isinstance(label, str) and isinstance(device, str) and label != device:
+            event = {
+                **event,
+                "params": {**params, "label": device},
+                "message": str(event.get("message", "")).replace(label, device),
+            }
+        out.append(event)
+    return out
 
 
 def private_names(config: dict[str, Any]) -> dict[str, str]:
@@ -118,7 +135,7 @@ def build(
         "about.json": about,
         "status.json": snapshot,
         "config.json": config,
-        "events.json": masked(events),
+        "events.json": masked(unnamed(events)),
     }
     names = private_names(config)
 

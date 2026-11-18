@@ -772,7 +772,9 @@ plays a test case back as a device: `python tools/dev_server.py 8399 --replay fi
 
 **Settings → Help and info → Download diagnostics** gets a ZIP with versions, configuration,
 status, devices and the recent events. IP addresses, host names and the MQTT login are
-replaced and clients only counted. Connection names and device paths stay in (a
+replaced and clients only counted. For a 1-Wire bus it holds the devices with their values and
+faults, the owserver's counters and last messages and the writes, with the IDs of the devices
+but without the names you gave them. Connection names and device paths stay in (a
 `/dev/serial/by-id/…` path contains the adapter's serial number): take a quick look before you
 attach it to a public issue.
 

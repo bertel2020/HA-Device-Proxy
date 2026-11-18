@@ -820,7 +820,9 @@ Gerät ab: `python tools/dev_server.py 8399 --replay datei.json`.
 
 **Einstellungen → Hilfe und Info → Diagnose-Paket herunterladen** liefert ein ZIP mit Versionen,
 Konfiguration, Status, Geräten und den letzten Ereignissen. IP-Adressen, Hostnamen und die
-MQTT-Anmeldung werden ersetzt und Clients nur gezählt. Verbindungsnamen und Gerätepfade bleiben
+MQTT-Anmeldung werden ersetzt und Clients nur gezählt. Bei einem 1-Wire-Bus enthält es die Geräte
+mit Werten und Fehlern, die Zähler und letzten Meldungen des owserver und die Schreibzugriffe,
+mit den IDs der Geräte, aber ohne die Namen, die du ihnen gegeben hast. Verbindungsnamen und Gerätepfade bleiben
 drin (ein Pfad `/dev/serial/by-id/…` enthält die Seriennummer des Adapters): kurz hineinschauen,
 bevor du es an ein öffentliches Issue hängst.
 
