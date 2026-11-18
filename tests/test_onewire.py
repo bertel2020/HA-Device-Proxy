@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from device_proxy import onewire
+from device_proxy import onewire, onewire_bus
 from device_proxy.devices import UsbDevice, usb_devices
 from device_proxy.kinds import PROXIED
 from device_proxy.model import AppConfig, Connection, ValidationError
@@ -41,8 +41,14 @@ class FakeOwserver:
 
     def __init__(self) -> None:
         self.requests: list[tuple[int, str, bytes]] = []
-        self.values = {f"/{SENSOR}/temperature": b"     21.5", f"/{SWITCH}/PIO.A": b"0"}
+        self.values = {
+            f"/{SENSOR}/temperature": b"     21.5",
+            f"/{SWITCH}/PIO.A": b"0",
+            "/statistics/errors/CRC8_errors": b"           3",
+            "/statistics/errors/CRC8_tries": b"         300",
+        }
         self.ping = False
+        self.dirall = DIRALL
         self.connections = 0
         self._server: asyncio.Server | None = None
         self.port = 0
@@ -80,7 +86,7 @@ class FakeOwserver:
 
     def _answer(self, kind: int, path: str, data: bytes) -> list[bytes]:
         if kind == MSG_DIRALL:
-            return [answer(0, DIRALL.encode() + b"\0")]
+            return [answer(0, self.dirall.encode() + b"\0")]
         if kind == MSG_DIR:
             return [answer(0, f"/{SENSOR}".encode()), answer(0, f"/{SWITCH}".encode()), answer(0)]
         if kind == MSG_READ:
@@ -106,6 +112,14 @@ async def _until(condition: Callable[[], bool], timeout: float = 2.0) -> None:
     async with asyncio.timeout(timeout):
         while not condition():
             await asyncio.sleep(0.01)
+
+
+@pytest.fixture(autouse=True)
+def device_book(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The devices seen go to a file of the test, not to /data."""
+    path = tmp_path / "onewire_devices.json"
+    monkeypatch.setattr(onewire_bus, "KNOWN_FILE", path)
+    return path
 
 
 @pytest.fixture
@@ -177,9 +191,10 @@ async def test_the_device_list_and_reachability(setup: Setup) -> None:
     assert state["reachable"] is True
     assert [(d["id"], d["type"]) for d in state["devices"]] == [
         (SENSOR, "DS18B20"),
-        (ADAPTER, "DS1420"),
         (SWITCH, "DS2413"),
+        (ADAPTER, "DS1420"),
     ]
+    assert (state["present"], state["missing"]) == (3, [])
     assert setup.proxy.probe_ms is not None
     c = setup.proxy.c
     setup.proxy.c = replace(c, host_port=1)  # nothing listens there
@@ -327,9 +342,20 @@ def test_a_change_of_access_or_name_keeps_the_proxy_running() -> None:
 def test_entities() -> None:
     c = Connection("1-Wire", "", 4304, kind="onewire", link="owserver", host="vm")
     entities = onewire.mqtt_entities("homeassistant", c, lambda key, **kw: {"key": key, **kw})
-    assert {e["key"] for e in entities.values()} == {"reachable", "onewire_devices", "requests"}
-    state = {"reachable": True, "devices": [{}, {}], "requests": {"read": 4, "dir": 1}}
-    assert onewire.mqtt_state(state) == {"reachable": True, "onewire_devices": 2, "requests": 5}
+    keys = {"reachable", "onewire_devices", "onewire_missing", "requests"}
+    assert {e["key"] for e in entities.values()} == keys
+    state = {
+        "reachable": True,
+        "present": 2,
+        "missing": ["28.A"],
+        "requests": {"read": 4, "dir": 1},
+    }
+    assert onewire.mqtt_state(state) == {
+        "reachable": True,
+        "onewire_devices": 2,
+        "onewire_missing": 1,
+        "requests": 5,
+    }
 
 
 # the USB adapter of this host, with the app's own owserver (link "usb")
@@ -346,7 +372,7 @@ def fake_owserver(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     script.chmod(0o755)
     starts = tmp_path / "starts.txt"
     monkeypatch.setattr(onewire, "OWSERVER", str(script))
-    monkeypatch.setattr(onewire, "FIRST_PROBE", 0.3)
+    monkeypatch.setattr(onewire, "FIRST_PROBE", 5.0)
     monkeypatch.setattr(onewire, "OWSERVER_DELAYS", (0.1,))
     monkeypatch.setattr(onewire, "USB_BACK", 0.1)
     monkeypatch.setenv("FAKE_OWSERVER_LOG", str(starts))
@@ -481,3 +507,20 @@ def test_usb_devices_from_sysfs(tmp_path: Path) -> None:
     (devices / "1-1.2:1.0").mkdir()  # an interface, not a device
     found = usb_devices("04fa", "2490", tmp_path / "dev", tmp_path / "sys")
     assert found == [UsbDevice("1-1.2", str(tmp_path / "dev/bus/usb/001/004"), "DS1490F", "ds2490")]
+
+
+async def test_values_and_counters_reach_the_state(setup: Setup) -> None:
+    port = setup.proxy.port
+    await ask(port, MSG_READ, f"/{SENSOR}/temperature")
+    await setup.proxy.read_statistics()
+    state = setup.proxy.state()
+    sensor = next(d for d in state["devices"] if d["id"] == SENSOR)
+    assert sensor["values"]["temperature"]["value"] == "21.5" and sensor["type"] == "DS18B20"
+    assert state["statistics"]["crc_errors"] == 3 and state["statistics"]["crc_share"] == 1.0
+    # the owserver no longer lists the switch: missing after MISSING_AFTER lists
+    setup.server.dirall = f"/{SENSOR},/{ADAPTER}"
+    for _ in range(onewire_bus.MISSING_AFTER):
+        await setup.proxy.probe()
+    assert setup.proxy.state()["missing"] == [SWITCH]
+    assert ("onewire_device_missing", {"device": SWITCH}) in setup.events
+    assert setup.proxy.forget(SWITCH) and setup.proxy.state()["missing"] == []

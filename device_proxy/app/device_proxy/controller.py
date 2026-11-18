@@ -84,6 +84,8 @@ from .model import (
     parse_sender_names,
 )
 from .notify import SHOWN_FILE, Notifier, set_switch
+from .onewire import OneWireProxy
+from .onewire_bus import parse_names as parse_onewire_names
 from .process import Ser2Net
 from .sessions import ClientSessions
 from .store import PASSWORD_KEPT, Change, SaveError, Store, hidden, quiet, summary
@@ -820,6 +822,10 @@ class Controller:
                 params.pop("bytes_to_client", None),
                 params.pop("bytes_from_client", None),
             )
+            if c is not None and c.kind == "onewire" and "device" in params:
+                device = str(params["device"])
+                named = parse_onewire_names(self.config.settings.onewire_names).get(device)
+                params["label"] = f"{named} ({device})" if named else device
             self.events.emit(level, kind, connection=connection_id, name=name, **params)
             address = str(params.get("address", ""))
             if kind == "client_connected":
@@ -1125,6 +1131,19 @@ class Controller:
             since = self._lasting(c.id, "no_client", proxy.listening and not proxy.clients, now)
             if c.notify_no_client and since and now - since >= settings.no_client_minutes * 60:
                 add(f"device_proxy_{c.id}_no_client", "no_client", name=c.name, since=clock(since))
+            if (
+                isinstance(proxy, OneWireProxy)
+                and c.notify_missing
+                and (gone := proxy.bus.missing())
+            ):
+                names = parse_onewire_names(settings.onewire_names)
+                add(
+                    f"device_proxy_{c.id}_onewire_missing",
+                    "onewire_missing",
+                    name=c.name,
+                    count=len(gone),
+                    devices=", ".join(f"{names[d]} ({d})" if d in names else d for d in gone),
+                )
             if isinstance(proxy, EnOceanProxy):
                 share = proxy.duty_cycle()["of_limit"]
                 if share >= DUTY_NOTE:
@@ -1296,6 +1315,13 @@ class Controller:
             raise ValueError("the connection is not active")
         return proxy
 
+    def onewire_forget(self, connection_id: str, device: str) -> bool:
+        """A 1-Wire device taken off the bus on purpose: not missing any more."""
+        proxy = self.proxies.get(connection_id)
+        if not isinstance(proxy, OneWireProxy):
+            raise ValueError("the connection is not active")
+        return proxy.forget(device)
+
     def testcase(self, connection_id: str, anonymised: bool) -> dict[str, Any]:
         """The connection's last frames as a test case (testcase.py)."""
         c = self.config.connection(connection_id)
@@ -1382,7 +1408,10 @@ class Controller:
             raise ValueError("not with an own ser2net.yaml")
         if connection_id in self._paused:
             raise ValueError("a tool or a restart is using the connection right now")
-        if usb:
+        if usb and c.onewire_usb:  # the 1-Wire adapter itself, no serial device
+            if not await asyncio.to_thread(usb_devices, *onewire.ADAPTER):
+                raise ValueError("no 1-Wire USB adapter found")
+        elif usb:
             if not c.uses_device:
                 raise ValueError("a USB reset needs a device of this host")
             await asyncio.to_thread(usb_node, c.device)  # ValueError: not there, not USB

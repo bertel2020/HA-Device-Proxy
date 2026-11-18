@@ -17,6 +17,7 @@ from typing import Any
 from .clients import parse_names
 from .i18n import LANGUAGES
 from .modbus_entities import parse_entities
+from .onewire_bus import parse_names as parse_onewire_names
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -684,6 +685,7 @@ class Settings:
     notify_new_clients: bool = True
     # names for EnOcean sender IDs ("FE-E9-12-34 Kitchen switch" per line), for all gateways
     sender_names: str = ""
+    onewire_names: str = ""  # "28.A1B2C3D4E5F6 Living room" per line (onewire_bus.py)
     # entities in Home Assistant over MQTT discovery
     mqtt_enabled: bool = True  # only with a broker in Home Assistant
     mqtt_prefix: str = "homeassistant"
@@ -761,6 +763,10 @@ class Settings:
             parse_sender_names(settings.sender_names)
         except ValueError as err:
             e["sender_names"] = str(err)
+        try:
+            parse_onewire_names(settings.onewire_names)
+        except ValueError as err:
+            e["onewire_names"] = str(err)
         for key in ("mqtt_prefix", "mqtt_base"):
             if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*", getattr(settings, key)):
                 e[key] = "an MQTT topic without wildcards"

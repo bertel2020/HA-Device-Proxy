@@ -25,7 +25,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "device_proxy" / "app"))
 
 from device_proxy import controller as controller_module  # noqa: E402
-from device_proxy import enocean, esp, onewire, process, testcase  # noqa: E402
+from device_proxy import enocean, esp, onewire, onewire_bus, process, testcase  # noqa: E402
 from device_proxy.clients import KnownClients  # noqa: E402
 from device_proxy.controller import Controller  # noqa: E402
 from device_proxy.db import Database  # noqa: E402
@@ -131,8 +131,15 @@ async def owserver(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -
             if kind == onewire.MSG_DIRALL:
                 text = ",".join(f"/{d}" for d in OW_DEVICES) + ",/bus.0,/settings,/system"
                 body = onewire.answer(0, text.encode() + b"\0", keep)
+            elif kind == 2 and path.startswith("/statistics/errors/"):
+                # a few CRC errors that keep rising, as on a long bus
+                count = {"CRC8_errors": int(time.time() / 120) % 1000, "CRC8_tries": 4000}
+                value = f"{count.get(path.rsplit('/', 1)[1], 0):12d}".encode()
+                body = onewire.answer(len(value), value, keep)
             elif kind == 2 and path.endswith("/temperature"):
-                value = f"{20 + (time.time() / 60) % 3:12.4f}".encode()
+                # the second sensor gives the 85 °C of an unfinished conversion now and then
+                bad = OW_DEVICES[1] in path and int(time.time() / 5) % 6 == 0
+                value = f"{85 if bad else 20 + (time.time() / 60) % 3:12.4f}".encode()
                 await asyncio.sleep(0.02)
                 body = onewire.answer(len(value), value, keep)
             elif kind == 2 and path.lstrip("/").split("/")[0] in OW_DEVICES:
@@ -384,12 +391,20 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
         bus = await asyncio.start_server(owserver, "127.0.0.1", 0)
         bus_port = bus.sockets[0].getsockname()[1]
         enocean.BASE_ID_FILE = data / "enocean_base_ids.json"
+        # a sensor that was on the 1-Wire bus yesterday and is gone now
+        onewire_bus.KNOWN_FILE = data / "onewire_devices.json"
+        yesterday = time.time() - 86400
+        onewire_bus.KNOWN_FILE.write_text(
+            json.dumps({"0000a1a1": {"10.ABCDEF012345": {"first": yesterday, "last": yesterday}}})
+        )
         db = Database(data / "history.db")
         events = EventLog(db)
         store = Store(db, data / "config.json")
         config = AppConfig(
             settings=Settings(
-                enocean_status_port=19199 + offset, client_names="127.0.0.1 Home Assistant"
+                enocean_status_port=19199 + offset,
+                client_names="127.0.0.1 Home Assistant",
+                onewire_names="28.A1B2C3D4E5F6 Wohnzimmer\n10.ABCDEF012345 Keller",
             ),
             connections=(
                 Connection(
@@ -480,6 +495,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
                     "1-Wire-Bus",
                     "",
                     14304 + offset,
+                    id="0000a1a1",
                     kind="onewire",
                     template="onewire",
                     link="owserver",

@@ -449,6 +449,17 @@ chip (28 = DS18B20, 3A = DS2413, 81 = the ID chip inside the USB adapter …). W
 does not answer, the connection shows **not reachable** and the app notifies you if
 **Notify when the device is missing or not reachable** is on.
 
+**Devices on the bus**: the connection's page lists every device the owserver names, with a
+name of your own (**Edit names**), the usual chip and the last value your programs read (the
+app reads no values itself). The app remembers the devices, also over restarts: one that is
+missing from the device list twice in a row shows as **missing since**, and the app notifies
+you if **Notify when the device is missing or not reachable** is on; one taken off on purpose
+is removed with **Forget**. A device that appears later is marked **new**. Two typical faults
+of temperature sensors are marked: **85 °C**, the value of a DS18x20 whose conversion did not
+finish (usually parasite power, a long bus or a loose contact), and a temperature that **does
+not move** for 2 hours and 20 reads. The owserver card shows the owserver's CRC and bus errors
+since it started, with a hint when they rise. Over MQTT there is the number of missing devices.
+
 Most owserver programs open a new connection for each request. A client is therefore a computer,
 not a connection: it counts as connected from its first request until it has asked nothing for
 5 minutes, and **Computers at most** limits the computers.

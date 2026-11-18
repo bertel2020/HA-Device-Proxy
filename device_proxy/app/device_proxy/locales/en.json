@@ -1505,7 +1505,27 @@
     "owOwnResets": "{n} USB resets",
     "owOwnStartError": "owserver cannot be started: {e}",
     "owOwnLog": "owserver's last messages",
-    "owAdapterGone": "No 1-Wire USB adapter found. In Proxmox, pass the adapter (USB ID 04fa:2490) through to this VM; the app finds it by itself then."
+    "owAdapterGone": "No 1-Wire USB adapter found. In Proxmox, pass the adapter (USB ID 04fa:2490) through to this VM; the app finds it by itself then.",
+    "owMissing": "Missing devices",
+    "owBusErrors": "Bus errors",
+    "owBusErrorsVal": "CRC {c} of {t} ({p} %) · bus {b}, since owserver started",
+    "owRising": "rising, last {t}",
+    "owNoValue": "no program reads it",
+    "owForgetAsk": "Forget {d}? Do this when you took it off the bus on purpose. It counts as new when it comes back.",
+    "owForget": "Forget",
+    "owMissingSince": "missing since {t}",
+    "owNew": "new",
+    "owBad": "85 °C × {n}, last {t}",
+    "owBadHint": "85 °C is the value of a DS18x20 whose conversion did not finish: usually parasite power, a long or weak bus, or a loose contact.",
+    "owFrozen": "value does not move",
+    "owFrozenHint": "The same temperature for 2 hours and 20 reads. A sensor that works moves by 1/16 °C now and then; an owserver cache set too long or a hanging sensor does not.",
+    "owDeviceErrors": "{n} errors",
+    "owNamesEdit": "Edit names",
+    "owName": "Name",
+    "owValue": "Last value",
+    "owState": "State",
+    "owLastSeen": "last seen {t}",
+    "owValuesHint": "Values are the ones your programs read, the app reads none itself. Missing: not on the device list twice in a row; the app remembers the devices over restarts."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",
@@ -1660,6 +1680,10 @@
     "custom": [
       "Device Proxy: own ser2net.yaml unusable",
       "Your own ser2net.yaml is not used, nothing is shared. See the app's settings."
+    ],
+    "onewire_missing": [
+      "Device Proxy: {name} – 1-Wire devices missing",
+      "{count} device(s) no longer answer on the bus: {devices}. Taken off on purpose? Forget them on the connection's page."
     ]
   },
   "reasons": {
@@ -1700,6 +1724,7 @@
     "active_gateway": "Active gateway",
     "fallback_ready": "Fallback gateway ready",
     "onewire_devices": "1-Wire devices",
+    "onewire_missing": "1-Wire devices missing",
     "disconnect": "Disconnect clients",
     "restart": "Restart connection",
     "usb_reset": "USB reset",

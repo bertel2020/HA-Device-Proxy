@@ -19,7 +19,7 @@ PATH = Path("/data/config.json")
 KEEP_VERSIONS = 25
 SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, never the value
 # their text names people and rooms: the history says that they changed, not to what
-PRIVATE_SETTINGS = frozenset({"client_names", "sender_names"})
+PRIVATE_SETTINGS = frozenset({"client_names", "sender_names", "onewire_names"})
 # changes that touch no connection: no version in the history, no "last change" to go back from
 QUIET_SETTINGS = frozenset({"client_names", "notify_new_clients"})
 PASSWORD_KEPT = "••••••••"  # the browser gets this for a set password; sent back: unchanged

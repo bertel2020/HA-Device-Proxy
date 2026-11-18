@@ -54,7 +54,7 @@ const PATCH = `(() => { const orig = window.fetch.bind(window); window.fetch = a
 
 const state = await (await fetch(BASE + "api/state")).json();
 const by = (name) => state.connections.find((c) => c.name === name).id;
-const IDS = { ehz: by("eHZ SML"), zwave: by("Z-Wave-Gateway"), modbus: by("SolarEdge SE10K"), eo: by("FAM-USB") };
+const IDS = { ehz: by("eHZ SML"), zwave: by("Z-Wave-Gateway"), modbus: by("SolarEdge SE10K"), eo: by("FAM-USB"), ow: by("1-Wire-Bus") };
 
 await send("Page.enable");
 await send("Page.addScriptToEvaluateOnNewDocument", { source: PATCH });
@@ -83,6 +83,14 @@ for (const lang of ["de", "en"]) {
   await shot(dir("edit.png"), 1000, () => go(lang, `#/edit/${IDS.zwave}`));
   await shot(dir("trace.png"), 1000, () => go(lang, `#/trace/${IDS.ehz}`));
   await shot(dir("enocean.png"), 1000, () => go(lang, `#/connection/${IDS.eo}`));
+  await shot(dir("onewire.png"), 1150, async () => {
+    for (let i = 0; i < 90; i++) {  // the missing sensor shows after two device lists (about 30 s)
+      const s = await (await fetch(BASE + "api/state")).json();
+      if ((s.connections.find((c) => c.id === IDS.ow).onewire?.missing || []).length) break;
+      await sleep(1000);
+    }
+    await go(lang, `#/connection/${IDS.ow}`);
+  });
   await shot(dir("import.png"), 1000, async () => {
     await go(lang, "#/connections");
     const yaml = "%YAML 1.1\\n---\\nconnection: &ehz\\n  accepter: tcp,3335\\n  connector: serialdev,/dev/serial/by-id/usb-CP2102-if00-port0,9600n81\\nconnection: &bwt\\n  accepter: tcp,3999\\n  connector: serialdev,/dev/serial/by-id/usb-FTDI-if00-port0,19200e71\\nconnection: &zwave\\n  accepter: tcp,3333\\n  connector: serialdev,/dev/serial/by-id/usb-Zooz-if00,115200n81\\n";

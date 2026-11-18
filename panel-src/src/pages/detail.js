@@ -2,7 +2,7 @@ import { css, html, svg } from "lit";
 import { api, saveConnection, toConnection, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.js";
-import { clientsTable as owClients, devicesCard, oneWireCard } from "../onewire.js";
+import { clientsTable as owClients, oneWireCard } from "../onewire.js";
 import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, has, lang, retriesText, t, tn } from "../i18n.js";
 import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle, wholeNumber } from "../ui.js";
@@ -885,7 +885,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${recentCard}`
     : onewire ? html`
       ${pair(stateCard, conf)}
-      ${devicesCard(c)}
+      <dp-ow-devices .connection=${c} .settings=${s.settings}></dp-ow-devices>
       ${clientsCard}
       ${this._live(c.kind)}
       ${this._addresses(c)}

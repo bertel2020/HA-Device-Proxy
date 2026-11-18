@@ -1505,7 +1505,27 @@
     "owOwnResets": "{n} USB-Resets",
     "owOwnStartError": "owserver lässt sich nicht starten: {e}",
     "owOwnLog": "Letzte Meldungen des owserver",
-    "owAdapterGone": "Kein 1-Wire-USB-Adapter gefunden. In Proxmox den Adapter (USB-ID 04fa:2490) an diese VM durchreichen; die App findet ihn dann von selbst."
+    "owAdapterGone": "Kein 1-Wire-USB-Adapter gefunden. In Proxmox den Adapter (USB-ID 04fa:2490) an diese VM durchreichen; die App findet ihn dann von selbst.",
+    "owMissing": "Fehlende Geräte",
+    "owBusErrors": "Busfehler",
+    "owBusErrorsVal": "CRC {c} von {t} ({p} %) · Bus {b}, seit owserver läuft",
+    "owRising": "steigt, zuletzt {t}",
+    "owNoValue": "kein Programm liest es",
+    "owForgetAsk": "{d} vergessen? Das ist für ein Gerät, das du absichtlich vom Bus genommen hast. Kommt es wieder, gilt es als neu.",
+    "owForget": "Vergessen",
+    "owMissingSince": "fehlt seit {t}",
+    "owNew": "neu",
+    "owBad": "85 °C × {n}, zuletzt {t}",
+    "owBadHint": "85 °C ist der Wert eines DS18x20, dessen Wandlung nicht fertig wurde: meist parasitäre Versorgung, ein langer oder schwacher Bus oder ein Wackelkontakt.",
+    "owFrozen": "Wert bewegt sich nicht",
+    "owFrozenHint": "Seit 2 Stunden und 20 Abfragen dieselbe Temperatur. Ein Sensor, der arbeitet, bewegt sich ab und zu um 1/16 °C; ein zu lang eingestellter Cache des owserver oder ein hängender Sensor nicht.",
+    "owDeviceErrors": "{n} Fehler",
+    "owNamesEdit": "Namen bearbeiten",
+    "owName": "Name",
+    "owValue": "Letzter Wert",
+    "owState": "Zustand",
+    "owLastSeen": "zuletzt gesehen {t}",
+    "owValuesHint": "Die Werte sind die, die deine Programme lesen; die App liest selbst keine. Fehlt: zweimal hintereinander nicht in der Geräteliste; die App merkt sich die Geräte über Neustarts."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",
@@ -1591,7 +1611,11 @@
     "onewire_owserver_ended": "owserver beendet (Exit-Code {code}), neuer Start in {delay} s: {error}",
     "onewire_restarted": "owserver neu gestartet: {reason}",
     "onewire_usb_reset": "USB-Reset des 1-Wire-Adapters an {place} ({reason})",
-    "onewire_usb_reset_failed": "USB-Reset des 1-Wire-Adapters an {place} fehlgeschlagen: {error}"
+    "onewire_usb_reset_failed": "USB-Reset des 1-Wire-Adapters an {place} fehlgeschlagen: {error}",
+    "onewire_device_missing": "1-Wire-Gerät fehlt: {label}",
+    "onewire_device_back": "1-Wire-Gerät wieder da: {label}",
+    "onewire_device_new": "Neues 1-Wire-Gerät am Bus: {label}",
+    "onewire_value_85": "{label} meldet 85 °C ({path}): Wandlung nicht fertig, Strom oder Bus"
   },
   "notes": {
     "device_missing_unstable": "Gerät {device} ist gerade nicht angeschlossen und kann sich nach einem Neustart ändern – besser einen by-id- oder by-path-Namen wählen.",
@@ -1879,6 +1903,10 @@
     "custom": [
       "Device Proxy: eigene ser2net.yaml unbrauchbar",
       "Die eigene ser2net.yaml wird nicht verwendet, es wird nichts bereitgestellt. Siehe Einstellungen der App."
+    ],
+    "onewire_missing": [
+      "Device Proxy: {name} – 1-Wire-Geräte fehlen",
+      "{count} Gerät(e) antworten nicht mehr am Bus: {devices}. Absichtlich entfernt? Auf der Seite der Verbindung vergessen."
     ]
   },
   "reasons": {
@@ -1919,6 +1947,7 @@
     "active_gateway": "Aktives Gateway",
     "fallback_ready": "Ersatz-Gateway bereit",
     "onewire_devices": "1-Wire-Geräte",
+    "onewire_missing": "Fehlende 1-Wire-Geräte",
     "disconnect": "Clients trennen",
     "restart": "Verbindung neu starten",
     "usb_reset": "USB-Reset",

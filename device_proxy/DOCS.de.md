@@ -477,6 +477,19 @@ und üblichem Chip (28 = DS18B20, 3A = DS2413, 81 = der ID-Chip im USB-Adapter �
 owserver nicht, steht die Verbindung auf **nicht erreichbar**, und die App benachrichtigt dich,
 wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist.
 
+**Geräte am Bus**: Die Seite der Verbindung listet jedes Gerät, das der owserver nennt, mit
+eigenem Namen (**Namen bearbeiten**), üblichem Chip und dem letzten Wert, den deine Programme
+gelesen haben (die App liest selbst keine Werte). Die App merkt sich die Geräte, auch über
+Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
+und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
+antwortet** an ist; ein absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später
+dazugekommenes Gerät ist als **neu** markiert. Zwei typische Fehler von Temperatursensoren werden
+markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde (meist
+parasitäre Versorgung, ein langer Bus oder ein Wackelkontakt), und eine Temperatur, die sich
+2 Stunden und 20 Abfragen lang **nicht bewegt**. Die owserver-Karte zeigt die CRC- und
+Busfehler des owserver seit seinem Start, mit einem Hinweis, wenn sie steigen. Über MQTT gibt es
+die Zahl der fehlenden Geräte.
+
 Die meisten owserver-Programme öffnen für jede Anfrage eine neue Verbindung. Ein Client ist
 deshalb ein Rechner, keine Verbindung: Er gilt ab seiner ersten Anfrage als verbunden, bis er
 5 Minuten lang nichts gefragt hat, und **Rechner höchstens** begrenzt die Rechner.

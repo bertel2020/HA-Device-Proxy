@@ -103,6 +103,8 @@ def build(
             settings["client_names"] = "***"  # addresses and personal names
         if settings.get("sender_names"):
             settings["sender_names"] = "***"  # the rooms of a home
+        if settings.get("onewire_names"):
+            settings["onewire_names"] = "***"
     shm = shutil.disk_usage("/dev/shm") if os.path.isdir("/dev/shm") else None
     about = {
         "created": time.strftime("%Y-%m-%d %H:%M:%S"),

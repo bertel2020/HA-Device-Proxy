@@ -42,6 +42,7 @@ from .model import (
 )
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services, switch_entities
+from .onewire_bus import parse_names as parse_onewire_names
 from .store import PASSWORD_KEPT, QUIET_SETTINGS, SaveError, hidden
 
 _LOGGER = logging.getLogger(__name__)
@@ -193,6 +194,8 @@ class WebServer:
             "GET", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/senders\.csv", self.enocean_senders_csv
         )
         self._route("PUT", r"api/enocean/sender-names", self.enocean_sender_names)
+        self._route("PUT", r"api/onewire/names", self.onewire_names)
+        self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/onewire/forget", self.onewire_forget)
         self._route("GET", r"api/tools/(?P<id>[0-9a-f]{8})/testcase", self.testcase)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/test", self.enocean_test)
         self._route("POST", r"api/tools/(?P<id>[0-9a-f]{8})/enocean/base_id", self.enocean_base_id)
@@ -1024,6 +1027,33 @@ class WebServer:
             return replace(config, settings=settings)
 
         return await self._save(build)
+
+    async def onewire_names(self, request: Request) -> Response:
+        """Names for 1-Wire IDs, as enocean_sender_names: an empty name takes it away."""
+        names = request.json().get("names")
+        if not isinstance(names, dict) or not all(isinstance(v, str) for v in names.values()):
+            raise HttpError(400, "names: 1-Wire IDs and their names")
+
+        def build(config: AppConfig) -> AppConfig:
+            merged = parse_onewire_names(config.settings.onewire_names)
+            for device, name in names.items():
+                merged.pop(device.upper(), None)
+                if name.strip():
+                    merged[device.upper()] = " ".join(name.split())
+            text = "\n".join(f"{device} {name}" for device, name in merged.items())
+            settings = Settings.from_dict({**config.settings.to_dict(), "onewire_names": text})
+            return replace(config, settings=settings)
+
+        return await self._save(build)
+
+    async def onewire_forget(self, request: Request) -> Response:
+        device = request.json().get("device")
+        if not isinstance(device, str):
+            raise HttpError(400, "device: a 1-Wire ID")
+        try:
+            return ok({"forgotten": self.c.onewire_forget(request.params["id"], device)})
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
 
     async def enocean_senders(self, request: Request) -> Response:
         try:
