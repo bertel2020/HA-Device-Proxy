@@ -125,3 +125,18 @@ def test_names_and_paths() -> None:
         parse_names(SENSOR)
     assert device_of(f"/uncached/bus.0/{SENSOR.lower()}/temperature") == (SENSOR, "temperature")
     assert device_of("/statistics/errors/CRC8_errors") is None
+
+
+def test_an_ibutton_comes_and_goes_without_being_missing(tmp_path: Path) -> None:
+    clock = Clock()
+    b = bus(tmp_path / "d.json", clock)
+    button = "01.0000123456AB"
+    b.listed([SENSOR, button])  # on the reader of the DS1490F
+    for _ in range(onewire_bus.MISSING_AFTER + 2):
+        clock.now += 30
+        assert b.listed([SENSOR]) == []  # taken off: no event
+    assert b.missing() == []
+    row = next(r for r in b.rows() if r["id"] == button)
+    assert row["transient"] and not row["present"] and row["missing_since"] is None
+    assert row["last"] == clock.now - 30 * (onewire_bus.MISSING_AFTER + 2)
+    assert b.listed([SENSOR, button]) == []  # put on again: known, nothing to say

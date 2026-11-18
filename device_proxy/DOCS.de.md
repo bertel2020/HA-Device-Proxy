@@ -483,7 +483,9 @@ gelesen haben (die App liest selbst keine Werte). Die App merkt sich die Geräte
 Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
 und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
 antwortet** an ist; ein absichtlich entferntes nimmst du mit **Vergessen** heraus. Ein später
-dazugekommenes Gerät ist als **neu** markiert. Zwei typische Fehler von Temperatursensoren werden
+dazugekommenes Gerät ist als **neu** markiert. iButtons (die Lesemulde eines DS1490F, Familien
+01, 02, 04, 06, 08, 0A, 0C) kommen und gehen: Sie gelten nie als fehlend, die Liste sagt, wann
+einer zuletzt aufgelegt war. Zwei typische Fehler von Temperatursensoren werden
 markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde (meist
 parasitäre Versorgung, ein langer Bus oder ein Wackelkontakt), und eine Temperatur, die sich
 2 Stunden und 20 Abfragen lang **nicht bewegt**. Die owserver-Karte zeigt die CRC- und

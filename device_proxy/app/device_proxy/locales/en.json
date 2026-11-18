@@ -1525,7 +1525,10 @@
     "owValue": "Last value",
     "owState": "State",
     "owLastSeen": "last seen {t}",
-    "owValuesHint": "Values are the ones your programs read, the app reads none itself. Missing: not on the device list twice in a row; the app remembers the devices over restarts."
+    "owValuesHint": "Values are the ones your programs read, the app reads none itself. Missing: not on the device list twice in a row; the app remembers the devices over restarts.",
+    "owIButtonOn": "iButton on the reader",
+    "owIButtonOff": "iButton, last on the reader {t}",
+    "owIButtonHint": "iButtons are put on the reader and taken off again, so they never count as missing."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

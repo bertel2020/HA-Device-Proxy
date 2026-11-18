@@ -3,7 +3,8 @@
 From the device lists: which devices were seen before (kept in /data, so a device that is
 gone after a restart of the app still counts as missing), which are missing now (absent
 from MISSING_AFTER lists in a row) and which are new (first seen when the bus had been known
-for NEW_AFTER seconds already).
+for NEW_AFTER seconds already). iButtons (TRANSIENT_FAMILIES) come and go with the reader of
+a DS1490F or a wall socket: they are never missing, the state says when one was there last.
 
 From the answers the programs get (the proxy sees them pass, nothing is read for it): the
 last value of every property read, errors per device, and for temperatures two typical
@@ -37,6 +38,9 @@ FROZEN_READS = 20
 POWER_ON = 85.0
 BAD_EVENT_EVERY = 3600.0  # at most one 85 °C event per device in this time
 TEMPERATURE_FAMILIES = {"10", "22", "28", "3B", "42"}
+# iButtons that are put on a reader and taken off again: DS1990A (also the DS2401 ID chip,
+# which is seldom wired to a bus), DS1991, DS1994, DS1993, DS1992, DS1995, DS1996
+TRANSIENT_FAMILIES = {"01", "02", "04", "06", "08", "0A", "0C"}
 TEMPERATURE = re.compile(r"(temperature(9|10|11|12)?|fasttemp)")
 VALUE_MAX = 40  # longer answers (memory pages) are no value to show
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
@@ -85,6 +89,10 @@ class Device:
     @property
     def family(self) -> str:
         return self.id[:2]
+
+    @property
+    def transient(self) -> bool:
+        return self.family in TRANSIENT_FAMILIES
 
 
 def device_of(path: str) -> tuple[str, str] | None:
@@ -157,6 +165,8 @@ class Bus:
             if device.id in listed:
                 continue
             device.absent += 1
+            if device.transient:
+                continue  # taken off the reader: not missing
             if device.absent == MISSING_AFTER and device.missing_since is None:
                 device.missing_since = device.last
                 events.append(("warning", "onewire_device_missing", {"device": device.id}))
@@ -245,6 +255,7 @@ class Bus:
                     "present": d.missing_since is None and d.absent == 0,
                     "missing_since": d.missing_since,
                     "new": d.new,
+                    "transient": d.transient,
                     "values": values,
                     "errors": d.errors,
                     "last_error": d.last_error,

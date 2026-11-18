@@ -105,8 +105,9 @@ export class OneWireDevices extends LitElement {
 
   _chips(d) {
     const out = [];
-    if (d.missing_since) out.push(html`<span class="chip bad">${t("owMissingSince", { t: fmtAgo(d.missing_since) })}</span>`);
-    else if (d.new) out.push(html`<span class="chip info">${t("owNew")}</span>`);
+    if (d.transient) out.push(html`<span class="chip ${d.present ? "ok" : ""}" title=${t("owIButtonHint")}>${d.present ? t("owIButtonOn") : t("owIButtonOff", { t: fmtAgo(d.last) })}</span>`);
+    else if (d.missing_since) out.push(html`<span class="chip bad">${t("owMissingSince", { t: fmtAgo(d.missing_since) })}</span>`);
+    if (d.new && !d.missing_since) out.push(html`<span class="chip info">${t("owNew")}</span>`);
     if (d.bad) out.push(html`<span class="chip warn" title=${t("owBadHint")}>${t("owBad", { n: num(d.bad), t: fmtAgo(d.bad_at) })}</span>`);
     if (d.frozen) out.push(html`<span class="chip warn" title=${t("owFrozenHint")}>${t("owFrozen")}</span>`);
     if (d.errors) out.push(html`<span class="chip warn" title=${d.last_error || ""}>${t("owDeviceErrors", { n: num(d.errors) })}</span>`);
@@ -132,9 +133,9 @@ export class OneWireDevices extends LitElement {
               @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint">–</span>`}</td>
             <td><span class="id">${d.id}</span></td>
             <td>${d.type || d.family}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
-            <td>${d.missing_since ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
+            <td>${d.missing_since || (d.transient && !d.present) ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
             <td><div class="chips">${this._chips(d)}</div></td>
-            <td>${d.missing_since ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>`;
+            <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>`;
         })}</tbody></table></div>
         <p class="hint" style="margin:0">${t("owValuesHint")}</p>`
         : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${o.reachable === false ? t("owNoList") : o.devices_at ? t("owNoDevices") : t("owNotRead")}</p>`}
