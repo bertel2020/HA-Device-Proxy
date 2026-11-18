@@ -173,7 +173,9 @@ class Bus:
 
     # the device lists
 
-    def listed(self, ids: list[str]) -> list[Event]:
+    def listed(self, ids: list[str], count: bool = True) -> list[Event]:
+        """A device list. count=False (a search by hand): what is there is seen, but what
+        is not there does not count towards missing, so two clicks do not notify."""
         now = self.clock()
         events: list[Event] = []
         known_before = bool(self.devices)
@@ -194,7 +196,7 @@ class Bus:
                 events.append(("info", "onewire_device_back", {"device": device_id}))
                 device.missing_since = None
         listed = set(ids)
-        for device in self.devices.values():
+        for device in self.devices.values() if count else ():
             if device.id in listed:
                 continue
             device.absent += 1

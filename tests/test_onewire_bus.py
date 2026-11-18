@@ -229,3 +229,15 @@ def test_a_single_reading_far_off_is_an_outlier_a_jump_that_stays_is_not(tmp_pat
     read(OTHER, "46.5")
     other = next(r for r in b.rows() if r["id"] == OTHER)
     assert (other["bad"], other["spikes"]) == (1, 0)
+
+
+def test_a_search_by_hand_does_not_count_towards_missing(tmp_path: Path) -> None:
+    b = bus(tmp_path / "d.json", Clock())
+    b.listed([SENSOR, SWITCH])
+    for _ in range(onewire_bus.MISSING_AFTER + 1):
+        assert b.listed([SWITCH], count=False) == []  # clicked again and again
+    assert b.missing() == []
+    for _ in range(onewire_bus.MISSING_AFTER):
+        b.listed([SWITCH])
+    assert b.missing() == [SENSOR]
+    assert kinds(b.listed([SENSOR, SWITCH], count=False)) == [("onewire_device_back", SENSOR)]

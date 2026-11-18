@@ -641,7 +641,7 @@ class OneWireProxy:
         self.probe_ms = round((loop.time() - started) * 1000, 1)
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
-        self._emit(self.bus.listed(self.devices))
+        self._emit(self.bus.listed(self.devices, count=not uncached))
         for device_id in self.bus.needs_type():  # the exact chip, once per device
             try:
                 answered, chip = await self.ask(MSG_READ, f"/{device_id}/type", 32)
