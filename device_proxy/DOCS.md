@@ -491,6 +491,9 @@ when the device list stays unanswered twice in a row (about a minute), the app s
 again; after two such restarts without an answer it gives the adapter a USB reset, at most once
 in 10 minutes. **Restart** and **USB reset** on the connection's page do the same by hand. The
 connection's page shows whether owserver runs, its restarts and resets and its last messages.
+Under **Advanced**, **Cache for read values** sets how long the own owserver answers a value
+from its cache instead of asking the bus (15 s by default, 0 always from the bus): when several
+programs read the same sensors, a value around their poll interval saves bus time.
 
 ## Maintenance: one computer alone
 

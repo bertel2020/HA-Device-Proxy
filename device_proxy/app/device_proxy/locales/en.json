@@ -1533,7 +1533,10 @@
     "owParasiteHint": "The sensor takes its power from the data line (VDD not wired or on GND). On a longer bus or with several sensors converting at once that is the usual cause of 85 °C; a third wire for VDD helps.",
     "owBadParasite": "85 °C from a sensor on parasite power: its conversion did not get enough current. A third wire for VDD, a shorter bus or fewer sensors converting at once help.",
     "owAdapter": "Adapter",
-    "owAdapterVersion": "version {v}"
+    "owAdapterVersion": "version {v}",
+    "owCache": "Cache for read values (s)",
+    "owCacheHint": "How long the own owserver answers a value it read from its cache instead of asking the bus (its timeout_volatile). When several programs read the same sensors, a value around their poll interval saves bus time. 0: always from the bus. Reads of /uncached/ always go to the bus. Default 15.",
+    "owCacheOff": "off, always from the bus"
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

@@ -19,6 +19,7 @@ const DEFAULTS = {
   write_access: "all", write_clients: "", write_registers: "", write_rules: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false, fallback_probe_s: 10, fallback_misses: 3, fallback_stable_s: 60,
+  owserver_cache_s: 15,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write,
 // as the app does for one that names nobody (MODBUS_WRITE_CLIENTS in model.py)
@@ -695,7 +696,7 @@ export class EditPage extends Page {
   /** 1-Wire: the owserver to share, the port for the programs, who may write. */
   _onewireSections() {
     const d = this.draft;
-    const advancedCount = (d.timeout ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
+    const advancedCount = (d.timeout ? 1 : 0) + (d.trace !== "off" ? 1 : 0) + (d.link === "usb" && d.owserver_cache_s !== 15 ? 1 : 0);
     return html`
       <div class="note info" role="note">${t("owBetaNote")}</div>
       <section class="card" aria-labelledby="t-owsrc">
@@ -732,7 +733,8 @@ export class EditPage extends Page {
           <span><h2 id="t-adv">${t("tuning")}</h2><span class="hint">${t("owTuningSub")}</span></span>
           <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
-          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true, hint: t("owIdleHint") })}</div>
+          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true, hint: t("owIdleHint") })}
+            ${d.link === "usb" ? this._input("owserver_cache_s", t("owCache"), { number: true, hint: t("owCacheHint") }) : ""}</div>
           ${this._trace()}` : ""}
       </section>
 
