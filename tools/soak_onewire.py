@@ -313,8 +313,9 @@ async def main(minutes: float) -> int:
         problems.append("no read went through")
     if state["connections"] or proxy._open:
         problems.append(f"{state['connections']} client connections left at the proxy")
-    if owserver.writers:
-        problems.append(f"{len(owserver.writers)} connections left at the owserver")
+    kept = 1 if proxy._own is not None else 0  # the app's own requests keep one on purpose
+    if len(owserver.writers) > kept:
+        problems.append(f"{len(owserver.writers) - kept} connections left at the owserver")
     if proxy.clients:
         problems.append(f"hosts not gone after their idle time: {list(proxy.clients)}")
     if not proxy.reachable:
