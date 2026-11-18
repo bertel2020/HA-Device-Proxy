@@ -45,6 +45,9 @@ FROZEN_READS = 20
 POWER_ON = 85.0
 BAD_EVENT_EVERY = 3600.0  # at most one 85 °C event per device in this time
 TEMPERATURE_FAMILIES = {"10", "22", "28", "3B", "42"}
+# a temperature that does not move is a fault on these too: the DS2438 (humidity sensors,
+# battery monitors) has one, but no 85 °C power-on value
+FROZEN_FAMILIES = TEMPERATURE_FAMILIES | {"26"}
 # iButtons that are put on a reader and taken off again: DS1990A (also the DS2401 ID chip,
 # which is seldom wired to a bus), DS1991, DS1994, DS1993, DS1992, DS1995, DS1996
 TRANSIENT_FAMILIES = {"01", "02", "04", "06", "08", "0A", "0C"}
@@ -288,7 +291,7 @@ class Bus:
             values = {}
             frozen = False
             for prop, v in d.values.items():
-                temperature = d.family in TEMPERATURE_FAMILIES and TEMPERATURE.fullmatch(prop)
+                temperature = d.family in FROZEN_FAMILIES and TEMPERATURE.fullmatch(prop)
                 still = temperature and now - v.changed_at >= FROZEN_AFTER
                 frozen = frozen or bool(still and v.reads >= FROZEN_READS)
                 values[prop] = {"value": v.text, "at": v.at, "changed_at": v.changed_at}
