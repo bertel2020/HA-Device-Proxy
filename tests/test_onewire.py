@@ -508,6 +508,7 @@ def test_a_usb_bus_needs_no_address_and_only_one_is_allowed() -> None:
         AppConfig(connections=(c, other)).validate()
     assert err.value.errors == {"connections.1.link": "the USB adapter is used by Bus"}
     AppConfig(connections=(c, replace(other, link="owserver", host="vm"))).validate()
+    AppConfig(connections=(c, replace(other, enabled=False))).validate()  # a spare, switched off
     with pytest.raises(ValidationError) as err:
         replace(c, owserver_cache_s=-1).validate()
     assert "owserver_cache_s" in err.value.errors
