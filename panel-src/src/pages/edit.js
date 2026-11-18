@@ -19,7 +19,7 @@ const DEFAULTS = {
   write_access: "all", write_clients: "", write_registers: "", write_rules: "", listen_max_age_s: 60, cache_ms: 0, register_entities: "", entity_seconds: 30, unit_map: "", unit_routes: "", device_connections: 1, probe_seconds: 0, probe_unit: 1, probe_function: 3, probe_address: 0,
   esp_protocol: "esp2", model: "", send_gap_ms: 10, replay_size: 1000, replay_max_age_s: 900, replay_persist: false,
   fallback: "", fallback_trigger: "probe", fallback_return: "auto", fallback_listen: false, fallback_probe_s: 10, fallback_misses: 3, fallback_stable_s: 60,
-  owserver_cache_s: 15,
+  owserver_cache_s: 15, http_port: 0,
 };
 // new Modbus connections: only Home Assistant (127.0.0.1) and the other apps may write,
 // as the app does for one that names nobody (MODBUS_WRITE_CLIENTS in model.py)
@@ -713,6 +713,7 @@ export class EditPage extends Page {
           ${this._input("port", t("owPort"), { number: true, hint: t("owPortHint") })}
           ${this._input("max_clients", t("owMaxClients"), { number: true, hint: t("owMaxClientsHint") })}
         </div>
+        ${this._input("http_port", t("owHttpPort"), { number: true, hint: d.http_port && d.write_access !== "all" ? `${t("owHttpPortHint")} ${t("owHttpReadonly")}` : t("owHttpPortHint") })}
         ${this._input("remaddr", t("allowed"), { mono: true, hint: t("remaddrHint") })}
         ${d.remaddr !== HA_ONLY ? html`<div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: HA_ONLY })}>${t("eoHaOnly")}</button>
           ${d.remaddr ? html`<button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button>` : ""}</div>` : html`<div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-g" @click=${() => this._set({ remaddr: "" })}>${t("eoFollowGlobal")}</button></div>`}

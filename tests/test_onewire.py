@@ -584,6 +584,39 @@ async def test_a_connection_that_sends_no_request_is_closed(
     await _until(lambda: setup.proxy.state()["connections"] == 0)
     assert setup.proxy.clients == {}  # it never asked: no client
     writer.close()
+    kind, values = setup.events[-1]  # half a header is said, with the bytes
+    assert kind == "onewire_bad_request"
+    assert values["reason"] == "the rest of the request did not come"
+    half = request(MSG_READ, f"/{SENSOR}/temperature")[:10]
+    assert values["bytes"] == 10 and values["data"] == half.hex(" ")
+
+
+async def test_bytes_that_are_no_owserver_request_are_said(setup: Setup) -> None:
+    port = setup.proxy.port
+    # a port check says nothing
+    _reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.close()
+    await asyncio.sleep(0.05)
+    assert "onewire_bad_request" not in setup.kinds()
+    # the header and part of the path, then the program closes
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(request(MSG_READ, f"/{SENSOR}/temperature")[:30])
+    writer.write_eof()
+    assert await asyncio.wait_for(reader.read(), 2) == b""
+    await _until(lambda: "onewire_bad_request" in setup.kinds())
+    values = setup.events[-1][1]
+    assert values["reason"] == "closed before the request was complete" and values["bytes"] == 30
+    writer.close()
+    # another protocol (HTTP to the owserver's port)
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+    assert await asyncio.wait_for(reader.read(), 2) == b""
+    await _until(lambda: setup.proxy.stats.bad_requests == 2)
+    values = setup.events[-1][1]
+    assert values["reason"] == "not an owserver request" and values["bytes"] == 24
+    assert values["data"].startswith("47 45 54 20")  # "GET "
+    assert setup.proxy.clients == {} and setup.proxy.state()["bad_requests"] == 2
+    writer.close()
 
 
 async def test_the_apps_own_requests_share_one_connection(setup: Setup) -> None:
@@ -598,3 +631,131 @@ async def test_the_apps_own_requests_share_one_connection(setup: Setup) -> None:
         writer.transport.abort()
     ret, value = await setup.proxy.ask(MSG_READ, "/statistics/errors/CRC8_errors", 32)
     assert ret >= 0 and value.strip() == b"3"
+
+
+# the HTTP port (http_port): owhttpd behind the app, for programs that read over HTTP
+
+FAKE_HTTPD = Path(__file__).with_name("fake_owhttpd.py")
+
+
+@pytest.fixture
+def fake_owhttpd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """owhttpd is the fake; the arguments of every start go to the returned file."""
+    script = tmp_path / "owhttpd"
+    script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{FAKE_HTTPD}" "$@"\n')
+    script.chmod(0o755)
+    starts = tmp_path / "httpd_starts.txt"
+    monkeypatch.setattr(onewire, "OWHTTPD", str(script))
+    monkeypatch.setattr(onewire, "OWSERVER_DELAYS", (0.1,))
+    monkeypatch.setenv("FAKE_OWHTTPD_LOG", str(starts))
+    return starts
+
+
+async def http_get(port: int, path: str) -> bytes:
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(f"GET {path} HTTP/1.0\r\nHost: x\r\n\r\n".encode())
+    try:
+        data = await asyncio.wait_for(reader.read(), 5)
+    except ConnectionError:  # closed with the request unread: a reset
+        data = b""
+    writer.close()
+    return data
+
+
+async def _with_http(setup: Setup, **changes: object) -> tuple[OneWireProxy, asyncio.Task[None]]:
+    """A second proxy on the fake owserver of setup, with an HTTP port."""
+    c = replace(setup.proxy.c, http_port=onewire.free_port(), **changes)  # type: ignore[arg-type]
+    proxy = OneWireProxy(c, "all", lambda *a, **k: None, lambda chunk: None)
+    proxy.on_event = lambda level, kind, **params: setup.events.append((kind, params))
+    task = asyncio.create_task(proxy.run())
+    await _until(lambda: proxy.http_listening and proxy.owhttpd is not None, 5)
+    assert proxy.owhttpd is not None
+    owhttpd = proxy.owhttpd
+    await _until(lambda: owhttpd.running and bool(owhttpd.log), 5)  # it said "ready"
+    return proxy, task
+
+
+async def test_programs_read_over_http_through_the_proxy(setup: Setup, fake_owhttpd: Path) -> None:
+    proxy, task = await _with_http(setup, write_access="none")
+    try:
+        args = fake_owhttpd.read_text().split()
+        assert args[args.index("-s") + 1] == f"127.0.0.1:{proxy._inner_port}"
+        assert "--readonly" in args  # not every client may write
+        answer_ = await http_get(proxy.c.http_port, f"/{SENSOR}/temperature")
+        assert answer_.startswith(b"HTTP/1.0 200 OK") and answer_.endswith(b"21.5")
+        # the program is the client, owhttpd's own connection is not listed
+        assert list(proxy.clients) == ["127.0.0.1"]
+        client = proxy.clients["127.0.0.1"]
+        assert client.last_path == f"/{SENSOR}/temperature" and client.bytes_out > 0
+        assert (MSG_READ, f"/{SENSOR}/temperature", b"") in setup.server.requests
+        assert proxy.bus.devices[SENSOR].values["temperature"].text == "21.5"  # seen on the way
+        state = proxy.state()["http"]
+        assert state["listening"] and state["owhttpd"]["running"] and state["requests"] == 1
+        assert state["owhttpd"]["readonly"] is True
+        assert "403" in (await http_get(proxy.c.http_port, f"/{SWITCH}/PIO.A?PIO.A=1")).decode()
+        # a port check on the HTTP port is no client
+        proxy.clients.clear()
+        _reader, writer = await asyncio.open_connection("127.0.0.1", proxy.c.http_port)
+        writer.close()
+        await asyncio.sleep(0.05)
+        assert proxy.clients == {}
+    finally:
+        await _stop(task)
+    owhttpd = proxy.owhttpd
+    await _until(lambda: not owhttpd.running, 5)  # owhttpd ends with the proxy
+
+
+async def test_the_http_port_has_the_rules_of_the_owserver_port(
+    setup: Setup, fake_owhttpd: Path
+) -> None:
+    proxy, task = await _with_http(setup, remaddr="192.168.1.0/24")
+    try:
+        assert "--readonly" not in fake_owhttpd.read_text()  # write_access "all"
+        assert await http_get(proxy.c.http_port, f"/{SENSOR}/temperature") == b""
+        assert setup.kinds()[-1] == "client_refused_network" and proxy.clients == {}
+    finally:
+        await _stop(task)
+
+
+async def test_without_owhttpd_the_http_port_says_so(setup: Setup, fake_owhttpd: Path) -> None:
+    proxy, task = await _with_http(setup)
+    try:
+        assert proxy.owhttpd is not None
+        await proxy.owhttpd.terminate()  # ended, and not started again yet
+        proxy.owhttpd.port = onewire.free_port()
+        assert b"503" in await http_get(proxy.c.http_port, "/")
+    finally:
+        await _stop(task)
+
+
+def test_the_http_port_in_the_configuration() -> None:
+    c = Connection.from_dict(
+        {"name": "Bus", "port": 4304, "kind": "onewire", "link": "owserver", "host": "vm"}
+    )
+    assert c.http_port == 0
+    replace(c, http_port=2121).validate()
+    for port in (4304, 70000, 18399):
+        with pytest.raises(ValidationError) as err:
+            replace(c, http_port=port).validate()
+        assert "http_port" in err.value.errors
+    with pytest.raises(ValidationError) as err:
+        Connection.from_dict(
+            {"name": "S", "port": 9000, "device": "/dev/x", "http_port": 1}
+        ).validate()
+    assert err.value.errors["http_port"] == "only for a 1-Wire connection"
+    other = Connection.from_dict(
+        {"name": "Bus 2", "port": 2121, "kind": "onewire", "link": "owserver", "host": "pi"}
+    )
+    with pytest.raises(ValidationError) as err:
+        AppConfig(connections=(replace(c, http_port=2121), other)).validate()
+    assert err.value.errors == {"connections.1.port": "also used by Bus"}
+    # writing over HTTP follows write_access: a change starts owhttpd again
+    with_http = replace(c, http_port=2121)
+    key = onewire.restart_key(with_http, "all")
+    assert onewire.restart_key(replace(with_http, write_access="none"), "all") != key
+    assert onewire.restart_key(replace(c, write_access="none"), "all") == onewire.restart_key(
+        c, "all"
+    )
+    assert onewire.http_path(b"GET /28.A1B2C3D4E5F6/temperature HTTP/1.1\r\n") == (
+        "/28.A1B2C3D4E5F6/temperature"
+    )

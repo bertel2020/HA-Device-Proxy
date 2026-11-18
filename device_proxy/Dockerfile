@@ -38,7 +38,7 @@ RUN try=1 && until wget -q -O "ser2net-${SER2NET_VERSION}.tar.gz" "https://githu
     && make -j"$(nproc)" \
     && make install DESTDIR=/out \
     && rm -rf /out/usr/include /out/usr/share/man /out/usr/lib/*.la /out/usr/lib/pkgconfig
-# only owserver, with USB (checked: configure leaves USB out quietly when libusb is missing)
+# owserver with USB, and owhttpd for programs that read the bus over HTTP (checked: configure leaves USB out quietly when libusb is missing)
 RUN try=1 && until wget -q -O "owfs-${OWFS_VERSION}.tar.gz" "https://github.com/owfs/owfs/releases/download/v${OWFS_VERSION}/owfs-${OWFS_VERSION}.tar.gz"; do \
         [ "$try" -lt 10 ] || exit 1; try=$((try + 1)); echo "owfs download failed, try $try in 30 s"; sleep 30; \
     done \
@@ -46,7 +46,7 @@ RUN try=1 && until wget -q -O "owfs-${OWFS_VERSION}.tar.gz" "https://github.com/
     && tar xzf "owfs-${OWFS_VERSION}.tar.gz" \
     && cd "owfs-${OWFS_VERSION}" \
     && ./configure --prefix=/usr --sysconfdir=/etc --enable-usb \
-        --disable-owfs --disable-owhttpd --disable-owftpd --disable-owexternal --disable-owtap \
+        --disable-owfs --disable-owftpd --disable-owexternal --disable-owtap \
         --disable-owmon --disable-owcapi --disable-ownet --disable-ownetlib --disable-owshell \
         --disable-swig --disable-owperl --disable-owphp --disable-owpython --disable-owtcl \
         --disable-zero --disable-avahi --disable-parport --disable-ftdi --disable-i2c --disable-w1 \
@@ -65,8 +65,9 @@ ENV APP_VERSION=${BUILD_VERSION}
 
 RUN apk add --no-cache yaml libssl3 libcrypto3 libusb
 COPY --from=build /out/ /
-# owserver --version ends with an error code after printing it
-RUN ser2net -v && owserver --version 2>&1 | grep "libow version" -A1
+# owserver and owhttpd --version end with an error code after printing it
+RUN ser2net -v && owserver --version 2>&1 | grep "libow version" -A1 \
+    && owhttpd --version 2>&1 | grep -q "libow version"
 
 COPY --from=build /wheels /tmp/wheels
 RUN pip3 install --no-cache-dir --no-index /tmp/wheels/*.whl && rm -rf /tmp/wheels

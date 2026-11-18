@@ -686,18 +686,25 @@ class Controller:
         now = time.time()
         self._restarts = [t for t in self._restarts if now - t < 600] + [now]
 
-    def port_problem(self, c: Connection) -> str | None:
-        """Why the connection's port cannot be opened right now (another program has it),
-        None when it can or when this app holds it for this connection already."""
+    def port_problem(self, c: Connection, port: int | None = None) -> str | None:
+        """Why the connection's port (or another of its ports: the HTTP port) cannot be
+        opened right now (another program has it), None when it can or when this app holds
+        it for this connection already."""
+        port = c.port if port is None else port
         current = self.config.connection(c.id)
-        if current and current.enabled and (current.port, current.bind) == (c.port, c.bind):
+        if (
+            current
+            and current.enabled
+            and current.bind == c.bind
+            and port in (current.port, current.http_port)
+        ):
             return None  # this connection's own port
         host = c.bind or ("127.0.0.1" if self.config.settings.listen == "local" else "")
         family = socket.AF_INET6 if ":" in host else socket.AF_INET
         with socket.socket(family, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # as the servers do
             try:
-                sock.bind((host, c.port))
+                sock.bind((host, port))
             except PermissionError:
                 return None  # a low port, not the app's question here
             except OSError as err:
@@ -709,7 +716,7 @@ class Controller:
         # a program listening on one address only may leave the bind above free
         with socket.socket(family, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.2)
-            if sock.connect_ex((host or "127.0.0.1", c.port)) == 0:
+            if sock.connect_ex((host or "127.0.0.1", port)) == 0:
                 return "in use by another program"
         return None
 

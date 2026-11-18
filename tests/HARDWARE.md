@@ -77,6 +77,7 @@ Unerwartetes steht.
 | W11 | Sensor fehlt | Einen Sensor abklemmen, gut eine Minute warten, wieder anklemmen | „fehlt seit …“, Ereignis und Benachrichtigung mit Namen; danach „wieder da“; „Vergessen“ nimmt ein dauerhaft entferntes heraus | `test_onewire_bus.py` | |
 | W12 | Namen | „Namen bearbeiten“, Namen vergeben, App neu starten | Namen bleiben, Ereignisse nennen sie | `test_kinds.py` | |
 | W13 | Werte und Fehler | HA liest die Sensoren | „Letzter Wert“ wie in HA; bei langem Bus/parasitärer Versorgung ggf. Chip „85 °C“; Busfehler-Zeile aus `/statistics/errors` plausibel | `test_onewire_bus.py` | |
+| W14 | HTTP-Port (owhttpd) | HTTP-Port 2121 setzen, im Browser oder per Symcon-Modul `http://<HA>:2121/` und einen Sensor öffnen | Seite von owhttpd mit den Geräten, Wert wie in HA; der Rechner erscheint als Client; mit Schreibzugriff „Niemand“ lässt sich kein Ausgang schalten | `test_onewire.py` | |
 | W10 | Ohne Adapter | Quelle USB, aber Adapter nicht durchgereicht | Hinweis „Kein 1-Wire-USB-Adapter gefunden“, owserver startet mit Pausen neu, sonst läuft alles weiter | | |
 
 ## App, Supervisor, Ingress
