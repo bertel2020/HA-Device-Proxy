@@ -1487,7 +1487,9 @@
     "owDevicesN": "{n} Geräte",
     "owDownText": "owserver nicht erreichbar: {e}",
     "liveEmptyOw": "Noch keine Anfragen. Sobald ein Programm fragt, stehen hier Anfragen und Antworten.",
-    "liveSubOw": "Anfragen an den owserver und seine Antworten, mit Pfad und Client."
+    "liveSubOw": "Anfragen an den owserver und seine Antworten, mit Pfad und Client.",
+    "beta": "Beta",
+    "owBetaNote": "1-Wire ist neu und noch nicht mit jeder owserver-Einrichtung getestet. Wenn etwas nicht geht, bitte ein Issue mit dem Diagnose-Paket aus den Einstellungen anlegen."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

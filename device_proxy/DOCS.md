@@ -429,6 +429,9 @@ undo it.
 
 ## 1-Wire buses
 
+*Beta, new in 1.8.0: if something does not work with your owserver, please open an issue with
+the diagnostics.*
+
 A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. The source is
 an owserver in the network, for example the one on another computer or VM that has the USB
 adapter (DS9490R, DS1490F) today. Home Assistant's 1-Wire integration, owhttpd, pyownet scripts

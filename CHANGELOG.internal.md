@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.8.0 - 2026-11-18
+
 - GitHub-Vorschaubild (Social Preview) `screenshots/social-preview.png`, 1280×640: Icon, Name, Kernsatz, acht Funktionen (ser2net 4, Modbus-Proxy, EnOcean-Proxy, Gateway-Ersatz, zweites oder Test-HA, Replay, Schreibschutz je Client, Live-Daten) und der englische Modbus-Screenshot. Quelle `tools/social-preview.html`, gerendert mit headless Chrome (Befehl oben in der Datei); hochgeladen wird es von Hand unter Settings → General → Social preview. README (de/en) nennt es unter Development.
 - GitHub Discussions eingeschaltet; `.github/ISSUE_TEMPLATE/config.yml` hat als ersten Kontakt-Link „Question / Frage“ auf die Kategorie Q&A.
 - README (de/en), Modbus-Proxy: statt „verbreitete Wechselrichter“ die Hersteller der Geräteprofile aus `model.py` (SolarEdge, Huawei SUN2000, Fronius, SMA, Kostal Plenticore, Sungrow, Victron GX), damit Suchen nach dem Hersteller das Projekt finden.
@@ -23,8 +25,9 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
   - `tools/dev_server.py`: simulierter owserver mit vier Geräten, Verbindung „1-Wire-Bus“ auf 14304 und ein Client, der alle 5 s zwei Temperaturen liest.
   - Tests: `tests/test_onewire.py` (Protokoll, Durchreichen, Persistenz mit Pings und DIR, Schreibrechte, Abweisen und Ablauf von Clients, nicht erreichbarer owserver, Konfiguration, Neustart-Schlüssel, Entitäten), `test_kinds.py` (Controller, Snapshot, Adressen, Probleme, MQTT).
   - `tests/HARDWARE.md`: Abschnitt 1-Wire (W1–W5) für den Test gegen einen echten owserver.
+  - Als Beta gekennzeichnet: Chip „Beta“ an der Verbindungsart im Formular und an der Karte owserver, Hinweis `owBetaNote` oben im Formular, Satz in DOCS (de/en).
   - Noch nicht: owserver im Image (libusb) und USB-Adapter direkt an der App; das kommt mit Schritt 2.
-- CI, Job `publish`: auch andere Branches veröffentlichen ein Image, aber nur eine Testversion (Version mit „-“, etwa `1.8.0-dev1`), nur wenn alle Jobs grün sind und nie als `latest`; eine Version ohne „-“ auf einem Branch wird übersprungen. Die Tags kommen aus dem Schritt `version`. Eine Testinstanz installiert so `<Repository-URL>#<Branch>`; wer `main` nutzt, bleibt auf dessen Version. Branch `onewire` steht auf `1.8.0-dev1`; vor dem Merge nach `main` kommt dort wieder eine echte Version hin.
+- CI, Job `publish`: auch andere Branches veröffentlichen ein Image, aber nur eine Testversion (Version mit „-“, etwa `1.8.0-dev1`), nur wenn alle Jobs grün sind und nie als `latest`; eine Version ohne „-“ auf einem Branch wird übersprungen. Die Tags kommen aus dem Schritt `version`. Eine Testinstanz installiert so `<Repository-URL>#<Branch>`; wer `main` nutzt, bleibt auf dessen Version. So entstand `1.8.0-dev1` vom Branch `onewire` (das Image ist auf ghcr, ohne Release).
 - DOCS (de/en): Abschnitt „1-Wire buses“/„1-Wire-Busse“ und Punkt in der Einleitung; README (de/en): Kurztext, Einleitung und Highlight; `config.yaml` `description`.
 
 ## 1.7.0 - 2026-11-15
