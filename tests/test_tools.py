@@ -318,3 +318,50 @@ def test_notifications_are_dismissed_after_a_restart_and_a_failed_dismiss_again(
         assert json.loads(path.read_text()) == ["stays"]
 
     asyncio.run(run())
+
+
+def test_diagnostics_of_a_onewire_bus_keep_the_bus_and_hide_who() -> None:
+    """The 1-Wire state is in the ZIP (devices, counters, owserver log, writes), without the
+    names of the devices, the addresses of the clients or the owserver's host name."""
+    import io
+    import zipfile
+
+    from device_proxy.diagnostics import build
+    from device_proxy.model import Connection, Settings
+
+    bus = Connection("Bus", "", 4304, kind="onewire", link="owserver", host="vm-keller.fritz.box")
+    settings = Settings(onewire_names="28.A1B2C3D4E5F6 Kinderzimmer Lena")
+    config = AppConfig(settings=settings, connections=(bus,)).to_dict()
+    row = {
+        **bus.to_dict(),
+        "clients": [{"address": "192.168.1.20"}],
+        "onewire": {
+            "devices": [
+                {"id": "28.A1B2C3D4E5F6", "bad": 2, "values": {"temperature": {"value": "85"}}}
+            ],
+            "writes": [{"client": "192.168.1.20", "path": "/3A.112233445566/PIO.A", "value": "1"}],
+            "owserver": {"log": ["accepted 192.168.1.20 from vm-keller.fritz.box"]},
+        },
+    }
+    event = {
+        "kind": "onewire_device_missing",
+        "params": {"device": "28.A1B2C3D4E5F6", "label": "Kinderzimmer Lena (28.A1B2C3D4E5F6)"},
+        "message": "1-Wire device missing: Kinderzimmer Lena (28.A1B2C3D4E5F6)",
+    }
+    data = build(
+        version="1",
+        ser2net_version="4",
+        snapshot={"settings": config["settings"], "connections": [row]},
+        config=config,
+        runtime_yaml="",
+        events=[event],
+    )
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    text = "".join(archive.read(n).decode() for n in archive.namelist())
+    for private in ("Kinderzimmer", "Lena", "192.168.1.20", "vm-keller"):
+        assert private not in text, private
+    status = json.loads(archive.read("status.json"))
+    (ow,) = [c["onewire"] for c in status["connections"]]
+    assert ow["devices"][0]["bad"] == 2 and ow["writes"][0]["path"] == "/3A.112233445566/PIO.A"
+    (missing,) = json.loads(archive.read("events.json"))
+    assert missing["message"] == "1-Wire device missing: 28.A1B2C3D4E5F6"
