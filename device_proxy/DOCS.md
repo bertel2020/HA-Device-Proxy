@@ -456,7 +456,7 @@ app reads no values itself); **+N values** shows all the others read from the de
 outputs of a DS2408 or the humidity and voltage of a DS2438. The app remembers the devices, also over restarts: one that is
 missing from the device list twice in a row shows as **missing since**, and the app notifies
 you if **Notify when the device is missing or not reachable** is on; one taken off on purpose
-is removed with **Forget**. A device that appears later is marked **new**. **Search the bus now** searches the bus at once
+is removed with **Forget**. A device that appears later is marked **new** for a day. **Search the bus now** searches the bus at once
 instead of using the owserver's cached list, handy while wiring. iButtons (the reader of a DS1490F, families 01,
 02, 04, 06, 08, 0A, 0C) come and go: they never count as missing, the list says when one was on
 the reader last. Two typical faults

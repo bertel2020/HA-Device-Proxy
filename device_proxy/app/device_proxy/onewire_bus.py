@@ -42,6 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 KNOWN_FILE = Path("/data/onewire_devices.json")  # per connection: the devices seen
 MISSING_AFTER = 2  # device lists in a row without a known device: it counts as missing
 NEW_AFTER = 300.0  # seconds after the first list: a device seen later is new
+NEW_FOR = 86400.0  # seconds a new device is marked so
 SAVE_EVERY = 600.0  # seconds between two saves only for the times last seen
 FROZEN_AFTER = 7200.0
 FROZEN_READS = 20
@@ -348,7 +349,7 @@ class Bus:
                     "last": d.last,
                     "present": d.missing_since is None and d.absent == 0,
                     "missing_since": d.missing_since,
-                    "new": d.new,
+                    "new": d.new and now - d.first < NEW_FOR,
                     "transient": d.transient,
                     "values": values,
                     "errors": d.errors,
