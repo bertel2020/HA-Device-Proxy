@@ -96,8 +96,15 @@ CONNECTIONS_PER_HOST = 32  # open connections of one host at a time; more are re
 # a new connection must bring its first request within this time; owserver clients send it
 # at once, so one that sends nothing (or half a header) only holds a place
 FIRST_REQUEST = 30.0
+HTTP_CLIENT = "HTTP"  # owhttpd's own connections, for the HTTP port's programs
+HTTP_UNAVAILABLE = (
+    b"HTTP/1.0 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+    b"\r\nowhttpd is not running\r\n"
+)
+BAD_SHOWN = 32  # bytes of a bad first request said in its event, as hex
 
 OWSERVER = "owserver"
+OWHTTPD = "owhttpd"
 ADAPTER = ("04fa", "2490")  # vendor and product of the DS2490 (DS9490R, DS1490F)
 OWSERVER_DELAYS = (1, 2, 5, 10, 30)  # seconds before starting an ended owserver again
 OWSERVER_STABLE = 60.0  # a run this long resets the delay
@@ -161,6 +168,7 @@ class Stats:
     errors: int = 0  # answers with a negative return value
     blocked: int = 0  # writes turned away (write_access)
     refused: int = 0  # connections turned away (networks, max_clients)
+    bad_requests: int = 0  # connections whose first bytes were no complete request
     last_error: str = ""
     last_error_at: float = 0.0
 
@@ -208,7 +216,8 @@ def restart_key(c: Connection, listen: str) -> Connection:
         # read for every client or request
         max_clients=1,
         timeout=0,
-        write_access="all",
+        # owhttpd runs read-only unless every client may write
+        write_access="all" if not c.http_port or c.write_access == "all" else "none",
         write_clients="",
     )
 
@@ -224,15 +233,31 @@ def answer(ret: int, payload: bytes = b"", flags: int = 0) -> bytes:
     return HEADER.pack(0, len(payload), ret, flags, len(payload), 0) + payload
 
 
-async def read_request(reader: asyncio.StreamReader) -> tuple[bytes, int, int, str]:
+async def _exactly(reader: asyncio.StreamReader, size: int, seen: bytearray | None) -> bytes:
+    """readexactly, keeping in seen what came, also when the rest does not come."""
+    if seen is None:
+        return await reader.readexactly(size)
+    got = bytearray()
+    while len(got) < size:
+        chunk = await reader.read(size - len(got))
+        if not chunk:
+            raise asyncio.IncompleteReadError(bytes(got), size)
+        got += chunk
+        seen += chunk
+    return bytes(got)
+
+
+async def read_request(
+    reader: asyncio.StreamReader, seen: bytearray | None = None
+) -> tuple[bytes, int, int, str]:
     """One client message: (all its bytes, type, flags, path); EOF before a header raises
-    IncompleteReadError."""
-    head = await reader.readexactly(HEADER.size)
+    IncompleteReadError. seen gets the bytes read, for saying what a bad request was."""
+    head = await _exactly(reader, HEADER.size, seen)
     version, payload, kind, flags, _size, _offset = HEADER.unpack(head)
     tokens = version & 0xFFFF if version & SERVER_MESSAGE else 0
     if not 0 <= payload <= MAX_REQUEST or tokens > MAX_TOKENS:
         raise ProtocolError(f"not an owserver request (payload {payload})")
-    body = await reader.readexactly(payload + tokens * TOKEN_SIZE)
+    body = await _exactly(reader, payload + tokens * TOKEN_SIZE, seen)
     path = body[:payload].split(b"\0", 1)[0].decode("utf-8", "replace")
     return head + body, kind, flags, path
 
@@ -260,6 +285,12 @@ def parse_devices(payload: bytes) -> list[str]:
     return found
 
 
+def http_path(line: bytes) -> str:
+    """The path of an HTTP request line ("GET /28.A1B2C3D4E5F6/temperature HTTP/1.1")."""
+    parts = line.decode("latin-1").split()
+    return parts[1][:256] if len(parts) >= 2 else line.decode("latin-1").strip()[:64]
+
+
 def error_name(ret: int) -> str:
     return errno.errorcode.get(-ret, str(ret))
 
@@ -273,6 +304,8 @@ def free_port() -> int:
 
 class OwServer:
     """The app's own owserver on the USB adapter: started again when it ends."""
+
+    name = "owserver"
 
     def __init__(
         self,
@@ -360,7 +393,7 @@ class OwServer:
                 break
             if line := raw.decode(errors="replace").strip():
                 self.log.append(line)
-                _LOGGER.info("owserver: %s", line)
+                _LOGGER.info("%s: %s", self.name, line)
         self.last_exit = await self._proc.wait()
         return self.last_exit
 
@@ -416,6 +449,36 @@ class OwServer:
         }
 
 
+class OwHttpd(OwServer):
+    """owhttpd for programs that read the bus over HTTP (port 2121 in OWFS): on 127.0.0.1 and
+    a free port, asking the proxy's inner port (server_port), so its requests go through
+    the proxy like any client's. readonly: no writes over HTTP (write_access is not "all";
+    owhttpd cannot tell the computers behind it apart)."""
+
+    name = "owhttpd"
+
+    def __init__(
+        self,
+        server_port: Callable[[], int],
+        on_exit: Callable[[int | None, float], None],
+        readonly: bool,
+        binary: str = "",
+    ) -> None:
+        super().__init__(0, on_exit, binary or OWHTTPD)
+        self.server_port = server_port
+        self.readonly = readonly
+
+    def command(self) -> list[str]:
+        return [
+            self.binary, "--foreground", "--error_print=2", "--error_level=1",
+            "-s", f"127.0.0.1:{self.server_port()}", "-p", f"127.0.0.1:{self.port}",
+            *(["--readonly"] if self.readonly else []),
+        ]  # fmt: skip
+
+    def state(self) -> dict[str, Any]:
+        return {**super().state(), "readonly": self.readonly}
+
+
 class OneWireProxy:
     def __init__(
         self,
@@ -458,6 +521,22 @@ class OneWireProxy:
             else None
         )
         self.adapters: list[UsbDevice] = []
+        # http_port: owhttpd behind the app's own HTTP port, asking the inner port
+        self.owhttpd = (
+            OwHttpd(
+                lambda: self._inner_port,
+                self._owhttpd_ended,
+                readonly=c.write_access != "all",
+            )
+            if c.http_port
+            else None
+        )
+        self.http_listening = False
+        self.http_listen_error = ""
+        self._http: asyncio.Server | None = None  # the HTTP port for the programs
+        self._inner: asyncio.Server | None = None  # owhttpd's owserver, 127.0.0.1 only
+        self._inner_port = 0
+        self._http_host = _Host(HTTP_CLIENT, "127.0.0.1", time.time(), time.time(), 0.0, True)
         self.find_adapters: Callable[[], list[UsbDevice]] = lambda: usb_devices(*ADAPTER)
         self.reset_adapter: Callable[[str], None] = lambda node: reset_node(Path(node))
         self.watchdog = Watchdog()
@@ -485,6 +564,8 @@ class OneWireProxy:
             ]
             if self.owserver is not None:
                 tasks.append(asyncio.create_task(self.owserver.run()))
+            if self.owhttpd is not None:
+                tasks.append(asyncio.create_task(self._http_run()))
             await asyncio.gather(*tasks)
         finally:
             for task in tasks:
@@ -502,16 +583,17 @@ class OneWireProxy:
         self.listening, self.listen_error = True, ""
 
     async def _shutdown(self) -> None:
-        self.listening = False
+        self.listening = self.http_listening = False
         self._drop_own()
-        if self._server is not None:
-            self._server.close()
-        for client in self.clients.values():
+        servers = [s for s in (self._server, self._http, self._inner) if s is not None]
+        for server in servers:
+            server.close()
+        for client in [*self.clients.values(), self._http_host]:
             for writer in list(client.writers):
                 writer.transport.abort()
-        if self._server is not None:
+        for server in servers:
             with contextlib.suppress(Exception):
-                await asyncio.wait_for(self._server.wait_closed(), CLOSE_TIMEOUT)
+                await asyncio.wait_for(server.wait_closed(), CLOSE_TIMEOUT)
 
     # the owserver
 
@@ -818,19 +900,37 @@ class OneWireProxy:
             return
         keepalive(writer.get_extra_info("socket"))
         self._open += 1
-        client: _Host | None = None
-        upstream: asyncio.StreamWriter | None = None
-        pumps: list[asyncio.Task[None]] = []
         try:
+            seen = bytearray()
             try:
                 limit = min(self.c.timeout, FIRST_REQUEST) if self.c.timeout else FIRST_REQUEST
-                first = await asyncio.wait_for(read_request(reader), limit)
-            except (asyncio.IncompleteReadError, TimeoutError, OSError, ProtocolError):
-                return  # connected and asked nothing (a port check): no client
+                first = await asyncio.wait_for(read_request(reader, seen), limit)
+            except (asyncio.IncompleteReadError, TimeoutError, OSError, ProtocolError) as err:
+                # connected and said nothing (a port check): no client, nothing to say; bytes
+                # that are no owserver request are said, the program speaks something else
+                if seen:
+                    self._bad_request(allowed[0], seen, err)
+                return
             client = self._client_for(*allowed)
             if client is None:
                 return
-            client.writers.add(writer)
+            await self._serve(client, reader, writer, first)
+        finally:
+            writer.close()
+            self._open -= 1
+
+    async def _serve(
+        self,
+        client: _Host,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        first: tuple[bytes, int, int, str],
+    ) -> None:
+        """A client's connection after its first request: to the owserver and back."""
+        upstream: asyncio.StreamWriter | None = None
+        pumps: list[asyncio.Task[None]] = []
+        client.writers.add(writer)
+        try:
             try:
                 up_reader, upstream = await self._connect()
             except OSError as err:  # ConnectionError too
@@ -850,11 +950,140 @@ class OneWireProxy:
             await asyncio.gather(*pumps, return_exceptions=True)
             if upstream is not None:
                 upstream.close()
+            client.writers.discard(writer)
+            client.active = asyncio.get_running_loop().time()
+
+    # owhttpd (http_port): programs that read the bus over HTTP
+
+    async def _http_run(self) -> None:
+        """The inner port for owhttpd, owhttpd itself and the HTTP port for the programs."""
+        assert self.owhttpd is not None
+        self._inner = await asyncio.start_server(self._inner_client, "127.0.0.1", 0)
+        self._inner_port = int(self._inner.sockets[0].getsockname()[1])
+        owhttpd = asyncio.create_task(self.owhttpd.run())
+        failed = False
+        try:
+            while self._http is None:
+                host = self.c.bind or ("127.0.0.1" if self.listen == "local" else None)
+                try:
+                    self._http = await asyncio.start_server(
+                        self._http_client, host, self.c.http_port, reuse_address=True
+                    )
+                except OSError as err:
+                    self.http_listen_error = str(err)
+                    if not failed:
+                        failed = True
+                        self.on_event(
+                            "error", "listen_failed", port=self.c.http_port, error=str(err)
+                        )
+                    await asyncio.sleep(LISTEN_RETRY)
+            self.http_listening, self.http_listen_error = True, ""
+            await owhttpd
+        finally:
+            owhttpd.cancel()
+            await asyncio.gather(owhttpd, return_exceptions=True)
+
+    def _owhttpd_ended(self, code: int | None, delay: float) -> None:
+        assert self.owhttpd is not None
+        error = self.owhttpd.start_error or (self.owhttpd.log[-1] if self.owhttpd.log else "")
+        self.on_event("warning", "onewire_owhttpd_ended", code=code, delay=delay, error=error)
+
+    async def _inner_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        """owhttpd's owserver connection: one client "HTTP" that is never listed itself (the
+        computers behind it are, on the HTTP port)."""
+        try:
+            try:
+                first = await asyncio.wait_for(read_request(reader), FIRST_REQUEST)
+            except (asyncio.IncompleteReadError, TimeoutError, OSError, ProtocolError):
+                return
+            await self._serve(self._http_host, reader, writer, first)
+        finally:
+            writer.close()
+
+    async def _http_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        """A program on the HTTP port: the same rules as on the owserver port, then the bytes
+        to owhttpd and back unchanged."""
+        allowed = self._allowed(writer)
+        if allowed is None:
+            writer.close()
+            return
+        self._open += 1
+        client: _Host | None = None
+        upstream: asyncio.StreamWriter | None = None
+        pumps: list[asyncio.Task[None]] = []
+        try:
+            try:
+                line = await asyncio.wait_for(reader.readline(), FIRST_REQUEST)
+            except (TimeoutError, OSError, ValueError):
+                return
+            if not line:
+                return  # a port check
+            client = self._client_for(*allowed)
+            if client is None:
+                return
+            assert self.owhttpd is not None
+            try:
+                up_reader, up_writer = await asyncio.wait_for(
+                    asyncio.open_connection("127.0.0.1", self.owhttpd.port), CONNECT_TIMEOUT
+                )
+            except (OSError, TimeoutError):
+                writer.write(HTTP_UNAVAILABLE)
+                await writer.drain()
+                return
+            upstream = up_writer
+            client.writers.add(writer)
+            path = http_path(line)
+            loop = asyncio.get_running_loop()
+            client.requests += 1
+            client.last, client.active, client.last_path = time.time(), loop.time(), path
+            self._trace("tx", line, f"http {path} · {client.address}")
+            pumps = [
+                asyncio.create_task(self._pipe(reader, up_writer, client, line, inbound=True)),
+                asyncio.create_task(self._pipe(up_reader, writer, client, b"", inbound=False)),
+            ]
+            await asyncio.wait(pumps, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for pump in pumps:
+                pump.cancel()
+            await asyncio.gather(*pumps, return_exceptions=True)
+            if upstream is not None:
+                upstream.close()
             writer.close()
             if client is not None:
                 client.writers.discard(writer)
                 client.active = asyncio.get_running_loop().time()
             self._open -= 1
+
+    @staticmethod
+    async def _pipe(
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        client: _Host,
+        first: bytes,
+        inbound: bool,
+    ) -> None:
+        with contextlib.suppress(OSError):
+            data = first
+            while True:
+                if data:
+                    writer.write(data)
+                    if inbound:
+                        client.bytes_in += len(data)
+                    else:
+                        client.bytes_out += len(data)
+                    await writer.drain()
+                data = await reader.read(65536)
+                if not data:
+                    if inbound and writer.can_write_eof():
+                        # the program sent all it will: owhttpd still answers, the other
+                        # direction ends the connection
+                        writer.write_eof()
+                        await asyncio.get_running_loop().create_future()
+                    return
 
     async def _requests(
         self,
@@ -938,6 +1167,25 @@ class OneWireProxy:
                 self._trace("rx", data, f"{_said(name, path, ret, data)} · {client.address}")
                 await writer.drain()
 
+    def _bad_request(self, host: str, seen: bytearray, err: BaseException) -> None:
+        """A connection whose first bytes are no complete owserver request."""
+        if isinstance(err, ProtocolError):
+            reason = "not an owserver request"
+        elif isinstance(err, TimeoutError):
+            reason = "the rest of the request did not come"
+        else:
+            reason = "closed before the request was complete"
+        self.stats.bad_requests += 1
+        self._trace("tx", bytes(seen), f"incomplete request · {host}")
+        self.on_event(
+            "warning",
+            "onewire_bad_request",
+            address=host,
+            reason=reason,
+            bytes=len(seen),
+            data=bytes(seen[:BAD_SHOWN]).hex(" "),
+        )
+
     def _trace(self, direction: str, data: bytes, info: str) -> None:
         self.on_trace(Chunk(time.time(), direction, data, info=info))
 
@@ -973,6 +1221,17 @@ class OneWireProxy:
             "watchdog": asdict(self.watchdog) if self.owserver is not None else None,
             "listening": self.listening,
             "listen_error": self.listen_error,
+            "http": (
+                {
+                    "port": self.c.http_port,
+                    "listening": self.http_listening,
+                    "listen_error": self.http_listen_error,
+                    "owhttpd": self.owhttpd.state(),
+                    "requests": self._http_host.requests,
+                }
+                if self.owhttpd is not None
+                else None
+            ),
             "reachable": self.reachable,
             "reachable_since": self.reachable_since,
             "target": self.c.upstream,
@@ -994,6 +1253,7 @@ class OneWireProxy:
             "errors": s.errors,
             "blocked": s.blocked,
             "refused": s.refused,
+            "bad_requests": s.bad_requests,
             "answer_ms": {
                 "last": self._last_answer_ms,
                 "avg": round(sum(answers) / len(answers), 1) if answers else None,

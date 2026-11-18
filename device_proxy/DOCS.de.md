@@ -17,8 +17,8 @@ Die App teilt Geräte mit mehreren Programmen gleichzeitig:
   EnOcean-Proxy der App: mehrere Programme (Home Assistant, eo_man, PCT14) teilen sich ein
   Gateway (siehe [EnOcean-Gateways](#enocean-gateways)).
 - **1-Wire-Busse** über einen owserver (OWFS): die Programme, die die Sensoren lesen, verbinden
-  sich mit der App statt mit dem owserver, und die App zeigt, welche Geräte am Bus hängen und wer
-  was fragt (siehe [1-Wire-Busse](#1-wire-busse)).
+  sich mit der App statt mit dem owserver, auf Wunsch auch über HTTP wie mit owhttpd, und die App
+  zeigt, welche Geräte am Bus hängen und wer was fragt (siehe [1-Wire-Busse](#1-wire-busse)).
 
 Eingerichtet wird alles auf der Seite der App in der Seitenleiste (**Device Proxy**). Die App hat
 keine eigenen Optionen; ihr Reiter **Konfiguration** im Supervisor bleibt deshalb mit Absicht leer.
@@ -529,7 +529,11 @@ zu nehmen, praktisch beim Verkabeln. Die Suche zählt nicht für „fehlt“.
 Die meisten owserver-Programme öffnen für jede Anfrage eine neue Verbindung. Ein Client ist
 deshalb ein Rechner, keine Verbindung: Er gilt ab seiner ersten Anfrage als verbunden, bis er
 5 Minuten lang nichts gefragt hat, und **Rechner höchstens** begrenzt die Rechner. Eine
-Verbindung, die innerhalb von 30 Sekunden keine Anfrage schickt, schließt die App.
+Verbindung, die innerhalb von 30 Sekunden keine Anfrage schickt, schließt die App. Schickt ein
+Programm etwas, das keine vollständige owserver-Anfrage ist (etwa ein anderes Protokoll, oder es
+schließt mitten in der Anfrage), steht in den Ereignissen „Keine owserver-Anfrage“ mit dem Rechner,
+dem Grund und den ersten empfangenen Bytes; ein Programm, das so nie zum Client wird, findest du
+damit. Ein reiner Port-Check (verbinden, nichts senden) bleibt still.
 
 **Schreibzugriff**: owserver hat keine Anmeldung, wer ihn erreicht, darf Ausgänge schalten
 (DS2408, DS2413) oder Einstellungen ändern. **Alle Clients** lässt es so. **Nur diese** lässt die
@@ -537,6 +541,20 @@ angegebenen Adressen schreiben, **Niemand** macht den Bus nur lesbar. Ein abgewi
 Schreibversuch bekommt von der App den Fehler EACCES und erreicht den Bus nie; die Ereignisse
 nennen Client und Pfad. Die Karte **Schreibzugriffe** listet die letzten 100 seit dem Start mit
 Client, Gerät, Wert und Ergebnis, auch die abgewiesenen.
+
+### HTTP-Port (owhttpd)
+
+Manche Programme lesen den Bus nicht über das owserver-Protokoll, sondern über HTTP vom owhttpd aus
+OWFS, üblich auf Port 2121 (etwa 1-Wire-Module für IP-Symcon). Für sie gibt es in der Verbindung
+den **HTTP-Port (owhttpd)**; 0 heißt keiner. Die App startet dann owhttpd selbst und reicht die
+Anfragen an ihn weiter; owhttpd fragt über die App, so wie jedes andere Programm. Am HTTP-Port gelten
+dieselben **Erlaubten Clients**, **Rechner höchstens** und gesperrten Rechner wie am owserver-Port,
+und das Programm erscheint mit seiner eigenen Adresse unter den Clients. Die gelesenen Werte, 85 °C
+und die anderen Hinweise unter **Geräte am Bus** kommen genauso an.
+
+Schreiben über HTTP geht nur mit **Schreibzugriff: Alle Clients**. Bei **Nur diese** und
+**Niemand** läuft owhttpd nur lesend, weil die App hinter owhttpd nicht mehr sieht, welcher Rechner
+schreibt. Die owserver-Karte zeigt, ob owhttpd läuft, und **Adressen** nennt die HTTP-Adresse.
 
 ### Umzug von einem owserver auf einem anderen Rechner
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **1-Wire, HTTP-Port (Beta)**: Programme, die den Bus über HTTP vom owhttpd lesen (Port 2121, etwa 1-Wire-Module für IP-Symcon), können jetzt direkt die App nutzen. In der Verbindung den **HTTP-Port (owhttpd)** setzen; die App startet owhttpd selbst.
+  - Am HTTP-Port gelten dieselben erlaubten Clients, Höchstzahl und Sperren wie am owserver-Port; das Programm erscheint mit seiner Adresse unter den Clients, seine Werte unter „Geräte am Bus“.
+  - Schreiben über HTTP nur mit „Schreibzugriff: Alle Clients“, sonst läuft owhttpd nur lesend.
+
+- **1-Wire, Programme, die nicht ankommen**: Schickt ein Programm an den Port einer 1-Wire-Verbindung etwas, das keine vollständige owserver-Anfrage ist (ein anderes Protokoll, oder es schließt mitten in der Anfrage), steht das jetzt in den Ereignissen, mit Rechner, Grund und den ersten Bytes. Vorher schloss die App solche Verbindungen ohne ein Wort, und das Programm tauchte nirgends auf. Ein reiner Port-Check bleibt still.
+
 ## 1.9.0 - 2026-11-18
 
 - **1-Wire, USB-Adapter an Home Assistant (Beta)**: Eine 1-Wire-Verbindung kann jetzt auch den USB-Adapter (DS9490R, DS1490F) nutzen, der an Home Assistant steckt oder in dessen VM durchgereicht ist: Quelle **USB-Adapter an diesem Rechner**.

@@ -496,6 +496,12 @@ class WebServer:
         warnings: dict[str, str] = {}
         if "port" not in errors and (problem := self.c.port_problem(connection)):
             warnings["port"] = problem
+        if (
+            connection.http_port
+            and "http_port" not in errors
+            and (problem := self.c.port_problem(connection, connection.http_port))
+        ):
+            warnings["http_port"] = problem
         # what saving does to the running connections (only a valid change gets saved)
         effects = [] if errors else self.c.effects(others)
         text = ""

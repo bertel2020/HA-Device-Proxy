@@ -43,7 +43,9 @@ SUMMED = {
     "onewire_down",
     "onewire_back",
     "onewire_write_blocked",
+    "onewire_bad_request",
     "onewire_owserver_ended",
+    "onewire_owhttpd_ended",
     "onewire_restarted",
     "onewire_usb_reset",
     "onewire_usb_reset_failed",
@@ -146,8 +148,14 @@ MESSAGES = {
     "onewire_down": "owserver not reachable: {target} ({error})",
     "onewire_back": "owserver reachable again: {target}",
     "onewire_write_blocked": "Write refused from {address}: {path}",
+    "onewire_bad_request": (
+        "No owserver request from {address}: {reason} ({bytes} bytes received: {data})"
+    ),
     "onewire_owserver_ended": (
         "owserver ended (exit code {code}), starting again in {delay} s: {error}"
+    ),
+    "onewire_owhttpd_ended": (
+        "owhttpd (HTTP port) ended (exit code {code}), starting again in {delay} s: {error}"
     ),
     "onewire_restarted": "owserver started again: {reason}",
     "onewire_usb_reset": "USB reset of the 1-Wire adapter at {place} ({reason})",

@@ -11,7 +11,7 @@ export const OWSERVER_PORT = 4304;
 export const DEFAULTS = {
   kind: "onewire", template: "onewire", link: "owserver", device: "", host: "", host_port: OWSERVER_PORT, max_clients: 10, mode: "raw",
   keep_open: false, stuck_disconnect: false, silence_minutes: 0, silence_restart: "", power_switch: "",
-  write_access: "all", write_clients: "", owserver_cache_s: 15,
+  write_access: "all", write_clients: "", owserver_cache_s: 15, http_port: 0,
 };
 
 const num = (n) => (n ?? 0).toLocaleString(lang);
@@ -28,6 +28,7 @@ export function oneWireCard(c) {
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
       <span class="hint">${t("owSource")}</span><span class="mono" style="overflow-wrap:anywhere">${c.link === "usb" ? usbSource(o) : proxyTarget(c)}</span>
       ${o.owserver ? html`<span class="hint">${t("owOwn")}</span><span>${o.owserver.running ? t("owOwnRunning", { t: fmtAgo(o.owserver.started_at) }) : t("owOwnStopped")}${o.owserver.restarts ? ` · ${t("owOwnRestarts", { n: num(o.owserver.restarts) })}` : ""}${o.watchdog?.resets ? ` · ${t("owOwnResets", { n: num(o.watchdog.resets) })}` : ""}</span>` : ""}
+      ${o.http ? html`<span class="hint">${t("owHttp")}</span><span>${httpText(o.http)}</span>` : ""}
       ${o.info && (o.info.name || o.info.owserver) ? html`<span class="hint">${t("owAdapter")}</span><span>${adapterText(o.info)}</span>` : ""}
       <span class="hint">${t("owAnswer")}</span><span>${o.answer_ms?.avg != null ? t("owAnswerVal", { a: num(o.answer_ms.avg), l: num(o.answer_ms.last) }) : "–"}</span>
       <span class="hint">${t("owListRead")}</span><span>${o.devices_at ? `${fmtAgo(o.devices_at)}${o.probe_ms != null ? ` · ${num(o.probe_ms)} ms` : ""}` : t("never")}</span>
@@ -38,12 +39,22 @@ export function oneWireCard(c) {
       <span class="hint">${t(k)}</span></div>`)}</div>
     ${o.listen_error ? html`<div class="note bad">${t("mbListenError", { e: o.listen_error })}</div>` : ""}
     ${o.owserver && !(o.adapters || []).length ? html`<div class="note bad">${t("owAdapterGone")}</div>` : ""}
+    ${o.http?.listen_error ? html`<div class="note bad">${t("mbListenError", { e: o.http.listen_error })}</div>` : ""}
+    ${o.http?.owhttpd?.start_error ? html`<div class="note bad">${t("owHttpStartError", { e: o.http.owhttpd.start_error })}</div>` : ""}
     ${o.owserver?.start_error ? html`<div class="note bad">${t("owOwnStartError", { e: o.owserver.start_error })}</div>` : ""}
     ${o.owserver?.log?.length ? html`<details><summary class="hint" style="cursor:pointer">${t("owOwnLog")}</summary>
       <div class="code" style="white-space:pre-wrap;margin-top:6px">${o.owserver.log.join("\n")}</div></details>` : ""}
     ${o.last_error ? html`<div class="note ${o.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${o.last_error}${o.last_error_at ? ` · ${fmtTime(o.last_error_at, true, true)}` : ""}</div>` : ""}
   </section>`;
 }
+
+/** "port 2121 · running since 5 min · read only" for the HTTP port (owhttpd). */
+const httpText = (h) => [
+  t("owHttpPortVal", { p: h.port }),
+  h.listening && h.owhttpd?.running ? t("owOwnRunning", { t: fmtAgo(h.owhttpd.started_at) }) : t("owOwnStopped"),
+  h.owhttpd?.restarts ? t("owOwnRestarts", { n: num(h.owhttpd.restarts) }) : "",
+  h.owhttpd?.readonly ? t("owHttpRo") : "",
+].filter(Boolean).join(" · ");
 
 /** "DS9490 · version 3 · owserver 3.2p4" from what the owserver says about itself. */
 const adapterText = (info) => [info.name, info.version ? t("owAdapterVersion", { v: info.version }) : "", info.owserver ? `owserver ${info.owserver}` : ""].filter(Boolean).join(" · ");

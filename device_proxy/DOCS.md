@@ -17,8 +17,8 @@ The app shares devices with several programs at once:
   EnOcean proxy: several programs (Home Assistant, eo_man, PCT14) share one gateway (see
   [EnOcean gateways](#enocean-gateways)).
 - **1-Wire buses** through an owserver (OWFS): the programs that read the sensors connect to the
-  app instead of the owserver, and the app shows which devices are on the bus and who asks what
-  (see [1-Wire buses](#1-wire-buses)).
+  app instead of the owserver, over HTTP as with owhttpd too if needed, and the app shows which
+  devices are on the bus and who asks what (see [1-Wire buses](#1-wire-buses)).
 
 Everything is set up on the app's page in the sidebar (**Device Proxy**). The app has no options
 of its own, so its **Configuration** tab in the Supervisor is empty on purpose: open **Device Proxy**
@@ -498,13 +498,30 @@ while wiring. It does not count towards "missing".
 Most owserver programs open a new connection for each request. A client is therefore a computer,
 not a connection: it counts as connected from its first request until it has asked nothing for
 5 minutes, and **Computers at most** limits the computers. A connection that sends no request
-within 30 seconds is closed.
+within 30 seconds is closed. When a program sends something that is no complete owserver request
+(another protocol, say, or it closes in the middle of the request), the events show “No owserver
+request” with the computer, the reason and the first bytes received; that is how you find a
+program that never becomes a client. A plain port check (connect, send nothing) stays silent.
 
 **Write access**: owserver has no login, so whoever reaches it may switch outputs (DS2408,
 DS2413) or change settings. **All clients** keeps it so. **Only these** lets the addresses given
 write, **Nobody** makes the bus read only. A refused write gets the error EACCES from the app and
 never reaches the bus; the event log names the client and the path. The card **Writes** lists the
 last 100 writes since the start with client, device, value and result, also the refused ones.
+
+### HTTP port (owhttpd)
+
+Some programs do not read the bus over the owserver protocol but over HTTP from OWFS's owhttpd,
+usually on port 2121 (1-Wire modules for IP-Symcon, for example). For them the connection has the
+**HTTP port (owhttpd)**; 0 means none. The app then runs owhttpd itself and passes the requests on to
+it; owhttpd asks through the app, like any other program. The HTTP port has the same **Allowed
+clients**, **Computers at most** and blocked computers as the owserver port, and the program shows
+up under its own address among the clients. The values read, 85 °C and the other hints under
+**Devices on the bus** come in just the same.
+
+Writing over HTTP needs **Write access: All clients**. With **Only these** and **Nobody** owhttpd
+runs read only, because behind owhttpd the app no longer sees which computer writes. The owserver
+card shows whether owhttpd runs, and **Addresses** gives the HTTP address.
 
 ### Moving from an owserver on another computer
 

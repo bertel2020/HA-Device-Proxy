@@ -302,6 +302,8 @@ class Connection:
     # link "usb": how long the own owserver answers a read value from its cache (its
     # --timeout_volatile, 15 s by default; 0: always from the bus)
     owserver_cache_s: int = 15
+    # a port for programs that read the bus over HTTP, as OWFS's owhttpd (2121); 0: none
+    http_port: int = 0
 
     @property
     def uses_device(self) -> bool:
@@ -480,6 +482,14 @@ class Connection:
             self._validate_writers(e)
             if not 0 <= self.owserver_cache_s <= 3600:
                 e["owserver_cache_s"] = "0 to 3600 seconds"
+            if not 0 <= self.http_port <= 65535:
+                e["http_port"] = "0 (none) or 1 to 65535"
+            elif self.http_port and self.http_port == self.port:
+                e["http_port"] = "is the port for the owserver programs"
+            elif self.http_port in RESERVED_PORTS:
+                e["http_port"] = f"used by {RESERVED_PORTS[self.http_port]}"
+        elif self.http_port:
+            e["http_port"] = "only for a 1-Wire connection"
         if e:
             raise ValidationError(e)
 
@@ -904,6 +914,8 @@ class AppConfig:
             if enocean and c.port == status_port:
                 e[f"connections.{index}.port"] = "used by the status for the EnOcean integration"
             checks: list[tuple[str, Any]] = [("port", c.port), ("id", c.id)]
+            if c.http_port:
+                checks.append(("http_port", c.http_port))
             if c.uses_device:
                 checks.append(("device", c.device))
             if c.remote:
@@ -916,9 +928,10 @@ class AppConfig:
                     e[f"connections.{index}.link"] = f"the USB adapter is used by {usb_bus}"
                 usb_bus = usb_bus or c.name
             for key, value in checks:
-                if value in seen[key]:
-                    e[f"connections.{index}.{key}"] = f"also used by {seen[key][value]}"
-                seen[key].setdefault(value, c.name)
+                group = "port" if key == "http_port" else key  # one port, one program
+                if value in seen[group]:
+                    e[f"connections.{index}.{key}"] = f"also used by {seen[group][value]}"
+                seen[group].setdefault(value, c.name)
             folded = c.name.strip().casefold()
             if folded in seen["name"]:
                 e[f"connections.{index}.name"] = "another connection has this name"
