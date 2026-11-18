@@ -523,7 +523,10 @@ stehen: Bleibt die Geräteliste zweimal hintereinander ohne Antwort (etwa eine M
 die App owserver neu; nach zwei solchen Neustarts ohne Antwort setzt sie den Adapter per USB-Reset
 zurück, höchstens einmal in 10 Minuten. **Neu starten** und **USB-Reset** auf der Seite der
 Verbindung machen dasselbe von Hand. Die Seite zeigt, ob owserver läuft, seine Neustarts und
-Resets und seine letzten Meldungen.
+Resets und seine letzten Meldungen. Unter **Erweitert** legt **Messwerte zwischenspeichern** fest,
+wie lange der eigene owserver einen Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu
+fragen (Standard 15 s, 0 immer vom Bus): Lesen mehrere Programme dieselben Sensoren, spart ein
+Wert um ihre Abfragezeit Buszeit.
 
 ## Wartung: ein Rechner allein
 

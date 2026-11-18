@@ -1533,7 +1533,10 @@
     "owParasiteHint": "Der Sensor nimmt seinen Strom aus der Datenleitung (VDD nicht angeschlossen oder auf GND). Bei längerem Bus oder mehreren Sensoren, die gleichzeitig wandeln, ist das die übliche Ursache für 85 °C; eine dritte Ader für VDD hilft.",
     "owBadParasite": "85 °C von einem parasitär versorgten Sensor: Seine Wandlung bekam nicht genug Strom. Eine dritte Ader für VDD, ein kürzerer Bus oder weniger gleichzeitig wandelnde Sensoren helfen.",
     "owAdapter": "Adapter",
-    "owAdapterVersion": "Version {v}"
+    "owAdapterVersion": "Version {v}",
+    "owCache": "Messwerte zwischenspeichern (s)",
+    "owCacheHint": "Wie lange der eigene owserver einen gelesenen Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (sein timeout_volatile). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit. 0: immer vom Bus. Lesen über /uncached/ geht immer an den Bus. Standard 15.",
+    "owCacheOff": "aus, immer vom Bus"
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

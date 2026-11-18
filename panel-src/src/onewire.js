@@ -11,7 +11,7 @@ export const OWSERVER_PORT = 4304;
 export const DEFAULTS = {
   kind: "onewire", template: "onewire", link: "owserver", device: "", host: "", host_port: OWSERVER_PORT, max_clients: 10, mode: "raw",
   keep_open: false, stuck_disconnect: false, silence_minutes: 0, silence_restart: "", power_switch: "",
-  write_access: "all", write_clients: "",
+  write_access: "all", write_clients: "", owserver_cache_s: 15,
 };
 
 const num = (n) => (n ?? 0).toLocaleString(lang);
@@ -138,7 +138,7 @@ export class OneWireDevices extends LitElement {
               @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint">–</span>`}</td>
             <td><span class="id">${d.id}</span></td>
             <td>${d.type || d.family}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
-            <td>${d.missing_since || (d.transient && !d.present) ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
+            <td>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : shown(d)}</td>
             <td><div class="chips">${this._chips(d)}</div></td>
             <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>`;
         })}</tbody></table></div>

@@ -776,6 +776,7 @@ export class DetailPage extends Page {
               <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("mbWrite")}</span><span>${writeRule(c)}</span>
               ${c.timeout ? html`<span>${t("mbIdle")}</span><span>${c.timeout} s</span>` : ""}
+              ${c.link === "usb" ? html`<span>${t("owCache")}</span><span>${c.owserver_cache_s ? `${c.owserver_cache_s} s` : t("owCacheOff")}</span>` : ""}
             </div>` : modbus ? html`<div class="kv">
               <span>${t("mbKind")}</span><span>${t(`link_${c.link}`)}</span>
               <span>${t("mbAddrOfDevice")}</span><span class="mono" style="font-size: calc(13px * var(--fs, 1));overflow-wrap:anywhere">${proxyTarget(c)}${c.link === "rtu" || c.link === "rtu_listen" ? ` · ${fmtSerial(c)}` : ""}</span>

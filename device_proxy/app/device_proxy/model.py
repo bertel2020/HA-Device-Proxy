@@ -299,6 +299,9 @@ class Connection:
     fallback_stable_s: int = 60  # seconds it must run steadily before it takes over again
     # 1-Wire (kind "onewire", onewire.py): link "owserver" at host and host_port; who may
     # write is write_access and write_clients, as for Modbus
+    # link "usb": how long the own owserver answers a read value from its cache (its
+    # --timeout_volatile, 15 s by default; 0: always from the bus)
+    owserver_cache_s: int = 15
 
     @property
     def uses_device(self) -> bool:
@@ -475,6 +478,8 @@ class Connection:
             self._validate_enocean(e)
         elif self.kind == "onewire":
             self._validate_writers(e)
+            if not 0 <= self.owserver_cache_s <= 3600:
+                e["owserver_cache_s"] = "0 to 3600 seconds"
         if e:
             raise ValidationError(e)
 

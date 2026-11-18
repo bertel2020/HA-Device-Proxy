@@ -412,6 +412,7 @@ async def test_the_own_owserver_on_the_usb_adapter(fake_owserver: Path) -> None:
         args = fake_owserver.read_text().split()
         assert args[args.index("-p") + 1] == f"127.0.0.1:{proxy.owserver.port}"
         assert "-u" in args and "--foreground" in args
+        assert "--timeout_volatile=15" in args  # the cache for read values
         assert proxy.devices == ["28.A1B2C3D4E5F6", "81.0000005F2A1B"]
         assert await ask(proxy.port, MSG_READ, "/28.A1B2C3D4E5F6/temperature") == (9, b"     21.5")
         await proxy.look_after()
@@ -492,6 +493,14 @@ def test_a_usb_bus_needs_no_address_and_only_one_is_allowed() -> None:
         AppConfig(connections=(c, other)).validate()
     assert err.value.errors == {"connections.1.link": "the USB adapter is used by Bus"}
     AppConfig(connections=(c, replace(other, link="owserver", host="vm"))).validate()
+    with pytest.raises(ValidationError) as err:
+        replace(c, owserver_cache_s=-1).validate()
+    assert "owserver_cache_s" in err.value.errors
+    # another cache time starts the own owserver again with it
+    key = onewire.restart_key(c, "all")
+    assert onewire.restart_key(replace(c, owserver_cache_s=60), "all") != key
+    owserver = onewire.OwServer(4304, lambda code, delay: None, "owserver", cache_s=0)
+    assert owserver.command()[-1] == "--timeout_volatile=0"
 
 
 def test_usb_devices_from_sysfs(tmp_path: Path) -> None:

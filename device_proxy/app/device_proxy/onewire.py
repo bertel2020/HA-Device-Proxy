@@ -269,9 +269,14 @@ class OwServer:
     """The app's own owserver on the USB adapter: started again when it ends."""
 
     def __init__(
-        self, port: int, on_exit: Callable[[int | None, float], None], binary: str = ""
+        self,
+        port: int,
+        on_exit: Callable[[int | None, float], None],
+        binary: str = "",
+        cache_s: int = 15,
     ) -> None:
         self.port = port
+        self.cache_s = cache_s  # --timeout_volatile: a read value answered from the cache
         self.on_exit = on_exit  # (exit code, seconds until the next start)
         self.binary = binary or OWSERVER
         self.restarts = 0  # after it ended by itself
@@ -294,7 +299,7 @@ class OwServer:
         # -u: the first USB adapter; errors to stderr (2), which the app logs
         return [
             self.binary, "--foreground", "--error_print=2", "--error_level=1",
-            "-u", "-p", f"127.0.0.1:{self.port}",
+            "-u", "-p", f"127.0.0.1:{self.port}", f"--timeout_volatile={self.cache_s}",
         ]  # fmt: skip
 
     async def run(self) -> None:
@@ -435,7 +440,11 @@ class OneWireProxy:
         self._server: asyncio.Server | None = None
         self._open = 0  # client connections now
         # link "usb": the own owserver, the adapters found, the watchdog's counts
-        self.owserver = OwServer(free_port(), self._owserver_ended) if c.onewire_usb else None
+        self.owserver = (
+            OwServer(free_port(), self._owserver_ended, cache_s=c.owserver_cache_s)
+            if c.onewire_usb
+            else None
+        )
         self.adapters: list[UsbDevice] = []
         self.find_adapters: Callable[[], list[UsbDevice]] = lambda: usb_devices(*ADAPTER)
         self.reset_adapter: Callable[[str], None] = lambda node: reset_node(Path(node))
