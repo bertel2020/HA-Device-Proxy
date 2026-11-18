@@ -11,6 +11,8 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+## 1.9.0 - 2026-11-18
+
 - 1-Wire, Schritt 2 (USB-Adapter an der App):
   - Image: owfs 3.2p4 aus dem Release-Tarball (SHA-256 geprüft) mit `libusb-dev` gebaut, nur `owserver` (alle anderen Module, Bindings, Zeroconf, i2c, w1, parport, ftdi aus); der Build bricht ab, wenn configure USB weglässt (`OW_USB = 1` im Makefile). Laufzeit `libusb`; `owserver --version` (endet mit Fehlercode) wird über die Ausgabe geprüft. Alpines `owfs` ist ohne libusb gebaut. owfs löst den Kernel-Treiber ds2490 selbst (`libusb_detach_kernel_driver`).
   - `model`: `LINKS["onewire"] = ("owserver", "usb")`, Eigenschaft `onewire_usb` (nicht `remote`, kein Gerät, `upstream` „USB“); `AppConfig.validate` erlaubt nur eine Verbindung auf dem USB-Adapter (Fehler am Feld `link`).
