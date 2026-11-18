@@ -122,6 +122,10 @@ EVENT_TYPES = {
         "onewire_owserver_ended",
         "onewire_usb_reset",
         "onewire_usb_reset_failed",
+        "onewire_device_missing",
+        "onewire_device_back",
+        "onewire_device_new",
+        "onewire_value_85",
         "client_new",
         *_REFUSED,
         *_RESTARTS,
@@ -291,7 +295,7 @@ class HaBridge:
                 icon=kind.icon if kind else "mdi:serial-port",
             )
             buttons = [("disconnect", "mdi:lan-disconnect"), ("restart", "mdi:restart")]
-            if c.uses_device:
+            if c.uses_device or c.onewire_usb:
                 buttons.append(("usb_reset", "mdi:usb-port"))
             if c.power_switch:
                 buttons.append(("power_cycle", "mdi:power-cycle"))

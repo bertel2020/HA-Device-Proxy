@@ -198,3 +198,54 @@ async def test_the_reset_button_of_a_onewire_usb_bus(
     result = {}
     await controller._reset_usb(bus, result)
     assert result == {"usb_error": "no 1-Wire USB adapter found"}
+    # the button: the proxy stops, the adapter is reset, the proxy starts again
+    monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [adapter])
+    monkeypatch.setattr(onewire, "OWSERVER", "/nonexistent/owserver")  # no owserver here
+    controller.config = AppConfig(connections=(bus,))
+    try:
+        await controller._reconcile_proxies()
+        assert (await controller.restart_connection(bus.id, "test", usb=True))["usb"] == "1-1.2"
+        assert len(resets) == 2 and bus.id in controller.proxies
+        topics = controller.mqtt.configs()
+        assert any(t.endswith(f"device_proxy_{bus.id}/usb_reset/config") for t in topics)
+        monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [])
+        with pytest.raises(ValueError, match="no 1-Wire USB adapter"):
+            await controller.restart_connection(bus.id, "test", usb=True)
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()
+
+
+async def test_missing_onewire_devices_are_notified_with_their_names(tmp_path: Path) -> None:
+    from device_proxy import onewire_bus
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    bus = Connection(
+        "1-Wire", "", 14305, id="0000000f", kind="onewire", link="owserver",
+        host="127.0.0.1", host_port=9,
+    )  # fmt: skip
+    settings = replace(AppConfig().settings, onewire_names="28.A1B2C3D4E5F6 Living room")
+    config = AppConfig(settings=settings, connections=(bus,))
+    store.save(AppConfig(), config, "test")
+    controller = Controller(
+        store, EventLog(db), tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = config
+    try:
+        await controller._reconcile_proxies()
+        proxy = controller.proxies["0000000f"]
+        proxy.bus = onewire_bus.Bus(bus.id, tmp_path / "devices.json")  # type: ignore[attr-defined]
+        proxy.bus.listed(["28.A1B2C3D4E5F6"])  # type: ignore[attr-defined]
+        for _ in range(onewire_bus.MISSING_AFTER):
+            proxy.bus.listed([])  # type: ignore[attr-defined]
+        title, message = controller.problems()["device_proxy_0000000f_onewire_missing"]
+        assert "1-Wire" in title and "Living room (28.A1B2C3D4E5F6)" in message
+        # the event names it too
+        controller._proxy_event("0000000f")(
+            "warning", "onewire_device_missing", device="28.A1B2C3D4E5F6"
+        )
+        assert controller.events.live[-1].params["label"] == "Living room (28.A1B2C3D4E5F6)"
+    finally:
+        controller.config = AppConfig()
+        await controller._reconcile_proxies()

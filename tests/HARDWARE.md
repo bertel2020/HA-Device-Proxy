@@ -74,6 +74,9 @@ Unerwartetes steht.
 | W7 | Kernel-Treiber | Vor dem Speichern: steht im Formular „Kernel-Treiber ds2490“? Nach dem Start | owserver übernimmt den Adapter, keine Fehlermeldung „Could not open“ in den letzten Meldungen | | |
 | W8 | USB-Reset von Hand | Auf der Seite der Verbindung „USB-Reset“ | Ereignis mit der USB-Stelle, Bus nach wenigen Sekunden wieder erreichbar | `test_kinds.py` | |
 | W9 | Adapter hängt | Adapter kurz abziehen (oder warten, bis der DS2490 hängt) | owserver-Neustart nach etwa 1 min, USB-Reset nach weiteren etwa 2 min, danach wieder erreichbar; Ereignisse dazu | `test_onewire.py` | |
+| W11 | Sensor fehlt | Einen Sensor abklemmen, gut eine Minute warten, wieder anklemmen | „fehlt seit …“, Ereignis und Benachrichtigung mit Namen; danach „wieder da“; „Vergessen“ nimmt ein dauerhaft entferntes heraus | `test_onewire_bus.py` | |
+| W12 | Namen | „Namen bearbeiten“, Namen vergeben, App neu starten | Namen bleiben, Ereignisse nennen sie | `test_kinds.py` | |
+| W13 | Werte und Fehler | HA liest die Sensoren | „Letzter Wert“ wie in HA; bei langem Bus/parasitärer Versorgung ggf. Chip „85 °C“; Busfehler-Zeile aus `/statistics/errors` plausibel | `test_onewire_bus.py` | |
 | W10 | Ohne Adapter | Quelle USB, aber Adapter nicht durchgereicht | Hinweis „Kein 1-Wire-USB-Adapter gefunden“, owserver startet mit Pausen neu, sonst läuft alles weiter | | |
 
 ## App, Supervisor, Ingress

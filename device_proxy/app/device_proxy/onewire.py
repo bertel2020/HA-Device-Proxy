@@ -45,6 +45,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from . import onewire_bus
 from .clients import plain_host
 from .devices import UsbDevice, reset_node, usb_devices
 from .modbus import keepalive, may_write
@@ -78,7 +79,7 @@ MSG = {
     9: "dirallslash",
     10: "getslash",
 }
-MSG_WRITE, MSG_DIR, MSG_DIRALL = 3, 4, 7
+MSG_READ, MSG_WRITE, MSG_DIR, MSG_DIRALL = 2, 3, 4, 7
 DIRS = {"dir", "dirall", "dirallslash"}
 
 CONNECT_TIMEOUT = 5.0  # seconds to reach the owserver
@@ -96,12 +97,13 @@ ADAPTER = ("04fa", "2490")  # vendor and product of the DS2490 (DS9490R, DS1490F
 OWSERVER_DELAYS = (1, 2, 5, 10, 30)  # seconds before starting an ended owserver again
 OWSERVER_STABLE = 60.0  # a run this long resets the delay
 OWSERVER_STOP = 5.0  # seconds owserver gets to end before it is killed
-FIRST_PROBE = 3.0  # seconds the own owserver gets to open the adapter before the first look
+FIRST_PROBE = 10.0  # seconds the own owserver gets to take connections before the first look
 WATCHDOG_MISSES = 2  # device lists in a row without an answer: owserver starts again
 RESET_AFTER = 2  # such restarts without an answer since: the adapter gets a USB reset
 RESET_PAUSE = 600.0  # at most one automatic USB reset in this many seconds
 USB_BACK = 3.0  # seconds after a USB reset before owserver opens the adapter again
 LOG_KEPT = 20  # owserver's last log lines in the state
+STATISTICS_SECONDS = 60.0  # between two reads of the owserver's error counters
 
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
 # family code → the usual chip (the owserver tells the exact one in <id>/type)
@@ -409,6 +411,7 @@ class OneWireProxy:
         self.reachable_since = time.time()
         self.devices: list[str] = []
         self.devices_at: float | None = None
+        self.bus = onewire_bus.Bus(c.id)  # known, missing and new devices, values, counters
         self.probe_ms: float | None = None
         self.port = c.port  # the port listened on (tests: the one the system picked for 0)
         self._answers: deque[float] = deque(maxlen=ANSWERS_KEPT)  # ms
@@ -441,6 +444,7 @@ class OneWireProxy:
             tasks = [
                 asyncio.create_task(self._probe_loop()),
                 asyncio.create_task(self._sweep_loop()),
+                asyncio.create_task(self._statistics_loop()),
             ]
             if self.owserver is not None:
                 tasks.append(asyncio.create_task(self.owserver.run()))
@@ -483,9 +487,71 @@ class OneWireProxy:
         except TimeoutError:
             raise ConnectionError("no answer") from None
 
+    def _emit(self, events: list[onewire_bus.Event]) -> None:
+        for level, kind, values in events:
+            self.on_event(level, kind, **values)
+
+    async def ask(self, kind: int, path: str, size: int = 0) -> tuple[int, bytes]:
+        """One request of the app itself: (return value, payload)."""
+        writer = None
+        try:
+            async with asyncio.timeout(PROBE_TIMEOUT):
+                reader, writer = await self._connect()
+                writer.write(request(kind, path, size=size))
+                await writer.drain()
+                while True:
+                    data, ret, payload = await read_answer(reader)
+                    if payload != PING:
+                        return ret, data[HEADER.size :]
+        finally:
+            if writer is not None:
+                writer.close()
+
+    async def read_statistics(self) -> None:
+        """The owserver's error counters (CRC, bus); left out when it has none."""
+        values: dict[str, int] = {}
+        for name in onewire_bus.STATISTICS:
+            try:
+                ret, payload = await self.ask(MSG_READ, f"/statistics/errors/{name}", 32)
+            except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
+                return
+            if ret < 0:
+                continue
+            text = payload.split(b"\0", 1)[0].strip()
+            if text.isdigit():
+                values[name] = int(text)
+        if values:
+            self.bus.counted(values)
+
+    async def _statistics_loop(self) -> None:
+        if self.owserver is not None:
+            await self._owserver_ready()
+        while True:
+            if not self.reachable:  # the first device list may not be there yet
+                await asyncio.sleep(5)
+                continue
+            await self.read_statistics()
+            await asyncio.sleep(STATISTICS_SECONDS)
+
+    def forget(self, device_id: str) -> bool:
+        return self.bus.forget(device_id)
+
+    async def _owserver_ready(self) -> None:
+        """Wait until the own owserver takes connections, up to FIRST_PROBE: no "not
+        reachable" while it starts."""
+        deadline = asyncio.get_running_loop().time() + FIRST_PROBE
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                _reader, writer = await self._connect()
+            except OSError:
+                await asyncio.sleep(0.2)
+                continue
+            writer.close()
+            return
+
     async def _probe_loop(self) -> None:
         if self.owserver is not None:
-            await asyncio.sleep(FIRST_PROBE)
+            await self._owserver_ready()
         while True:
             await self.probe()
             await self.look_after()
@@ -518,6 +584,7 @@ class OneWireProxy:
         self.probe_ms = round((loop.time() - started) * 1000, 1)
         self.devices, self.devices_at = parse_devices(body), time.time()
         self._up()
+        self._emit(self.bus.listed(self.devices))
 
     # the own owserver (link "usb")
 
@@ -757,6 +824,9 @@ class OneWireProxy:
                     ms = round((loop.time() - sent) * 1000, 1)
                     self._answers.append(ms)
                     self._last_answer_ms = ms
+                if name in ("read", "get"):
+                    error = error_name(ret) if ret < 0 else ""
+                    self._emit(self.bus.answered(path, ret, data[HEADER.size :], error))
                 self._trace("rx", data, f"{_said(name, path, ret, data)} · {client.address}")
                 await writer.drain()
 
@@ -800,9 +870,13 @@ class OneWireProxy:
             "target": self.c.upstream,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
+            # also the known ones that are missing now, first
             "devices": [
-                {"id": d, "family": d[:2], "type": FAMILIES.get(d[:2], "")} for d in self.devices
+                {**row, "type": FAMILIES.get(row["family"], "")} for row in self.bus.rows()
             ],
+            "present": len(self.devices),
+            "missing": self.bus.missing(),
+            "statistics": self.bus.statistics_state(),
             "devices_at": self.devices_at,
             "probe_ms": self.probe_ms,
             "requests": dict(s.requests),
@@ -858,6 +932,12 @@ def mqtt_entities(
             state_class="measurement",
             icon="mdi:thermometer-lines",
         ),
+        f"{prefix}/sensor/{key}/onewire_missing/config": entity(
+            "onewire_missing",
+            value_template="{{ value_json.onewire_missing }}",
+            state_class="measurement",
+            icon="mdi:thermometer-off",
+        ),
         f"{prefix}/sensor/{key}/requests/config": entity(
             "requests",
             value_template="{{ value_json.requests }}",
@@ -871,7 +951,8 @@ def mqtt_entities(
 def mqtt_state(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "reachable": state["reachable"] is True,
-        "onewire_devices": len(state["devices"]),
+        "onewire_devices": state["present"],
+        "onewire_missing": len(state["missing"]),
         "requests": sum(state["requests"].values()),
     }
 

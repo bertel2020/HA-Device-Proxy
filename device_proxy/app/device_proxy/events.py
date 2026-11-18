@@ -47,6 +47,9 @@ SUMMED = {
     "onewire_restarted",
     "onewire_usb_reset",
     "onewire_usb_reset_failed",
+    "onewire_device_missing",
+    "onewire_device_back",
+    "onewire_value_85",
     "enocean_failover",
     "enocean_failback",
     "client_refused",
@@ -148,6 +151,12 @@ MESSAGES = {
     "onewire_restarted": "owserver started again: {reason}",
     "onewire_usb_reset": "USB reset of the 1-Wire adapter at {place} ({reason})",
     "onewire_usb_reset_failed": "USB reset of the 1-Wire adapter at {place} failed: {error}",
+    "onewire_device_missing": "1-Wire device missing: {label}",
+    "onewire_device_back": "1-Wire device back: {label}",
+    "onewire_device_new": "New 1-Wire device on the bus: {label}",
+    "onewire_value_85": (
+        "{label} answered 85 °C ({path}): a conversion that did not finish, power or bus"
+    ),
     "enocean_back": "Gateway reachable again: {target}",
     "enocean_failover": (
         "Goes on through the fallback {fallback} ({reason}), {unanswered} commands unanswered"

@@ -1,5 +1,6 @@
 import { DeviceProxyApp, DeviceProxyConfirm } from "./app.js";
 import { EnOceanGateways, EnOceanSenders, EnOceanTools } from "./enocean.js";
+import { OneWireDevices } from "./onewire.js";
 import { ConnectionsPage } from "./pages/connections.js";
 import { DetailPage } from "./pages/detail.js";
 import { EditPage } from "./pages/edit.js";
@@ -18,6 +19,7 @@ const elements = {
   "dp-eo-senders": EnOceanSenders,
   "dp-eo-gateways": EnOceanGateways,
   "dp-events": EventsPage,
+  "dp-ow-devices": OneWireDevices,
   "dp-import": ImportDialog,
   "dp-settings": SettingsPage,
   "dp-trace": TracePage,
