@@ -1,5 +1,5 @@
 name: Device Proxy
-version: "1.7.0"
+version: "1.8.0-dev1"
 slug: device_proxy
 description: Shares serial, USB, Modbus, EnOcean and 1-Wire devices with several programs (ser2net 4, Modbus, EnOcean and owserver proxy)
 url: https://github.com/bertel2020/HA-Device-Proxy
