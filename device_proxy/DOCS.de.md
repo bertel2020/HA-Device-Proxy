@@ -460,8 +460,10 @@ Lücke. Die Konfig-Historie kann das rückgängig machen.
 Diagnose-Paket anlegen.*
 
 Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die Quelle
-ist ein owserver im Netz, etwa der auf einem anderen Rechner oder einer VM, an dem heute der
-USB-Adapter (DS9490R, DS1490F) hängt. Die 1-Wire-Integration von Home Assistant, owhttpd,
+ist entweder ein owserver im Netz, etwa der auf einem anderen Rechner oder einer VM, an dem heute
+der USB-Adapter (DS9490R, DS1490F) hängt, oder **USB-Adapter an diesem Rechner**: Dann steckt der
+Adapter am Rechner von Home Assistant (oder ist in dessen VM durchgereicht), und die App startet
+dafür ihren eigenen owserver. Die 1-Wire-Integration von Home Assistant, owhttpd,
 Skripte mit pyownet und andere Systeme verbinden sich stattdessen mit dem Port der App, mit
 demselben Protokoll. Vorgegeben ist Port 4304, der übliche Port des owserver, ein Programm braucht
 dann nur die neue Adresse.
@@ -491,7 +493,19 @@ Umzug von einem owserver auf einem anderen Rechner:
 2. Die Programme eins nach dem anderen auf die App umstellen: In Home Assistant die
    1-Wire-Integration mit dem Host von Home Assistant und dem Port der Verbindung einrichten. Jedes
    kann zur alten Adresse zurück, bis alle laufen.
-3. Später kann der USB-Adapter zu Home Assistant selbst umziehen (eine kommende Version der App).
+3. Den USB-Adapter zu Home Assistant umziehen: In Proxmox den Adapter (USB-ID 04fa:2490) statt an
+   die alte VM an die VM von Home Assistant durchreichen und die Quelle der Verbindung auf
+   **USB-Adapter an diesem Rechner** stellen. Das Formular sagt, ob es den Adapter findet. Die
+   Programme behalten Adresse und Port.
+
+**Der eigene owserver der App** (Quelle USB-Adapter) hört nur auf 127.0.0.1; die Programme
+erreichen den Bus wie bisher über den Port der Verbindung. owserver übernimmt den Adapter selbst
+vom Kernel-Treiber ds2490. Der DS2490 in diesen Adaptern bleibt bekanntlich nach einer Weile
+stehen: Bleibt die Geräteliste zweimal hintereinander ohne Antwort (etwa eine Minute), startet
+die App owserver neu; nach zwei solchen Neustarts ohne Antwort setzt sie den Adapter per USB-Reset
+zurück, höchstens einmal in 10 Minuten. **Neu starten** und **USB-Reset** auf der Seite der
+Verbindung machen dasselbe von Hand. Die Seite zeigt, ob owserver läuft, seine Neustarts und
+Resets und seine letzten Meldungen.
 
 ## Wartung: ein Rechner allein
 

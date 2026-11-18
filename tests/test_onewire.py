@@ -3,12 +3,15 @@
 import asyncio
 import errno
 import struct
+import sys
 from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from device_proxy import onewire
+from device_proxy.devices import UsbDevice, usb_devices
 from device_proxy.kinds import PROXIED
 from device_proxy.model import AppConfig, Connection, ValidationError
 from device_proxy.onewire import (
@@ -298,7 +301,7 @@ def test_a_onewire_connection_from_the_form() -> None:
         "vm:4304",
     )
     with pytest.raises(ValidationError) as err:
-        replace(c, link="usb").validate()
+        replace(c, link="serial").validate()
     assert "link" in err.value.errors
     with pytest.raises(ValidationError) as err:
         replace(c, write_access="listed", write_clients="nope").validate()
@@ -327,3 +330,154 @@ def test_entities() -> None:
     assert {e["key"] for e in entities.values()} == {"reachable", "onewire_devices", "requests"}
     state = {"reachable": True, "devices": [{}, {}], "requests": {"read": 4, "dir": 1}}
     assert onewire.mqtt_state(state) == {"reachable": True, "onewire_devices": 2, "requests": 5}
+
+
+# the USB adapter of this host, with the app's own owserver (link "usb")
+
+FAKE = Path(__file__).with_name("fake_owserver.py")
+
+
+@pytest.fixture
+def fake_owserver(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """owserver is the fake: a script the app starts as it would start owserver; the
+    arguments of every start go to the returned file."""
+    script = tmp_path / "owserver"
+    script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{FAKE}" "$@"\n')
+    script.chmod(0o755)
+    starts = tmp_path / "starts.txt"
+    monkeypatch.setattr(onewire, "OWSERVER", str(script))
+    monkeypatch.setattr(onewire, "FIRST_PROBE", 0.3)
+    monkeypatch.setattr(onewire, "OWSERVER_DELAYS", (0.1,))
+    monkeypatch.setattr(onewire, "USB_BACK", 0.1)
+    monkeypatch.setenv("FAKE_OWSERVER_LOG", str(starts))
+    monkeypatch.delenv("FAKE_OWSERVER_MODE", raising=False)
+    return starts
+
+
+def usb_bus() -> Connection:
+    return Connection("1-Wire", "", 0, kind="onewire", link="usb", max_clients=5)
+
+
+USB_ADAPTER = UsbDevice("1-1.2", "/dev/bus/usb/001/004", "DS1490F 2-in-1 Fob", "ds2490")
+
+
+async def _running(c: Connection, events: list[str]) -> tuple[OneWireProxy, asyncio.Task[None]]:
+    proxy = OneWireProxy(c, "all", lambda level, kind, **p: events.append(kind), lambda ch: None)
+    proxy.find_adapters = lambda: [USB_ADAPTER]
+    task = asyncio.create_task(proxy.run())
+    return proxy, task
+
+
+async def _stop(task: asyncio.Task[None]) -> None:
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_the_own_owserver_on_the_usb_adapter(fake_owserver: Path) -> None:
+    events: list[str] = []
+    proxy, task = await _running(usb_bus(), events)
+    try:
+        await _until(lambda: proxy.reachable is True, 10)
+        assert proxy.owserver is not None and proxy.owserver.running
+        args = fake_owserver.read_text().split()
+        assert args[args.index("-p") + 1] == f"127.0.0.1:{proxy.owserver.port}"
+        assert "-u" in args and "--foreground" in args
+        assert proxy.devices == ["28.A1B2C3D4E5F6", "81.0000005F2A1B"]
+        assert await ask(proxy.port, MSG_READ, "/28.A1B2C3D4E5F6/temperature") == (9, b"     21.5")
+        await proxy.look_after()
+        state = proxy.state()
+        assert state["source"] == "usb" and state["owserver"]["running"]
+        assert state["adapters"] == [
+            {"place": "1-1.2", "product": "DS1490F 2-in-1 Fob", "driver": "ds2490"}
+        ]
+        assert "owserver ready" in state["owserver"]["log"]
+    finally:
+        await _stop(task)
+    await _until(lambda: not proxy.owserver.running)  # ended with the connection
+
+
+async def test_an_owserver_that_ends_starts_again(
+    fake_owserver: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_OWSERVER_MODE", "fail")
+    monkeypatch.setattr(onewire, "PROBE_SECONDS", 0.2)
+    events: list[str] = []
+    proxy, task = await _running(usb_bus(), events)
+    try:
+        await _until(lambda: proxy.owserver is not None and proxy.owserver.restarts >= 2, 10)
+        assert "onewire_owserver_ended" in events
+        assert proxy.owserver.last_exit == 1
+        assert "Could not open the USB adapter" in proxy.owserver.log[-1]
+        monkeypatch.setenv("FAKE_OWSERVER_MODE", "")  # the adapter is back
+        await _until(lambda: proxy.reachable is True, 10)
+    finally:
+        await _stop(task)
+
+
+async def test_the_watchdog_restarts_owserver_then_resets_the_adapter(
+    fake_owserver: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(onewire, "PROBE_SECONDS", 3600)  # the test looks itself
+    monkeypatch.setattr(onewire, "PROBE_TIMEOUT", 0.3)
+    monkeypatch.setenv("FAKE_OWSERVER_MODE", "hang")  # the DS2490 stopped answering
+    events: list[str] = []
+    resets: list[str] = []
+    proxy, task = await _running(usb_bus(), events)
+    proxy.reset_adapter = resets.append
+    try:
+        assert proxy.owserver is not None
+        await _until(lambda: proxy.reachable is False, 10)
+        starts = lambda: proxy.owserver.starts  # noqa: E731
+        for _round in range(onewire.RESET_AFTER):
+            for _miss in range(onewire.WATCHDOG_MISSES):
+                await proxy.probe()
+                await proxy.look_after()
+            assert events[-1] == "onewire_restarted"
+        await _until(lambda: proxy.owserver.running and starts() == 1 + onewire.RESET_AFTER, 10)
+        assert "onewire_owserver_ended" not in events  # a restart on purpose is no failure
+        monkeypatch.setenv("FAKE_OWSERVER_MODE", "")  # after the reset the adapter answers
+        for _miss in range(onewire.WATCHDOG_MISSES):
+            await proxy.probe()
+            await proxy.look_after()
+        assert resets == ["/dev/bus/usb/001/004"]
+        assert events[-1] == "onewire_usb_reset" and proxy.watchdog.resets == 1
+        await _until(lambda: proxy.owserver.running and starts() == 2 + onewire.RESET_AFTER, 10)
+        for _try in range(50):  # the new owserver is listening soon
+            await proxy.probe()
+            if proxy.reachable:
+                break
+            await asyncio.sleep(0.1)
+        await proxy.look_after()
+        assert proxy.reachable is True
+        assert (proxy.watchdog.misses, proxy.watchdog.restarts) == (0, 0)
+    finally:
+        await _stop(task)
+
+
+def test_a_usb_bus_needs_no_address_and_only_one_is_allowed() -> None:
+    c = Connection.from_dict({"name": "Bus", "port": 4304, "kind": "onewire", "link": "usb"})
+    assert (c.onewire_usb, c.remote, c.uses_device, c.upstream) == (True, False, False, "USB")
+    other = replace(c, id="0000000e", name="Bus 2", port=4305)
+    with pytest.raises(ValidationError) as err:
+        AppConfig(connections=(c, other)).validate()
+    assert err.value.errors == {"connections.1.link": "the USB adapter is used by Bus"}
+    AppConfig(connections=(c, replace(other, link="owserver", host="vm"))).validate()
+
+
+def test_usb_devices_from_sysfs(tmp_path: Path) -> None:
+    devices = tmp_path / "sys" / "bus" / "usb" / "devices"
+    for name, vendor, product, driver in (
+        ("1-1.2", "04fa", "2490", "ds2490"),
+        ("1-1.3", "0403", "6001", "ftdi_sio"),
+    ):
+        d = devices / name
+        (d / f"{name}:1.0").mkdir(parents=True)
+        for key, value in (("idVendor", vendor), ("idProduct", product), ("busnum", "1"),
+                           ("devnum", "4"), ("product", "DS1490F")):  # fmt: skip
+            (d / key).write_text(value + "\n")
+        drivers = tmp_path / "drivers" / driver
+        drivers.mkdir(parents=True)
+        (d / f"{name}:1.0" / "driver").symlink_to(drivers)
+    (devices / "1-1.2:1.0").mkdir()  # an interface, not a device
+    found = usb_devices("04fa", "2490", tmp_path / "dev", tmp_path / "sys")
+    assert found == [UsbDevice("1-1.2", str(tmp_path / "dev/bus/usb/001/004"), "DS1490F", "ds2490")]

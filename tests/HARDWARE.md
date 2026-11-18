@@ -70,6 +70,11 @@ Unerwartetes steht.
 | W3 | Weitere Systeme | Ein zweites System (owhttpd, Skript mit pyownet) auf die App umstellen | Beide bekommen Werte, je Rechner eine Zeile in den Clients | `test_onewire.py` | |
 | W4 | Schreiben | Schreibzugriff „Nur diese“ ohne den Rechner, dann einen Ausgang (DS2408/DS2413) schalten | Abgewiesen mit EACCES, Ausgang unverändert, Ereignis nennt Client und Pfad | `test_onewire.py` | |
 | W5 | owserver weg | owserver auf der VM stoppen, nach einer Minute wieder starten | „nicht erreichbar“ und Benachrichtigung, danach wieder „erreichbar“ ohne Eingriff | `test_onewire.py` | |
+| W6 | Adapter an HA | In Proxmox `04fa:2490` an die HA-VM durchreichen, Quelle auf „USB-Adapter an diesem Rechner“ | Formular nennt den Adapter; nach dem Speichern „erreichbar“, dieselben Geräte wie W1, eigener owserver „läuft“, Clients behalten Adresse und Port | `test_onewire.py` (mit nachgebautem owserver) | |
+| W7 | Kernel-Treiber | Vor dem Speichern: steht im Formular „Kernel-Treiber ds2490“? Nach dem Start | owserver übernimmt den Adapter, keine Fehlermeldung „Could not open“ in den letzten Meldungen | | |
+| W8 | USB-Reset von Hand | Auf der Seite der Verbindung „USB-Reset“ | Ereignis mit der USB-Stelle, Bus nach wenigen Sekunden wieder erreichbar | `test_kinds.py` | |
+| W9 | Adapter hängt | Adapter kurz abziehen (oder warten, bis der DS2490 hängt) | owserver-Neustart nach etwa 1 min, USB-Reset nach weiteren etwa 2 min, danach wieder erreichbar; Ereignisse dazu | `test_onewire.py` | |
+| W10 | Ohne Adapter | Quelle USB, aber Adapter nicht durchgereicht | Hinweis „Kein 1-Wire-USB-Adapter gefunden“, owserver startet mit Pausen neu, sonst läuft alles weiter | | |
 
 ## App, Supervisor, Ingress
 

@@ -699,8 +699,11 @@ export class EditPage extends Page {
     return html`
       <div class="note info" role="note">${t("owBetaNote")}</div>
       <section class="card" aria-labelledby="t-owsrc">
-        <div><h2 id="t-owsrc">${t("owSource")}</h2><p class="hint" style="margin-top:4px">${t("owSourceSub")}</p></div>
-        <div class="grid2">${this._input("host", t("owHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("owHostPort"), { number: true, hint: t("owHostPortHint") })}</div>
+        <h2 id="t-owsrc">${t("owSource")}</h2>
+        <div class="seg" role="group" aria-labelledby="t-owsrc">${["owserver", "usb"].map((v) => html`<button type="button" aria-pressed=${d.link === v ? "true" : "false"}
+          @click=${() => this._set({ link: v })}>${t(`owLink_${v}`)}</button>`)}</div>
+        <span class="hint">${t(`owLinkSub_${d.link}`)}</span>${this._err("link")}
+        ${d.link === "usb" ? this._owAdapters() : html`<div class="grid2">${this._input("host", t("owHost"), { mono: true, hint: t("mbHostHint") })}${this._input("host_port", t("owHostPort"), { number: true, hint: t("owHostPortHint") })}</div>`}
       </section>
 
       <section class="card" aria-labelledby="t-owproxy">
@@ -739,6 +742,14 @@ export class EditPage extends Page {
       </section>`;
   }
 
+  /** The 1-Wire USB adapters this host has (no serial port, so not in the device list). */
+  _owAdapters() {
+    const found = this.state.onewire_adapters || [];
+    if (!found.length) return html`<div class="note warn">${t("owAdapterNone")}</div>`;
+    return html`${found.map((a, i) => html`<div class="note ${i ? "warn" : "ok"}">${t(i ? "owAdapterMore" : "owAdapterFound", { p: a.product || "DS2490", place: a.place })}
+      ${!i && a.driver && a.driver !== "usbfs" ? html`<br><span class="hint">${t("owKernelDriver", { d: a.driver })}</span>` : ""}</div>`)}`;
+  }
+
   _onewirePreview() {
     const d = this.draft;
     return html`<section class="card" aria-labelledby="t-prev">
@@ -746,7 +757,7 @@ export class EditPage extends Page {
       <ol class="flow">
         <li><b>${tn("mbFlowClients", d.max_clients, { n: d.max_clients })}</b><span class="hint">${t("owFlowClients", { p: d.port })}</span></li>
         <li><b>${t("owFlowProxy")}</b><span class="hint">${t(`owFlowWrite_${d.write_access}`)}</span></li>
-        <li><b>owserver</b><span class="hint mono" style="overflow-wrap:anywhere">${d.host || "–"}:${d.host_port}</span></li>
+        <li><b>owserver</b><span class="hint mono" style="overflow-wrap:anywhere">${d.link === "usb" ? t("owFlowUsb") : `${d.host || "–"}:${d.host_port}`}</span></li>
       </ol>
       ${this._follows(d) ? html`<div class="note info">${this._follows(d)}</div>` : ""}
       ${this._errorList()}

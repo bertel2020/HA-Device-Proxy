@@ -1442,7 +1442,6 @@
     "owUnreachable": "nicht erreichbar",
     "owUnknown": "noch unbekannt",
     "owSource": "Quelle",
-    "owSourceSub": "Der owserver, an dem der 1-Wire-Adapter heute hängt, etwa auf einem anderen Rechner oder einer VM. Die App reicht jede Anfrage unverändert an ihn weiter.",
     "owHost": "Adresse des owserver",
     "owHostPort": "Port des owserver",
     "owHostPortHint": "Meist 4304.",
@@ -1489,7 +1488,24 @@
     "liveEmptyOw": "Noch keine Anfragen. Sobald ein Programm fragt, stehen hier Anfragen und Antworten.",
     "liveSubOw": "Anfragen an den owserver und seine Antworten, mit Pfad und Client.",
     "beta": "Beta",
-    "owBetaNote": "1-Wire ist neu und noch nicht mit jeder owserver-Einrichtung getestet. Wenn etwas nicht geht, bitte ein Issue mit dem Diagnose-Paket aus den Einstellungen anlegen."
+    "owBetaNote": "1-Wire ist neu und noch nicht mit jeder owserver-Einrichtung getestet. Wenn etwas nicht geht, bitte ein Issue mit dem Diagnose-Paket aus den Einstellungen anlegen.",
+    "owLinkSub_owserver": "Der owserver, an dem der 1-Wire-Adapter heute hängt, etwa auf einem anderen Rechner oder einer VM. Die App reicht jede Anfrage unverändert an ihn weiter.",
+    "owLink_owserver": "owserver im Netz",
+    "owLink_usb": "USB-Adapter an diesem Rechner",
+    "owLinkSub_usb": "Der Adapter (DS9490R, DS1490F) steckt am Rechner von Home Assistant oder ist in dessen VM durchgereicht. Die App startet dafür ihren eigenen owserver und startet ihn neu, und setzt den Adapter zurück, wenn der Bus nicht mehr antwortet.",
+    "owAdapterFound": "Gefunden: {p} an USB {place}.",
+    "owAdapterMore": "Außerdem gefunden: {p} an USB {place}. Die App nutzt nur den ersten Adapter.",
+    "owAdapterNone": "Kein 1-Wire-USB-Adapter gefunden. In Proxmox den Adapter (USB-ID 04fa:2490) an diese VM durchreichen, dann das Formular neu öffnen.",
+    "owKernelDriver": "Der Kernel-Treiber {d} hält den Adapter gerade; owserver übernimmt ihn beim Start.",
+    "owFlowUsb": "der eigene der App · USB-Adapter",
+    "owOwn": "Eigener owserver",
+    "owOwnRunning": "läuft seit {t}",
+    "owOwnStopped": "läuft nicht",
+    "owOwnRestarts": "{n} Neustarts",
+    "owOwnResets": "{n} USB-Resets",
+    "owOwnStartError": "owserver lässt sich nicht starten: {e}",
+    "owOwnLog": "Letzte Meldungen des owserver",
+    "owAdapterGone": "Kein 1-Wire-USB-Adapter gefunden. In Proxmox den Adapter (USB-ID 04fa:2490) an diese VM durchreichen; die App findet ihn dann von selbst."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",
@@ -1571,7 +1587,11 @@
     "onewire_loaded": "{state}: 1-Wire owserver {target} · Port {port} · bis {max_clients} Clients",
     "onewire_down": "owserver nicht erreichbar: {target} ({error})",
     "onewire_back": "owserver wieder erreichbar: {target}",
-    "onewire_write_blocked": "Schreiben abgewiesen von {address}: {path}"
+    "onewire_write_blocked": "Schreiben abgewiesen von {address}: {path}",
+    "onewire_owserver_ended": "owserver beendet (Exit-Code {code}), neuer Start in {delay} s: {error}",
+    "onewire_restarted": "owserver neu gestartet: {reason}",
+    "onewire_usb_reset": "USB-Reset des 1-Wire-Adapters an {place} ({reason})",
+    "onewire_usb_reset_failed": "USB-Reset des 1-Wire-Adapters an {place} fehlgeschlagen: {error}"
   },
   "notes": {
     "device_missing_unstable": "Gerät {device} ist gerade nicht angeschlossen und kann sich nach einem Neustart ändern – besser einen by-id- oder by-path-Namen wählen.",

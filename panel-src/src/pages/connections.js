@@ -109,7 +109,7 @@ export class ConnectionsPage extends Page {
     const proxied = c.kind !== "serial";
     const chips = modbus ? [t(`link_${c.link}`), `Port ${c.port}`]
       : enocean ? [`${c.esp_protocol.toUpperCase()} · ${c.link === "serial" ? c.baud : "TCP"}`, `Port ${c.port}`]
-      : onewire ? ["owserver", `Port ${c.port}`]
+      : onewire ? [c.link === "usb" ? t("owLink_usb") : "owserver", `Port ${c.port}`]
       : [fmtSerial(c), c.mode, `Port ${c.port}`];
     if (modbus && (c.link === "rtu" || c.link === "rtu_listen")) chips.splice(1, 0, fmtSerial(c));
     if (modbus && m.answered) chips.push(t("mbAvg", { ms: m.time_avg_ms }));

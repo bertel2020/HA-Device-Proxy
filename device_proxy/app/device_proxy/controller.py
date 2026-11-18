@@ -34,7 +34,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import custom, esp, health, i18n, model, testcase
+from . import custom, esp, health, i18n, model, onewire, testcase
 from .addresses import addresses, host_lan
 from .admin import AdminClient, AdminError, PortStatus
 from .clients import KnownClients, host_of, is_local, local_kind, parse_names, plain_host
@@ -47,8 +47,10 @@ from .devices import (
     fingerprint,
     line_counters,
     moved,
+    reset_node,
     scan,
     set_low_latency,
+    usb_devices,
     usb_node,
     usb_reset,
 )
@@ -1464,6 +1466,19 @@ class Controller:
 
     async def _reset_usb(self, c: Connection, result: dict[str, object]) -> None:
         """USB reset of the connection's adapter; waits until its device is back."""
+        if c.onewire_usb:  # no serial device: the 1-Wire adapter itself (owserver ended)
+            try:
+                adapters = await asyncio.to_thread(usb_devices, *onewire.ADAPTER)
+                if not adapters:
+                    raise ValueError("no 1-Wire USB adapter found")
+                await asyncio.to_thread(reset_node, Path(adapters[0].node))
+            except (OSError, ValueError) as err:
+                result["usb_error"] = str(err)
+                _LOGGER.warning("USB reset of %s failed: %s", c.name, err)
+                return
+            result["usb"] = adapters[0].place
+            await asyncio.sleep(onewire.USB_BACK)
+            return
         try:
             result["usb"] = await asyncio.to_thread(usb_reset, c.device)
         except (OSError, ValueError) as err:
@@ -2012,6 +2027,11 @@ class Controller:
             if self.uses_custom
             else [],
             "devices": [{**d.to_dict(), "used_by": used.get(d.tty)} for d in self.devices],
+            # 1-Wire USB adapters (no serial port), for the form's source "USB adapter"
+            "onewire_adapters": [
+                {"place": a.place, "product": a.product, "driver": a.driver}
+                for a in usb_devices(*onewire.ADAPTER)
+            ],
             "trace_files": self._trace_files(),
             "mqtt": self.mqtt.state,
             "capture": self.captures.current.to_dict() if self.captures.current else None,

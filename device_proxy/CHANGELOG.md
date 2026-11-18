@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **1-Wire, USB-Adapter an Home Assistant (Beta)**: Eine 1-Wire-Verbindung kann jetzt auch den USB-Adapter (DS9490R, DS1490F) nutzen, der an Home Assistant steckt oder in dessen VM durchgereicht ist: Quelle **USB-Adapter an diesem Rechner**. Die App startet dafür ihren eigenen owserver; die Programme verbinden sich weiter mit dem Port der Verbindung, ein Umzug vom owserver im Netz ändert für sie nichts. Das Formular sagt, ob es den Adapter findet. Bleibt der Bus stehen, startet die App owserver neu und setzt den Adapter danach per USB-Reset zurück; „USB-Reset“ auf der Seite der Verbindung geht auch von Hand. Die Seite zeigt, ob owserver läuft, seine Neustarts und seine letzten Meldungen.
+
+### English
+
+- **1-Wire, USB adapter on Home Assistant (beta)**: A 1-Wire connection can now also use the USB adapter (DS9490R, DS1490F) plugged into Home Assistant or passed through to its VM: source **USB adapter of this host**. The app runs its own owserver for it; the programs keep connecting to the connection's port, so moving from an owserver in the network changes nothing for them. The form says whether it finds the adapter. When the bus stops answering, the app starts owserver again and then gives the adapter a USB reset; "USB reset" on the connection's page works by hand too. The page shows whether owserver runs, its restarts and its last messages.
+
 ## 1.8.0 - 2026-11-18
 
 - **1-Wire-Busse (neu, Beta)**: Eine neue Verbindungsart teilt einen owserver (OWFS), etwa den auf einem anderen Rechner, an dem der USB-Adapter hängt. Die 1-Wire-Integration von Home Assistant, owhttpd und andere Systeme verbinden sich mit dem Port der App (vorgegeben 4304) statt mit dem owserver; jede Anfrage geht unverändert durch. Die Seite der Verbindung zeigt, ob der owserver antwortet, die Geräte am Bus mit Familie und üblichem Chip, Anfragen, Fehler und Antwortzeit, die Clients je Rechner mit ihrer letzten Anfrage, und in den Live-Daten jeden Lesezugriff mit seinem Wert. Antwortet der owserver nicht, kommt eine Benachrichtigung. Schreiben (Ausgänge schalten) lässt sich auf bestimmte Rechner beschränken oder ganz sperren. Über MQTT gibt es „Gerät erreichbar“, die Zahl der 1-Wire-Geräte und die Anfragen als Entitäten. Den USB-Adapter direkt an Home Assistant bringt eine spätere Version.

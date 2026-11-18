@@ -24,7 +24,8 @@ export function oneWireCard(c) {
   return html`<section class="card" aria-labelledby="t-ow">
     <div class="row"><h2 id="t-ow">owserver <span class="chip info">${t("beta")}</span></h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
-      <span class="hint">${t("owSource")}</span><span class="mono" style="overflow-wrap:anywhere">${proxyTarget(c)}</span>
+      <span class="hint">${t("owSource")}</span><span class="mono" style="overflow-wrap:anywhere">${c.link === "usb" ? usbSource(o) : proxyTarget(c)}</span>
+      ${o.owserver ? html`<span class="hint">${t("owOwn")}</span><span>${o.owserver.running ? t("owOwnRunning", { t: fmtAgo(o.owserver.started_at) }) : t("owOwnStopped")}${o.owserver.restarts ? ` · ${t("owOwnRestarts", { n: num(o.owserver.restarts) })}` : ""}${o.watchdog?.resets ? ` · ${t("owOwnResets", { n: num(o.watchdog.resets) })}` : ""}</span>` : ""}
       <span class="hint">${t("owAnswer")}</span><span>${o.answer_ms?.avg != null ? t("owAnswerVal", { a: num(o.answer_ms.avg), l: num(o.answer_ms.last) }) : "–"}</span>
       <span class="hint">${t("owListRead")}</span><span>${o.devices_at ? `${fmtAgo(o.devices_at)}${o.probe_ms != null ? ` · ${num(o.probe_ms)} ms` : ""}` : t("never")}</span>
       <span class="hint">${t("owKinds")}</span><span>${t("owKindsVal", { r: num(r.read), w: num(r.write), d: num(r.dir), o: num(r.other) })}</span>
@@ -32,9 +33,18 @@ export function oneWireCard(c) {
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["owErrors", "owBlocked", "owRefused"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
       <span class="hint">${t(k)}</span></div>`)}</div>
     ${o.listen_error ? html`<div class="note bad">${t("mbListenError", { e: o.listen_error })}</div>` : ""}
+    ${o.owserver && !(o.adapters || []).length ? html`<div class="note bad">${t("owAdapterGone")}</div>` : ""}
+    ${o.owserver?.start_error ? html`<div class="note bad">${t("owOwnStartError", { e: o.owserver.start_error })}</div>` : ""}
+    ${o.owserver?.log?.length ? html`<details><summary class="hint" style="cursor:pointer">${t("owOwnLog")}</summary>
+      <div class="code" style="white-space:pre-wrap;margin-top:6px">${o.owserver.log.join("\n")}</div></details>` : ""}
     ${o.last_error ? html`<div class="note ${o.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${o.last_error}${o.last_error_at ? ` · ${fmtTime(o.last_error_at, true, true)}` : ""}</div>` : ""}
   </section>`;
 }
+
+const usbSource = (o) => {
+  const a = (o.adapters || [])[0];
+  return a ? `${a.product || "DS2490"} · USB ${a.place}` : "USB · –";
+};
 
 /** The devices the owserver lists, with the usual chip of their family. */
 export function devicesCard(c) {
