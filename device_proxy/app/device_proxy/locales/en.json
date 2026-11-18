@@ -1476,7 +1476,7 @@
     "owDevicesSub": "as the owserver lists them, read every 30 s",
     "owId": "ID",
     "owFamily": "Family",
-    "owChip": "Usual chip",
+    "owChip": "Chip",
     "owAdapterChip": "the ID chip of the USB adapter",
     "owNoList": "The owserver does not answer, so there is no device list.",
     "owNoDevices": "The owserver lists no devices. Check the bus wiring at the adapter.",
@@ -1536,7 +1536,9 @@
     "owAdapterVersion": "version {v}",
     "owCache": "Cache for read values (s)",
     "owCacheHint": "How long the own owserver answers a value it read from its cache instead of asking the bus (its timeout_volatile). When several programs read the same sensors, a value around their poll interval saves bus time. 0: always from the bus. Reads of /uncached/ always go to the bus. Default 15.",
-    "owCacheOff": "off, always from the bus"
+    "owCacheOff": "off, always from the bus",
+    "owChipUsual": "(usual)",
+    "owChipUsualHint": "The usual chip of this family; the owserver has not named the exact one yet."
   },
   "events": {
     "clients_disconnected": "{count} client(s) disconnected ({by})",

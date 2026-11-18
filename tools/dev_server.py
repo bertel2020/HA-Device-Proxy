@@ -148,6 +148,10 @@ async def owserver(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -
             ):
                 value = b"DS9490" if "interface" in path else b"3.2p4"
                 body = onewire.answer(len(value), value, keep)
+            elif kind == 2 and path.endswith("/type"):  # the exact chip, as owserver says it
+                chips = {"28": "DS18B20", "3A": "DS2413", "81": "DS1420"}
+                value = chips.get(path.lstrip("/")[:2], "").encode()
+                body = onewire.answer(len(value), value, keep)
             elif kind == 2 and path.endswith("/power"):  # the second sensor on parasite power
                 value = b"0" if OW_DEVICES[1] in path else b"1"
                 body = onewire.answer(len(value), value, keep)

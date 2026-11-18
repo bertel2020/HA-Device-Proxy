@@ -450,7 +450,8 @@ does not answer, the connection shows **not reachable** and the app notifies you
 **Notify when the device is missing or not reachable** is on.
 
 **Devices on the bus**: the connection's page lists every device the owserver names, with a
-name of your own (**Edit names**), the usual chip and the last value your programs read (the
+name of your own (**Edit names**), its chip (as the owserver names it, asked once; until then
+the usual one of its family) and the last value your programs read (the
 app reads no values itself). The app remembers the devices, also over restarts: one that is
 missing from the device list twice in a row shows as **missing since**, and the app notifies
 you if **Notify when the device is missing or not reachable** is on; one taken off on purpose

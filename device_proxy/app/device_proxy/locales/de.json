@@ -1476,7 +1476,7 @@
     "owDevicesSub": "wie der owserver sie nennt, alle 30 s gelesen",
     "owId": "ID",
     "owFamily": "Familie",
-    "owChip": "Üblicher Chip",
+    "owChip": "Chip",
     "owAdapterChip": "der ID-Chip des USB-Adapters",
     "owNoList": "Der owserver antwortet nicht, daher gibt es keine Geräteliste.",
     "owNoDevices": "Der owserver nennt keine Geräte. Prüfe die Verkabelung des Busses am Adapter.",
@@ -1536,7 +1536,9 @@
     "owAdapterVersion": "Version {v}",
     "owCache": "Messwerte zwischenspeichern (s)",
     "owCacheHint": "Wie lange der eigene owserver einen gelesenen Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (sein timeout_volatile). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit. 0: immer vom Bus. Lesen über /uncached/ geht immer an den Bus. Standard 15.",
-    "owCacheOff": "aus, immer vom Bus"
+    "owCacheOff": "aus, immer vom Bus",
+    "owChipUsual": "(üblich)",
+    "owChipUsualHint": "Der übliche Chip dieser Familie; der owserver hat den genauen noch nicht genannt."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

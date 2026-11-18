@@ -478,7 +478,8 @@ owserver nicht, steht die Verbindung auf **nicht erreichbar**, und die App benac
 wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht antwortet** an ist.
 
 **Geräte am Bus**: Die Seite der Verbindung listet jedes Gerät, das der owserver nennt, mit
-eigenem Namen (**Namen bearbeiten**), üblichem Chip und dem letzten Wert, den deine Programme
+eigenem Namen (**Namen bearbeiten**), seinem Chip (wie der owserver ihn nennt, einmal gefragt;
+bis dahin der übliche seiner Familie) und dem letzten Wert, den deine Programme
 gelesen haben (die App liest selbst keine Werte). Die App merkt sich die Geräte, auch über
 Neustarts: Eines, das zweimal hintereinander in der Geräteliste fehlt, steht auf **fehlt seit**,
 und die App benachrichtigt dich, wenn **Benachrichtigen, wenn das Gerät fehlt oder nicht
