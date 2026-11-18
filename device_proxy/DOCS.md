@@ -460,8 +460,9 @@ the reader last. Two typical faults
 of temperature sensors are marked: **85 °C**, the value of a DS18x20 whose conversion did not
 finish (usually parasite power, a long bus or a loose contact), and a temperature that **does
 not move** for 2 hours and 20 reads. For each temperature sensor the app asks the owserver once
-whether it is on **parasite power** (no wire of its own for VDD), the usual cause of 85 °C. The owserver card shows the owserver's CRC and bus errors
-since it started, with a hint when they rise. Over MQTT there is the number of missing devices.
+whether it is on **parasite power** (no wire of its own for VDD), the usual cause of 85 °C. The owserver card shows the adapter's name and version and the
+owserver's version as the owserver reports them, and the owserver's CRC and bus errors since it
+started, with a hint when they rise. Over MQTT there is the number of missing devices.
 
 Most owserver programs open a new connection for each request. A client is therefore a computer,
 not a connection: it counts as connected from its first request until it has asked nothing for

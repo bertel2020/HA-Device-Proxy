@@ -142,6 +142,12 @@ async def owserver(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -
                 value = f"{85 if bad else 20 + (time.time() / 60) % 3:12.4f}".encode()
                 await asyncio.sleep(0.02)
                 body = onewire.answer(len(value), value, keep)
+            elif kind == 2 and path in (
+                "/bus.0/interface/settings/name",
+                "/system/configuration/version",
+            ):
+                value = b"DS9490" if "interface" in path else b"3.2p4"
+                body = onewire.answer(len(value), value, keep)
             elif kind == 2 and path.endswith("/power"):  # the second sensor on parasite power
                 value = b"0" if OW_DEVICES[1] in path else b"1"
                 body = onewire.answer(len(value), value, keep)

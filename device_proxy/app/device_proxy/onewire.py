@@ -104,6 +104,14 @@ RESET_PAUSE = 600.0  # at most one automatic USB reset in this many seconds
 USB_BACK = 3.0  # seconds after a USB reset before owserver opens the adapter again
 LOG_KEPT = 20  # owserver's last log lines in the state
 STATISTICS_SECONDS = 60.0  # between two reads of the owserver's error counters
+INFO_SECONDS = 600.0  # between two reads of the adapter's name and the owserver's version
+# what the owserver says about its first adapter and itself; 2.x had /system/adapter/
+INFO_PATHS = {
+    "name": ("/bus.0/interface/settings/name", "/system/adapter/name.0"),
+    "address": ("/bus.0/interface/settings/address", "/system/adapter/address.0"),
+    "version": ("/bus.0/interface/settings/version", "/system/adapter/version.0"),
+    "owserver": ("/system/configuration/version",),
+}
 
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
 # family code → the usual chip (the owserver tells the exact one in <id>/type)
@@ -418,6 +426,8 @@ class OneWireProxy:
         self.devices: list[str] = []
         self.devices_at: float | None = None
         self.bus = onewire_bus.Bus(c.id)  # known, missing and new devices, values, counters
+        self.info: dict[str, str] = {}  # INFO_PATHS: the adapter's name, address, version
+        self._info_at = -INFO_SECONDS
         self.probe_ms: float | None = None
         self.port = c.port  # the port listened on (tests: the one the system picked for 0)
         self._answers: deque[float] = deque(maxlen=ANSWERS_KEPT)  # ms
@@ -513,6 +523,22 @@ class OneWireProxy:
             if writer is not None:
                 writer.close()
 
+    async def read_info(self) -> None:
+        """Name, address and version of the owserver's first adapter, and its own version;
+        what it does not have stays out."""
+        info: dict[str, str] = {}
+        for key, paths in INFO_PATHS.items():
+            for path in paths:
+                try:
+                    ret, payload = await self.ask(MSG_READ, path, 512)
+                except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
+                    return
+                text = payload.split(b"\0", 1)[0].decode("utf-8", "replace").strip()
+                if ret >= 0 and text and text.isprintable():
+                    info[key] = text[:128]
+                    break
+        self.info = info
+
     async def read_statistics(self) -> None:
         """The owserver's error counters (CRC, bus); left out when it has none."""
         values: dict[str, int] = {}
@@ -597,6 +623,9 @@ class OneWireProxy:
             except (OSError, TimeoutError, asyncio.IncompleteReadError, ProtocolError):
                 break  # next time
             self.bus.powered(device_id, answered, supply)
+        if loop.time() - self._info_at >= INFO_SECONDS:
+            self._info_at = loop.time()
+            await self.read_info()
 
     # the own owserver (link "usb")
 
@@ -889,6 +918,7 @@ class OneWireProxy:
             "present": len(self.devices),
             "missing": self.bus.missing(),
             "statistics": self.bus.statistics_state(),
+            "info": dict(self.info),
             "devices_at": self.devices_at,
             "probe_ms": self.probe_ms,
             "requests": dict(s.requests),

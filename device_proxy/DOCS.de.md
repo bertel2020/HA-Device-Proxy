@@ -490,8 +490,9 @@ markiert: **85 °C**, der Wert eines DS18x20, dessen Wandlung nicht fertig wurde
 parasitäre Versorgung, ein langer Bus oder ein Wackelkontakt), und eine Temperatur, die sich
 2 Stunden und 20 Abfragen lang **nicht bewegt**. Bei jedem Temperatursensor fragt die App den
 owserver einmal, ob er **parasitär versorgt** ist (keine eigene Ader für VDD), die übliche
-Ursache für 85 °C. Die owserver-Karte zeigt die CRC- und
-Busfehler des owserver seit seinem Start, mit einem Hinweis, wenn sie steigen. Über MQTT gibt es
+Ursache für 85 °C. Die owserver-Karte zeigt Name und Version des
+Adapters und die Version des owserver, wie der owserver sie meldet, und die CRC- und Busfehler
+des owserver seit seinem Start, mit einem Hinweis, wenn sie steigen. Über MQTT gibt es
 die Zahl der fehlenden Geräte.
 
 Die meisten owserver-Programme öffnen für jede Anfrage eine neue Verbindung. Ein Client ist
