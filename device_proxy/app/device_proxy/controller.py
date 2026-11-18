@@ -1415,6 +1415,14 @@ class Controller:
             raise ValueError("not with an own ser2net.yaml")
         if connection_id in self._paused:
             raise ValueError("a tool or a restart is using the connection right now")
+        proxy = self.proxies.get(connection_id)
+        if usb and not power and isinstance(proxy, OneWireProxy) and proxy.owserver is not None:
+            # the 1-Wire adapter: only the own owserver lets it go and opens it again; the
+            # proxy, its clients and what it knows about the bus stay (onewire_usb_reset)
+            try:
+                return {"usb": await proxy.usb_reset(reason=source), "usb_error": None}
+            except OSError as err:  # said by the proxy's event
+                return {"usb": None, "usb_error": str(err)}
         if usb and c.onewire_usb:  # the 1-Wire adapter itself, no serial device
             if not await asyncio.to_thread(usb_devices, *onewire.ADAPTER):
                 raise ValueError("no 1-Wire USB adapter found")
