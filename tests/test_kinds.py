@@ -198,17 +198,24 @@ async def test_the_reset_button_of_a_onewire_usb_bus(
     result = {}
     await controller._reset_usb(bus, result)
     assert result == {"usb_error": "no 1-Wire USB adapter found"}
-    # the button: the proxy stops, the adapter is reset, the proxy starts again
-    monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [adapter])
+    # the button: only the own owserver lets the adapter go; the proxy and its state stay
     monkeypatch.setattr(onewire, "OWSERVER", "/nonexistent/owserver")  # no owserver here
     controller.config = AppConfig(connections=(bus,))
     try:
         await controller._reconcile_proxies()
-        assert (await controller.restart_connection(bus.id, "test", usb=True))["usb"] == "1-1.2"
-        assert len(resets) == 2 and bus.id in controller.proxies
+        proxy = controller.proxies[bus.id]
+        proxy.find_adapters = lambda: [adapter]  # type: ignore[attr-defined]
+        proxy.reset_adapter = resets.append  # type: ignore[attr-defined]
+        known = proxy.bus  # type: ignore[attr-defined]  # what it knows about the bus
+        result = await controller.restart_connection(bus.id, "test", usb=True)
+        assert result == {"usb": "1-1.2", "usb_error": None}
+        assert resets[-1] == "/dev/bus/usb/001/004" and controller.proxies[bus.id] is proxy
+        assert proxy.bus is known  # type: ignore[attr-defined]
+        assert proxy.watchdog.resets == 1  # type: ignore[attr-defined]
+        assert controller.events.live[-1].kind == "onewire_usb_reset"
         topics = controller.mqtt.configs()
         assert any(t.endswith(f"device_proxy_{bus.id}/usb_reset/config") for t in topics)
-        monkeypatch.setattr(controller_module, "usb_devices", lambda *ids: [])
+        proxy.find_adapters = lambda: []  # type: ignore[attr-defined]
         with pytest.raises(ValueError, match="no 1-Wire USB adapter"):
             await controller.restart_connection(bus.id, "test", usb=True)
     finally:
