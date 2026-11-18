@@ -1525,7 +1525,10 @@
     "owValue": "Letzter Wert",
     "owState": "Zustand",
     "owLastSeen": "zuletzt gesehen {t}",
-    "owValuesHint": "Die Werte sind die, die deine Programme lesen; die App liest selbst keine. Fehlt: zweimal hintereinander nicht in der Geräteliste; die App merkt sich die Geräte über Neustarts."
+    "owValuesHint": "Die Werte sind die, die deine Programme lesen; die App liest selbst keine. Fehlt: zweimal hintereinander nicht in der Geräteliste; die App merkt sich die Geräte über Neustarts.",
+    "owIButtonOn": "iButton aufgelegt",
+    "owIButtonOff": "iButton, zuletzt aufgelegt {t}",
+    "owIButtonHint": "iButtons werden aufgelegt und wieder abgenommen; sie gelten deshalb nie als fehlend."
   },
   "events": {
     "app_started": "Version {version} gestartet mit {connections} Verbindungen, {active} aktiv",

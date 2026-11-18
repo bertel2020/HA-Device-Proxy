@@ -108,7 +108,13 @@ STATISTICS_SECONDS = 60.0  # between two reads of the owserver's error counters
 DEVICE_ID = re.compile(r"[0-9A-F]{2}\.[0-9A-F]{12}")
 # family code → the usual chip (the owserver tells the exact one in <id>/type)
 FAMILIES = {
-    "01": "DS2401",
+    "01": "DS1990A / DS2401",
+    "02": "DS1991",
+    "04": "DS1994",
+    "06": "DS1993",
+    "08": "DS1992",
+    "0A": "DS1995",
+    "0C": "DS1996",
     "05": "DS2405",
     "10": "DS18S20",
     "12": "DS2406",

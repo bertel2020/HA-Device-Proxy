@@ -454,7 +454,9 @@ name of your own (**Edit names**), the usual chip and the last value your progra
 app reads no values itself). The app remembers the devices, also over restarts: one that is
 missing from the device list twice in a row shows as **missing since**, and the app notifies
 you if **Notify when the device is missing or not reachable** is on; one taken off on purpose
-is removed with **Forget**. A device that appears later is marked **new**. Two typical faults
+is removed with **Forget**. A device that appears later is marked **new**. iButtons (the reader of a DS1490F, families 01,
+02, 04, 06, 08, 0A, 0C) come and go: they never count as missing, the list says when one was on
+the reader last. Two typical faults
 of temperature sensors are marked: **85 °C**, the value of a DS18x20 whose conversion did not
 finish (usually parasite power, a long bus or a loose contact), and a temperature that **does
 not move** for 2 hours and 20 reads. The owserver card shows the owserver's CRC and bus errors
