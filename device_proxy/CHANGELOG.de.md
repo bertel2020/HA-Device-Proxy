@@ -12,6 +12,8 @@
 
 ## Unreleased
 
+## 1.9.2 - 2026-11-19
+
 ### Geändert
 
 - **Oberfläche am Handy:** mehr Platz für den Inhalt, nichts scrollt mehr seitlich.
