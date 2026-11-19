@@ -14,13 +14,17 @@
 
 ### Changed
 
-- **Interface, tables on a phone:** clients, unit IDs, 1-Wire devices and writes, the heard EnOcean senders and the recording files are small cards one below the other on a phone: the client, device or file on top, below it each value with its label. No more sideways scrolling; on a desktop they stay tables.
-- **Settings on a phone and tablet:** the sections are one row of chips above the content instead of a long list. The row stays under the header while scrolling, marks the current section and jumps there when tapped. On a desktop the list stays on the left; the title "Settings" now stands above both columns.
-- **Interface, figures:** large figures have the same three sizes everywhere (meter values, tiles and counters, small tiles), each a little smaller on a phone. The tiles above the connection list are now as large as the counters on the other pages.
-- **Interface, phone in Home Assistant:** Home Assistant's bar with the menu and the app's name is left out; the menu icon sits at the left of the app's own header instead, as in EnOcean Eltako. This saves a row at the top. On a desktop nothing changes.
-- **Interface, page titles:** a little smaller (24 instead of 28 px); on a phone the short text below them (Connections, Events, Recording) is left out, so more content shows.
-- **Interface, header:** the line under the name now says "Running · App …" instead of "ser2net running". It is red with the reason only when ser2net is stopped and serial connections need it; problems of single connections are still counted at the "Connections" tab. The versions are in the tooltip.
-- **Interface, wide screens:** the pages use up to 1600 px instead of 1200 px. The connection list shows three columns there; on a connection's page the three top cards stand side by side from 1600 px (such as Gateways, Gateway and Clients). The form and the settings stay narrower so they stay readable.
+- **Interface on a phone:** more room for the content, nothing scrolls sideways any more.
+  - Home Assistant's bar with the menu and the app's name is left out; the menu icon sits at the left of the app's own header instead, as in EnOcean Eltako. On a desktop nothing changes.
+  - Tables (clients, unit IDs, 1-Wire devices and writes, heard EnOcean senders, recording files) are small cards one below the other: the client, device or file on top, below it each value with its label. On a desktop they stay tables.
+  - The settings show their sections as one row of chips above the content instead of a long list (on a tablet too). The row stays under the header while scrolling, marks the current section and jumps there when tapped.
+  - The short text under the page titles (Connections, Events, Recording) is left out.
+  - Large figures are a little smaller.
+- **Interface:**
+  - Wide screens: the pages use up to 1600 px instead of 1200 px. The connection list shows three columns there; on a connection's page the three top cards stand side by side from 1600 px (such as Gateways, Gateway and Clients). The form and the settings stay narrower so they stay readable.
+  - Large figures have the same three sizes everywhere (meter values, tiles and counters, small tiles). The tiles above the connection list are now as large as the counters on the other pages.
+  - Page titles are a little smaller (24 instead of 28 px); in the settings the title stands above both columns.
+  - Header: the line under the name now says "Running · App …" instead of "ser2net running". It is red with the reason only when ser2net is stopped and serial connections need it; problems of single connections are still counted at the "Connections" tab. The versions are in the tooltip.
 - **Connections, order:** the list is sorted by kind (serial, Modbus, EnOcean, 1-Wire), with a heading per kind, and by name within; switched-off connections are at the end of their group, a fallback gateway stays right after its gateway. Connections with a problem no longer jump to the top; the filter "Problems" is there for that.
 - **1-Wire:** is no longer beta. The "Beta" notes and labels in the interface and the docs are gone.
 - **EnOcean, Swap the gateway** (formerly "Fallback becomes the main gateway")**:** the programs now stay connected during the swap. Before, the connection restarted and dropped all clients; programs in the network such as Symcon only came back after minutes.
