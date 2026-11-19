@@ -10,8 +10,10 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 - Öffentlich gruppiert nach `### Neu` / `### Geändert` / `### Behoben` (englisch `New` / `Changed`
   / `Fixed`), bei Bedarf zuerst `### Achtung beim Update` (`Breaking / before updating`); jeder
   Eintrag `- **Bereich:** Text`, eine Zeile, Unterpunkte eingerückt.
-- Beim Release wird in allen drei Dateien aus **Unreleased** `## <Version> - <Datum>`, darüber eine
-  neue leere Sektion, und die Version in `device_proxy/config.yaml` passt dazu.
+- Beim Release wird in allen drei Dateien aus **Unreleased** `## <Version> - <Datum>`, und die
+  Version in `device_proxy/config.yaml` passt dazu. Eine neue leere Sektion kommt nur hier darüber;
+  in den öffentlichen Dateien entsteht **Unreleased** erst mit dem ersten Eintrag, denn Home
+  Assistant zeigt das Changelog vor dem Update und eine leere Überschrift sähe dort verloren aus.
 - Das Repository ist öffentlich, also auch diese Datei: keine Zugangsdaten, Adressen oder Namen.
 
 ## Unreleased

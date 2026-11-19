@@ -172,7 +172,7 @@ export class OneWireDevices extends LitElement {
           <button class="btn btn-g" ?disabled=${this.scanning} title=${t("owScanHint")} @click=${() => this._scan()}>${this.scanning ? t("owScanning") : t("owScan")}</button>`}</div>
         ${this.scanned ? html`<div class="note ok" role="status">${this.scanned}</div>` : ""}
         ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}
-        <div class="scroll"><table class="cards"><thead><tr><th>${t("owName")}</th><th>${t("owId")}</th><th>${t("owChip")}</th><th>${t("owValue")}</th><th>${t("owState")}</th><th></th></tr></thead>
+        <div class="scroll"><table class="cards wide"><thead><tr><th>${t("owName")}</th><th>${t("owId")}</th><th>${t("owChip")}</th><th>${t("owValue")}</th><th>${t("owState")}</th><th></th></tr></thead>
         <tbody>${devices.map((d) => {
           const label = named[d.id] ? `${named[d.id]} (${d.id})` : d.id;
           return html`<tr>

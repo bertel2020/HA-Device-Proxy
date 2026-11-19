@@ -10,8 +10,6 @@
 >
 > 🇬🇧 [English version](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.md)
 
-## Unreleased
-
 ## 1.9.2 - 2026-11-19
 
 ### Geändert

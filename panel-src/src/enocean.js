@@ -335,7 +335,7 @@ export class EnOceanSenders extends LitElement {
         : html`<button class="btn btn-g" @click=${() => { this.names = {}; }}>${t("eoSendersEdit")}</button>
           <a class="btn btn-g" style="text-decoration:none" download href=${url(`api/tools/${c.id}/enocean/senders.csv`)}>${t("eoSendersCsv")}</a>`}</div>
         ${this.nameError ? html`<div class="note bad" role="alert">${this.nameError}</div>` : ""}` : ""}
-      ${rows.length ? html`<div class="scroll"><table class="cards"><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
+      ${rows.length ? html`<div class="scroll"><table class="cards wide"><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
             <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: max(10.5px, calc(12px * var(--fs, 1)))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>

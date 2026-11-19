@@ -1,4 +1,22 @@
-import { css } from "lit";
+import { css, unsafeCSS } from "lit";
+
+/** The rules that turn table rows into cards, for the tables that sel picks. */
+const CARDS = (sel) => unsafeCSS(`
+    ${sel}, ${sel} tbody, ${sel} tr, ${sel} td { display: block; }
+    ${sel} { min-width: 0 !important; }
+    ${sel} thead { display: none; }
+    ${sel} tr { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+    ${sel} tr:last-child { border-bottom: 0; }
+    ${sel} td { padding: 2px 0; border: 0; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere; display: flow-root; }
+    ${sel} td[data-l]::before { content: attr(data-l); float: left; margin-right: 12px; color: var(--muted); font-size: calc(13px * var(--fs, 1)); font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; font-weight: 400; text-align: left; }
+    ${sel} td:first-child { text-align: left !important; font-weight: 500; padding-bottom: 4px; }
+    ${sel} td:first-child[data-l]::before { content: none; }
+    ${sel} td:empty { display: none; }
+    ${sel} td .chips, ${sel} td .acts { justify-content: flex-end; }
+    ${sel} .cardlbl { display: inline; font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; }
+    ${sel} .nocard { display: none; }
+    ${sel} td .chips { display: inline-flex; flex-wrap: wrap; }
+`);
 
 // One look for all pages; the colours and --fs (text size) come from <html>, see theme.js.
 // Text below 12 px (12 px and 11 px at "small" text size) stops at 10.5 px, as in fritzbox-network: max(10.5px, calc(…)).
@@ -101,25 +119,15 @@ export const base = css`
   th { font-weight: 500; font-size: calc(13px * var(--fs, 1)); color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
   .scroll { overflow-x: auto; position: relative; } /* relative: else an absolute .sr in a wide table escapes and widens the page */
-  /* table.cards: on a phone each row is a small card, the first cell its title, the others
-     "label (data-l) … value" lines; no sideways scrolling */
+  /* table.cards: where its .scroll box is narrow (a phone, a tablet for the wide ones) each row
+     is a small card, the first cell its title, the others "label (data-l) … value" lines;
+     table.cards.wide needs more room as a table and turns into cards sooner */
+  .scroll { container-type: inline-size; }
   .cardlbl { display: none; }
-  @media (max-width: 600px) {
-    table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; }
-    table.cards { min-width: 0 !important; }
-    table.cards thead { display: none; }
-    table.cards tr { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
-    table.cards tr:last-child { border-bottom: 0; }
-    table.cards td { padding: 2px 0; border: 0; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere; display: flow-root; }
-    table.cards td[data-l]::before { content: attr(data-l); float: left; margin-right: 12px; color: var(--muted); font-size: calc(13px * var(--fs, 1)); font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; font-weight: 400; text-align: left; }
-    table.cards td:first-child { text-align: left !important; font-weight: 500; padding-bottom: 4px; }
-    table.cards td:first-child[data-l]::before { content: none; }
-    table.cards td:empty { display: none; }
-    table.cards td .chips, table.cards td .acts { justify-content: flex-end; }
-    table.cards .cardlbl { display: inline; font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; }
-    table.cards .nocard { display: none; }
-    table.cards td .chips { display: inline-flex; flex-wrap: wrap; }
-  }
+  @container (max-width: 540px) {
+${CARDS("table.cards")}  }
+  @container (max-width: 780px) {
+${CARDS("table.cards.wide")}  }
   .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
   /* three cards: two side by side and the third below across both, side by side when wide */
   .trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
