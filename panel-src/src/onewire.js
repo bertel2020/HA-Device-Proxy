@@ -24,7 +24,7 @@ export function oneWireCard(c) {
   const total = Object.values(r).reduce((a, b) => a + b, 0);
   const counters = [["owDevices", o.present ?? (o.devices || []).length], ["owMissing", (o.missing || []).length], ["owRequests", total], ["owErrors", o.errors], ["owBlocked", o.blocked], ["owRefused", o.refused]];
   return html`<section class="card" aria-labelledby="t-ow">
-    <div class="row"><h2 id="t-ow">owserver <span class="chip info">${t("beta")}</span></h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
+    <div class="row"><h2 id="t-ow">owserver</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
       <span class="hint">${t("owSource")}</span><span class="mono" style="overflow-wrap:anywhere">${c.link === "usb" ? usbSource(o) : proxyTarget(c)}</span>
       ${o.owserver ? html`<span class="hint">${t("owOwn")}</span><span>${o.owserver.running ? t("owOwnRunning", { t: fmtAgo(o.owserver.started_at) }) : t("owOwnStopped")}${o.owserver.restarts ? ` · ${t("owOwnRestarts", { n: num(o.owserver.restarts) })}` : ""}${o.watchdog?.resets ? ` · ${t("owOwnResets", { n: num(o.watchdog.resets) })}` : ""}</span>` : ""}

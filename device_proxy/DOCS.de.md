@@ -446,19 +446,16 @@ wird verworfen (verglichen ohne Signalstärke und Repeater-Zahl), ebenso, was da
 von den eigenen Sender-IDs hört: das ist das eigene Senden des anderen Gateways. Die Karte zeigt,
 was zuerst über welches Gateway kam.
 
-**Hardware tauschen** (die Hardware des ersten Gateways ist dauerhaft kaputt): auf der Karte
+**Gateway tauschen** (das erste Gateway ist dauerhaft kaputt): auf der Karte
 **Gateways**. Die Verbindung des ersten Gateways bleibt mit Port, erlaubten Clients,
 Nachlieferung, Erkennung und Historie erhalten; nur die Hardware (Vorlage, Modell, Art der
 Verbindung, Gerät oder Host und Port, Baudrate) wird zwischen den beiden Verbindungen getauscht.
 Die Programme bleiben dabei verbunden, die Integration merkt nichts, und die Nachlieferung
 überbrückt die kurze Lücke. Die alte Hardware wird danach ausgeschaltet (Standard), als Ersatz
-behalten oder ihre Verbindung gelöscht. Beschreiben die Namen die Hardware, tauscht **Namen
+behalten oder ihre Verbindung gelöscht. Beschreiben die Namen das Gateway, tauscht **Namen
 mittauschen** sie mit. Die Konfig-Historie kann das rückgängig machen.
 
 ## 1-Wire-Busse
-
-*Beta: neu in 1.8.0, der USB-Adapter an Home Assistant in 1.9.0. Wenn etwas mit deinem owserver
-oder Adapter nicht geht, bitte ein Issue mit dem Diagnose-Paket anlegen.*
 
 Eine 1-Wire-Verbindung teilt einen owserver (OWFS) und zeigt, was auf dem Bus passiert. Die
 1-Wire-Integration von Home Assistant, owhttpd, Skripte mit pyownet und andere Systeme verbinden
