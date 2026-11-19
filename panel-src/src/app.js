@@ -262,14 +262,15 @@ export class DeviceProxyApp extends LitElement {
     const tab = (key, label, symbol, count = 0) => html`<a href="#/${key}" aria-current=${section === key ? "page" : "false"}>${icon(symbol, 16)}<span
       class="nl">${t(label)}</span>${count ? html`<span class="count" aria-label=${t("problems", { n: count })}>${count}</span>` : ""}</a>`;
     const running = s && s.ser2net_running;
-    // ser2net only matters with serial connections (or the own ser2net.yaml)
+    // the line says "Running"; only a stopped ser2net that serial connections need (or the own
+    // ser2net.yaml) is named, problems of single connections count at the tab
     const serial = s && (s.source === "custom" || s.connections.some((c) => c.kind === "serial"));
     const problems = s ? s.connections.filter((c) => connectionState(c, running)[1] === "bad").length : 0;
     return html`
       <header><div class="bar">
         <div class="brand">${logo()}<div class="name"><b>${t("appTitle")}</b>
           ${s ? html`<span class="status ${serial && !running ? "bad" : "ok"}" title=${`App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}`}><span
-            class="dot"></span>${t(serial ? (running ? "running" : "notRunning") : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : html`<span style="margin-top:5px">${sk("130px", 9)}</span>`}</div>
+            class="dot"></span>${t(serial && !running ? "notRunning" : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : html`<span style="margin-top:5px">${sk("130px", 9)}</span>`}</div>
           ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
         </div>
 

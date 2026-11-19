@@ -3,7 +3,6 @@
   "text": {
     "portWarn": "Achtung: {w}. Speichern geht trotzdem; die Verbindung startet, sobald der Port frei ist.",
     "appTitle": "Device Proxy",
-    "running": "ser2net läuft",
     "notRunning": "ser2net läuft nicht",
     "appRunning": "Läuft",
     "problems": "{n} mit Problem",
