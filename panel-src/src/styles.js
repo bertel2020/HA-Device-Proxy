@@ -149,7 +149,9 @@ export const base = css`
   .skel .sk-tiles > div, .skel .sk-fld { display: flex; flex-direction: column; gap: 8px; }
   .skel .sk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
   .skel .sk-side { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
-  @media (max-width: 760px) { .skel .sk-side { grid-template-columns: minmax(0, 1fr); } .skel .sk-side > :first-child > :not(h1) { display: none; } }
+  /* as the settings: the sections as a row of chips above the content */
+  @media (max-width: 863px) { .skel .sk-side { grid-template-columns: minmax(0, 1fr); } .skel .sk-side > :first-child { flex-direction: row !important; gap: 6px !important; overflow: hidden; }
+    .skel .sk-side > :first-child > * { flex: none; width: 96px !important; height: 32px !important; border-radius: 16px !important; } }
   @media (prefers-reduced-motion: reduce) { .sk { animation: none; } .skel { animation-duration: .01s; } }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
