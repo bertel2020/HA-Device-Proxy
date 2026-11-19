@@ -18,6 +18,10 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+- Karten-Tabellen über Container-Abfragen statt `@media`: `.scroll` hat `container-type: inline-size`; `table.cards` wird unter 540 px Platz zu Karten, `table.cards.wide` (Modbus-Clients, 1-Wire-Geräte, EnOcean-Sender, Mitschnitt-Dateien) unter 780 px. Die Regeln entstehen einmal in `CARDS(sel)` (`styles.js`, `unsafeCSS`). Geprüft bei 375/640/820/1440 px: nichts scrollt seitlich, am Desktop Tabellen.
+- Scroll-Spy der Einstellungen: Schwelle mindestens ein Drittel der Fensterhöhe; `_goto(id)` markiert den angetippten Abschnitt sofort und hält ihn bis `scrollend` (Rückfall nach 2 s).
+- Verbindungsliste (`connections.js`): Gateway mit sichtbarem Ersatz (`paired`) zuerst innerhalb der Art, Karte mit `.pair-start` (`grid-column-start: 1`), Ersatz direkt danach; so bleibt das Paar bei jeder Spaltenzahl ≥ 2 in einer Zeile.
+
 ## 1.9.2 - 2026-11-19
 
 - Tabellen am Handy (`styles.js`): `table.cards` wird unter 600 px zu Blöcken; `thead` aus, die erste Zelle ist der Titel, die übrigen zeigen ihr `data-l` als Beschriftung links (`::before`, float) und den Wert rechts; leere Zellen entfallen. `.cardlbl` nur in Karten sichtbar (etwa „Unit-ID“ vor der Nummer), `.nocard` nur in Tabellen (unbenanntes 1-Wire-Gerät: Titel ist dann die ID, die ID-Zeile entfällt). Beschriftungen und `.cardlbl` immer in der Textschrift, auch in `.mono`-Zellen. Eingesetzt in den Clients-Tabellen (Seriell, Modbus, EnOcean, 1-Wire), Unit-IDs, 1-Wire-Geräte und -Schreibzugriffe, EnOcean-Sender, Mitschnitt-Dateien.

@@ -10,6 +10,15 @@
 >
 > 🇬🇧 [English version](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.md)
 
+## Unreleased
+
+### Geändert
+
+- **Oberfläche am Handy und Tablet:**
+  - Breite Tabellen (Modbus-Clients, 1-Wire-Geräte, EnOcean-Sender, Mitschnitt-Dateien) stehen jetzt auch am Tablet als Karten, sobald sie als Tabelle seitlich scrollen müssten. Ob Karte oder Tabelle, richtet sich nach dem Platz der Karte, nicht nach der Bildschirmbreite.
+  - Einstellungen: Die Chip-Zeile markiert den Abschnitt, der gerade den Bildschirm füllt, statt des vorigen, von dem oben nur noch ein Rest zu sehen ist. Ein angetippter Abschnitt bleibt markiert, auch wenn er zu kurz ist, um ganz nach oben zu kommen.
+- **EnOcean-Gateways:** Ein Gateway und sein Ersatz stehen in der Verbindungsliste nebeneinander in einer Zeile, vor den übrigen Gateways, statt auf zwei Zeilen verteilt.
+
 ## 1.9.2 - 2026-11-19
 
 ### Geändert

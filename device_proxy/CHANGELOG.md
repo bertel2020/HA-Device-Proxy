@@ -10,6 +10,15 @@
 >
 > 🇩🇪 [Änderungen auf Deutsch](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.de.md)
 
+## Unreleased
+
+### Changed
+
+- **Interface on a phone and tablet:**
+  - Wide tables (Modbus clients, 1-Wire devices, EnOcean senders, recording files) are now cards on a tablet too, whenever as a table they would have to scroll sideways. Whether card or table depends on the room of its card, not on the screen width.
+  - Settings: the row of chips marks the section that fills the screen, not the previous one of which only a rest still shows at the top. A tapped section stays marked, also when it is too short to reach the top.
+- **EnOcean gateways:** a gateway and its fallback sit side by side in one row of the connection list, before the other gateways, instead of split over two rows.
+
 ## 1.9.2 - 2026-11-19
 
 ### Changed
