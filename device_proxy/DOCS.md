@@ -48,6 +48,12 @@ ha-modbusproxy); saving works anyway, the connection starts once the port is fre
 
 ## Connections
 
+**The list** shows the connections grouped by kind (serial, Modbus, EnOcean, 1-Wire), with a
+chip per kind to filter by. To put the kinds in an order of your own, drag a chip by its grip ⠿,
+or pick the grip with Tab and move it with the arrow keys; the app keeps the order for every
+browser and device. Within a kind, a gateway and its fallback come first, side by side, switched
+off connections last, the rest by name; a card stays where it is when a problem comes or goes.
+
 **Templates** fill in the fields; everything stays editable. **Device**: the list shows each
 serial adapter with its stable name (`/dev/serial/by-id/…`), vendor, product and serial
 number. Identical adapters without a serial number (many CH340) are told apart by their USB
