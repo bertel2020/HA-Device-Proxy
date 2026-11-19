@@ -14,6 +14,8 @@
 
 ### Changed
 
+- **Interface, wide screens:** the pages use up to 1600 px instead of 1200 px. The connection list shows three columns there; on a connection's page the three top cards stand side by side from 1600 px (such as Gateways, Gateway and Clients). The form and the settings stay narrower so they stay readable.
+- **Connections, order:** the list is sorted by kind (serial, Modbus, EnOcean, 1-Wire), with a heading per kind, and by name within; switched-off connections are at the end of their group, a fallback gateway stays right after its gateway. Connections with a problem no longer jump to the top; the filter "Problems" is there for that.
 - **1-Wire:** is no longer beta. The "Beta" notes and labels in the interface and the docs are gone.
 - **EnOcean, Swap the gateway** (formerly "Fallback becomes the main gateway")**:** the programs now stay connected during the swap. Before, the connection restarted and dropped all clients; programs in the network such as Symcon only came back after minutes.
   - If the fallback was active at the time, it goes on through the swapped gateway right away.

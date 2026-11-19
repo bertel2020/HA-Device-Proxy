@@ -31,6 +31,8 @@ export class ConnectionsPage extends Page {
     .tile small { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .tile.warn b { color: var(--warn); } .tile.ok b { color: var(--ok); }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+    .group { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 8px 0 -4px; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--muted); }
+    .group:first-child { margin-top: 0; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
     .conn.st-warn::before { background: var(--warn); } .conn.st-bad::before { background: var(--bad); } .conn.st-info::before { background: var(--accent); }
@@ -178,11 +180,15 @@ export class ConnectionsPage extends Page {
     const problems = all.filter(isBad).length;
     const filter = this.filter === "problems" ? (problems ? "problems" : "all") : this.filter !== "all" && counts[this.filter] ? this.filter : "all";
     const shown = filter === "all" ? all : filter === "problems" ? all.filter(isBad) : all.filter((c) => c.kind === filter);
-    const sorted = [...shown].sort((a, b) => Number(isBad(b)) - Number(isBad(a))); // problems first, else as configured
+    // by kind (as the filters), switched off ones last, then by name: a card stays where it is
+    // when a problem comes or goes
+    const sorted = [...shown].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind)
+      || Number(!a.enabled) - Number(!b.enabled) || a.name.localeCompare(b.name, lang, { numeric: true, sensitivity: "base" }));
     // a fallback right after the gateway it stands in for
     const fallbacks = new Map(all.filter((c) => c.kind === "enocean" && c.fallback).map((c) => [c.fallback, c.id]));
     const list = sorted.filter((c) => !fallbacks.has(c.id) || !sorted.some((x) => x.id === fallbacks.get(c.id)))
       .flatMap((c) => [c, ...sorted.filter((x) => x.id === c.fallback && fallbacks.get(x.id) === c.id)]);
+    const grouped = new Set(list.map((c) => c.kind)).size > 1; // a heading per kind
     const active = all.filter((c) => c.enabled).length;
     const clients = all.reduce((n, c) => n + c.clients.length, 0);
     const errors = all.reduce((n, c) => n + (c.line_errors ? Object.values(c.line_errors).reduce((a, b) => a + b, 0) : 0), 0);
@@ -215,7 +221,9 @@ export class ConnectionsPage extends Page {
         ${problems ? html`<button aria-pressed=${filter === "problems" ? "true" : "false"} style="color:var(--warn)" @click=${() => this._filter("problems")}>${t("filterProblems", { n: problems })}</button>` : ""}
         ${KINDS.filter((k) => counts[k]).map((k) => html`<button aria-pressed=${filter === k ? "true" : "false"} @click=${() => this._filter(k)}>${icon(k, 16)}${t(`filter_${k}`, { n: counts[k] })}</button>`)}
       </div>` : ""}
-      ${list.length ? html`<div class="cards">${list.map((c) => this._card(c, s.ser2net_running, own))}</div>` : html`
+      ${list.length ? html`<div class="cards">${list.map((c, i) => [
+        grouped && c.kind !== list[i - 1]?.kind ? html`<h2 class="group">${icon(c.kind, 18)}${t(`group_${c.kind}`)}</h2>` : "",
+        this._card(c, s.ser2net_running, own)])}</div>` : html`
         <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("emptyText")}</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
             <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("emptyImport")}</button>

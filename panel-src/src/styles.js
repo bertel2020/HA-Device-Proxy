@@ -98,6 +98,11 @@ export const base = css`
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
   .scroll { overflow-x: auto; position: relative; } /* relative: else an absolute .sr in a wide table escapes and widens the page */
   .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
+  /* three cards: two side by side and the third below across both, side by side when wide */
+  .trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .trio > :nth-child(3) { grid-column: 1 / -1; }
+  @media (min-width: 1600px) { .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); } .trio > :nth-child(3) { grid-column: auto; } }
+  @media (max-width: 800px) { .trio { grid-template-columns: minmax(0, 1fr); } }
   .addrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; }
   .meter { --level: var(--accent); }
   .meter.ok { --level: var(--ok); } .meter.warn { --level: var(--warn); border-color: var(--warn-line); } .meter.bad { --level: var(--bad); border-color: var(--bad-line); }

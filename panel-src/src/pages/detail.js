@@ -864,6 +864,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
               : html`<p class="hint">${t("noEntries")}</p>`}
           </section>`;
     const pair = (a, b) => html`<div class="pair">${a}${b}</div>`;
+    const trio = (a, b, c3) => html`<div class="trio">${a}${b}${c3}</div>`;
     // no data yet and no line counters: one slim card instead of two half-empty ones; the curve and the counters come with the data
     const quiet = !c.last_data && !le;
     const quietCard = html`<section class="card quiet" aria-label=${t("dataFromDevice")}>
@@ -875,7 +876,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
     // connect-state-measure-act-set up: what is wrong first, what is needed once only last
     const body = enocean ? html`
       ${issuesCard(issues(c, s.capture, mainOf(c, s.connections)))}
-      ${c.fallback ? html`${pair(html`<dp-eo-gateways .connection=${c} .connections=${s.connections}></dp-eo-gateways>`, stateCard)}${clientsCard}` : pair(stateCard, clientsCard)}
+      ${c.fallback ? trio(html`<dp-eo-gateways .connection=${c} .connections=${s.connections}></dp-eo-gateways>`, stateCard, clientsCard) : pair(stateCard, clientsCard)}
       ${meterCards(c)}
       ${this._live(c.kind)}
       <dp-eo-senders .connection=${c}></dp-eo-senders>
@@ -907,8 +908,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._maintenance(c)}
       ${recentCard}`
     : html`
-      ${quiet ? quietCard : pair(rateCard, stateCard)}
-      ${clientsCard}
+      ${quiet ? html`${quietCard}${clientsCard}` : trio(rateCard, stateCard, clientsCard)}
       ${this._live(c.kind)}
       ${this.state.source === "custom" ? "" : this._tools(c)}
       ${this._addresses(c)}
