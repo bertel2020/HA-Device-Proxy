@@ -89,6 +89,16 @@ export class SettingsPage extends Page {
     .side a[aria-current="true"] { background: var(--accent-soft); color: var(--accent-hover); }
     .content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
     .card { scroll-margin-top: calc(var(--header-h) + 16px); }
+    /* above the content (phone, tablet): the sections as one row of chips that stays under the
+       header while scrolling, the current one marked, as the filters of the connection list */
+    @media (max-width: 863px) {
+      .side { position: sticky; top: var(--sticky-top, 0px); z-index: 4; flex: 1 1 100%; flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none;
+        margin: -8px -16px 0; padding: 8px 16px; background: var(--bg); }
+      .side::-webkit-scrollbar { display: none; }
+      .side a { flex: none; min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface); color: var(--text); white-space: nowrap; }
+      .side a[aria-current="true"] { border-color: var(--accent); }
+      .card { scroll-margin-top: calc(var(--sticky-top, 0px) + 60px); }
+    }
     ol { list-style: none; margin: 0; padding: 0; }
     li { border-top: 1px solid var(--line-2); padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     ol.hist li { padding: 0; gap: 0; }
@@ -139,10 +149,20 @@ export class SettingsPage extends Page {
     this._onScroll = () => {
       const sections = [...this.renderRoot.querySelectorAll("section.card[id]")];
       const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-      const here = bottom ? sections[sections.length - 1] : sections.filter((el) => el.getBoundingClientRect().top <= 140).pop() || sections[0];
+      const limit = Math.max(140, (this._stickyTop || 0) + 72); // under the header and the chips on a phone
+      const here = bottom ? sections[sections.length - 1] : sections.filter((el) => el.getBoundingClientRect().top <= limit).pop() || sections[0];
       if (here && here.id !== this.active) this.active = here.id;
     };
     window.addEventListener("scroll", this._onScroll, { passive: true });
+    // the row of chips sticks right under the app's header, whose height changes with the width
+    const header = this.getRootNode().querySelector?.("header");
+    if (header) {
+      this._headerSize = new ResizeObserver(() => {
+        this._stickyTop = header.offsetHeight;
+        this.style.setProperty("--sticky-top", `${this._stickyTop}px`);
+      });
+      this._headerSize.observe(header);
+    }
     this._leave = (e) => { if (this._dirty()) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("beforeunload", this._leave);
   }
@@ -151,6 +171,7 @@ export class SettingsPage extends Page {
     super.disconnectedCallback();
     window.removeEventListener("scroll", this._onScroll);
     window.removeEventListener("beforeunload", this._leave);
+    this._headerSize?.disconnect();
   }
 
   /** Changes not saved yet: a section's fields, the home networks or the own ser2net.yaml. */
@@ -289,6 +310,10 @@ export class SettingsPage extends Page {
 
   updated(changed) {
     if (changed.has("section") && this.section) this.renderRoot.getElementById(this.section)?.scrollIntoView();
+    if (changed.has("active")) { // the chip of the current section into view in its row (phone)
+      const side = this.renderRoot.querySelector(".side"), chip = side?.querySelector('a[aria-current="true"]');
+      if (side && chip && side.scrollWidth > side.clientWidth) side.scrollTo({ left: chip.offsetLeft - (side.clientWidth - chip.offsetWidth) / 2, behavior: "smooth" });
+    }
     if (!this._focusName) return;
     const field = this.renderRoot.querySelector(`[data-name="${this._focusName}"]`);
     if (field) { field.focus(); this._focusName = null; }
@@ -667,9 +692,9 @@ export class SettingsPage extends Page {
     const eoStatus = s.enocean_status;
     const check = this.customCheck;
     const ready = !!check && !check.errors.length && !!(this.customText || "").trim();
-    return html`<div class="layout">
+    return html`<h1 style="margin:0 0 16px">${t("settingsTitle")}</h1>
+      <div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
-        <h1 style="margin:0 0 12px 12px">${t("settingsTitle")}</h1>
         ${[["net", "sNetNav"], ["clients", "sClients"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
           html`<a href="#/settings" aria-current=${(this.active || "net") === id ? "true" : "false"} @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
       </nav>

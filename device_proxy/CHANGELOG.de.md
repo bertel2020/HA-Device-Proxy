@@ -14,6 +14,8 @@
 
 ### Geändert
 
+- **Einstellungen am Handy und Tablet:** Die Abschnitte stehen als eine Zeile mit Chips über dem Inhalt statt als lange Liste. Die Zeile bleibt beim Scrollen unter der Kopfzeile, zeigt den aktuellen Abschnitt und springt beim Antippen hin. Am Desktop bleibt die Liste links; der Titel „Einstellungen“ steht dort jetzt über beiden Spalten.
+- **Oberfläche, Zahlen:** Große Zahlen haben überall dieselben drei Größen (Messwerte, Kacheln und Zähler, kleine Kacheln), am Handy jeweils etwas kleiner. Die Kacheln über der Verbindungsliste sind dabei so groß wie die Zähler auf den anderen Seiten.
 - **Oberfläche, Handy in Home Assistant:** Die Leiste von Home Assistant mit Menü und App-Namen entfällt; das Menü-Symbol steht stattdessen links in der Kopfzeile der App, wie bei EnOcean Eltako. Das spart oben eine Zeile. Am Desktop bleibt alles wie bisher.
 - **Oberfläche, Seitentitel:** etwas kleiner (24 statt 28 px); am Handy entfällt der kurze Text darunter (Verbindungen, Ereignisse, Mitschnitt), damit mehr Inhalt zu sehen ist.
 - **Oberfläche, Kopfzeile:** Unter dem Namen steht jetzt „Läuft · App …“ statt „ser2net läuft“. Rot und mit Grund nur, wenn ser2net steht und serielle Verbindungen es brauchen; Probleme einzelner Verbindungen zählt weiter der Reiter „Verbindungen“. Die Versionen stehen im Tooltip.

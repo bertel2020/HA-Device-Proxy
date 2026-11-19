@@ -58,7 +58,7 @@ export class ImportDialog extends Page {
     .gone { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-line); border-radius: var(--control-radius); padding: 10px 12px; font-size: calc(13px * var(--fs, 1)); }
     .sum { display: flex; gap: 10px; flex-wrap: wrap; }
     .sum div { flex: 1; min-width: 100px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
-    .sum b { font-size: calc(24px * var(--fs, 1)); font-weight: 500; color: var(--text, inherit); }
+    .sum b { font-size: calc(var(--num-l) * var(--fs, 1)); font-weight: 500; color: var(--text, inherit); }
     td .notes { margin: 6px 0 0; padding-left: 16px; font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
   `];
 

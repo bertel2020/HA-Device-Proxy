@@ -16,6 +16,8 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+- Einstellungen unter 864 px (`settings.js`): `.side` als waagrechte, klebende Chip-Zeile; `--sticky-top` aus der Höhe des App-Headers (`ResizeObserver`), Scroll-Spy-Schwelle und `scroll-margin-top` danach; der aktive Chip wird in der Zeile mittig gescrollt. `h1` aus der `nav` vor das Layout gezogen.
+- Zahlengrößen als Variablen in `tokens` (`styles.js`): `--num-xl` 32/26 px (`.big`), `--num-l` 24/20 px (`.stats`/`.counters` b, `.tile b`, Ereignisse `.fig`, Import `.sum b`), `--num-m` 20/18 px (kleine Kacheln der Verbindungskarten), `--num-text` 18/16 px (Wort statt Zahl); der zweite Wert gilt unter 600 px. Die Kachelleiste der Liste hatte 26 px, die Karten 22 px.
 - Kopfzeile am Handy in HA (`app.js` `_haSubscribe`): Nachrichten an das App-Panel von HA (`home-assistant/subscribe-properties`, Antwort `home-assistant/properties` mit `narrow`); bei `narrow` neu abonniert mit `kioskMode: true`, dann blendet HA seine Leiste aus, und unser Knopf schickt `home-assistant/toggle-menu`. Kiosk nur schmal, sonst bliebe am Desktop die Seitenleiste zu. Ältere HA ignorieren die Nachrichten. Geprüft mit einer Testseite, die HA nachstellt; Symbol `menu` in `ui.js`, Schlüssel `haMenu`.
 - `h1` 24 px statt 28 px; `.head .sub` unter 600 px ausgeblendet (`styles.js`).
 - Kopfzeile (`app.js`): Text immer `appRunning`, nur bei seriellen Verbindungen und stehendem ser2net `notRunning`; Schlüssel `running` im obersten Abschnitt entfernt.
