@@ -428,12 +428,29 @@ async def test_the_controller_wires_the_fallback_and_swaps_the_hardware(
         assert "läuft über Ersatz" in problems[f"device_proxy_{a.id}_fallback"][0]
         assert f"device_proxy_{a.id}_unreachable" not in problems
 
-        # B's hardware becomes A's: A keeps its port, the old hardware is switched off
+        # B's hardware becomes A's: A keeps its port and its clients stay connected, the
+        # names go along; A was on the fallback and is on its own gateway again
+        reader, writer = await asyncio.open_connection("127.0.0.1", 15031)
+        await _until(lambda: len(proxy_a.clients) == 1)
+        await controller.enocean_promote(a.id, "keep", names=True)
+        new_a, new_b = controller.config.connection(a.id), controller.config.connection(b.id)
+        assert new_a is not None and new_b is not None
+        assert (new_a.host_port, new_a.name, new_a.fallback) == (gateway_b.port, "B", b.id)
+        assert (new_b.host_port, new_b.name, new_b.enabled) == (gateway_a.port, "A", True)
+        assert controller.proxies[a.id] is proxy_a and controller.proxies[b.id] is proxy_b
+        assert proxy_a.active == "main" and proxy_a.switch_reason == "hardware_swapped"
+        await _until(lambda: proxy_a.link.is_open and len(gateway_b.writers) >= 2)
+        gateway_b.send(FRAME)
+        assert await asyncio.wait_for(reader.readexactly(len(FRAME)), 2) == FRAME
+        assert len(proxy_a.clients) == 1
+        writer.close()
+
+        # and back, the old hardware is switched off this time
         await controller.enocean_promote(a.id, "off")
         new_a, new_b = controller.config.connection(a.id), controller.config.connection(b.id)
         assert new_a is not None and new_b is not None
-        assert (new_a.host_port, new_a.port, new_a.fallback) == (gateway_b.port, 15031, b.id)
-        assert (new_b.host_port, new_b.enabled) == (gateway_a.port, False)
+        assert (new_a.host_port, new_a.port, new_a.fallback) == (gateway_a.port, 15031, b.id)
+        assert (new_b.host_port, new_b.enabled) == (gateway_b.port, False)
         assert b.id not in controller.proxies
         assert "enocean_fallback_promoted" in [e.kind for e in controller.events.history()]
         with pytest.raises(ValueError):

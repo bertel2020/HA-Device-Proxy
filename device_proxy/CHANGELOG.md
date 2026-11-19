@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **EnOcean, Hardware tauschen** (früher „Ersatz wird Haupt-Gateway“): Die Programme bleiben beim Tausch jetzt verbunden. Vorher startete die Verbindung neu und warf alle Clients hinaus; Programme im Netz wie Symcon kamen erst nach Minuten wieder.
+  - War gerade der Ersatz aktiv, geht es danach gleich über die getauschte Hardware weiter.
+  - Neu: **Namen mittauschen**, wenn die Namen der Verbindungen die Hardware beschreiben.
+  - Klarere Texte: welche Hardware (Adresse) wohin kommt und was mit der alten passiert.
+  - Auch wenn du Host, Port oder Gerät eines EnOcean-Gateways änderst, bleiben die Programme jetzt verbunden.
+- **EnOcean, Ereignisse**: Beim Umschalten auf den Ersatz und zurück steht der Grund jetzt in Worten da statt als Kennung (etwa „von Hand“ statt „by_hand“).
+
 ## 1.9.1 - 2026-11-18
 
 - **1-Wire, HTTP-Port (Beta)**: Programme, die den Bus über HTTP vom owhttpd lesen (Port 2121, etwa 1-Wire-Module für IP-Symcon), können jetzt direkt die App nutzen. In der Verbindung den **HTTP-Port (owhttpd)** setzen; die App startet owhttpd selbst.

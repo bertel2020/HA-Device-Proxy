@@ -54,7 +54,7 @@ from .devices import (
     usb_node,
     usb_reset,
 )
-from .enocean import EnOceanProxy
+from .enocean import EnOceanProxy, hardware_key
 from .enocean_ha import EnOceanHa
 from .enocean_tools import Capture, Captures, parse_frame, sendable
 from .events import EventLog
@@ -730,17 +730,23 @@ class Controller:
         # the devices seen on 1-Wire buses that were deleted (switched off ones stay)
         onewire_bus.prune({c.id for c in self.config.connections if c.kind == "onewire"})
         touched: list[str] = []
+        swapped: list[tuple[EnOceanProxy, Connection]] = []
         for connection_id, proxy in list(self.proxies.items()):
             c = wanted.get(connection_id)
-            if (
-                c is not None
-                and proxy.key == PROXIED[c.kind].restart_key(c, listen)
-                and bool(self._serves(c)) == bool(getattr(proxy, "serves", ""))
-            ):
-                proxy.c = c  # name, trace or notifications changed: no restart
-                if isinstance(proxy, EnOceanProxy):
-                    proxy.serves = self._serves(c)
-                continue
+            if c is not None and bool(self._serves(c)) == bool(getattr(proxy, "serves", "")):
+                if proxy.key == PROXIED[c.kind].restart_key(c, listen):
+                    proxy.c = c  # name, trace or notifications changed: no restart
+                    if isinstance(proxy, EnOceanProxy):
+                        proxy.serves = self._serves(c)
+                    continue
+                if isinstance(proxy, EnOceanProxy) and hardware_key(
+                    proxy.c, listen
+                ) == hardware_key(c, listen):
+                    # other gateway hardware (e.g. swapped with the fallback): the port and
+                    # the clients stay; every link is let go before any is opened again
+                    await proxy.release_link()
+                    swapped.append((proxy, c))
+                    continue
             if isinstance(proxy, EnOceanProxy):
                 self._capture_ends(proxy)
             task = self._proxy_tasks.pop(connection_id)
@@ -749,6 +755,9 @@ class Controller:
             await asyncio.gather(task, return_exceptions=True)  # frees the port
             del self.proxies[connection_id]
             touched.append(proxy.c.name if c is None else c.name)
+        for proxy, c in swapped:
+            proxy.use_hardware(c)
+            proxy.serves = self._serves(c)
         for connection_id, c in wanted.items():
             if connection_id in self.proxies:
                 continue
@@ -1737,10 +1746,13 @@ class Controller:
         proxy.switch(to)
         return {"active": proxy.active}
 
-    async def enocean_promote(self, connection_id: str, old: str) -> ApplyResult:
+    async def enocean_promote(
+        self, connection_id: str, old: str, names: bool = False
+    ) -> ApplyResult:
         """The fallback's hardware becomes the gateway's (e.g. the gateway broke): the
-        connection keeps its name, port, clients and history; the old hardware goes to the
-        fallback's connection, which is then switched off, kept as fallback or deleted."""
+        connection keeps its port, clients and history, and its clients stay connected; the
+        old hardware goes to the fallback's connection, which is then switched off, kept as
+        fallback or deleted. names: the two names are swapped too (they name the hardware)."""
         if old not in ("off", "keep", "delete"):
             raise ValueError("old: off, keep or delete")
         swapped: list[tuple[str, str]] = []
@@ -1752,6 +1764,8 @@ class Controller:
                 raise ValueError("the gateway has no fallback")
             mine = {f: getattr(main, f) for f in model.GATEWAY_HARDWARE}
             theirs = {f: getattr(fallback, f) for f in model.GATEWAY_HARDWARE}
+            if names:
+                mine["name"], theirs["name"] = main.name, fallback.name
             config = config.with_connection(replace(main, **theirs))
             config = config.with_connection(
                 replace(fallback, **mine, enabled=fallback.enabled and old != "off")

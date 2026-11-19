@@ -60,7 +60,7 @@ from typing import Any
 from . import esp
 from .clients import plain_host
 from .modbus import Link, SerialLink, TcpLink, keepalive
-from .model import Connection, peer_allowed
+from .model import GATEWAY_HARDWARE, Connection, peer_allowed
 from .trace import Chunk
 
 _LOGGER = logging.getLogger(__name__)
@@ -169,6 +169,18 @@ class _Client:
     active: float = 0.0  # loop time of the last data either way, for the timeout
 
 
+def _link(c: Connection) -> Link:
+    return (
+        SerialLink(c.device, c.baud, 8, "n", 1) if c.uses_device else TcpLink(c.host, c.host_port)
+    )
+
+
+def hardware_key(c: Connection, listen: str) -> Connection:
+    """restart_key without the hardware: equal when only that changed (use_hardware)."""
+    neutral: dict[str, Any] = dict.fromkeys(GATEWAY_HARDWARE, "")
+    return replace(restart_key(c, listen), **neutral)
+
+
 def restart_key(c: Connection, listen: str) -> Connection:
     """What a running proxy depends on: a change of anything else does not restart it."""
     return replace(
@@ -217,11 +229,10 @@ class EnOceanProxy:
         self.on_event = on_event
         self.on_trace = on_trace
         self.protocol = c.esp_protocol
-        self.link: Link = (
-            SerialLink(c.device, c.baud, 8, "n", 1)
-            if c.uses_device
-            else TcpLink(c.host, c.host_port)
-        )
+        self.link: Link = _link(c)
+        self._hold = asyncio.Event()  # cleared while the hardware is swapped
+        self._hold.set()
+        self._session: asyncio.Task[None] | None = None  # the link to the gateway
         self.stats = Stats()
         self.clients: dict[str, _Client] = {}
         self.only: str | None = None  # maintenance: only this host may connect
@@ -325,11 +336,48 @@ class EnOceanProxy:
     # gateway side
 
     async def _gateway_loop(self) -> None:
+        """Keep the gateway's link; release_link and use_hardware swap it underneath, while
+        the port and the clients stay."""
+        while True:
+            await self._hold.wait()
+            session = self._session = asyncio.create_task(self._gateway_session(self.link))
+            try:
+                await asyncio.wait({session})
+            finally:
+                if not session.done():  # the proxy ends
+                    session.cancel()
+                    await asyncio.gather(session, return_exceptions=True)
+            if not session.cancelled():
+                session.result()  # a bug: the proxy ends and the controller starts it again
+
+    async def release_link(self) -> None:
+        """Close the link to the gateway and keep it closed until use_hardware (the
+        hardware is swapped with another connection, which must let go of it first)."""
+        self._hold.clear()
+        session = self._session
+        if session is not None and not session.done():
+            session.cancel()
+            await asyncio.gather(session, return_exceptions=True)
+
+    def use_hardware(self, c: Connection) -> None:
+        """Go on with other hardware (a changed link, device, host or baud rate): the port,
+        the clients and the replay buffer stay. After release_link."""
+        self.c, self.key = c, restart_key(c, self.listen)
+        self.link = _link(c)
+        self.reachable, self.reachable_since = None, time.time()
+        self.base_id = self.base_id_writes_left = self.probe_ms = self.answered_at = None
+        self.stats.last_error, self.stats.last_error_at = "", 0.0
+        self._misses, self._ok_since = 0, None
+        if self.active == "fallback":  # the clients get their own gateway again
+            self._switch("main", "hardware_swapped")
+        self._hold.set()
+
+    async def _gateway_session(self, link: Link) -> None:
         attempt = 0
         loop = asyncio.get_running_loop()
         while True:
             try:
-                await self.link.open(OPEN_TIMEOUT)
+                await link.open(OPEN_TIMEOUT)
             except Exception as err:  # also a bad host name or a termios error
                 self._down(_text(err))
                 delay = RECONNECT_DELAYS[min(attempt, len(RECONNECT_DELAYS) - 1)]
@@ -343,7 +391,7 @@ class EnOceanProxy:
             try:
                 while True:
                     try:
-                        data = await self.link.read_some(loop.time() + 3600)
+                        data = await link.read_some(loop.time() + 3600)
                     except TimeoutError:
                         continue  # a quiet hour
                     self.stats.bytes_from_device += len(data)
@@ -357,7 +405,7 @@ class EnOceanProxy:
             finally:
                 if ask:
                     ask.cancel()
-                await self.link.close()
+                await link.close()
                 self.connected_since = None
                 self._awaiting.clear()
                 self._answered.set()
