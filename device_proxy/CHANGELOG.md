@@ -1,6 +1,6 @@
 # Changelog
 
-> Deutsche Version: [CHANGELOG.de.md](CHANGELOG.de.md)
+> Deutsche Version: [CHANGELOG.de.md](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.de.md)
 
 ## Unreleased
 
