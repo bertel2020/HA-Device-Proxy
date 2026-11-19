@@ -12,6 +12,8 @@
 
 ## Unreleased
 
+## 1.9.2 - 2026-11-19
+
 ### Changed
 
 - **Interface on a phone:** more room for the content, nothing scrolls sideways any more.

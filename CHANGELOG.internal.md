@@ -16,6 +16,8 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+## 1.9.2 - 2026-11-19
+
 - Tabellen am Handy (`styles.js`): `table.cards` wird unter 600 px zu Blöcken; `thead` aus, die erste Zelle ist der Titel, die übrigen zeigen ihr `data-l` als Beschriftung links (`::before`, float) und den Wert rechts; leere Zellen entfallen. `.cardlbl` nur in Karten sichtbar (etwa „Unit-ID“ vor der Nummer), `.nocard` nur in Tabellen (unbenanntes 1-Wire-Gerät: Titel ist dann die ID, die ID-Zeile entfällt). Beschriftungen und `.cardlbl` immer in der Textschrift, auch in `.mono`-Zellen. Eingesetzt in den Clients-Tabellen (Seriell, Modbus, EnOcean, 1-Wire), Unit-IDs, 1-Wire-Geräte und -Schreibzugriffe, EnOcean-Sender, Mitschnitt-Dateien.
 - Gateway tauschen: `baseIds(c)` in `enocean.js` vergleicht die Base-IDs von Gateway und Ersatz; verschieden: `.note.bad` im Bereich und Absatz im Bestätigungsdialog (`fbPromoteBaseDiffers`), unbekannt: Hinweis (`fbPromoteBaseUnknown`). Kein Sperren, ein nur empfangendes Gateway darf getauscht werden. `dp-confirm` zeigt Zeilenumbrüche (`white-space: pre-line`).
 - Ereignis `enocean_fallback_promoted` mit `names`; Texte „Gateway getauscht …“, `fbAction_*` als Satzteile, `fbActionNames`. Ladegerüst der Einstellungen: Titel über dem Layout, unter 864 px eine Chip-Zeile wie die Seite.
