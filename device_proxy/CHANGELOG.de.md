@@ -14,13 +14,17 @@
 
 ### Geändert
 
-- **Oberfläche, Tabellen am Handy:** Clients, Unit-IDs, 1-Wire-Geräte und Schreibzugriffe, die gehörten EnOcean-Sender und die Mitschnitt-Dateien stehen am Handy als kleine Karten untereinander: oben der Client, das Gerät oder die Datei, darunter jeder Wert mit seiner Beschriftung. Kein seitliches Scrollen mehr; am Desktop bleiben es Tabellen.
-- **Einstellungen am Handy und Tablet:** Die Abschnitte stehen als eine Zeile mit Chips über dem Inhalt statt als lange Liste. Die Zeile bleibt beim Scrollen unter der Kopfzeile, zeigt den aktuellen Abschnitt und springt beim Antippen hin. Am Desktop bleibt die Liste links; der Titel „Einstellungen“ steht dort jetzt über beiden Spalten.
-- **Oberfläche, Zahlen:** Große Zahlen haben überall dieselben drei Größen (Messwerte, Kacheln und Zähler, kleine Kacheln), am Handy jeweils etwas kleiner. Die Kacheln über der Verbindungsliste sind dabei so groß wie die Zähler auf den anderen Seiten.
-- **Oberfläche, Handy in Home Assistant:** Die Leiste von Home Assistant mit Menü und App-Namen entfällt; das Menü-Symbol steht stattdessen links in der Kopfzeile der App, wie bei EnOcean Eltako. Das spart oben eine Zeile. Am Desktop bleibt alles wie bisher.
-- **Oberfläche, Seitentitel:** etwas kleiner (24 statt 28 px); am Handy entfällt der kurze Text darunter (Verbindungen, Ereignisse, Mitschnitt), damit mehr Inhalt zu sehen ist.
-- **Oberfläche, Kopfzeile:** Unter dem Namen steht jetzt „Läuft · App …“ statt „ser2net läuft“. Rot und mit Grund nur, wenn ser2net steht und serielle Verbindungen es brauchen; Probleme einzelner Verbindungen zählt weiter der Reiter „Verbindungen“. Die Versionen stehen im Tooltip.
-- **Oberfläche, breite Bildschirme:** Die Seiten nutzen bis zu 1600 px statt 1200 px. Die Verbindungsliste zeigt dort drei Spalten; auf der Seite einer Verbindung stehen ab 1600 px die drei oberen Karten nebeneinander (etwa Gateways, Gateway und Clients). Formular und Einstellungen bleiben schmaler, damit sie lesbar bleiben.
+- **Oberfläche am Handy:** mehr Platz für den Inhalt, nichts scrollt mehr seitlich.
+  - Die Leiste von Home Assistant mit Menü und App-Namen entfällt; das Menü-Symbol steht stattdessen links in der Kopfzeile der App, wie bei EnOcean Eltako. Am Desktop bleibt alles wie bisher.
+  - Tabellen (Clients, Unit-IDs, 1-Wire-Geräte und Schreibzugriffe, gehörte EnOcean-Sender, Mitschnitt-Dateien) stehen als kleine Karten untereinander: oben der Client, das Gerät oder die Datei, darunter jeder Wert mit seiner Beschriftung. Am Desktop bleiben es Tabellen.
+  - Die Einstellungen zeigen ihre Abschnitte als eine Zeile mit Chips über dem Inhalt statt als lange Liste (auch am Tablet). Die Zeile bleibt beim Scrollen unter der Kopfzeile, zeigt den aktuellen Abschnitt und springt beim Antippen hin.
+  - Der kurze Text unter den Seitentiteln (Verbindungen, Ereignisse, Mitschnitt) entfällt.
+  - Große Zahlen sind etwas kleiner.
+- **Oberfläche:**
+  - Breite Bildschirme: Die Seiten nutzen bis zu 1600 px statt 1200 px. Die Verbindungsliste zeigt dort drei Spalten; auf der Seite einer Verbindung stehen ab 1600 px die drei oberen Karten nebeneinander (etwa Gateways, Gateway und Clients). Formular und Einstellungen bleiben schmaler, damit sie lesbar bleiben.
+  - Große Zahlen haben überall dieselben drei Größen (Messwerte, Kacheln und Zähler, kleine Kacheln). Die Kacheln über der Verbindungsliste sind dabei so groß wie die Zähler auf den anderen Seiten.
+  - Seitentitel sind etwas kleiner (24 statt 28 px); in den Einstellungen steht der Titel über beiden Spalten.
+  - Kopfzeile: Unter dem Namen steht jetzt „Läuft · App …“ statt „ser2net läuft“. Rot und mit Grund nur, wenn ser2net steht und serielle Verbindungen es brauchen; Probleme einzelner Verbindungen zählt weiter der Reiter „Verbindungen“. Die Versionen stehen im Tooltip.
 - **Verbindungen, Sortierung:** Die Liste ist nach Art sortiert (Seriell, Modbus, EnOcean, 1-Wire), mit einer Überschrift je Art, darin nach Name; ausgeschaltete Verbindungen stehen am Ende ihrer Gruppe, ein Ersatz-Gateway weiter direkt hinter seinem Gateway. Verbindungen mit Problem springen nicht mehr nach oben; dafür gibt es den Filter „Probleme“.
 - **1-Wire:** ist nicht mehr Beta. Die Hinweise und Markierungen „Beta“ in der Oberfläche und der Doku sind weg.
 - **EnOcean, Gateway tauschen** (früher „Ersatz wird Haupt-Gateway“)**:** Die Programme bleiben beim Tausch jetzt verbunden. Vorher startete die Verbindung neu und warf alle Clients hinaus; Programme im Netz wie Symcon kamen erst nach Minuten wieder.
