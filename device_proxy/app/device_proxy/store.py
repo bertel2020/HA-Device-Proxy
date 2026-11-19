@@ -22,6 +22,8 @@ SECRET_SETTINGS = {"mqtt_user", "mqtt_password"}  # the history names them, neve
 PRIVATE_SETTINGS = frozenset({"client_names", "sender_names", "onewire_names"})
 # changes that touch no connection: no version in the history, no "last change" to go back from
 QUIET_SETTINGS = frozenset({"client_names", "notify_new_clients"})
+# how the panel shows things: no change at all for the history and the events, kept on a restore
+VIEW_SETTINGS = frozenset({"kind_order"})
 PASSWORD_KEPT = "••••••••"  # the browser gets this for a set password; sent back: unchanged
 
 
@@ -54,9 +56,9 @@ def changes(old: AppConfig, new: AppConfig) -> list[Change]:
             items.append({"connection": after[i].name, "change": change})
         else:
             items.append({"connection": after[i].name, "change": "changed", "fields": keys})
-    if old.settings != new.settings:
-        old_s, new_s = old.settings.to_dict(), new.settings.to_dict()
-        keys = [k for k in new_s if old_s[k] != new_s[k]]
+    old_s, new_s = old.settings.to_dict(), new.settings.to_dict()
+    keys = [k for k in new_s if old_s[k] != new_s[k] and k not in VIEW_SETTINGS]
+    if keys:
         values = {k: new_s[k] for k in keys if k not in SECRET_SETTINGS | PRIVATE_SETTINGS}
         items.append({"connection": None, "change": "settings", "fields": keys, "values": values})
     return sorted(items, key=lambda item: (item["connection"] or "", item["change"]))

@@ -12,6 +12,10 @@
 
 ## Unreleased
 
+### Neu
+
+- **Verbindungsliste:** Die Arten (Seriell, Modbus, EnOcean, 1-Wire) lassen sich in eine eigene Reihenfolge bringen: am Griff ⠿ im Chip ziehen, oder den Griff mit Tab wählen und mit den Pfeiltasten verschieben. Die Gruppen der Liste folgen; der Proxy speichert die Reihenfolge für alle Geräte, ohne Eintrag im Verlauf.
+
 ### Geändert
 
 - **Oberfläche am Handy und Tablet:**

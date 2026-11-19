@@ -714,6 +714,9 @@ class Settings:
     # EnOcean gateways for the EnOcean Eltako integration (enocean_ha.py)
     enocean_discovery: bool = True
     enocean_status_port: int = 9199  # read-only status, for Home Assistant and the apps only
+    # the panel's order of the kinds (filters and groups of the connection list), space
+    # separated; kinds left out follow in their usual order
+    kind_order: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -795,6 +798,9 @@ class Settings:
             e["enocean_status_port"] = "1024 to 65535"
         elif settings.enocean_status_port in RESERVED_PORTS:
             e["enocean_status_port"] = f"used by {RESERVED_PORTS[settings.enocean_status_port]}"
+        order = settings.kind_order.split()
+        if any(k not in KINDS for k in order) or len(set(order)) != len(order):
+            e["kind_order"] = f"each of {', '.join(KINDS)} at most once"
         if e:
             raise ValidationError(e)
         return settings

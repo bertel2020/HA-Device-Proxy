@@ -1111,6 +1111,8 @@
     "kind_onewire": "1-Wire-Bus",
     "kindsub_onewire": "Ein owserver (OWFS) für mehrere Programme, mit den Geräten am Bus",
     "filterLabel": "Nach Art filtern",
+    "kindMove": "{n} verschieben: ziehen oder Pfeiltasten",
+    "kindMoved": "Reihenfolge gespeichert",
     "filterAll": "Alle {n}",
     "filter_serial": "Seriell {n}",
     "filter_modbus": "Modbus {n}",
