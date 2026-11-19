@@ -52,6 +52,13 @@ ist.
 
 ## Verbindungen
 
+**Die Liste** zeigt die Verbindungen nach Art gruppiert (Seriell, Modbus, EnOcean, 1-Wire), mit
+einem Chip je Art zum Filtern. Für eine eigene Reihenfolge der Arten ziehst du einen Chip an
+seinem Griff ⠿, oder du wählst den Griff mit Tab und verschiebst ihn mit den Pfeiltasten; die App
+merkt sich die Reihenfolge für alle Browser und Geräte. Innerhalb einer Art stehen ein Gateway
+und sein Ersatz vorn nebeneinander, ausgeschaltete Verbindungen zuletzt, die übrigen nach Namen;
+eine Karte bleibt an ihrem Platz, wenn ein Problem kommt oder geht.
+
 **Vorlagen** füllen die Felder aus; alles bleibt änderbar. **Gerät**: die Liste zeigt jeden
 seriellen Adapter mit seinem stabilen Namen (`/dev/serial/by-id/…`), Hersteller, Produkt und
 Seriennummer. Gleiche Adapter ohne Seriennummer (viele CH340) werden über ihren USB-Port
