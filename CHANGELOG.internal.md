@@ -16,6 +16,7 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+- `h1` 24 px statt 28 px; `.head .sub` unter 600 px ausgeblendet (`styles.js`).
 - Kopfzeile (`app.js`): Text immer `appRunning`, nur bei seriellen Verbindungen und stehendem ser2net `notRunning`; Schlüssel `running` im obersten Abschnitt entfernt.
 - Breite: `--page-max: 1600px` in `app.js` (Kopfleiste, `main`, Offline-Hinweis, Darstellungsmenü); `dp-edit` und `dp-settings` auf 1152 px begrenzt. Neu `.trio` in `styles.js` (zwei Spalten plus eine darunter, ab 1600 px drei, unter 800 px eine); Detailseite: EnOcean mit Ersatz und Seriell nutzen `trio`, Modbus bleibt bei `pair` (die Clients-Tabelle braucht ~700 px). Geprüft bei 375/1024/1440/1600/1920 px ohne Überlauf; am Handy scrollen breite Tabellen und Code wie bisher in ihrer Karte.
 - Verbindungsliste: Sortierung nach `KINDS`, eingeschaltet vor ausgeschaltet, Name (`localeCompare`, numerisch); Überschrift `h2.group` je Art, sobald die Liste mehr als eine Art zeigt (Schlüssel `group_*`); nicht mehr „Probleme zuerst“.

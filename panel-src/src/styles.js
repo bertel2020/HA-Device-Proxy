@@ -16,7 +16,7 @@ export const base = css`
   * { box-sizing: border-box; }
   a { color: var(--accent); }
   a:hover { color: var(--accent-hover); }
-  h1 { margin: 0; font-size: calc(28px * var(--fs, 1)); font-weight: 500; letter-spacing: -.01em; }
+  h1 { margin: 0; font-size: calc(24px * var(--fs, 1)); font-weight: 500; letter-spacing: -.01em; }
   h2 { margin: 0; font-size: calc(16px * var(--fs, 1)); font-weight: 500; }
   p { margin: 0; }
   .sub { color: var(--muted); margin-top: 6px; }
@@ -62,6 +62,7 @@ export const base = css`
   /* a long note folds to one line on a phone: the start of the text and "More"; open, the whole text and its buttons */
   .foldnote .more { display: none; }
   @media (max-width: 600px) {
+    .head .sub { display: none; } /* the short text under a page's title: room for the content */
     .foldnote { flex-wrap: nowrap !important; }
     .foldnote.open { flex-wrap: wrap !important; }
     .foldnote:not(.open) .txt { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
