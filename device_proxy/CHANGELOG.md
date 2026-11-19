@@ -14,6 +14,7 @@
 
 ### Changed
 
+- **Interface, phone in Home Assistant:** Home Assistant's bar with the menu and the app's name is left out; the menu icon sits at the left of the app's own header instead, as in EnOcean Eltako. This saves a row at the top. On a desktop nothing changes.
 - **Interface, page titles:** a little smaller (24 instead of 28 px); on a phone the short text below them (Connections, Events, Recording) is left out, so more content shows.
 - **Interface, header:** the line under the name now says "Running · App …" instead of "ser2net running". It is red with the reason only when ser2net is stopped and serial connections need it; problems of single connections are still counted at the "Connections" tab. The versions are in the tooltip.
 - **Interface, wide screens:** the pages use up to 1600 px instead of 1200 px. The connection list shows three columns there; on a connection's page the three top cards stand side by side from 1600 px (such as Gateways, Gateway and Clients). The form and the settings stay narrower so they stay readable.

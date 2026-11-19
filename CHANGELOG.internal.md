@@ -16,6 +16,7 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+- Kopfzeile am Handy in HA (`app.js` `_haSubscribe`): Nachrichten an das App-Panel von HA (`home-assistant/subscribe-properties`, Antwort `home-assistant/properties` mit `narrow`); bei `narrow` neu abonniert mit `kioskMode: true`, dann blendet HA seine Leiste aus, und unser Knopf schickt `home-assistant/toggle-menu`. Kiosk nur schmal, sonst bliebe am Desktop die Seitenleiste zu. Ältere HA ignorieren die Nachrichten. Geprüft mit einer Testseite, die HA nachstellt; Symbol `menu` in `ui.js`, Schlüssel `haMenu`.
 - `h1` 24 px statt 28 px; `.head .sub` unter 600 px ausgeblendet (`styles.js`).
 - Kopfzeile (`app.js`): Text immer `appRunning`, nur bei seriellen Verbindungen und stehendem ser2net `notRunning`; Schlüssel `running` im obersten Abschnitt entfernt.
 - Breite: `--page-max: 1600px` in `app.js` (Kopfleiste, `main`, Offline-Hinweis, Darstellungsmenü); `dp-edit` und `dp-settings` auf 1152 px begrenzt. Neu `.trio` in `styles.js` (zwei Spalten plus eine darunter, ab 1600 px drei, unter 800 px eine); Detailseite: EnOcean mit Ersatz und Seriell nutzen `trio`, Modbus bleibt bei `pair` (die Clients-Tabelle braucht ~700 px). Geprüft bei 375/1024/1440/1600/1920 px ohne Überlauf; am Handy scrollen breite Tabellen und Code wie bisher in ihrer Karte.

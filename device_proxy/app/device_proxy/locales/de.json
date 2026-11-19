@@ -5,6 +5,7 @@
     "appTitle": "Device Proxy",
     "notRunning": "ser2net läuft nicht",
     "appRunning": "Läuft",
+    "haMenu": "Home-Assistant-Menü",
     "problems": "{n} mit Problem",
     "navConnections": "Verbindungen",
     "navEvents": "Ereignisse",

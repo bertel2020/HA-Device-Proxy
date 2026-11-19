@@ -14,6 +14,7 @@
 
 ### Geändert
 
+- **Oberfläche, Handy in Home Assistant:** Die Leiste von Home Assistant mit Menü und App-Namen entfällt; das Menü-Symbol steht stattdessen links in der Kopfzeile der App, wie bei EnOcean Eltako. Das spart oben eine Zeile. Am Desktop bleibt alles wie bisher.
 - **Oberfläche, Seitentitel:** etwas kleiner (24 statt 28 px); am Handy entfällt der kurze Text darunter (Verbindungen, Ereignisse, Mitschnitt), damit mehr Inhalt zu sehen ist.
 - **Oberfläche, Kopfzeile:** Unter dem Namen steht jetzt „Läuft · App …“ statt „ser2net läuft“. Rot und mit Grund nur, wenn ser2net steht und serielle Verbindungen es brauchen; Probleme einzelner Verbindungen zählt weiter der Reiter „Verbindungen“. Die Versionen stehen im Tooltip.
 - **Oberfläche, breite Bildschirme:** Die Seiten nutzen bis zu 1600 px statt 1200 px. Die Verbindungsliste zeigt dort drei Spalten; auf der Seite einer Verbindung stehen ab 1600 px die drei oberen Karten nebeneinander (etwa Gateways, Gateway und Clients). Formular und Einstellungen bleiben schmaler, damit sie lesbar bleiben.

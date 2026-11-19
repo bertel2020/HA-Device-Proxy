@@ -20,6 +20,7 @@ export class DeviceProxyApp extends LitElement {
     toast: { state: true },
     importOpen: { state: true },
     lookOpen: { state: true },
+    haMenu: { state: true }, // narrow inside Home Assistant: its bar is hidden, the menu button is ours
   };
 
   static styles = [tokens, base, css`
@@ -27,6 +28,7 @@ export class DeviceProxyApp extends LitElement {
     header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
     .bar { max-width: var(--page-max); margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
+    .menubtn { margin-left: -8px; color: var(--text); }
     .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; min-height: 60px; min-width: 0; flex: 1 1 0; }
     /* the title gives way first: its chips wrap under the name, so the tabs and the button stay on the row */
     .brand .name { flex: none; }
@@ -151,6 +153,7 @@ export class DeviceProxyApp extends LitElement {
     this.addEventListener("dp-look-open", () => { this.lookOpen = true; });
     this.addEventListener("dp-lang", (e) => { setLang(e.detail); document.documentElement.lang = e.detail; this.requestUpdate(); this._relayLang(); });
     document.documentElement.lang = lang;
+    this._haSubscribe();
     this._loadHistory();
     this.refresh();
     this._onVisible = () => { if (!document.hidden) { applyTheme(); this.refresh(); } };
@@ -160,11 +163,35 @@ export class DeviceProxyApp extends LitElement {
     this._timer = setInterval(() => { if (!document.hidden && !this._polling) { applyTheme(); this.refresh(); } }, POLL_MS);
   }
 
+  /** Inside Home Assistant on a phone: HA's own bar with the menu button and the app's name is
+   *  hidden (its kiosk mode, only while narrow, else the sidebar would stay closed on a desktop);
+   *  our header gets the menu button instead and saves the height of that bar. HA versions
+   *  without these messages ignore them and keep their bar. */
+  _haSubscribe() {
+    if (window.parent === window) return;
+    this._onHaMessage = (e) => {
+      if (e.source !== window.parent || e.data?.type !== "home-assistant/properties") return;
+      const narrow = !!e.data.narrow;
+      if (narrow === !!this.haMenu) return;
+      this.haMenu = narrow;
+      window.parent.postMessage({ type: "home-assistant/unsubscribe-properties" }, "*");
+      window.parent.postMessage({ type: "home-assistant/subscribe-properties", kioskMode: narrow }, "*");
+    };
+    window.addEventListener("message", this._onHaMessage);
+    window.parent.postMessage({ type: "home-assistant/subscribe-properties" }, "*");
+  }
+
+  _haMenuToggle() { window.parent.postMessage({ type: "home-assistant/toggle-menu" }, "*"); }
+
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("hashchange", this._onHash);
     document.removeEventListener("visibilitychange", this._onVisible);
     clearInterval(this._timer);
+    if (this._onHaMessage) {
+      window.removeEventListener("message", this._onHaMessage);
+      window.parent.postMessage({ type: "home-assistant/unsubscribe-properties" }, "*");
+    }
   }
 
   _relayLang() {
@@ -268,7 +295,7 @@ export class DeviceProxyApp extends LitElement {
     const problems = s ? s.connections.filter((c) => connectionState(c, running)[1] === "bad").length : 0;
     return html`
       <header><div class="bar">
-        <div class="brand">${logo()}<div class="name"><b>${t("appTitle")}</b>
+        <div class="brand">${this.haMenu ? html`<button class="iconbtn menubtn" aria-label=${t("haMenu")} title=${t("haMenu")} @click=${this._haMenuToggle}>${icon("menu", 22)}</button>` : ""}${logo()}<div class="name"><b>${t("appTitle")}</b>
           ${s ? html`<span class="status ${serial && !running ? "bad" : "ok"}" title=${`App ${s.version}${serial ? ` · ser2net ${s.ser2net_version || "?"}` : ""}`}><span
             class="dot"></span>${t(serial && !running ? "notRunning" : "appRunning")}<span class="ver">· App ${s.version}</span></span>` : html`<span style="margin-top:5px">${sk("130px", 9)}</span>`}</div>
           ${s && s.capture ? html`<a class="chip info" href="#/connection/${s.capture.connection}" style="text-decoration:none"><span class="dot"></span>${t("captureChip", { n: s.capture.name })}</a>` : ""}
