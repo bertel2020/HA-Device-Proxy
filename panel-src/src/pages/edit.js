@@ -698,7 +698,6 @@ export class EditPage extends Page {
     const d = this.draft;
     const advancedCount = (d.timeout ? 1 : 0) + (d.trace !== "off" ? 1 : 0) + (d.link === "usb" && d.owserver_cache_s !== 15 ? 1 : 0);
     return html`
-      <div class="note info" role="note">${t("owBetaNote")}</div>
       <section class="card" aria-labelledby="t-owsrc">
         <h2 id="t-owsrc">${t("owSource")}</h2>
         <div class="seg" role="group" aria-labelledby="t-owsrc">${["owserver", "usb"].map((v) => html`<button type="button" aria-pressed=${d.link === v ? "true" : "false"}
@@ -820,7 +819,7 @@ export class EditPage extends Page {
         ${isNew ? html`<section class="card" aria-labelledby="t-kind">
           <div><h2 id="t-kind">${t("kind")}</h2><p class="hint" style="margin-top:4px">${t("kindSub")}</p></div>
           <div class="choices">${["serial", "modbus", "enocean", "onewire"].map((k) => html`<button type="button" class="choice" aria-pressed=${d.kind === k ? "true" : "false"}
-            @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}${k === "onewire" ? html`<span class="chip info">${t("beta")}</span>` : ""}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
+            @click=${() => this._kind(k)}><b style="font-weight:500;display:flex;align-items:center;gap:8px">${icon(k, 18)}${t(`kind_${k}`)}</b><span class="hint">${t(`kindsub_${k}`)}</span></button>`)}</div>
         </section>` : ""}
         ${d.kind !== "serial" ? html`${d.kind === "enocean" ? this._eoTemplates() : d.kind === "modbus" ? this._mbProfiles() : ""}<section class="card" aria-labelledby="t-base">
           <h2 id="t-base">${t("basics")}</h2>

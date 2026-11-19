@@ -419,18 +419,15 @@ without signal strength and repeater count), and so is what the gateway at rest 
 own sender IDs: that is the other gateway's own sending. The card shows what came first through
 which gateway.
 
-**Swap the hardware** (the first gateway's hardware is broken for good): on the card
+**Swap the gateway** (the first gateway is broken for good): on the card
 **Gateways**. The first gateway's connection keeps its port, allowed clients, replay, discovery
 and history; only the hardware (template, model, kind of link, device or host and port, baud
 rate) is swapped between the two connections. The programs stay connected, the integration
 notices nothing, and the replay bridges the short gap. Afterwards the old hardware is switched
 off (default), kept as fallback, or its connection deleted. When the names describe the
-hardware, **Swap the names too** swaps them as well. The config history can undo it.
+gateway, **Swap the names too** swaps them as well. The config history can undo it.
 
 ## 1-Wire buses
-
-*Beta: new in 1.8.0, the USB adapter on Home Assistant in 1.9.0. If something does not work
-with your owserver or adapter, please open an issue with the diagnostics.*
 
 A 1-Wire connection shares an owserver (OWFS) and shows what happens on the bus. Home
 Assistant's 1-Wire integration, owhttpd, pyownet scripts and other systems connect to the

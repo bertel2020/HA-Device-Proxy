@@ -1,18 +1,26 @@
 # Internes Changelog
 
-Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentlichen
-[device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md), das Home Assistant vor einem Update anzeigt.
+Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentlichen Changelog:
+englisch in [device_proxy/CHANGELOG.md](device_proxy/CHANGELOG.md) (Home Assistant zeigt es vor
+einem Update, CI nimmt daraus die Release-Notes), deutsch in
+[device_proxy/CHANGELOG.de.md](device_proxy/CHANGELOG.de.md).
 
-- Jede Änderung kommt zuerst unter **Unreleased**, in beide Dateien; hier auch das, was Nutzer
+- Jede Änderung kommt zuerst unter **Unreleased**, in alle drei Dateien; hier auch das, was Nutzer
   nicht betrifft (CI, Image, Tests, Umbauten).
-- Beim Release wird in beiden Dateien aus **Unreleased** `## <Version> - <Datum>`, darüber eine neue
-  leere Sektion, und die Version in `device_proxy/config.yaml` passt dazu.
+- Öffentlich gruppiert nach `### Neu` / `### Geändert` / `### Behoben` (englisch `New` / `Changed`
+  / `Fixed`), bei Bedarf zuerst `### Achtung beim Update` (`Breaking / before updating`); jeder
+  Eintrag `- **Bereich:** Text`, eine Zeile, Unterpunkte eingerückt.
+- Beim Release wird in allen drei Dateien aus **Unreleased** `## <Version> - <Datum>`, darüber eine
+  neue leere Sektion, und die Version in `device_proxy/config.yaml` passt dazu.
 - Das Repository ist öffentlich, also auch diese Datei: keine Zugangsdaten, Adressen oder Namen.
 
 ## Unreleased
 
+- Öffentliches Changelog nach dem Muster der anderen Repos: `device_proxy/CHANGELOG.md` englisch (HA und CI-Release-Notes), `device_proxy/CHANGELOG.de.md` deutsch, je Version `Neu/Geändert/Behoben`, Einträge `- **Bereich:** Text` in einer Zeile; die `### English`-Abschnitte sind in die englische Datei gewandert. READMEs verweisen auf beide.
+- 1-Wire nicht mehr Beta: Chips „Beta“ (Art-Auswahl, owserver-Karte), Hinweis `owBetaNote` und Schlüssel `beta` entfernt, Beta-Absatz in DOCS und README weg.
+
 - EnOcean, Hardware tauschen ohne Neustart: `EnOceanProxy._gateway_loop` hält die Verbindung zum Gateway in einer eigenen Aufgabe (`_gateway_session(link)`); `release_link()` schließt sie und hält an, `use_hardware(c)` setzt neuen Link, `c`/`key`, vergisst Base-ID, Erreichbarkeit und Fehler, schaltet von „fallback“ mit Grund `hardware_swapped` auf „main“ und läuft weiter. `hardware_key()` = `restart_key` ohne `GATEWAY_HARDWARE`; `_reconcile_proxies` nimmt diesen Weg, wenn sich nur die Hardware ändert, und lässt erst alle Links los, bevor einer neu öffnet (zwei Verbindungen zu einem TCP-Gateway). `enocean_promote(..., names=)`, Route `promote_fallback` mit `names`.
-  - Panel: „Hardware tauschen“, Adressen im Text, Auswahl „Danach mit der alten Hardware“, Häkchen „Namen mittauschen“, Bestätigung mit `fbPromoteWhat_*`.
+  - Panel: „Gateway tauschen“, Adressen im Text, Auswahl „Danach mit dem alten Gateway“, Häkchen „Namen mittauschen“, Bestätigung mit `fbPromoteWhat_*`.
   - i18n.js: der Grund von `enocean_failover`/`enocean_failback` wurde nicht übersetzt (Präfix `enocean_fall` passte nur auf `enocean_fallback_*`).
   - Test: Client bleibt beim Tausch verbunden und bekommt Telegramme der neuen Hardware, Proxy-Objekte bleiben, Namen getauscht. Anlass: Symcon flog beim Tausch hinaus und kam erst nach 4,5 min wieder.
 
