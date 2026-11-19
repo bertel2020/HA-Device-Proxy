@@ -17,6 +17,7 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 ## Unreleased
 
 - Öffentliches Changelog nach dem Muster der anderen Repos: `device_proxy/CHANGELOG.md` englisch (HA und CI-Release-Notes), `device_proxy/CHANGELOG.de.md` deutsch, je Version `Neu/Geändert/Behoben`, Einträge `- **Bereich:** Text` in einer Zeile; die `### English`-Abschnitte sind in die englische Datei gewandert. READMEs verweisen auf beide.
+- Release-Footer (`.github/release-footer.md`) nur noch englisch wie bei Eltako, mit Links auf das deutsche Changelog, DOCS und DOCS.de.
 - 1-Wire nicht mehr Beta: Chips „Beta“ (Art-Auswahl, owserver-Karte), Hinweis `owBetaNote` und Schlüssel `beta` entfernt, Beta-Absatz in DOCS und README weg.
 
 - EnOcean, Hardware tauschen ohne Neustart: `EnOceanProxy._gateway_loop` hält die Verbindung zum Gateway in einer eigenen Aufgabe (`_gateway_session(link)`); `release_link()` schließt sie und hält an, `use_hardware(c)` setzt neuen Link, `c`/`key`, vergisst Base-ID, Erreichbarkeit und Fehler, schaltet von „fallback“ mit Grund `hardware_swapped` auf „main“ und läuft weiter. `hardware_key()` = `restart_key` ohne `GATEWAY_HARDWARE`; `_reconcile_proxies` nimmt diesen Weg, wenn sich nur die Hardware ändert, und lässt erst alle Links los, bevor einer neu öffnet (zwei Verbindungen zu einem TCP-Gateway). `enocean_promote(..., names=)`, Route `promote_fallback` mit `names`.
