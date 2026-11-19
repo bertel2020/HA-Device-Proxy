@@ -26,7 +26,7 @@ export class DeviceProxyApp extends LitElement {
     :host { display: block; min-height: 100vh; background: var(--bg); }
     header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
-    .bar { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
+    .bar { max-width: var(--page-max); margin: 0 auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; }
     .brand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; min-height: 60px; min-width: 0; flex: 1 1 0; }
     /* the title gives way first: its chips wrap under the name, so the tabs and the button stay on the row */
     .brand .name { flex: none; }
@@ -50,7 +50,7 @@ export class DeviceProxyApp extends LitElement {
     .iconbtn:hover, .iconbtn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-hover); }
     /* outside the header, whose blur would hold fixed boxes inside itself; the scrim takes the click that closes the menu */
     .scrim { position: fixed; inset: 0; z-index: 7; }
-    .lookmenu { position: fixed; top: 64px; right: max(16px, calc((100vw - 1200px) / 2 + 24px)); z-index: 8; width: 300px; max-width: calc(100vw - 32px); max-height: calc(100vh - 92px); overflow: auto; padding: 8px;
+    .lookmenu { position: fixed; top: 64px; right: max(16px, calc((100vw - var(--page-max)) / 2 + 24px)); z-index: 8; width: 300px; max-width: calc(100vw - 32px); max-height: calc(100vh - 92px); overflow: auto; padding: 8px;
       background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px var(--shadow-c); }
     .lookmenu .label { display: block; padding: 8px 10px 4px; }
     .lookmenu [role="group"] + .label { margin-top: 4px; border-top: 1px solid var(--line-2); padding-top: 12px; }
@@ -60,8 +60,11 @@ export class DeviceProxyApp extends LitElement {
     .lookmenu button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-hover); font-weight: 500; }
     .swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--muted); flex: none; }
     .swatch.ozean { background: #0a6aa8; } .swatch.wald { background: #0f7a6b; } .swatch.graphit { background: #2f3a48; }
-    main { max-width: 1200px; margin: 0 auto; padding: 24px 24px 56px; }
-    .offline { max-width: 1200px; margin: 12px auto 0; padding: 0 24px; }
+    /* wide screens: lists and detail pages use up to 1600 px (three columns), forms stay readable */
+    :host { --page-max: 1600px; }
+    main { max-width: var(--page-max); margin: 0 auto; padding: 24px 24px 56px; }
+    main > dp-edit, main > dp-settings { display: block; max-width: 1152px; }
+    .offline { max-width: var(--page-max); margin: 12px auto 0; padding: 0 24px; }
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--surface);
       padding: 12px 18px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: min(560px, calc(100vw - 32px)); z-index: 10; }
     /* the sections and the button need about 900 px beside the title; below that the tabs get a row of their own */

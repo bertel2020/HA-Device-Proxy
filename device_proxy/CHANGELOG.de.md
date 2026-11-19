@@ -14,6 +14,8 @@
 
 ### Geändert
 
+- **Oberfläche, breite Bildschirme:** Die Seiten nutzen bis zu 1600 px statt 1200 px. Die Verbindungsliste zeigt dort drei Spalten; auf der Seite einer Verbindung stehen ab 1600 px die drei oberen Karten nebeneinander (etwa Gateways, Gateway und Clients). Formular und Einstellungen bleiben schmaler, damit sie lesbar bleiben.
+- **Verbindungen, Sortierung:** Die Liste ist nach Art sortiert (Seriell, Modbus, EnOcean, 1-Wire), mit einer Überschrift je Art, darin nach Name; ausgeschaltete Verbindungen stehen am Ende ihrer Gruppe, ein Ersatz-Gateway weiter direkt hinter seinem Gateway. Verbindungen mit Problem springen nicht mehr nach oben; dafür gibt es den Filter „Probleme“.
 - **1-Wire:** ist nicht mehr Beta. Die Hinweise und Markierungen „Beta“ in der Oberfläche und der Doku sind weg.
 - **EnOcean, Gateway tauschen** (früher „Ersatz wird Haupt-Gateway“)**:** Die Programme bleiben beim Tausch jetzt verbunden. Vorher startete die Verbindung neu und warf alle Clients hinaus; Programme im Netz wie Symcon kamen erst nach Minuten wieder.
   - War gerade der Ersatz aktiv, geht es danach gleich über das getauschte Gateway weiter.
