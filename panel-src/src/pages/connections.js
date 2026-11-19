@@ -33,6 +33,7 @@ export class ConnectionsPage extends Page {
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
     .group { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 8px 0 -4px; font-size: calc(14px * var(--fs, 1)); font-weight: 500; color: var(--muted); }
     .group:first-child { margin-top: 0; }
+    .conn.pair-start { grid-column-start: 1; }
     .conn { position: relative; overflow: hidden; transition: box-shadow .15s, border-color .15s; }
     .conn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ok); }
     .conn.st-warn::before { background: var(--warn); } .conn.st-bad::before { background: var(--bad); } .conn.st-info::before { background: var(--accent); }
@@ -100,7 +101,7 @@ export class ConnectionsPage extends Page {
     } catch (err) { this.toast(`${t("error")}: ${err.message}`); }
   }
 
-  _card(c, running, own) {
+  _card(c, running, own, pairStart = false) {
     if (c.kind !== "serial") own = false; // the app's own proxies work with an own ser2net.yaml too
     const [stateKey, stateClass] = connectionState(c, running);
     const off = !c.enabled, missing = c.enabled && c.present === false;
@@ -128,7 +129,7 @@ export class ConnectionsPage extends Page {
     const quiet = c.last_data && c.silence_minutes && Date.now() / 1000 - c.last_data >= c.silence_minutes * 60;
     const recording = c.trace !== "off" ? t("recording", { m: t(`${modbus || onewire ? "trmb" : "tr"}_${c.trace}`) }) : "";
     const hasChips = fallbackOf || fallback || recording || c.kept_open || (enocean && (c.clients.some((cl) => cl.replay) || (eo && eo.duty_cycle.of_limit >= 80))) || errors || c.latency === "read_only" || (modbus && m.failed) || stuck.length;
-    return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""}" aria-label=${c.name} data-go
+    return html`<section class="card conn st-${stateClass || "off"} ${off ? "off" : ""} ${pairStart ? "pair-start" : ""}" aria-label=${c.name} data-go
       @click=${(e) => { if (!e.target.closest("a, button, input, label")) navigate(`#/connection/${c.id}`); }}>
       <div class="top">
         <div style="min-width:0">
@@ -180,14 +181,17 @@ export class ConnectionsPage extends Page {
     const problems = all.filter(isBad).length;
     const filter = this.filter === "problems" ? (problems ? "problems" : "all") : this.filter !== "all" && counts[this.filter] ? this.filter : "all";
     const shown = filter === "all" ? all : filter === "problems" ? all.filter(isBad) : all.filter((c) => c.kind === filter);
-    // by kind (as the filters), switched off ones last, then by name: a card stays where it is
-    // when a problem comes or goes
-    const sorted = [...shown].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind)
-      || Number(!a.enabled) - Number(!b.enabled) || a.name.localeCompare(b.name, lang, { numeric: true, sensitivity: "base" }));
-    // a fallback right after the gateway it stands in for
+    // a gateway and its fallback (both shown) belong together
     const fallbacks = new Map(all.filter((c) => c.kind === "enocean" && c.fallback).map((c) => [c.fallback, c.id]));
-    const list = sorted.filter((c) => !fallbacks.has(c.id) || !sorted.some((x) => x.id === fallbacks.get(c.id)))
-      .flatMap((c) => [c, ...sorted.filter((x) => x.id === c.fallback && fallbacks.get(x.id) === c.id)]);
+    const paired = new Set(shown.filter((c) => c.fallback && fallbacks.get(c.fallback) === c.id && shown.some((x) => x.id === c.fallback)).map((c) => c.id));
+    // by kind (as the filters), pairs first so each fills a row of its own, switched off ones
+    // last, then by name: a card stays where it is when a problem comes or goes
+    const sorted = [...shown].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind)
+      || Number(!paired.has(a.id)) - Number(!paired.has(b.id))
+      || Number(!a.enabled) - Number(!b.enabled) || a.name.localeCompare(b.name, lang, { numeric: true, sensitivity: "base" }));
+    // the fallback right after the gateway it stands in for, the gateway starts a row
+    const list = sorted.filter((c) => !fallbacks.has(c.id) || !paired.has(fallbacks.get(c.id)))
+      .flatMap((c) => [c, ...sorted.filter((x) => x.id === c.fallback && paired.has(c.id))]);
     const grouped = new Set(list.map((c) => c.kind)).size > 1; // a heading per kind
     const active = all.filter((c) => c.enabled).length;
     const clients = all.reduce((n, c) => n + c.clients.length, 0);
@@ -223,7 +227,7 @@ export class ConnectionsPage extends Page {
       </div>` : ""}
       ${list.length ? html`<div class="cards">${list.map((c, i) => [
         grouped && c.kind !== list[i - 1]?.kind ? html`<h2 class="group">${icon(c.kind, 18)}${t(`group_${c.kind}`)}</h2>` : "",
-        this._card(c, s.ser2net_running, own)])}</div>` : html`
+        this._card(c, s.ser2net_running, own, paired.has(c.id))])}</div>` : html`
         <section class="card empty"><h2>${t("emptyTitle")}</h2><p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("emptyText")}</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
             <button class="btn btn-s" @click=${this._openImport}>${icon("upload")}${t("emptyImport")}</button>

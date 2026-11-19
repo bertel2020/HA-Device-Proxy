@@ -147,13 +147,18 @@ export class SettingsPage extends Page {
     this._loadCustom();
     api("api/notify/services").then((list) => { this.services = list; }).catch(() => { this.services = []; });
     this._onScroll = () => {
+      if (this._pinned) return; // a chip or link was tapped: its section stays marked until the scroll stops
       const sections = [...this.renderRoot.querySelectorAll("section.card[id]")];
       const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-      const limit = Math.max(140, (this._stickyTop || 0) + 72); // under the header and the chips on a phone
+      // a section counts once its top is in the upper third (and under the header and the chips on a
+      // phone): the one mostly in view is marked, not the one whose last lines still show at the top
+      const limit = Math.max(140, (this._stickyTop || 0) + 72, window.innerHeight * 0.3);
       const here = bottom ? sections[sections.length - 1] : sections.filter((el) => el.getBoundingClientRect().top <= limit).pop() || sections[0];
       if (here && here.id !== this.active) this.active = here.id;
     };
     window.addEventListener("scroll", this._onScroll, { passive: true });
+    this._onScrollEnd = () => { this._pinned = null; };
+    window.addEventListener("scrollend", this._onScrollEnd);
     // the row of chips sticks right under the app's header, whose height changes with the width
     const header = this.getRootNode().querySelector?.("header");
     if (header) {
@@ -170,8 +175,18 @@ export class SettingsPage extends Page {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("scroll", this._onScroll);
+    window.removeEventListener("scrollend", this._onScrollEnd);
     window.removeEventListener("beforeunload", this._leave);
     this._headerSize?.disconnect();
+    clearTimeout(this._pinTimer);
+  }
+
+  /** Scroll to a section and mark it at once; also when it is too short to reach the upper third. */
+  _goto(id) {
+    this.active = this._pinned = id;
+    clearTimeout(this._pinTimer);
+    this._pinTimer = setTimeout(() => { this._pinned = null; }, 2000); // browsers without scrollend
+    this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" });
   }
 
   /** Changes not saved yet: a section's fields, the home networks or the own ser2net.yaml. */
@@ -696,7 +711,7 @@ export class SettingsPage extends Page {
       <div class="layout">
       <nav class="side" aria-label=${t("settingsTitle")}>
         ${[["net", "sNetNav"], ["clients", "sClients"], ["backup", "sBackup"], ["hist", "sHistory"], ["notify", "sNotify"], ["mqtt", "sMqtt"], ["enocean", "sEnocean"], ["log", "sLogging"], ["src", "sSourceNav"], ["about", "sAbout"]].map(([id, k]) =>
-          html`<a href="#/settings" aria-current=${(this.active || "net") === id ? "true" : "false"} @click=${(e) => { e.preventDefault(); this.renderRoot.getElementById(id).scrollIntoView({ behavior: "smooth" }); }}>${t(k)}</a>`)}
+          html`<a href="#/settings" aria-current=${(this.active || "net") === id ? "true" : "false"} @click=${(e) => { e.preventDefault(); this._goto(id); }}>${t(k)}</a>`)}
       </nav>
       <div class="content">
         <section id="net" class="card" aria-labelledby="t-net">
