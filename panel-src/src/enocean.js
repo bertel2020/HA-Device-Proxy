@@ -335,15 +335,15 @@ export class EnOceanSenders extends LitElement {
         : html`<button class="btn btn-g" @click=${() => { this.names = {}; }}>${t("eoSendersEdit")}</button>
           <a class="btn btn-g" style="text-decoration:none" download href=${url(`api/tools/${c.id}/enocean/senders.csv`)}>${t("eoSendersCsv")}</a>`}</div>
         ${this.nameError ? html`<div class="note bad" role="alert">${this.nameError}</div>` : ""}` : ""}
-      ${rows.length ? html`<div class="scroll"><table><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
+      ${rows.length ? html`<div class="scroll"><table class="cards"><thead><tr><th>ID</th><th>${t("eoSendersName")}</th><th>${t("eoSendersType")}</th><th style="text-align:right">${t("eoSendersCount")}</th>
           <th>${t("eoSendersLast")}</th>${esp3 ? html`<th style="text-align:right">${t("eoSendersSignal")}</th>` : ""}<th style="text-align:right">${t("eoSendersHops")}</th>${both ? html`<th>${t("eoSendersHeard")}</th>` : ""}</tr></thead>
         <tbody>${rows.map((r) => html`<tr><td><span class="id">${r.id}</span>
             <button class="btn btn-g tap" style="min-height:24px;padding:0 6px;font-size: max(10.5px, calc(12px * var(--fs, 1)))" @click=${() => this._copy(r.id)}>${this.copied === r.id ? t("copied") : t("copy")}</button>
             ${r.own ? html`<span class="chip">${t("eoSendersOwn")}</span>` : r.new ? html`<span class="chip info">${t("eoSendersNewChip")}</span>` : ""}</td>
-          <td>${this.names ? html`<input class="inp" style="min-width:140px" maxlength="40" aria-label=${t("eoSendersName")} .value=${this.names[r.id] ?? r.name ?? ""} @input=${(e) => { this.names = { ...this.names, [r.id]: e.target.value }; }}>` : r.name || ""}</td>
-          <td>${r.rorg}</td><td style="text-align:right">${r.count.toLocaleString(lang)}</td><td>${fmtAgo(r.last)}</td>
-          ${esp3 ? html`<td style="text-align:right">${bars(r.dbm)}</td>` : ""}<td style="text-align:right">${r.hops}</td>
-          ${both ? html`<td>${[...r.heard].sort().reverse().map((h) => t(h === "main" ? "eoHeardMain" : "eoHeardFallback")).join(" + ")}</td>` : ""}</tr>`)}</tbody></table></div>`
+          <td data-l=${t("eoSendersName")}>${this.names ? html`<input class="inp" style="min-width:140px" maxlength="40" aria-label=${t("eoSendersName")} .value=${this.names[r.id] ?? r.name ?? ""} @input=${(e) => { this.names = { ...this.names, [r.id]: e.target.value }; }}>` : r.name || ""}</td>
+          <td data-l=${t("eoSendersType")}>${r.rorg}</td><td data-l=${t("eoSendersCount")} style="text-align:right">${r.count.toLocaleString(lang)}</td><td data-l=${t("eoSendersLast")}>${fmtAgo(r.last)}</td>
+          ${esp3 ? html`<td data-l=${t("eoSendersSignal")} style="text-align:right">${bars(r.dbm)}</td>` : ""}<td data-l=${t("eoSendersHops")} style="text-align:right">${r.hops}</td>
+          ${both ? html`<td data-l=${t("eoSendersHeard")}>${[...r.heard].sort().reverse().map((h) => t(h === "main" ? "eoHeardMain" : "eoHeardFallback")).join(" + ")}</td>` : ""}</tr>`)}</tbody></table></div>`
         : html`<p class="hint">${t(this.rows ? "eoSendersNone" : "eoSendersOpen")}</p>`}`);
   }
 }

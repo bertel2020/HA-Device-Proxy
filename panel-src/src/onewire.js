@@ -172,16 +172,16 @@ export class OneWireDevices extends LitElement {
           <button class="btn btn-g" ?disabled=${this.scanning} title=${t("owScanHint")} @click=${() => this._scan()}>${this.scanning ? t("owScanning") : t("owScan")}</button>`}</div>
         ${this.scanned ? html`<div class="note ok" role="status">${this.scanned}</div>` : ""}
         ${this.error ? html`<div class="note bad" role="alert">${this.error}</div>` : ""}
-        <div class="scroll"><table><thead><tr><th>${t("owName")}</th><th>${t("owId")}</th><th>${t("owChip")}</th><th>${t("owValue")}</th><th>${t("owState")}</th><th></th></tr></thead>
+        <div class="scroll"><table class="cards"><thead><tr><th>${t("owName")}</th><th>${t("owId")}</th><th>${t("owChip")}</th><th>${t("owValue")}</th><th>${t("owState")}</th><th></th></tr></thead>
         <tbody>${devices.map((d) => {
           const label = named[d.id] ? `${named[d.id]} (${d.id})` : d.id;
           return html`<tr>
             <td>${this.edit ? html`<input class="inp" style="min-width:140px" maxlength="64" aria-label="${t("owName")} ${d.id}" .value=${this.edit[d.id] ?? named[d.id] ?? ""}
-              @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint">–</span>`}</td>
-            <td><span class="id">${d.id}</span></td>
-            <td>${d.chip || html`${d.type || d.family} <span class="hint" title=${t("owChipUsualHint")}>${t("owChipUsual")}</span>`}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
-            <td>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : this._value(d)}</td>
-            <td><div class="chips">${this._chips(d)}</div></td>
+              @input=${(e) => { this.edit = { ...this.edit, [d.id]: e.target.value }; }}>` : named[d.id] || html`<span class="hint nocard">–</span><span class="id cardlbl">${d.id}</span>`}</td>
+            <td data-l=${t("owId")} class=${this.edit || named[d.id] ? "" : "nocard"}><span class="id">${d.id}</span></td>
+            <td data-l=${t("owChip")}>${d.chip || html`${d.type || d.family} <span class="hint" title=${t("owChipUsualHint")}>${t("owChipUsual")}</span>`}${d.family === "81" ? html`<br><span class="hint">${t("owAdapterChip")}</span>` : ""}</td>
+            <td data-l=${t("owValue")}>${!d.present ? html`<span class="hint">${t("owLastSeen", { t: fmtAgo(d.last) })}</span>` : this._value(d)}</td>
+            <td data-l=${t("owState")}>${this._chips(d).length ? html`<div class="chips">${this._chips(d)}</div>` : ""}</td>
             <td>${d.missing_since || (d.transient && !d.present) ? html`<button class="btn btn-g" style="min-height:28px" @click=${() => this._forget(d, label)}>${t("owForget")}</button>` : ""}</td></tr>
             ${this.open?.has(d.id) ? html`<tr class="values"><td></td><td colspan="5"><div class="all">${Object.entries(d.values || {}).sort(([a], [b]) => a.localeCompare(b))
               .map(([prop, v]) => html`<span class="mono">${prop}</span><span>${formatted(prop, v)}</span><span class="hint">${fmtAgo(v.at)}</span>`)}</div></td></tr>` : ""}`;
@@ -204,25 +204,25 @@ export function writesCard(c, settings, label) {
     : r === "…" ? html`<span class="chip">${t("owWritePending")}</span>` : html`<span class="chip warn">${r}</span>`;
   return html`<section class="card" aria-labelledby="t-owwr">
     <div class="row"><h2 id="t-owwr">${t("owWrites")}</h2><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("owWritesSub")}</span></div>
-    <div class="scroll"><table><thead><tr><th>${t("owWriteAt")}</th><th>${t("clientTh")}</th><th>${t("owWriteWhat")}</th><th>${t("owValue")}</th><th>${t("owState")}</th></tr></thead>
+    <div class="scroll"><table class="cards"><thead><tr><th>${t("owWriteAt")}</th><th>${t("clientTh")}</th><th>${t("owWriteWhat")}</th><th>${t("owValue")}</th><th>${t("owState")}</th></tr></thead>
       <tbody>${writes.map((w) => {
         const [, id, prop] = DEVICE.exec(w.path) || [];
         const what = id ? html`${named[id.toUpperCase()] || html`<span class="mono">${id.toUpperCase()}</span>`} <span class="mono hint">${prop}</span>` : html`<span class="mono">${w.path}</span>`;
         return html`<tr><td style="white-space:nowrap">${fmtTime(w.at, false, true)}</td>
-          <td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${w.client}${label(w.client)}</td>
-          <td>${what}</td><td class="mono">${w.value}</td><td>${result(w.result)}</td></tr>`;
+          <td data-l=${t("clientTh")} class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${w.client}${label(w.client)}</td>
+          <td data-l=${t("owWriteWhat")}>${what}</td><td data-l=${t("owValue")} class="mono">${w.value}</td><td data-l=${t("owState")}>${result(w.result)}</td></tr>`;
       })}</tbody></table></div>
   </section>`;
 }
 
 /** The clients: one row per computer (owserver clients connect again for each request). */
 export function clientsTable(c, label) {
-  return html`<div class="scroll"><table><thead><tr>
+  return html`<div class="scroll"><table class="cards"><thead><tr>
     <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th style="text-align:right">${t("owErrors")}</th>
     <th style="text-align:right">${t("owBlocked")}</th><th>${t("owLast")}</th></tr></thead>
     <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${label(cl.address)}</td>
-      <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${num(cl.requests)}</td>
-      <td style="text-align:right;${cl.errors ? "color:var(--warn)" : ""}">${num(cl.errors)}</td><td style="text-align:right">${num(cl.blocked)}</td>
-      <td><span class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${cl.last_path || "–"}</span>${cl.last_request ? html` <span class="hint">· ${fmtAgo(cl.last_request)}</span>` : ""}</td></tr>`)}</tbody></table></div>
+      <td data-l=${t("sinceTh")}>${cl.since ? fmtTime(cl.since) : "–"}</td><td data-l=${t("mbRequests")} style="text-align:right">${num(cl.requests)}</td>
+      <td data-l=${t("owErrors")} style="text-align:right;${cl.errors ? "color:var(--warn)" : ""}">${num(cl.errors)}</td><td data-l=${t("owBlocked")} style="text-align:right">${num(cl.blocked)}</td>
+      <td data-l=${t("owLast")}><span class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)));overflow-wrap:anywhere">${cl.last_path || "–"}</span>${cl.last_request ? html` <span class="hint">· ${fmtAgo(cl.last_request)}</span>` : ""}</td></tr>`)}</tbody></table></div>
     <p class="hint" style="margin:0">${t("owClientsHint")}</p>`;
 }

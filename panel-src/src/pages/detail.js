@@ -814,32 +814,32 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
     const clientsCard =           html`<section class="card" aria-labelledby="t-clients">
             <div class="row"><h2 id="t-clients">${t(modbus ? "mbClientsUnits" : "clients")}</h2><span style="display:flex;gap:10px;align-items:center"><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("clientsOf", { n: c.clients.length, m: c.max_clients })}</span>
               ${c.clients.length ? html`<button class="btn btn-g" style="min-height:32px" @click=${() => this._disconnect(c)}>${t("disconnectClients")}</button>` : ""}</span></div>
-            ${c.clients.length && modbus ? html`<div class="scroll"><table><thead><tr>
+            ${c.clients.length && modbus ? html`<div class="scroll"><table class="cards"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("mbRequests")}</th><th title=${t("mbTipShare")}>${t("mbShare")}</th><th style="text-align:right" title=${t("mbTipAnswer")}>${t("mbAnswer")}</th><th style="text-align:right" title=${t("mbTipWait")}>${t("mbWait")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right" title=${t("mbTipBlocked")}>${t("mbBlocked")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
-                <td style="text-align:right;white-space:nowrap">${cl.requests}${cl.cached ? html` <span class="hint">· ${t("mbCachedShort", { n: cl.cached })}</span>` : ""}</td>
-                <td>${this._share(c, cl)}</td>
-                <td style="text-align:right;white-space:nowrap">${cl.time_avg_ms ? `${cl.time_avg_ms} ms` : "–"}</td><td style="text-align:right;white-space:nowrap">${cl.requests > cl.cached ? `${cl.wait_avg_ms} ms` : "–"}</td>
-                <td style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)}</td><td data-l=${t("sinceTh")}>${cl.since ? fmtTime(cl.since) : "–"}</td>
+                <td data-l=${t("mbRequests")} style="text-align:right;white-space:nowrap">${cl.requests}${cl.cached ? html` <span class="hint">· ${t("mbCachedShort", { n: cl.cached })}</span>` : ""}</td>
+                <td data-l=${t("mbShare")}>${this._share(c, cl)}</td>
+                <td data-l=${t("mbAnswer")} style="text-align:right;white-space:nowrap">${cl.time_avg_ms ? `${cl.time_avg_ms} ms` : "–"}</td><td data-l=${t("mbWait")} style="text-align:right;white-space:nowrap">${cl.requests > cl.cached ? `${cl.wait_avg_ms} ms` : "–"}</td>
+                <td data-l=${t("mbFailed")} style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td data-l=${t("mbBlocked")} style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
             : c.clients.length && onewire ? owClients(c, (address) => clientLabel(this, address))
-            : c.clients.length && enocean ? html`<div class="scroll"><table><thead><tr>
+            : c.clients.length && enocean ? html`<div class="scroll"><table class="cards"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
-              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)}</td><td>${cl.since ? fmtTime(cl.since) : "–"}</td>
-                <td>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
-                <td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
-            : c.clients.length ? html`<div class="scroll"><table><thead><tr>
+              <tbody>${c.clients.map((cl) => html`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)}</td><td data-l=${t("sinceTh")}>${cl.since ? fmtTime(cl.since) : "–"}</td>
+                <td data-l=${t("eoReplay")}>${cl.replay ? html`<span class="chip info">${t("eoReplayChip")}</span>` : "–"}</td>
+                <td data-l=${t("toClient")} style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td><td data-l=${t("fromClient")} style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td></tr>`)}</tbody></table></div>`
+            : c.clients.length ? html`<div class="scroll"><table class="cards"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th><th style="text-align:right">${t("queued")}</th></tr></thead>
               <tbody>${c.clients.map((cl) => html`<tr>
                 <td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${cl.address}${clientLabel(this, cl.address)} ${cl.stuck ? html`<span class="chip bad">${t("stuck", { a: "" })}</span>` : ""}</td>
-                <td>${cl.since ? fmtTime(cl.since) : "–"}</td><td style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
-                <td style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
+                <td data-l=${t("sinceTh")}>${cl.since ? fmtTime(cl.since) : "–"}</td><td data-l=${t("toClient")} style="text-align:right">${fmtBytes(cl.bytes_to_client)}</td>
+                <td data-l=${t("fromClient")} style="text-align:right">${fmtBytes(cl.bytes_from_client)}</td><td data-l=${t("queued")} style="text-align:right">${fmtBytes(cl.queued)}</td></tr>`)}</tbody></table></div>`
               : html`<p class="hint" style="font-size: calc(14px * var(--fs, 1))">${t("noClients")}</p>`}
           ${modbus && (m.units || []).length ? html`<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px"><div class="row" style="margin-top:6px"><h3 id="t-units" style="font-size: calc(14px * var(--fs, 1));font-weight:500;margin:0">${t("mbUnits")}</h3><span class="hint" style="font-size: calc(13px * var(--fs, 1))">${t("mbUnitsSub")}</span></div>
-            <div class="scroll"><table><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
+            <div class="scroll"><table class="cards"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right" title=${t("mbTipExceptions")}>${t("mbExceptions")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
-              <tbody>${m.units.map((u) => html`<tr><td class="mono">${u.unit}</td><td style="text-align:right">${u.requests}</td>
-                <td style="text-align:right">${u.exceptions}</td><td style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
-                <td style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
+              <tbody>${m.units.map((u) => html`<tr><td class="mono"><span class="cardlbl">${t("mbUnit")} </span>${u.unit}</td><td data-l=${t("mbRequests")} style="text-align:right">${u.requests}</td>
+                <td data-l=${t("mbExceptions")} style="text-align:right">${u.exceptions}</td><td data-l=${t("mbFailed")} style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
+                <td data-l=${t("mbTimeShort")} style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td data-l=${t("mbLastAnswer")}>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>`;
     const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : onewire ? oneWireCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
