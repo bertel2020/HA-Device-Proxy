@@ -14,6 +14,7 @@
 
 ### Geändert
 
+- **Oberfläche, Kopfzeile:** Unter dem Namen steht jetzt „Läuft · App …“ statt „ser2net läuft“. Rot und mit Grund nur, wenn ser2net steht und serielle Verbindungen es brauchen; Probleme einzelner Verbindungen zählt weiter der Reiter „Verbindungen“. Die Versionen stehen im Tooltip.
 - **Oberfläche, breite Bildschirme:** Die Seiten nutzen bis zu 1600 px statt 1200 px. Die Verbindungsliste zeigt dort drei Spalten; auf der Seite einer Verbindung stehen ab 1600 px die drei oberen Karten nebeneinander (etwa Gateways, Gateway und Clients). Formular und Einstellungen bleiben schmaler, damit sie lesbar bleiben.
 - **Verbindungen, Sortierung:** Die Liste ist nach Art sortiert (Seriell, Modbus, EnOcean, 1-Wire), mit einer Überschrift je Art, darin nach Name; ausgeschaltete Verbindungen stehen am Ende ihrer Gruppe, ein Ersatz-Gateway weiter direkt hinter seinem Gateway. Verbindungen mit Problem springen nicht mehr nach oben; dafür gibt es den Filter „Probleme“.
 - **1-Wire:** ist nicht mehr Beta. Die Hinweise und Markierungen „Beta“ in der Oberfläche und der Doku sind weg.

@@ -3,7 +3,6 @@
   "text": {
     "portWarn": "Note: {w}. Saving still works; the connection starts as soon as the port is free.",
     "appTitle": "Device Proxy",
-    "running": "ser2net running",
     "notRunning": "ser2net not running",
     "appRunning": "Running",
     "problems": "{n} with a problem",
