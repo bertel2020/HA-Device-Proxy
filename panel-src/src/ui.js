@@ -11,6 +11,7 @@ export const logo = (size = 36) => html`<svg width=${size} height=${size} viewBo
 
 const ICONS = {
   plus: "M12 5v14M5 12h14",
+  menu: "M4 6h16M4 12h16M4 18h16",
   chevron: "M6 9l6 6 6-6",
   check: "M5 12l5 5L20 7",
   upload: "M12 15V3M7 8l5-5 5 5M5 21h14",

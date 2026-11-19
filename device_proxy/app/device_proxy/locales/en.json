@@ -5,6 +5,7 @@
     "appTitle": "Device Proxy",
     "notRunning": "ser2net not running",
     "appRunning": "Running",
+    "haMenu": "Home Assistant menu",
     "problems": "{n} with a problem",
     "navConnections": "Connections",
     "navEvents": "Events",
