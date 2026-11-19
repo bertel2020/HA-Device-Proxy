@@ -1,6 +1,14 @@
 # Changelog (Deutsch)
 
-> English version: [CHANGELOG.md](CHANGELOG.md)
+> ### 🔌 Ein Gerät, viele Clients – und eine Person dahinter
+>
+> Device Proxy ist ein Hobbyprojekt und bleibt kostenlos. So kannst du helfen:
+>
+> - ⭐ **Stern auf GitHub**: So finden andere das Projekt leichter.
+> - 🐞 **Fehler oder Idee melden**: als [Issue](https://github.com/bertel2020/HA-Device-Proxy/issues/new/choose), am besten mit dem Diagnose-Paket (Einstellungen → Hilfe und Info).
+> - ☕ **Den Proxy am Laufen halten**: [Buy Me a Coffee](https://buymeacoffee.com/bertel2020) · [Ko-fi](https://ko-fi.com/bertel2020) · [PayPal](https://paypal.me/RobertoMartins)
+>
+> 🇬🇧 [English version](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.md)
 
 ## Unreleased
 
