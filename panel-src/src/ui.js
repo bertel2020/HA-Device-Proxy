@@ -52,7 +52,7 @@ export function skeleton(page, title = "") {
     edit: () => html`${sk("160px", 9)}${sk("40%", 28, 8)}<section class="card">${sk("25%", 14)}${skFields(1)}</section><section class="card">${sk("30%", 14)}${skFields(2)}${skFields(2)}</section>`,
     events: () => html`${head}<div class="sk-row">${sk("180px", 40, 10)}${sk("100%", 40, 10)}</div>
       <section class="card">${Array.from({ length: 6 }, (_, i) => html`<div class="sk-row">${sk("70px", 9)}${sk("54px", 20, 10)}${sk(`${40 + (i * 11) % 45}%`, 9)}</div>`)}</section>`,
-    settings: () => html`<div class="sk-side"><div style="display:flex;flex-direction:column;gap:14px">${title ? html`<h1>${title}</h1>` : sk("70%", 26, 8)}${[0, 1, 2, 3, 4, 5].map((i) => sk(`${50 + (i * 9) % 35}%`, 10))}</div>
+    settings: () => html`${title ? html`<h1>${title}</h1>` : sk("30%", 24, 8)}<div class="sk-side"><div style="display:flex;flex-direction:column;gap:14px">${[0, 1, 2, 3, 4, 5].map((i) => sk(`${50 + (i * 9) % 35}%`, 10))}</div>
       <section class="card">${sk("35%", 14)}${sk("70%", 9)}${skFields(2)}${sk("100%", 60, 10)}</section></div>`,
     trace: () => html`${head}${sk("320px", 42, 10)}<section class="card">${sk("40%", 14)}${sk("100%", 160, 10)}</section>`,
   }[page] || (() => html`${head}<section class="card">${sk("40%", 14)}${sk("100%", 9)}</section>`);

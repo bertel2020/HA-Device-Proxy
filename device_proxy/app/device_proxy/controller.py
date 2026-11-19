@@ -1785,6 +1785,7 @@ class Controller:
             new=new,
             old=previous,
             action=old,
+            names=names,
         )
         return result
 

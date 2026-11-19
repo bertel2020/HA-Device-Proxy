@@ -134,6 +134,12 @@ export function statusCard(c) {
 }
 
 /** One gateway in the card "Gateways": role, state, base ID, answer time. */
+/** The base IDs of a gateway and its fallback; same: null while one is not known. */
+function baseIds(c) {
+  const mine = c.enocean?.base_id, theirs = c.enocean?.fallback?.base_id;
+  return { mine, theirs, same: mine && theirs ? mine === theirs : null };
+}
+
 function gatewayBox(role, name, href, connected, stateText, stateClass, baseId, same, probeMs, current, frames = {}) {
   return html`<div class="well" style="display:flex;flex-direction:column;gap:6px;${current ? "outline:2px solid var(--accent);outline-offset:-2px" : ""}">
     <div class="row"><b style="font-weight:500">${role} · ${href ? html`<a href=${href}>${name}</a>` : name}</b>
@@ -173,7 +179,9 @@ export class EnOceanGateways extends LitElement {
     if (!other) return;
     const what = t(`fbPromoteWhat_${this.old}`, { b: other.name });
     const names = this.names ? ` ${t("fbPromoteNames", { a: c.name, b: other.name })}` : "";
-    if (!(await confirmDialog(this, t("fbPromoteConfirm", { a: c.name, new: proxyTarget(other), old: proxyTarget(c), what, names }), t("fbPromote")))) return;
+    const base = baseIds(c);
+    const warn = base.same === false ? `\n\n${t("fbPromoteBaseDiffers", base)}` : "";
+    if (!(await confirmDialog(this, t("fbPromoteConfirm", { a: c.name, new: proxyTarget(other), old: proxyTarget(c), what, names }) + warn, t("fbPromote")))) return;
     this.busy = true;
     try {
       await api(`api/connections/${c.id}/promote_fallback`, { method: "POST", body: { old: this.old, names: this.names } });
@@ -186,8 +194,7 @@ export class EnOceanGateways extends LitElement {
     const c = this.connection, e = c.enocean || {}, fb = e.fallback || {};
     const other = this.connections.find((x) => x.id === c.fallback);
     const onFallback = fb.active === "fallback";
-    const mine = e.base_id;
-    const same = fb.base_id && mine ? fb.base_id === mine : null;
+    const { mine, same } = baseIds(c);
     const mainState = onFallback ? [e.connected ? t("fbStandby") : t("fbDown"), e.connected ? "info" : "bad"] : [t("fbActive"), "ok"];
     const fbState = !other?.enabled ? [t("fbNotReady"), "bad"] : onFallback ? [t("fbActive"), "warn"] : fb.ready ? [fb.listen ? t("fbStandbyListen") : t("fbStandby"), "ok"] : [t("fbNotReady"), "bad"];
     const h = fb.heard || {};
@@ -210,6 +217,8 @@ export class EnOceanGateways extends LitElement {
             ${["off", "keep", "delete"].map((v) => html`<option value=${v} .selected=${this.old === v}>${t(`fbold_${v}`, { b: other.name })}</option>`)}</select></label>
           <label class="chk"><input type="checkbox" .checked=${this.names} @change=${(ev) => { this.names = ev.target.checked; }}>
             <span>${t("fbNames")}<br><span class="hint">${t("fbNamesHint", { a: c.name, b: other.name })}</span></span></label>
+          ${same === false ? html`<div class="note bad">${t("fbPromoteBaseDiffers", baseIds(c))}</div>`
+            : same === null ? html`<p class="hint" style="margin:0">${t("fbPromoteBaseUnknown")}</p>` : ""}
           <div><button class="btn btn-s" ?disabled=${this.busy} @click=${this._promote}>${t("fbPromote")}</button></div></div></details>` : ""}
     </div></section>`;
   }

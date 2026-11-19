@@ -131,7 +131,10 @@ function templatedText(event) {
   if (params.error === "no answer") params.error = texts().system.no_answer;
   if (event.kind === "button_failed" && params.error) params.error = fieldError(params.error);
   if (/^enocean_fa(il|ll)/.test(event.kind) && params.reason) params.reason = t(`fbReason_${params.reason}`);
-  if (event.kind === "enocean_fallback_promoted") params.action = t(`fbAction_${params.action}`);
+  if (event.kind === "enocean_fallback_promoted") {
+    params.action = t(`fbAction_${params.action}`);
+    params.names = params.names ? t("fbActionNames") : "";
+  }
   if (event.kind === "clients_disconnected" || event.kind === "connection_restarted") params.by = t(`by_${params.by}`);
   if (event.kind === "connection_restarted" && params.usb) params.by = `${params.by}, ${t("byUsb")}`;
   if (event.kind === "auto_restart_failed") params.error = fieldError(params.error);

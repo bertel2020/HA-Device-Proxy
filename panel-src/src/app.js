@@ -350,7 +350,7 @@ export class DeviceProxyConfirm extends LitElement {
   render() {
     return html`<div class="back" @keydown=${(e) => { if (e.key === "Escape") this._done(false); else trapTab(e, this.renderRoot.querySelector(".box")); }}>
       <div class="box" role="alertdialog" aria-modal="true" aria-label=${t("confirm")}>
-        <p>${this.message}</p>
+        <p style="white-space:pre-line">${this.message}</p>
         ${this.text === undefined ? "" : html`<input class="inp" maxlength="40" aria-label=${this.message} .value=${this.text} placeholder=${this.hintText || ""}
           @keydown=${(e) => { if (e.key === "Enter") this._done(e.target.value); }}>`}
         <div class="actions"><button class="btn btn-g" @click=${() => this._done(false)}>${t("cancel")}</button>

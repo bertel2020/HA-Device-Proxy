@@ -24,7 +24,9 @@
 - **1-Wire:** ist nicht mehr Beta. Die Hinweise und Markierungen „Beta“ in der Oberfläche und der Doku sind weg.
 - **EnOcean, Gateway tauschen** (früher „Ersatz wird Haupt-Gateway“)**:** Die Programme bleiben beim Tausch jetzt verbunden. Vorher startete die Verbindung neu und warf alle Clients hinaus; Programme im Netz wie Symcon kamen erst nach Minuten wieder.
   - War gerade der Ersatz aktiv, geht es danach gleich über das getauschte Gateway weiter.
-  - Neu: **Namen mittauschen**, wenn die Namen der Verbindungen das Gateway beschreiben (standardmäßig aus).
+  - Neu: **Namen mittauschen**, wenn die Namen der Verbindungen das Gateway beschreiben (standardmäßig aus). Der Hinweis dazu sagt, dass die Entity-IDs in Home Assistant die alten Namen behalten.
+  - Haben die beiden Gateways verschiedene Base-IDs, warnen der Bereich und die Rückfrage davor: Befehle aus Home Assistant erreichen die Aktoren danach nicht mehr, bis die Base-ID angeglichen ist oder die Aktoren neu angelernt sind.
+  - Das Ereignis sagt in Worten, was getauscht wurde und was mit dem alten Gateway passiert ist, auch ob die Namen mitgetauscht wurden.
   - Klarere Texte: welches Gateway (Adresse) wohin kommt und was mit dem alten passiert.
   - Auch wenn du Host, Port oder Gerät eines EnOcean-Gateways änderst, bleiben die Programme jetzt verbunden.
 

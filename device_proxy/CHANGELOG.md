@@ -24,7 +24,9 @@
 - **1-Wire:** is no longer beta. The "Beta" notes and labels in the interface and the docs are gone.
 - **EnOcean, Swap the gateway** (formerly "Fallback becomes the main gateway")**:** the programs now stay connected during the swap. Before, the connection restarted and dropped all clients; programs in the network such as Symcon only came back after minutes.
   - If the fallback was active at the time, it goes on through the swapped gateway right away.
-  - New: **Swap the names too**, when the names of the connections describe the gateway (off by default).
+  - New: **Swap the names too**, when the names of the connections describe the gateway (off by default). Its hint says that the entity IDs in Home Assistant keep the old names.
+  - When the two gateways have different base IDs, the section and the confirmation warn about it: commands from Home Assistant no longer reach the actuators afterwards until the base ID is matched or the actuators are taught again.
+  - The event says in words what was swapped and what happened to the old gateway, also whether the names were swapped.
   - Clearer texts: which gateway (address) goes where and what happens to the old one.
   - Also when you change the host, port or device of an EnOcean gateway, the programs now stay connected.
 
