@@ -18,6 +18,8 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 
 ## Unreleased
 
+## 1.10.0 - 2026-11-19
+
 - Karten-Tabellen über Container-Abfragen statt `@media`: `.scroll` hat `container-type: inline-size`; `table.cards` wird unter 540 px Platz zu Karten, `table.cards.wide` (Modbus-Clients, 1-Wire-Geräte, EnOcean-Sender, Mitschnitt-Dateien) unter 780 px. Die Regeln entstehen einmal in `CARDS(sel)` (`styles.js`, `unsafeCSS`). Geprüft bei 375/640/820/1440 px: nichts scrollt seitlich, am Desktop Tabellen.
 - Scroll-Spy der Einstellungen: Schwelle mindestens ein Drittel der Fensterhöhe; `_goto(id)` markiert den angetippten Abschnitt sofort und hält ihn bis `scrollend` (Rückfall nach 2 s).
 - Verbindungsliste (`connections.js`): Gateway mit sichtbarem Ersatz (`paired`) zuerst innerhalb der Art, Karte mit `.pair-start` (`grid-column-start: 1`), Ersatz direkt danach; so bleibt das Paar bei jeder Spaltenzahl ≥ 2 in einer Zeile.
