@@ -43,7 +43,7 @@ from .model import (
 from .mqtt import Broker, check_broker, supervisor_broker
 from .notify import notify_services, switch_entities
 from .onewire_bus import parse_names as parse_onewire_names
-from .store import PASSWORD_KEPT, QUIET_SETTINGS, SaveError, hidden
+from .store import PASSWORD_KEPT, QUIET_SETTINGS, VIEW_SETTINGS, SaveError, hidden
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -762,7 +762,7 @@ class WebServer:
             raise HttpError(404, "no such version")
 
         def build(current: AppConfig) -> AppConfig:  # what has no versions stays as it is
-            kept = {k: getattr(current.settings, k) for k in QUIET_SETTINGS}
+            kept = {k: getattr(current.settings, k) for k in QUIET_SETTINGS | VIEW_SETTINGS}
             return self._custom_only_if_there(
                 replace(config, settings=replace(config.settings, **kept))
             )

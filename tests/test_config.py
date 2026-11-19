@@ -384,6 +384,44 @@ async def test_a_name_is_no_change_to_go_back_from(tmp_path: Path) -> None:
         assert "6" in NOTES[language]["new_clients"][0].format(count=6)
 
 
+async def test_the_order_of_the_kinds_is_no_change_at_all(tmp_path: Path) -> None:
+    from device_proxy.controller import Controller
+    from device_proxy.db import Database
+    from device_proxy.events import EventLog
+    from device_proxy.store import Store
+    from device_proxy.trace import TraceHub
+
+    db = Database(tmp_path / "h.db")
+    store = Store(db, tmp_path / "c.json")
+    events = EventLog(db)
+    start = AppConfig(connections=(Connection("Meter", "/dev/null", 3335, id="0000000a"),))
+    store.save(AppConfig(), start, "test")
+    controller = Controller(
+        store, events, tmp_path / "s.yaml", trace=TraceHub(tmp_path / "t", tmp_path / "shm")
+    )
+    controller.config = start
+    versions, seen = len(store.versions()), len(events.since(0))
+    ordered = replace(start, settings=replace(start.settings, kind_order="enocean serial"))
+    result = await controller.apply(ordered, "test")
+    assert result.changes == [] and controller.last_change is None
+    assert len(store.versions()) == versions and len(events.since(0)) == seen
+    assert store.load().settings.kind_order == "enocean serial"
+
+
+@pytest.mark.parametrize("order", ["enocean usb", "serial serial", "modbus,enocean"])
+def test_a_wrong_order_of_the_kinds(order: str) -> None:
+    with pytest.raises(ValidationError) as err:
+        Settings.from_dict({"kind_order": order})
+    assert "kind_order" in err.value.errors
+
+
+def test_an_order_of_the_kinds() -> None:
+    assert Settings.from_dict({"kind_order": " onewire  enocean "}).kind_order.split() == [
+        "onewire",
+        "enocean",
+    ]
+
+
 def test_scalars_read_back_as_written() -> None:
     """A banner or option that begins with a YAML indicator is quoted, so ser2net.yaml stays
     readable."""

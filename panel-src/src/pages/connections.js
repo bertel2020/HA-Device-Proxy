@@ -1,4 +1,4 @@
-import { css, html } from "lit";
+import { css, html, svg } from "lit";
 import { api, url, useMovedDevice } from "../api.js";
 import { Page } from "../app.js";
 import { clientName, lang, plain, t, tn } from "../i18n.js";
@@ -7,6 +7,7 @@ import { changeNote, confirmDialog, connectionState, movedNote, mqttNote, fmtAgo
 const KINDS = ["serial", "modbus", "enocean", "onewire"];
 const FILTER_KEY = "device_proxy.filter";
 const CLIENTS_SHOWN = 3; // more go to the detail page
+const GRIP = html`<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">${[3, 8, 13].map((y) => svg`<circle cx="2.5" cy=${y} r="1.4"></circle><circle cx="7.5" cy=${y} r="1.4"></circle>`)}</svg>`;
 
 /** Who may connect, in one short phrase: the network setting with its networks. */
 function reach(s) {
@@ -19,7 +20,7 @@ function reach(s) {
 export class ConnectionsPage extends Page {
   _openImport() { this.dispatchEvent(new CustomEvent("dp-import-open", { bubbles: true, composed: true })); }
 
-  static properties = { state: { attribute: false }, busy: { state: true }, filter: { state: true } };
+  static properties = { state: { attribute: false }, busy: { state: true }, filter: { state: true }, moving: { state: true } };
 
   static styles = [...Page.styles, css`
     /* the figures of all connections as tiles: the label above, the value, a small line below (as in fritzbox-network) */
@@ -67,11 +68,91 @@ export class ConnectionsPage extends Page {
     .filters button { min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface);
       color: var(--text); font: inherit; font-size: calc(13px * var(--fs, 1)); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .filters button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
+    /* a kind's chip: the pill around the filter button and the grip that moves it */
+    .kchip { display: inline-flex; align-items: center; border-radius: 16px; border: 1px solid var(--input-line); background: var(--surface); transition: opacity .15s; }
+    .kchip:has(> button[aria-pressed="true"]) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
+    .filters .kchip > button { border: 0; background: none; color: inherit; padding-right: 2px; }
+    .grip { display: grid; place-items: center; width: 24px; height: 28px; margin-right: 3px; border-radius: 14px; color: var(--muted); opacity: .55;
+      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .grip:hover, .grip:focus-visible, .kchip.moving .grip { opacity: 1; color: var(--text); background: var(--line); }
+    .grip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .kchip.moving { opacity: .6; } .kchip.moving .grip { cursor: grabbing; }
   `];
 
   constructor() {
     super();
     try { this.filter = localStorage.getItem(FILTER_KEY) || "all"; } catch { this.filter = "all"; }
+  }
+
+  /** The kinds in the order set for the panel; the ones it leaves out follow as usual. */
+  _kinds() {
+    if (this._order && this._order.join(" ") === (this.state.settings.kind_order || "").trim().split(/\s+/).join(" ")) this._order = null;
+    const set = this._order || (this.state.settings.kind_order || "").split(/\s+/).filter((k) => KINDS.includes(k));
+    return [...new Set([...set, ...KINDS])];
+  }
+
+  /** Moves a kind to where another one is, shown at once, saved in the proxy. */
+  _move(kind, to) {
+    const order = this._kinds();
+    const from = order.indexOf(kind), at = order.indexOf(to);
+    if (from < 0 || at < 0 || from === at) return false;
+    order.splice(from, 1);
+    order.splice(at, 0, kind);
+    this._order = order;
+    this.requestUpdate();
+    return true;
+  }
+
+  async _saveOrder() {
+    if (!this._order) return;
+    try {
+      await api("api/settings", { method: "PUT", body: { settings: { kind_order: this._order.join(" ") } } });
+      this.toast(t("kindMoved"));
+      this.refresh();
+    } catch (err) {
+      this._order = null;
+      this.requestUpdate();
+      this.toast(`${t("error")}: ${err.message}`);
+    }
+  }
+
+  /** Dragging a chip by its grip: over another chip it takes that one's place. */
+  _grab(e, kind) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const grip = e.currentTarget;
+    grip.setPointerCapture(e.pointerId);
+    this.moving = kind;
+    let moved = false;
+    const move = (ev) => {
+      const over = [...this.renderRoot.querySelectorAll(".kchip")].find((el) => {
+        const r = el.getBoundingClientRect();
+        return el.dataset.kind !== kind && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top - 4 && ev.clientY <= r.bottom + 4;
+      });
+      if (over && this._move(kind, over.dataset.kind)) moved = true;
+    };
+    const done = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", done);
+      grip.removeEventListener("pointercancel", done);
+      this.moving = "";
+      if (moved) this._saveOrder();
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", done);
+    grip.addEventListener("pointercancel", done);
+  }
+
+  async _key(e, kind, shown) {
+    const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const to = shown[shown.indexOf(kind) + step];
+    if (!to || !this._move(kind, to)) return;
+    await this.updateComplete;
+    this.renderRoot.querySelector(`.kchip[data-kind="${kind}"] .grip`)?.focus();
+    clearTimeout(this._keyTimer); // one save for a few presses in a row
+    this._keyTimer = setTimeout(() => this._saveOrder(), 600);
   }
 
   _filter(kind) {
@@ -176,6 +257,7 @@ export class ConnectionsPage extends Page {
     const s = this.state;
     const own = s.source === "custom";
     const all = s.connections;
+    const kinds = this._kinds(); // in the order set for the panel
     const counts = Object.fromEntries(KINDS.map((k) => [k, all.filter((c) => c.kind === k).length]));
     const isBad = (c) => connectionState(c, s.ser2net_running)[1] === "bad";
     const problems = all.filter(isBad).length;
@@ -186,7 +268,7 @@ export class ConnectionsPage extends Page {
     const paired = new Set(shown.filter((c) => c.fallback && fallbacks.get(c.fallback) === c.id && shown.some((x) => x.id === c.fallback)).map((c) => c.id));
     // by kind (as the filters), pairs first so each fills a row of its own, switched off ones
     // last, then by name: a card stays where it is when a problem comes or goes
-    const sorted = [...shown].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind)
+    const sorted = [...shown].sort((a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind)
       || Number(!paired.has(a.id)) - Number(!paired.has(b.id))
       || Number(!a.enabled) - Number(!b.enabled) || a.name.localeCompare(b.name, lang, { numeric: true, sensitivity: "base" }));
     // the fallback right after the gateway it stands in for, the gateway starts a row
@@ -223,7 +305,10 @@ export class ConnectionsPage extends Page {
       ${KINDS.filter((k) => counts[k]).length > 1 || problems ? html`<div class="filters" role="group" aria-label=${t("filterLabel")}>
         <button aria-pressed=${filter === "all" ? "true" : "false"} @click=${() => this._filter("all")}>${t("filterAll", { n: all.length })}</button>
         ${problems ? html`<button aria-pressed=${filter === "problems" ? "true" : "false"} style="color:var(--warn)" @click=${() => this._filter("problems")}>${t("filterProblems", { n: problems })}</button>` : ""}
-        ${KINDS.filter((k) => counts[k]).map((k) => html`<button aria-pressed=${filter === k ? "true" : "false"} @click=${() => this._filter(k)}>${icon(k, 16)}${t(`filter_${k}`, { n: counts[k] })}</button>`)}
+        ${kinds.filter((k) => counts[k]).map((k, _, shownKinds) => html`<span class="kchip ${this.moving === k ? "moving" : ""}" data-kind=${k}>
+          <button aria-pressed=${filter === k ? "true" : "false"} @click=${() => this._filter(k)}>${icon(k, 16)}${t(`filter_${k}`, { n: counts[k] })}</button>
+          ${shownKinds.length > 1 ? html`<span class="grip" role="button" tabindex="0" title=${t("kindMove", { n: t(`group_${k}`) })} aria-label=${t("kindMove", { n: t(`group_${k}`) })}
+            @pointerdown=${(e) => this._grab(e, k)} @keydown=${(e) => this._key(e, k, shownKinds)}>${GRIP}</span>` : ""}</span>`)}
       </div>` : ""}
       ${list.length ? html`<div class="cards">${list.map((c, i) => [
         grouped && c.kind !== list[i - 1]?.kind ? html`<h2 class="group">${icon(c.kind, 18)}${t(`group_${c.kind}`)}</h2>` : "",

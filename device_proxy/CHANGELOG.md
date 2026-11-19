@@ -12,6 +12,10 @@
 
 ## Unreleased
 
+### New
+
+- **Connection list:** the kinds (serial, Modbus, EnOcean, 1-Wire) can be put in an order of your own: drag a chip by its grip ⠿, or pick the grip with Tab and move it with the arrow keys. The groups of the list follow; the proxy keeps the order for all devices, without an entry in the history.
+
 ### Changed
 
 - **Interface on a phone and tablet:**

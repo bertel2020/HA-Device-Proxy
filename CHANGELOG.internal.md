@@ -21,6 +21,7 @@ einem Update, CI nimmt daraus die Release-Notes), deutsch in
 - Karten-Tabellen über Container-Abfragen statt `@media`: `.scroll` hat `container-type: inline-size`; `table.cards` wird unter 540 px Platz zu Karten, `table.cards.wide` (Modbus-Clients, 1-Wire-Geräte, EnOcean-Sender, Mitschnitt-Dateien) unter 780 px. Die Regeln entstehen einmal in `CARDS(sel)` (`styles.js`, `unsafeCSS`). Geprüft bei 375/640/820/1440 px: nichts scrollt seitlich, am Desktop Tabellen.
 - Scroll-Spy der Einstellungen: Schwelle mindestens ein Drittel der Fensterhöhe; `_goto(id)` markiert den angetippten Abschnitt sofort und hält ihn bis `scrollend` (Rückfall nach 2 s).
 - Verbindungsliste (`connections.js`): Gateway mit sichtbarem Ersatz (`paired`) zuerst innerhalb der Art, Karte mit `.pair-start` (`grid-column-start: 1`), Ersatz direkt danach; so bleibt das Paar bei jeder Spaltenzahl ≥ 2 in einer Zeile.
+- Reihenfolge der Arten: `Settings.kind_order` (Arten mit Leerzeichen, jede höchstens einmal; fehlende folgen in `KINDS`-Reihenfolge). Neu `VIEW_SETTINGS` in `store.py`: `changes()` übergeht sie, also weder Version noch Ereignis `config_changed`, und eine Wiederherstellung behält sie wie `QUIET_SETTINGS`. Im Panel `.kchip` = Filter-Knopf + `.grip` (`role=button`, Pointer-Events mit `setPointerCapture`, `touch-action: none`); über einem anderen Chip nimmt der gezogene dessen Platz, gespeichert beim Loslassen mit `PUT api/settings`; Pfeiltasten speichern nach 600 ms Pause. Tests in `test_config.py`.
 
 ## 1.9.2 - 2026-11-19
 
