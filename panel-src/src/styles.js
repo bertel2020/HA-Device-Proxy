@@ -9,7 +9,10 @@ export const tokens = css`
     --radius: 16px; --control-radius: 10px;
     --shadow: 0 1px 2px color-mix(in srgb, var(--shadow-c) 45%, transparent), 0 8px 24px -16px var(--shadow-c);
     color: var(--text); font-family: Roboto, "Noto Sans", system-ui, -apple-system, sans-serif; font-size: calc(14px * var(--fs, 1));
+    /* the sizes of figures, the same everywhere: a meter's value, a tile or counter, a small tile, a word in a tile's place */
+    --num-xl: 32px; --num-l: 24px; --num-m: 20px; --num-text: 18px;
   }
+  @media (max-width: 600px) { :host { --num-xl: 26px; --num-l: 20px; --num-m: 18px; --num-text: 16px; } }
 `;
 
 export const base = css`
@@ -108,7 +111,7 @@ export const base = css`
   .meter { --level: var(--accent); }
   .meter.ok { --level: var(--ok); } .meter.warn { --level: var(--warn); border-color: var(--warn-line); } .meter.bad { --level: var(--bad); border-color: var(--bad-line); }
   .meter.info { --level: var(--accent); }
-  .big { font-size: calc(32px * var(--fs, 1)); font-weight: 300; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .big { font-size: calc(var(--num-xl) * var(--fs, 1)); font-weight: 300; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .big small { font-size: calc(14px * var(--fs, 1)); font-weight: 400; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
   .meter.warn .big, .meter.bad .big { color: var(--level); }
   .track { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-2); }
@@ -124,7 +127,7 @@ export const base = css`
   /* a label on two lines does not push its value below the others: label and value rows are shared across the tiles */
   :is(.stats, .counters) > .well:not(:has(> :nth-child(3))) { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 2px; align-content: start; }
   :is(.stats, .counters) > .well > .hint { align-self: end; }
-  :is(.stats, .counters) b { font-size: calc(24px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  :is(.stats, .counters) b { font-size: calc(var(--num-l) * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
   .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
   .switch[aria-checked="true"] { background: var(--accent); }

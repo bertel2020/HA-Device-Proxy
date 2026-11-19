@@ -25,9 +25,9 @@ export class ConnectionsPage extends Page {
     /* the figures of all connections as tiles: the label above, the value, a small line below (as in fritzbox-network) */
     .band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px 24px; padding: 16px 20px; margin-bottom: 16px; }
     .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .tile b { font-size: calc(26px * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums;
+    .tile b { font-size: calc(var(--num-l) * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tile b.txt { font-size: calc(18px * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.35; padding: 3px 0; white-space: normal; }
+    .tile b.txt { font-size: calc(var(--num-text) * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.35; padding: 3px 0; white-space: normal; }
     .tile small { font-size: max(10.5px, calc(12px * var(--fs, 1))); color: var(--muted); }
     .tile.warn b { color: var(--warn); } .tile.ok b { color: var(--ok); }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
@@ -50,7 +50,7 @@ export class ConnectionsPage extends Page {
     .clients { border-top: 1px solid var(--line-2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     /* clients, data and last data as tiles; the curve under the rate */
     .figs { border-top: 1px solid var(--line-2); padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .figs .tile b { font-size: calc(22px * var(--fs, 1)); }
+    .figs .tile b { font-size: calc(var(--num-m) * var(--fs, 1)); }
     .figs .tile b small { font-size: calc(13px * var(--fs, 1)); color: var(--muted); font-weight: 400; letter-spacing: 0; }
     .figs .tile b.when { font-size: calc(16px * var(--fs, 1)); font-weight: 400; letter-spacing: 0; line-height: 1.7; }
     .figs .tile b.none { color: var(--muted); }
