@@ -147,11 +147,11 @@ function gatewayBox(role, name, href, connected, stateText, stateClass, baseId, 
 
 /** The card of a gateway with a fallback: both gateways, which one is in use, switching and the hardware swap. */
 export class EnOceanGateways extends LitElement {
-  static properties = { connection: { attribute: false }, connections: { attribute: false }, busy: { state: true }, old: { state: true } };
+  static properties = { connection: { attribute: false }, connections: { attribute: false }, busy: { state: true }, old: { state: true }, names: { state: true } };
 
   static styles = [tokens, base, css`:host { display: block; } .stack { display: flex; flex-direction: column; gap: 10px; }`];
 
-  constructor() { super(); this.old = "off"; }
+  constructor() { super(); this.old = "off"; this.names = false; }
 
   _toast(text) { this.dispatchEvent(new CustomEvent("dp-toast", { detail: text, bubbles: true, composed: true })); }
 
@@ -171,11 +171,12 @@ export class EnOceanGateways extends LitElement {
   async _promote() {
     const c = this.connection, other = this.connections.find((x) => x.id === c.fallback);
     if (!other) return;
-    const what = t(`fbold_${this.old}`, { b: other.name });
-    if (!(await confirmDialog(this, t("fbPromoteConfirm", { a: c.name, new: proxyTarget(other), old: proxyTarget(c), what }), t("fbPromote")))) return;
+    const what = t(`fbPromoteWhat_${this.old}`, { b: other.name });
+    const names = this.names ? ` ${t("fbPromoteNames", { a: c.name, b: other.name })}` : "";
+    if (!(await confirmDialog(this, t("fbPromoteConfirm", { a: c.name, new: proxyTarget(other), old: proxyTarget(c), what, names }), t("fbPromote")))) return;
     this.busy = true;
     try {
-      await api(`api/connections/${c.id}/promote_fallback`, { method: "POST", body: { old: this.old } });
+      await api(`api/connections/${c.id}/promote_fallback`, { method: "POST", body: { old: this.old, names: this.names } });
       this._toast(t("fbPromoted"));
       this._refresh();
     } catch (err) { this._toast(`${t("error")}: ${err.message}`); } finally { this.busy = false; }
@@ -204,9 +205,11 @@ export class EnOceanGateways extends LitElement {
         <div class="counters">${[["fbHeardMain", h.main], ["fbHeardFallback", h.fallback], ["fbHeardDup", h.duplicates], ["fbHeardOwn", h.own]].map(([k, v]) =>
           html`<div class="well"><b>${num(v)}</b><span class="hint">${t(k, { a: c.name, b: fb.name || "?" })}</span></div>`)}</div>` : ""}
       ${other ? html`<details class="fold" style="border-top:1px solid var(--line-2);padding-top:10px"><summary>${t("fbPromote")}</summary>
-        <div class="stack" style="margin-top:8px"><p class="hint" style="margin:0">${t("fbPromoteSub", { a: c.name, b: other.name })}</p>
-          <label class="fld"><span class="lbl">${t("fbOld")}</span><select class="inp" @change=${(ev) => { this.old = ev.target.value; }}>
+        <div class="stack" style="margin-top:8px"><p class="hint" style="margin:0">${t("fbPromoteSub", { a: c.name, b: other.name, mine: proxyTarget(c), theirs: proxyTarget(other) })}</p>
+          <label class="fld"><span class="lbl">${t("fbOld", { old: proxyTarget(c) })}</span><select class="inp" @change=${(ev) => { this.old = ev.target.value; }}>
             ${["off", "keep", "delete"].map((v) => html`<option value=${v} .selected=${this.old === v}>${t(`fbold_${v}`, { b: other.name })}</option>`)}</select></label>
+          <label class="chk"><input type="checkbox" .checked=${this.names} @change=${(ev) => { this.names = ev.target.checked; }}>
+            <span>${t("fbNames")}<br><span class="hint">${t("fbNamesHint", { a: c.name, b: other.name })}</span></span></label>
           <div><button class="btn btn-s" ?disabled=${this.busy} @click=${this._promote}>${t("fbPromote")}</button></div></div></details>` : ""}
     </div></section>`;
   }

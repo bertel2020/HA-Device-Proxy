@@ -419,13 +419,13 @@ without signal strength and repeater count), and so is what the gateway at rest 
 own sender IDs: that is the other gateway's own sending. The card shows what came first through
 which gateway.
 
-**Fallback becomes the main gateway** (the first gateway broke): on the card **Gateways**. The
-connection of the first gateway stays with its name, port, allowed clients, replay, discovery
-and history, so the integration notices nothing; only the hardware (template, model, kind
-of connection, device or host and port, baud rate) is swapped between the two connections. The
-old hardware is then switched off (default), kept as fallback, or its connection deleted. Both
-connections restart, and the replay bridges the short gap. The configuration history can
-undo it.
+**Swap the hardware** (the first gateway's hardware is broken for good): on the card
+**Gateways**. The first gateway's connection keeps its port, allowed clients, replay, discovery
+and history; only the hardware (template, model, kind of link, device or host and port, baud
+rate) is swapped between the two connections. The programs stay connected, the integration
+notices nothing, and the replay bridges the short gap. Afterwards the old hardware is switched
+off (default), kept as fallback, or its connection deleted. When the names describe the
+hardware, **Swap the names too** swaps them as well. The config history can undo it.
 
 ## 1-Wire buses
 

@@ -446,13 +446,14 @@ wird verworfen (verglichen ohne Signalstärke und Repeater-Zahl), ebenso, was da
 von den eigenen Sender-IDs hört: das ist das eigene Senden des anderen Gateways. Die Karte zeigt,
 was zuerst über welches Gateway kam.
 
-**Ersatz wird Haupt-Gateway** (das erste Gateway ist kaputt): auf der Karte **Gateways**. Die
-Verbindung des ersten Gateways bleibt mit Name, Port, erlaubten Clients, Nachlieferung, Erkennung
-und Historie erhalten, sodass die Integration nichts merkt; nur die Hardware (Vorlage, Modell,
-Art der Verbindung, Gerät oder Host und Port, Baudrate) wird zwischen den beiden Verbindungen
-getauscht. Die alte Hardware wird danach ausgeschaltet (Standard), als Ersatz behalten oder ihre
-Verbindung gelöscht. Beide Verbindungen starten neu, und die Nachlieferung überbrückt die kurze
-Lücke. Die Konfig-Historie kann das rückgängig machen.
+**Hardware tauschen** (die Hardware des ersten Gateways ist dauerhaft kaputt): auf der Karte
+**Gateways**. Die Verbindung des ersten Gateways bleibt mit Port, erlaubten Clients,
+Nachlieferung, Erkennung und Historie erhalten; nur die Hardware (Vorlage, Modell, Art der
+Verbindung, Gerät oder Host und Port, Baudrate) wird zwischen den beiden Verbindungen getauscht.
+Die Programme bleiben dabei verbunden, die Integration merkt nichts, und die Nachlieferung
+überbrückt die kurze Lücke. Die alte Hardware wird danach ausgeschaltet (Standard), als Ersatz
+behalten oder ihre Verbindung gelöscht. Beschreiben die Namen die Hardware, tauscht **Namen
+mittauschen** sie mit. Die Konfig-Historie kann das rückgängig machen.
 
 ## 1-Wire-Busse
 

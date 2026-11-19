@@ -11,6 +11,11 @@ Technische Notizen für die Entwicklung. Was Nutzer sehen, steht im öffentliche
 
 ## Unreleased
 
+- EnOcean, Hardware tauschen ohne Neustart: `EnOceanProxy._gateway_loop` hält die Verbindung zum Gateway in einer eigenen Aufgabe (`_gateway_session(link)`); `release_link()` schließt sie und hält an, `use_hardware(c)` setzt neuen Link, `c`/`key`, vergisst Base-ID, Erreichbarkeit und Fehler, schaltet von „fallback“ mit Grund `hardware_swapped` auf „main“ und läuft weiter. `hardware_key()` = `restart_key` ohne `GATEWAY_HARDWARE`; `_reconcile_proxies` nimmt diesen Weg, wenn sich nur die Hardware ändert, und lässt erst alle Links los, bevor einer neu öffnet (zwei Verbindungen zu einem TCP-Gateway). `enocean_promote(..., names=)`, Route `promote_fallback` mit `names`.
+  - Panel: „Hardware tauschen“, Adressen im Text, Auswahl „Danach mit der alten Hardware“, Häkchen „Namen mittauschen“, Bestätigung mit `fbPromoteWhat_*`.
+  - i18n.js: der Grund von `enocean_failover`/`enocean_failback` wurde nicht übersetzt (Präfix `enocean_fall` passte nur auf `enocean_fallback_*`).
+  - Test: Client bleibt beim Tausch verbunden und bekommt Telegramme der neuen Hardware, Proxy-Objekte bleiben, Namen getauscht. Anlass: Symcon flog beim Tausch hinaus und kam erst nach 4,5 min wieder.
+
 ## 1.9.1 - 2026-11-18
 
 - 1-Wire, HTTP-Port: Feld `http_port` (0 aus; nur bei Art onewire, nicht gleich `port`, nicht reserviert, in `AppConfig.validate` mit den Ports aller Verbindungen geprüft; Warnung „belegt“ über `port_problem(c, port)`). Image: owfs mit owhttpd gebaut (`--disable-owhttpd` weg, keine weiteren Abhängigkeiten), Prüfung `owhttpd --version`.

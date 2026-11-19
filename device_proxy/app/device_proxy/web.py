@@ -1118,7 +1118,9 @@ class WebServer:
         if self.c.config.connection(request.params["id"]) is None:
             raise HttpError(404, "no such connection")
         try:
-            result = await self.c.enocean_promote(request.params["id"], str(old))
+            result = await self.c.enocean_promote(
+                request.params["id"], str(old), names=data.get("names") is True
+            )
         except ValueError as err:
             raise HttpError(409, str(err)) from None
         return ok(asdict(result))
