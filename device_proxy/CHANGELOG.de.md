@@ -14,6 +14,7 @@
 
 ### Geändert
 
+- **Oberfläche, Tabellen am Handy:** Clients, Unit-IDs, 1-Wire-Geräte und Schreibzugriffe, die gehörten EnOcean-Sender und die Mitschnitt-Dateien stehen am Handy als kleine Karten untereinander: oben der Client, das Gerät oder die Datei, darunter jeder Wert mit seiner Beschriftung. Kein seitliches Scrollen mehr; am Desktop bleiben es Tabellen.
 - **Einstellungen am Handy und Tablet:** Die Abschnitte stehen als eine Zeile mit Chips über dem Inhalt statt als lange Liste. Die Zeile bleibt beim Scrollen unter der Kopfzeile, zeigt den aktuellen Abschnitt und springt beim Antippen hin. Am Desktop bleibt die Liste links; der Titel „Einstellungen“ steht dort jetzt über beiden Spalten.
 - **Oberfläche, Zahlen:** Große Zahlen haben überall dieselben drei Größen (Messwerte, Kacheln und Zähler, kleine Kacheln), am Handy jeweils etwas kleiner. Die Kacheln über der Verbindungsliste sind dabei so groß wie die Zähler auf den anderen Seiten.
 - **Oberfläche, Handy in Home Assistant:** Die Leiste von Home Assistant mit Menü und App-Namen entfällt; das Menü-Symbol steht stattdessen links in der Kopfzeile der App, wie bei EnOcean Eltako. Das spart oben eine Zeile. Am Desktop bleibt alles wie bisher.

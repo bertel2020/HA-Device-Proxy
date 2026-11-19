@@ -14,6 +14,7 @@
 
 ### Changed
 
+- **Interface, tables on a phone:** clients, unit IDs, 1-Wire devices and writes, the heard EnOcean senders and the recording files are small cards one below the other on a phone: the client, device or file on top, below it each value with its label. No more sideways scrolling; on a desktop they stay tables.
 - **Settings on a phone and tablet:** the sections are one row of chips above the content instead of a long list. The row stays under the header while scrolling, marks the current section and jumps there when tapped. On a desktop the list stays on the left; the title "Settings" now stands above both columns.
 - **Interface, figures:** large figures have the same three sizes everywhere (meter values, tiles and counters, small tiles), each a little smaller on a phone. The tiles above the connection list are now as large as the counters on the other pages.
 - **Interface, phone in Home Assistant:** Home Assistant's bar with the menu and the app's name is left out; the menu icon sits at the left of the app's own header instead, as in EnOcean Eltako. This saves a row at the top. On a desktop nothing changes.

@@ -142,10 +142,10 @@ export class TracePage extends Page {
             <div class="row"><h2 id="t-files">${t("recFiles")}</h2>
               <span class="hint mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${PATH}</span></div>
             <p class="hint" style="margin:0">${t("rotation", { mb: s.settings.trace_file_mb, k: s.settings.trace_keep })} · <a href="#/settings">${t("change")}</a></p>
-            ${files.length ? html`<div class="scroll"><table class="files" style="min-width:640px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
+            ${files.length ? html`<div class="scroll"><table class="files cards" style="min-width:640px"><thead><tr><th>${t("fileTh")}</th><th>${t("connTh")}</th><th>${t("changedTh")}</th><th style="text-align:right">${t("sizeTh")}</th><th><span class="sr">${t("delete")}</span></th></tr></thead>
               <tbody>${[...files].sort((a, b) => b.modified - a.modified).map((f) => { const capturing = s.capture && s.capture.file === f.name; return html`<tr><td class="mono fname">${f.name}</td>
-                <td>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}${writing.has(f.name) ? html`<span class="chip info">${t("recordingShort")}</span>` : ""}</td>
-                <td>${fmtTime(f.modified)}</td><td style="text-align:right">${fmtBytes(f.size)}</td>
+                <td data-l=${t("connTh")}>${f.connection && name(f.connection) ? html`<a href="#/trace/${f.connection}">${name(f.connection)}</a>` : html`<span class="hint">${t("noConnection")}</span>`}${writing.has(f.name) ? html`<span class="chip info">${t("recordingShort")}</span>` : ""}</td>
+                <td data-l=${t("changedTh")}>${fmtTime(f.modified)}</td><td data-l=${t("sizeTh")} style="text-align:right">${fmtBytes(f.size)}</td>
                 <td><div class="acts">
                   <a class="iconbtn" href=${url(`api/trace/${encodeURIComponent(f.name)}`)} download title=${t("download")} aria-label="${f.name} ${t("download")}">${icon("download", 18)}</a>
                   <button class="iconbtn del" ?disabled=${capturing} title=${capturing ? t("eoI_capture") : t("delete")} aria-label="${f.name} ${t("delete")}" @click=${() => this._delete(f.name)}>${icon("trash", 18)}</button></div></td></tr>`; })}</tbody></table></div>`

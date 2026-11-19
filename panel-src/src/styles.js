@@ -101,6 +101,25 @@ export const base = css`
   th { font-weight: 500; font-size: calc(13px * var(--fs, 1)); color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
   .scroll { overflow-x: auto; position: relative; } /* relative: else an absolute .sr in a wide table escapes and widens the page */
+  /* table.cards: on a phone each row is a small card, the first cell its title, the others
+     "label (data-l) … value" lines; no sideways scrolling */
+  .cardlbl { display: none; }
+  @media (max-width: 600px) {
+    table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; }
+    table.cards { min-width: 0 !important; }
+    table.cards thead { display: none; }
+    table.cards tr { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+    table.cards tr:last-child { border-bottom: 0; }
+    table.cards td { padding: 2px 0; border: 0; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere; display: flow-root; }
+    table.cards td[data-l]::before { content: attr(data-l); float: left; margin-right: 12px; color: var(--muted); font-size: calc(13px * var(--fs, 1)); font-family: inherit; text-align: left; }
+    table.cards td:first-child { text-align: left !important; font-weight: 500; padding-bottom: 4px; }
+    table.cards td:first-child[data-l]::before { content: none; }
+    table.cards td:empty { display: none; }
+    table.cards td .chips, table.cards td .acts { justify-content: flex-end; }
+    table.cards .cardlbl { display: inline; }
+    table.cards .nocard { display: none; }
+    table.cards td .chips { display: inline-flex; flex-wrap: wrap; }
+  }
   .meters, .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
   /* three cards: two side by side and the third below across both, side by side when wide */
   .trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
