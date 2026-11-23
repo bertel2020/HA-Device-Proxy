@@ -12,17 +12,17 @@
 
 ## Unreleased
 
+## 1.11.0 - 2026-11-23
+
 ### New
 
 - **Modbus connection:** a new card "Exceptions" shows what the device answered with an exception: time, client, unit, function code, address and count, the exception code with its name, and how often. The same request with the same answer counts up instead of filling the list, so a harmless "illegal data address" (a register this model does not have) can be told from a wrong value or a failing device ([#12](https://github.com/bertel2020/HA-Device-Proxy/issues/12)).
 
 ### Changed
 
-- **Modbus tips:** the cache tip only appears when the proxy measured that clients really read the same: it says how many of the requests another client made the same in the second before, where the setting is, and that the values are then up to 1 s old. Before, it appeared for any two clients, also when they read different registers.
-- **Modbus connection, Advanced:** the settings are rows now: name and explanation on the left, a narrow field with its unit (ms, s) on the right. Cache, disconnecting idle clients and the probe have a switch instead of "0 = off"; a changed value is marked, with a link back to the default, and the closed section lists what differs. Unit-ID rewriting and units of other connections have their own group "Units".
-- **Editor and settings:** the same look everywhere: every on/off option is a switch, settings like time limits are rows with the unit after a narrow field, and "0 = never/off" is a switch of its own. This covers the Advanced sections of serial, EnOcean and 1-Wire connections, notifications, the EnOcean buffer, the fallback gateway, and on the settings page notifications, MQTT, EnOcean and logging. Fields that belong together (address and port, line settings, broker access) stay side by side.
-- **Rows, polished:** a field can be emptied to type a new value (before, emptying it switched the setting off); on a phone the switch stays top right instead of jumping under the text; fields and switches of a group line up; after "Default: …" the focus stays in the row; switches also have the link back to the default, and the settings page marks values that differ too. In dark mode fields and the off switch are easier to see.
-- **Counters and texts:** "Advanced" of serial and EnOcean counts every setting that differs from the default ("n changed", as for Modbus and 1-Wire); the "Trace" chip names the mode; hints no longer repeat the default; the Modbus statistics say how many answers were exceptions, and the tip points to the "Exceptions" card. That card shows registers as a range (37066–37069), a column "Count" and, under the time, since when.
+- **Editor and settings:** one look everywhere. Every on/off option is a switch; settings like time limits are rows with the name and explanation on the left and a narrow field with its unit on the right, lined up with the switches; on a phone the field goes under the text and the switch stays top right. Where 0 meant "off" or "never" (cache, idle clients, probe, 1-Wire cache, no-data warning), a switch turns it on with a sensible value, and an emptied field just waits for the new number. A value that differs from the default is marked "changed" with a link back to the default, and a closed "Advanced" counts the differing settings for every kind (for Modbus it also lists them). This covers the editor of all kinds and the settings page (notifications, MQTT, EnOcean, logging); fields that belong together (address and port, line settings, broker access) stay side by side.
+- **Modbus connection, Advanced:** unit-ID rewriting and units of other connections have their own group "Units".
+- **Modbus tips:** the cache tip only appears when the proxy measured that clients really read the same: it says how many of the requests another client made the same in the second before, where the setting is, and that the values are then up to 1 s old. Before, it appeared for any two clients, also when they read different registers. The exceptions tip points to the new card, and the statistics say how many answers were exceptions.
 
 ## 1.10.0 - 2026-11-19
 

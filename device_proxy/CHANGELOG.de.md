@@ -12,17 +12,17 @@
 
 ## Unreleased
 
+## 1.11.0 - 2026-11-23
+
 ### Neu
 
 - **Modbus-Verbindung:** eine neue Karte „Fehlerantworten“ zeigt, worauf das Gerät mit einer Ausnahme geantwortet hat: Zeit, Client, Unit, Funktionscode, Adresse und Anzahl, der Ausnahme-Code mit Namen und wie oft. Dieselbe Anfrage mit derselben Antwort zählt hoch, statt die Liste zu füllen; so lässt sich ein harmloses „Adresse ungültig“ (ein Register, das dieses Modell nicht hat) von einem falschen Wert oder einem Gerätefehler unterscheiden ([#12](https://github.com/bertel2020/HA-Device-Proxy/issues/12)).
 
 ### Geändert
 
-- **Modbus-Tipps:** der Tipp zum Zwischenspeicher erscheint nur noch, wenn der Proxy gemessen hat, dass die Clients wirklich dasselbe lesen: Er nennt, wie viele der Anfragen ein anderer Client in der Sekunde davor genauso gestellt hat, wo die Einstellung liegt und dass die Werte dann bis zu 1 s alt sind. Vorher kam er bei zwei Clients immer, auch wenn sie verschiedene Register lasen.
-- **Modbus-Verbindung, Erweitert:** die Einstellungen sind jetzt Zeilen: links Name und Erklärung, rechts ein schmales Feld mit Einheit (ms, s). Zwischenspeicher, Trennen untätiger Clients und Prüfabfrage haben einen Schalter statt „0 = aus“; ein geänderter Wert ist markiert, mit Link zurück zum Standard, und der zugeklappte Bereich zeigt, was abweicht. Unit-IDs umschreiben und Units anderer Verbindungen haben eine eigene Gruppe „Units“.
-- **Editor und Einstellungen:** überall dasselbe Aussehen: jede Ein/Aus-Option ist ein Schalter, Einstellungen wie Zeitgrenzen sind Zeilen mit der Einheit hinter einem schmalen Feld, und „0 = nie/aus“ ist ein eigener Schalter. Das gilt für „Erweitert“ von Seriell, EnOcean und 1-Wire, die Meldungen, den EnOcean-Puffer, das Ersatz-Gateway und auf der Einstellungsseite für Benachrichtigungen, MQTT, EnOcean und Protokolle. Was zusammengehört (Adresse und Port, Leitungseinstellungen, Broker-Zugang), steht weiter nebeneinander.
-- **Zeilen nachgeschliffen:** ein Feld lässt sich leeren, um einen neuen Wert zu tippen (vorher schaltete das die Einstellung aus); am Handy bleibt der Schalter oben rechts, statt unter den Text zu springen; Felder und Schalter einer Gruppe stehen bündig; nach „Standard: …“ bleibt der Fokus in der Zeile; auch Schalter haben den Link zurück zum Standard, und die Einstellungsseite markiert abweichende Werte ebenfalls. Im Dunkelmodus sind Felder und der ausgeschaltete Schalter besser zu sehen.
-- **Zähler und Texte:** „Erweitert“ von Seriell und EnOcean zählt jede Einstellung, die vom Standard abweicht („n geändert“, wie bei Modbus und 1-Wire); der Chip „Mitschnitt“ nennt den Modus; Hinweise wiederholen den Standard nicht mehr; die Modbus-Statistik sagt, wie viele Antworten Fehlerantworten waren, und der Tipp verweist auf die Karte „Fehlerantworten“. Die zeigt Register als Bereich (37066–37069), eine Spalte „Anzahl“ und unter der Zeit, seit wann.
+- **Editor und Einstellungen:** überall dasselbe Aussehen. Jede Ein/Aus-Option ist ein Schalter; Einstellungen wie Zeitgrenzen sind Zeilen mit Name und Erklärung links und einem schmalen Feld mit Einheit rechts, bündig mit den Schaltern; am Handy kommt das Feld unter den Text und der Schalter bleibt oben rechts. Wo 0 „aus“ oder „nie“ hieß (Zwischenspeicher, untätige Clients, Prüfabfrage, 1-Wire-Cache, Warnung bei keinen Daten), schaltet ein Schalter die Einstellung mit einem sinnvollen Wert ein, und ein geleertes Feld wartet einfach auf die neue Zahl. Ein Wert, der vom Standard abweicht, ist mit „geändert“ markiert, mit Link zurück zum Standard, und ein zugeklapptes „Erweitert“ zählt bei allen Arten die abweichenden Einstellungen (bei Modbus nennt es sie auch). Das gilt für den Editor aller Arten und die Einstellungsseite (Benachrichtigungen, MQTT, EnOcean, Protokolle); was zusammengehört (Adresse und Port, Leitungseinstellungen, Broker-Zugang), steht weiter nebeneinander.
+- **Modbus-Verbindung, Erweitert:** Unit-IDs umschreiben und Units anderer Verbindungen haben eine eigene Gruppe „Units“.
+- **Modbus-Tipps:** der Tipp zum Zwischenspeicher erscheint nur noch, wenn der Proxy gemessen hat, dass die Clients wirklich dasselbe lesen: Er nennt, wie viele der Anfragen ein anderer Client in der Sekunde davor genauso gestellt hat, wo die Einstellung liegt und dass die Werte dann bis zu 1 s alt sind. Vorher kam er bei zwei Clients immer, auch wenn sie verschiedene Register lasen. Der Tipp zu Fehlerantworten verweist auf die neue Karte, und die Statistik sagt, wie viele Antworten Fehlerantworten waren.
 
 ## 1.10.0 - 2026-11-19
 
