@@ -83,6 +83,12 @@ erlaubte Clients (`remaddr`), Banner, Texte beim Öffnen und Schließen, `nodela
 Bind-Adresse, FTDI-Latenz und weitere ser2net-Optionen als Zeilen `name: wert`. Das Formular
 zeigt beim Tippen den entstehenden Teil der `ser2net.yaml`.
 
+Solche Einstellungen sind im ganzen Editor und auf der Einstellungsseite Zeilen: links Name und
+Erklärung, rechts ein schmales Feld mit Einheit oder ein Schalter. Wo 0 „aus“ oder „nie“ heißt,
+schaltet ein Schalter die Einstellung mit einem sinnvollen Wert ein. Ein Wert, der vom Standard
+abweicht, ist mit **geändert** markiert, mit einem Link zurück zum Standard, und ein zugeklapptes
+**Erweitert** sagt, wie viele abweichen (bei Modbus auch welche).
+
 ### Wer sich verbinden darf
 
 **Einstellungen → Netzwerk** gilt für alle Verbindungen ohne eigene Bind-Adresse oder
@@ -193,7 +199,10 @@ Prüfabfragen werden getrennt gezählt, nicht als Anfragen.
 SolarEdge-Integration …), lässt eine Speicherzeit von z. B. 500 ms das Gerät jeden Lesezugriff
 in dieser Zeit nur einmal beantworten; derselbe Lesezugriff, während einer unterwegs ist, wartet
 auf dessen Antwort. Zwischengespeichert werden nur Lesezugriffe (Funktionen 1–4), nie
-Fehlerantworten; ein Schreibzugriff leert den Speicher. Standardmäßig aus.
+Fehlerantworten; ein Schreibzugriff leert den Speicher. Standardmäßig aus; eingeschaltet wird er
+unter **Erweitert → Lesewerte zwischenspeichern**. Ob er sich lohnt, misst der Proxy, solange er
+aus ist: wie viele Lesezugriffe ein anderer Client in der Sekunde davor genauso gestellt hat
+(siehe die Tipps unten).
 
 **Verbindungen zum Gerät**: bei einem Netzwerkgerät, das mehrere Verbindungen gleichzeitig
 zulässt (bis zu 4), können die Anfragen parallel über so viele Verbindungen laufen – schneller
@@ -255,11 +264,19 @@ Timeouts, Fehler, Warteschlange und Antwortzeit (Mittel und Maximum), der letzte
 Unit-ID (jedes Gerät an einem RS485-Bus) Anfragen, Fehlerantworten, unbeantwortete Anfragen und
 Antwortzeit. Nach 50 Anfragen gibt die Karte **Tipps** aus diesen Zahlen: ein längerer Timeout,
 wenn Antworten nahe daran kommen, ein kürzerer, wenn das Gerät immer schnell antwortet (damit ein
-Ausfall früher auffällt), ein Zwischenspeicher, wenn mehrere Clients fragen, und was eine lange
-Warteschlange oder viele Fehlerantworten bedeuten. Es sind Vorschläge, keine Einstellungen:
-prüfe sie gegen die Dokumentation des Geräts. Die Live-Ansicht und die Mitschnitte zeigen jede
+Ausfall früher auffällt), der Zwischenspeicher, wenn mindestens 10 % der Anfragen einen
+Lesezugriff eines anderen Clients aus der Sekunde davor wiederholen (mit diesem Anteil), und was
+eine lange Warteschlange oder viele Fehlerantworten bedeuten. Es sind Vorschläge, keine
+Einstellungen: prüfe sie gegen die Dokumentation des Geräts. Die Live-Ansicht und die Mitschnitte zeigen jede
 Anfrage und Antwort als Hex mit Unit, Funktion, Register und Anzahl (z. B.
 `unit 1 · FC03 read holding registers · @40000 ×4`).
+
+**Fehlerantworten**: die Karte listet, worauf das Gerät mit einer Ausnahme geantwortet hat, seit
+die App läuft: Code und Name, Unit, Funktion, Register, wie oft, wann zuletzt und seit wann, und
+welcher Client gefragt hat. Dieselbe Anfrage mit derselben Antwort zählt hoch, statt eine Zeile
+anzuhängen (die 30 jüngsten Arten bleiben). So lässt sich ein harmloses `02 Adresse ungültig` –
+ein Client fragt ein Register, das dieses Modell nicht hat – von `03 Wert ungültig` oder einem
+Gerätefehler (`04` und höher) unterscheiden.
 
 **Werkzeuge** in den Details einer Modbus-Verbindung:
 
@@ -587,8 +604,8 @@ bleiben. Die owserver-Karte zeigt, ob owserver läuft, seine Neustarts und Reset
 letzten Meldungen.
 
 Unter **Erweitert** legt **Messwerte zwischenspeichern** fest, wie lange der eigene owserver einen
-Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (Standard 15 s, 0 immer vom
-Bus). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit;
+Wert aus seinem Zwischenspeicher beantwortet, statt den Bus zu fragen (Standard 15 s;
+ausgeschaltet geht jeder Lesezugriff an den Bus). Lesen mehrere Programme dieselben Sensoren, spart ein Wert um ihre Abfragezeit Buszeit;
 Lesen über `/uncached/` geht immer an den Bus.
 
 ## Wartung: ein Rechner allein

@@ -78,6 +78,12 @@ banner, open and close strings, `nodelay`, a bind address, FTDI latency and furt
 options as `name: value` lines. The form shows the resulting `ser2net.yaml` part while you
 type.
 
+Settings like these are rows throughout the editor and the settings page: name and
+explanation on the left, a narrow field with its unit or a switch on the right. Where 0 means
+"off" or "never", a switch turns the setting on with a sensible value. A value that differs from
+the default is marked **changed** with a link back to the default, and a closed **Advanced**
+says how many differ (for Modbus also which).
+
 ### Who may connect
 
 **Settings → Network** applies to all connections without their own bind address or
@@ -183,7 +189,9 @@ marks the device not reachable at once. Probes are counted on their own, not as 
 **Cache**: when several clients read the same registers (Home Assistant, evcc, a SolarEdge
 integration …), a cache time of e.g. 500 ms lets the device answer each read only once in
 that time; the same read while one is on its way waits for that answer. Only reads
-(functions 1–4) are cached, never exceptions; a write empties the cache. Off by default.
+(functions 1–4) are cached, never exceptions; a write empties the cache. Off by default; it is
+switched on under **Advanced → Cache reads**. Whether it pays off the proxy measures while it
+is off: how many reads another client made the same in the second before (see the tips below).
 
 **Connections to the device**: for a network device that allows several connections at
 once (up to 4), the requests can run in parallel over that many connections – faster with
@@ -242,8 +250,16 @@ timeouts, errors, queue and answer time (average and maximum), the last error; p
 (each device on an RS485 bus) requests, exceptions, unanswered requests and answer time.
 After 50 requests the card gives **tips** from these numbers: a longer timeout when answers
 come close to it, a shorter one when the device always answers fast (so an outage shows
-sooner), a cache when several clients ask, and what a long queue or many exceptions mean.
-They are suggestions, not settings: check them against the device's documentation.
+sooner), the cache when at least 10 % of the requests repeat another client's read of the
+second before (with that share), and what a long queue or many exceptions mean. They are
+suggestions, not settings: check them against the device's documentation.
+
+**Exceptions**: the card lists what the device answered with an exception, since the app
+started: exception code and name, unit, function, registers, how often, when last and since
+when, and which client asked. The same request with the same answer counts up instead of adding
+a row (the 30 most recent kinds are kept). So a harmless `02 illegal data address` – a client
+asks for a register this model does not have – can be told from `03 illegal data value` or a
+device failure (`04` and up).
 The live view and the recordings show each request and answer as hex with unit, function,
 register and count (e.g. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
@@ -551,7 +567,8 @@ that by hand; the clients and what the app knows about the bus stay. The owserve
 whether owserver runs, its restarts and resets and its last messages.
 
 Under **Advanced**, **Cache for read values** sets how long the own owserver answers a value
-from its cache instead of asking the bus (15 s by default, 0 always from the bus). When several
+from its cache instead of asking the bus (15 s by default; switched off, every read goes to the
+bus). When several
 programs read the same sensors, a value around their poll interval saves bus time; reads of
 `/uncached/` always go to the bus.
 
