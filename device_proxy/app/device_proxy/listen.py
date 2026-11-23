@@ -241,12 +241,16 @@ class ListenProxy(ModbusProxy):
         if is_write(pdu) or not pdu or pdu[0] not in READ_FUNCTIONS or len(pdu) != 5:
             stats.exceptions += 1
             self.stats.exceptions += 1
-            return exception(pdu or b"\x00", EXC_FUNCTION)
+            answer = exception(pdu or b"\x00", EXC_FUNCTION)
+            self._log_exception(client, unit, pdu, answer)
+            return answer
         address, count = struct.unpack(">HH", pdu[1:5])
         if not 1 <= count <= 125 or address + count > 0x10000:  # what Modbus allows
             stats.exceptions += 1
             self.stats.exceptions += 1
-            return exception(pdu, EXC_VALUE)
+            answer = exception(pdu, EXC_VALUE)
+            self._log_exception(client, unit, pdu, answer)
+            return answer
         values = self.sniffer.read(
             unit, pdu[0], address, count, self.c.listen_max_age_s, time.time()
         )

@@ -61,6 +61,15 @@ async def test_clients_read_what_was_heard_and_cannot_write() -> None:
         assert await proxy.request(1, struct.pack(">BHH", 3, 100, count), client) == bytes(
             [0x83, 0x03]
         )
+    await proxy.request(1, struct.pack(">BHH", 3, 100, 0), client)  # the same again: counted
+    log = proxy.state()["exception_log"]  # what was not heard (0B) is no exception answer
+    assert [(e["function"], e["code"], e["address"], e["count"], e["times"]) for e in log] == [
+        (6, 1, 0, 1, 1),
+        (3, 3, 100, 126, 1),
+        (3, 3, 100, 130, 1),
+        (3, 3, 100, 0, 2),
+    ]
+    assert log[-1]["name"] == "illegal data value" and log[-1]["client"] == "127.0.0.1:1"
     await asyncio.sleep(0)
 
 

@@ -92,6 +92,10 @@ async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
                 continue
             address, count = struct.unpack(">HH", pdu[1:5])
+            if 37000 <= address < 38000:  # registers this model does not have
+                body = bytes([0x83, 2])  # illegal data address
+                writer.write(struct.pack(">HHHB", tid, 0, len(body) + 1, unit) + body)
+                continue
             if unit == 1 and 40000 <= address < 40070:  # SunSpec marker and common model
                 regs = SUNSPEC[(address - 40000) * 2 :].ljust(count * 2, b"\x00")[: count * 2]
                 body = bytes([3, count * 2]) + regs
@@ -113,7 +117,9 @@ async def modbus_client(port: int, stop: asyncio.Event) -> None:
     tid = 0
     while not stop.is_set():
         tid += 1
-        writer.write(struct.pack(">HHHBBHH", tid, 0, 6, 1, 3, 40000 + tid % 50, 4))
+        # now and then a register the device does not have: an exception for the dialog
+        address = 37066 if tid % 5 == 0 else 40000 + tid % 50
+        writer.write(struct.pack(">HHHBBHH", tid, 0, 6, 1, 3, address, 4))
         head = await reader.readexactly(7)
         await reader.readexactly(struct.unpack(">HHHB", head)[2] - 1)
         await asyncio.sleep(2)

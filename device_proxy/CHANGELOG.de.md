@@ -10,6 +10,12 @@
 >
 > 🇬🇧 [English version](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.md)
 
+## Unreleased
+
+### Neu
+
+- **Modbus-Verbindung:** eine neue Karte „Fehlerantworten“ zeigt, worauf das Gerät mit einer Ausnahme geantwortet hat: Zeit, Client, Unit, Funktionscode, Adresse und Anzahl, der Ausnahme-Code mit Namen und wie oft. Dieselbe Anfrage mit derselben Antwort zählt hoch, statt die Liste zu füllen; so lässt sich ein harmloses „Adresse ungültig“ (ein Register, das dieses Modell nicht hat) von einem falschen Wert oder einem Gerätefehler unterscheiden ([#12](https://github.com/bertel2020/HA-Device-Proxy/issues/12)).
+
 ## 1.10.0 - 2026-11-19
 
 ### Neu

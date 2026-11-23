@@ -75,6 +75,7 @@ READ_LENGTHS = {1: 5, 2: 5, 3: 5, 4: 5, 7: 1, 11: 1, 12: 1, 17: 1, 24: 3}
 READ_FUNCTIONS = {1, 2, 3, 4}  # answered from the cache when it is on
 WRITES_KEPT = 200  # the clients' last writes, for the log
 WRITES_SHOWN = 30
+EXCEPTIONS_KEPT = 30  # the different exception answers (unit, function, code, registers)
 CACHE_SIZE = 2000  # answers kept at most
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
 CLOSE_TIMEOUT = 2.0  # s to wait for a closed connection to the device
@@ -239,6 +240,14 @@ def write_shape_ok(pdu: bytes) -> bool:
             and len(pdu) == 10 + size
         )
     return True  # a vendor's own function: its shape is not known
+
+
+def request_span(pdu: bytes) -> tuple[int, int] | None:
+    """The first address and the count a request asks for or changes; None when it cannot
+    be told."""
+    if pdu and pdu[0] in (1, 2, 3, 4) and len(pdu) >= 5:
+        return int.from_bytes(pdu[1:3], "big"), int.from_bytes(pdu[3:5], "big")
+    return write_span(pdu)
 
 
 def written_values(pdu: bytes) -> list[int]:
@@ -951,6 +960,9 @@ class ModbusProxy:
         self.only: str | None = None  # maintenance: only this host may connect
         self.refuse: Callable[[str, str], bool] = lambda _host, _name: False  # (host, name)
         self.writes: deque[dict[str, Any]] = deque(maxlen=WRITES_KEPT)  # the clients' writes
+        # the device's exception answers, one entry per unit, function, code and registers;
+        # the most recent last
+        self.exception_log: dict[tuple[Any, ...], dict[str, Any]] = {}
         # the proxy of another connection, for units routed there (set by the controller)
         self.router: Callable[[str], ModbusProxy | None] = lambda connection_id: None
         self.listening = False
@@ -1307,6 +1319,7 @@ class ModbusProxy:
                 if answer and answer[0] & 0x80:
                     stats.exceptions += 1
                     per_unit.exceptions += 1
+                    self._log_exception(client, unit, pdu, answer)
             self._up()
             return answer
         if tool:
@@ -1477,6 +1490,7 @@ class ModbusProxy:
             self.stats.answered += 1
         elif answer is not None:
             self.stats.exceptions += 1
+            self._log_exception(info, route[1], pdu, answer)
         if write:
             failed = answer is None or bool(answer[0] & 0x80)
             self._log_write(info, route[1], pdu, "failed" if failed else "written")
@@ -1496,6 +1510,28 @@ class ModbusProxy:
                 "result": result,
             }
         )
+
+    def _log_exception(self, info: ClientInfo, unit: int, pdu: bytes, answer: bytes) -> None:
+        """Which request an exception answered, so a harmless "illegal data address" can be
+        told from a wrong value or a failing device; the same one again only counts up."""
+        code = answer[1] if len(answer) > 1 else 0
+        span = request_span(pdu)
+        key = (unit, pdu[0] if pdu else 0, code, span)
+        now = time.time()
+        entry = self.exception_log.pop(key, None) or {
+            "first": now,
+            "times": 0,
+            "unit": unit,
+            "function": key[1],
+            "code": code,
+            "name": EXCEPTIONS.get(code, ""),
+            "address": span[0] if span else None,
+            "count": span[1] if span else None,
+        }
+        entry.update(ts=now, client=info.address, times=entry["times"] + 1)
+        self.exception_log[key] = entry  # to the end: the most recent
+        while len(self.exception_log) > EXCEPTIONS_KEPT:
+            del self.exception_log[next(iter(self.exception_log))]
 
     # state
 
@@ -1538,6 +1574,7 @@ class ModbusProxy:
             "queue": self.scheduler.size,
             "queue_max": s.queue_max,
             "writes": list(self.writes)[-WRITES_SHOWN:],
+            "exception_log": list(self.exception_log.values()),
             "entity_values": dict(self.entity_values),
             "last_answer": s.last_answer or None,
             "last_error": s.last_error,

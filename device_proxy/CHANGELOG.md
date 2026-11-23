@@ -10,6 +10,12 @@
 >
 > 🇩🇪 [Änderungen auf Deutsch](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.de.md)
 
+## Unreleased
+
+### New
+
+- **Modbus connection:** a new card "Exceptions" shows what the device answered with an exception: time, client, unit, function code, address and count, the exception code with its name, and how often. The same request with the same answer counts up instead of filling the list, so a harmless "illegal data address" (a register this model does not have) can be told from a wrong value or a failing device ([#12](https://github.com/bertel2020/HA-Device-Proxy/issues/12)).
+
 ## 1.10.0 - 2026-11-19
 
 ### New

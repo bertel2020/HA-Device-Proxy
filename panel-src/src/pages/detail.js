@@ -275,6 +275,22 @@ export class DetailPage extends Page {
       ${c.write_registers ? html`<p class="hint" style="margin:0">${t("mbWriteRegistersNow", { r: c.write_registers })}</p>` : ""}`);
   }
 
+  /** The device's exception answers: which unit, function and registers, how often, so a
+   * harmless "illegal data address" can be told from a wrong value or a failing device. */
+  _exceptionLog(c) {
+    const seen = [...((c.modbus || {}).exception_log || [])].reverse();
+    if (!seen.length) return "";
+    const cls = { 1: "warn", 2: "", 3: "warn" };
+    return foldCard("device_proxy.mbexceptions", "t-exc", t("mbExcLog"), tn("mbExcLogSub", seen.length, { n: seen.length }), html`
+      <div class="scroll"><table class="cards wide"><thead><tr><th>${t("mbExcTh")}</th><th>Unit</th><th>FC</th><th>${t("mbAddress")}</th><th style="text-align:right">${t("mbExcTimes")}</th><th>${t("timeTh")}</th><th>${t("clientTh")}</th></tr></thead>
+        <tbody>${seen.map((e) => html`<tr><td><span class="chip ${cls[e.code] ?? "bad"}">${e.code.toString(16).toUpperCase().padStart(2, "0")} · ${has(`ex_${e.code}`) ? t(`ex_${e.code}`) : t("ex_other")}</span></td>
+          <td data-l="Unit">${e.unit}</td><td data-l="FC">${String(e.function).padStart(2, "0")}</td><td data-l=${t("mbAddress")} class="mono">${e.address ?? "–"}${e.count > 1 ? ` ×${e.count}` : ""}</td>
+          <td data-l=${t("mbExcTimes")} style="text-align:right">${e.times.toLocaleString(lang)}</td>
+          <td data-l=${t("timeTh")} style="white-space:nowrap" title=${t("mbExcFirst", { t: fmtTime(e.first, false, true) })}>${fmtTime(e.ts, false, true)}</td>
+          <td data-l=${t("clientTh")} class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${e.client}${clientName(e.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(e.client)}</b>` : ""}</td></tr>`)}</tbody></table></div>
+      <p class="hint" style="margin:0">${t("mbExcLogHint")}</p>`);
+  }
+
   _exclusiveNote(c) {
     const x = c.exclusive;
     if (!x) return "";
@@ -902,6 +918,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
       ${this._live(c.kind)}
       ${this._registerValues(c)}${this._modbusTools(c)}
       ${this._writeLog(c)}
+      ${this._exceptionLog(c)}
       ${this._addresses(c)}
       ${this._haSnippet(c)}
       ${this._restart(c)}

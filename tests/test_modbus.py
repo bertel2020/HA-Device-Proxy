@@ -1183,3 +1183,25 @@ async def test_a_stopped_proxy_answers_whoever_waits() -> None:
     assert await asyncio.wait_for(asyncio.gather(running, waiting), 1) == [gone, gone]
     assert await asyncio.wait_for(proxy.request(1, pdu, client), 1) == gone
     device.close()
+
+
+def test_exception_answers_are_kept_by_request_and_bounded() -> None:
+    c = Connection("Inverter", "", 0, kind="modbus", link="tcp", host="127.0.0.1", host_port=1)
+    proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda ch: None)
+    client = ClientInfo("192.168.1.5:40000", 0)
+    read = struct.pack(">BHH", 3, 37066, 4)
+    for _ in range(3):
+        proxy._log_exception(client, 2, read, bytes([0x83, 0x02]))
+    proxy._log_exception(client, 2, struct.pack(">BHH", 6, 47000, 9), bytes([0x86, 0x03]))
+    log = proxy.state()["exception_log"]
+    assert [(e["unit"], e["function"], e["code"], e["address"], e["count"]) for e in log] == [
+        (2, 3, 2, 37066, 4),
+        (2, 6, 3, 47000, 1),
+    ]
+    assert log[0]["times"] == 3 and log[0]["name"] == "illegal data address"
+    proxy._log_exception(client, 2, read, bytes([0x83, 0x02]))  # most recent again: last
+    assert proxy.state()["exception_log"][-1]["times"] == 4
+    for address in range(modbus.EXCEPTIONS_KEPT + 5):
+        proxy._log_exception(client, 1, struct.pack(">BHH", 4, address, 1), bytes([0x84, 0x02]))
+    log = proxy.state()["exception_log"]
+    assert len(log) == modbus.EXCEPTIONS_KEPT and log[-1]["address"] == modbus.EXCEPTIONS_KEPT + 4
