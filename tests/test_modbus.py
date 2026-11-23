@@ -1205,3 +1205,21 @@ def test_exception_answers_are_kept_by_request_and_bounded() -> None:
         proxy._log_exception(client, 1, struct.pack(">BHH", 4, address, 1), bytes([0x84, 0x02]))
     log = proxy.state()["exception_log"]
     assert len(log) == modbus.EXCEPTIONS_KEPT and log[-1]["address"] == modbus.EXCEPTIONS_KEPT + 4
+
+
+def test_reads_a_cache_would_answer_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    c = Connection("Inverter", "", 0, kind="modbus", link="tcp", host="127.0.0.1", host_port=1)
+    proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda ch: None)
+    ha, evcc = ClientInfo("10.0.0.2:1", 0), ClientInfo("10.0.0.3:1", 0)
+    read, other = struct.pack(">BHH", 3, 100, 2), struct.pack(">BHH", 3, 200, 2)
+    now = [1000.0]
+    monkeypatch.setattr(modbus.time, "monotonic", lambda: now[0])
+    proxy._note_shared(1, read, ha)
+    proxy._note_shared(1, read, ha)  # the same client again: a cache does not help it
+    proxy._note_shared(1, other, evcc)  # other registers
+    proxy._note_shared(2, read, evcc)  # another unit
+    assert proxy.stats.shared == 0
+    proxy._note_shared(1, read, evcc)  # the same read by another client at once
+    now[0] += modbus.SHARED_WINDOW + 0.1
+    proxy._note_shared(1, read, ha)  # too late for a cache of a second
+    assert proxy.state()["shared"] == 1

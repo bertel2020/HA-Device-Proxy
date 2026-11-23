@@ -7,7 +7,7 @@ import { PROFILES } from "../modbus.js";
 import { DEFAULTS as ONEWIRE, OWSERVER_PORT } from "../onewire.js";
 import { deviceName, uniqueName } from "../names.js";
 import { pickDevice, usbKind } from "../usb.js";
-import { confirmDialog, effectsText, icon, navigate, proxyTarget, skeleton, toggle, wholeNumber } from "../ui.js";
+import { confirmDialog, effectsText, icon, navigate, proxyTarget, settingRow, skeleton, switchRow, toggle, wholeNumber } from "../ui.js";
 
 const DEFAULTS = {
   name: "", device: "", port: 3333, enabled: true, template: "generic", baud: 9600, data_bits: 8, parity: "n", stop_bits: 1,
@@ -84,7 +84,7 @@ export class EditPage extends Page {
     .fold { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     fieldset { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     legend { padding: 0; margin-bottom: 8px; font-size: calc(13px * var(--fs, 1)); font-weight: 500; }
-    .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
+    .opts { display: flex; flex-direction: column; container-type: inline-size; }
     .toggle-head { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0;
       min-height: 44px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .toggle-head .chip::after, .arrow::after { content: "›"; font-size: calc(18px * var(--fs, 1)); line-height: 1; margin-left: 2px; transition: transform .15s; }
@@ -380,6 +380,29 @@ export class EditPage extends Page {
       <span class="fx">${this._err(key)}${hint ? html`<span class="hint">${hint}</span>` : ""}</span></label>`;
   }
 
+  /** One setting of the draft as a row (settingRow): the default from DEFAULTS. */
+  _row(key, label, { hint = "", unit = "", on = null } = {}) {
+    return settingRow({ id: `f-${key}`, label, hint, unit, on, value: this.draft[key], base: DEFAULTS[key], onValue: (v) => this._set({ [key]: v }),
+      err: this._err(key), invalid: !!this._shown()[key], describedBy: `e-${key}` });
+  }
+
+  /** A yes/no setting of the draft as a row with a switch. */
+  _switchRow(key, label, hint = "") {
+    return switchRow({ label, hint, checked: !!this.draft[key], changed: !!this.draft[key] !== !!DEFAULTS[key], onChange: (v) => this._set({ [key]: v }) });
+  }
+
+  /** What differs from the default in Modbus: Erweitert, short, for its head. */
+  _mbChanged(d) {
+    const ms = (v) => `${v} ms`, s = (v) => `${v} s`;
+    const items = [
+      ["connect_delay_ms", "rowConnectDelay", ms], ["request_gap_ms", "rowGap", ms], ["cache_ms", "rowCache", ms],
+      ["device_connections", "mbLinks", String], ["timeout", "rowIdle", s], ["kickolduser", "rowKick", null],
+      ["low_latency", "rowLowLatency", null], ["unit_map", "mbUnitMap", null], ["unit_routes", "mbRoutes", null],
+      ["register_entities", "mbEntities", null], ["probe_seconds", "mbProbe", s], ["trace", "grpTrace", null],
+    ];
+    return items.filter(([k]) => d[k] !== (DEFAULTS[k] ?? "off")).map(([k, label, fmt]) => (fmt ? `${t(label)} ${fmt(d[k])}` : t(label)));
+  }
+
   _trace() {
     const d = this.draft;
     return html`<label class="fld"><span class="lbl">${t("traceMode")}</span><select class="inp" @change=${(e) => this._set({ trace: e.target.value })}>
@@ -411,10 +434,10 @@ export class EditPage extends Page {
       ${this._err("unit_routes")}</div>`;
   }
 
+  /** A yes/no option as a row with a switch; ser2net's own options show their name below. */
   _check(key, plain = false) {
     const option = !plain && !["keep_open", "stuck_disconnect", "meter_entities"].includes(key) && !key.startsWith("notify");
-    return html`<label class="chk"><input type="checkbox" .checked=${!!this.draft[key]} @change=${(e) => this._set({ [key]: e.target.checked })}>
-      <span>${t(`o_${key}`)}${option ? html`<br><span class="hint mono">${key.replace(/_/g, "-")}</span>` : ""}</span></label>`;
+    return this._switchRow(key, t(`o_${key}`), option ? html`<span class="mono">${key.replace(/_/g, "-")}</span>` : "");
   }
 
   _devicePicker(chosen) {
@@ -495,18 +518,22 @@ export class EditPage extends Page {
         <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
           <span><h2 id="t-adv">${t("tuning")}</h2><span class="hint">${t("tuningSubMb")}</span></span>
           <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+        ${!this.advanced && advancedCount ? html`<div class="changed">${this._mbChanged(d).map((x) => html`<span class="chip info">${x}</span>`)}</div>` : ""}
         ${this.advanced ? html`
           <div class="grp"><h3>${t("grpPace")}</h3>
-            <div class="grid2">
-              ${this._input("connect_delay_ms", t("mbConnectDelay"), { number: true, hint: onBus(d) ? "" : t("mbConnectDelayHint") })}
-              ${this._input("request_gap_ms", t("mbGap"), { number: true, hint: t("mbGapHint") })}
-              ${this._input("cache_ms", t("mbCache"), { number: true, hint: t("mbCacheHint") })}
-              ${onBus(d) ? "" : this._input("device_connections", t("mbLinks"), { number: true, hint: t("mbLinksHint") })}
-            </div>
-            ${onBus(d) && (chosen && chosen.ftdi || d.low_latency) ? html`<div class="opts">${this._check("low_latency", true)}</div>` : ""}</div>
+            <div class="rows">
+              ${this._row("connect_delay_ms", t("rowConnectDelay"), { unit: "ms", hint: onBus(d) ? "" : t("mbConnectDelayHint") })}
+              ${this._row("request_gap_ms", t("rowGap"), { unit: "ms", hint: t("rowGapHint") })}
+              ${this._row("cache_ms", t("rowCache"), { unit: "ms", on: 1000, hint: t("rowCacheHint") })}
+              ${onBus(d) ? "" : this._row("device_connections", t("mbLinks"), { hint: t("mbLinksHint") })}
+              ${onBus(d) && (chosen && chosen.ftdi || d.low_latency) ? this._switchRow("low_latency", t("rowLowLatency"), t("rowLowLatencyHint")) : ""}
+            </div></div>
           <div class="grp"><h3>${t("grpClients")}</h3>
-            <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true })}</div>
-            <div class="opts">${this._check("kickolduser", true)}</div>
+            <div class="rows">
+              ${this._row("timeout", t("rowIdle"), { unit: "s", on: 300, hint: t("rowIdleHint") })}
+              ${this._switchRow("kickolduser", t("rowKick"), t("rowKickHint"))}
+            </div></div>
+          <div class="grp"><h3>${t("grpUnits")}</h3>
             ${this._input("unit_map", t("mbUnitMap"), { mono: true, hint: t("mbUnitMapHint") })}
             ${this._routes(d)}</div>
           <div class="grp"><h3>${t("mbEntities")}</h3><p class="hint">${t("mbEntitiesSub")}</p>
@@ -514,9 +541,9 @@ export class EditPage extends Page {
               <textarea class="inp mono" rows="4" spellcheck="false" aria-invalid=${this._shown().register_entities ? "true" : "false"} placeholder="1 3 40083 int16 none 0.1 W power AC" .value=${d.register_entities || ""} @input=${(e) => this._set({ register_entities: e.target.value })}></textarea>
               ${this._err("register_entities")}<span class="hint">${t("mbEntitiesHint")}</span></label>
             <div class="grid2">${this._input("entity_seconds", t("mbEntitySeconds"), { number: true, hint: t("mbEntitySecondsHint") })}</div></div>
-          <div class="grp"><h3>${t("mbProbe")}</h3><p class="hint">${t("mbProbeSub")}</p>
+          <div class="grp"><h3>${t("mbProbe")}</h3>
+            <div class="rows">${this._row("probe_seconds", t("rowProbe"), { unit: "s", on: 60, hint: t("mbProbeSub") })}</div>
             <div class="grid2">
-              ${this._input("probe_seconds", t("mbProbeSeconds"), { number: true })}
               ${d.probe_seconds ? html`${this._input("probe_unit", t("mbUnit"), { number: true })}
                 <label class="fld"><span class="lbl">${t("mbFunction")}</span><select class="inp" @change=${(e) => this._set({ probe_function: Number(e.target.value) })}>
                   ${[3, 4].map((f) => html`<option value=${f} .selected=${d.probe_function === f}>${t(`fc_${f}`)}</option>`)}</select></label>
@@ -625,14 +652,12 @@ export class EditPage extends Page {
         <div class="fold"><div><h2 id="t-eoreplay">${t("eoReplay")}</h2><p class="hint" style="margin-top:4px">${t("eoReplaySum", { n: d.replay_size, m: Math.round(d.replay_max_age_s / 60), p: d.replay_persist ? t("eoReplayDisk") : t("eoReplayMem") })}</p></div>
           <button type="button" class="btn btn-g" aria-expanded=${this.replayOpen ? "true" : "false"} @click=${() => { this.replayOpen = !this.replayOpen; }}>${this.replayOpen ? t("closeA") : t("changeBtn")}</button></div>
         ${this.replayOpen ? html`<p class="hint">${t("eoReplaySub")}</p>
-        <div class="grid2">
-          ${this._input("replay_size", t("eoReplaySize"), { number: true })}
-          <label class="fld"><span class="lbl">${t("eoReplayAge")}</span>
-            <input class="inp" inputmode="numeric" .value=${String(Math.round(d.replay_max_age_s / 60))} aria-describedby="e-replay_max_age_s"
-              @input=${(e) => this._set({ replay_max_age_s: wholeNumber(e, Math.round(d.replay_max_age_s / 60)) * 60 })}>${this._err("replay_max_age_s")}</label>
-        </div>
-        <label class="chk"><input type="checkbox" .checked=${!!d.replay_persist} @change=${(e) => this._set({ replay_persist: e.target.checked })}>
-          <span>${t("eoPersist")}<br><span class="hint">${t("eoPersistHint")}</span></span></label>` : ""}
+        <div class="rows">
+          ${this._row("replay_size", t("rowReplaySize"), { unit: t("unitTelegrams") })}
+          ${settingRow({ id: "f-replay_max_age_s", label: t("rowReplayAge"), unit: "min", value: Math.round(d.replay_max_age_s / 60), base: Math.round(DEFAULTS.replay_max_age_s / 60),
+            onValue: (v) => this._set({ replay_max_age_s: v * 60 }), err: this._err("replay_max_age_s"), invalid: !!this._shown().replay_max_age_s, describedBy: "e-replay_max_age_s" })}
+          ${this._switchRow("replay_persist", t("eoPersist"), t("eoPersistHint"))}
+        </div>` : ""}
       </section>
 
       <section class="card" aria-labelledby="t-adv">
@@ -640,8 +665,11 @@ export class EditPage extends Page {
           <span><h2 id="t-adv">${t("eoAccess")}</h2><span class="hint">${t("eoAccessSub")}</span></span>
           <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
-          <div class="opts">${this._check("kickolduser", true)}${serial && (chosen && chosen.ftdi || d.low_latency) ? this._check("low_latency", true) : ""}</div>
-          ${this._input("timeout", t("mbIdle"), { number: true })}
+          <div class="rows">
+            ${this._row("timeout", t("rowIdle"), { unit: "s", on: 300, hint: t("rowIdleHint") })}
+            ${this._switchRow("kickolduser", t("rowKick"), t("rowKickHint"))}
+            ${serial && (chosen && chosen.ftdi || d.low_latency) ? this._switchRow("low_latency", t("rowLowLatency"), t("rowLowLatencyHint")) : ""}
+          </div>
           ${this._trace()}` : ""}
       </section>
 
@@ -684,12 +712,12 @@ export class EditPage extends Page {
         ${this.fbOpen ? html`<div class="grid2">
           <div class="fld"><span class="lbl" id="l-fallback_trigger">${t("fbTrigger")}</span>${seg("fallback_trigger", ["probe", "disconnect"])}<span class="hint">${t(`fbtrigsub_${d.fallback_trigger}`, { s: d.fallback_probe_s, n: d.fallback_misses })}</span></div>
           <div class="fld"><span class="lbl" id="l-fallback_return">${t("fbReturn")}</span>${seg("fallback_return", ["auto", "manual"])}<span class="hint">${t(`fbretsub_${d.fallback_return}`, { s: d.fallback_stable_s })}</span></div></div>
-          ${d.fallback_trigger === "probe" || d.fallback_return === "auto" ? html`<div class="grid2">
-            ${d.fallback_trigger === "probe" ? html`${this._input("fallback_probe_s", t("fbProbe"), { number: true, hint: t("fbProbeHint") })}
-              ${this._input("fallback_misses", t("fbMisses"), { number: true, hint: t("fbMissesHint", { t: d.fallback_probe_s * d.fallback_misses }) })}` : ""}
-            ${d.fallback_return === "auto" ? this._input("fallback_stable_s", t("fbStable"), { number: true, hint: t("fbStableHint") }) : ""}</div>` : ""}
-          <label class="chk"><input type="checkbox" .checked=${!!d.fallback_listen} @change=${(e) => this._set({ fallback_listen: e.target.checked })}>
-            <span>${t("fbListen")}<br><span class="hint">${t("fbListenHint")}</span></span></label>` : ""}` : ""}
+          <div class="rows">
+            ${d.fallback_trigger === "probe" ? html`${this._row("fallback_probe_s", t("rowFbProbe"), { unit: "s", hint: t("fbProbeHint") })}
+              ${this._row("fallback_misses", t("fbMisses"), { unit: "×", hint: t("fbMissesHint", { t: d.fallback_probe_s * d.fallback_misses }) })}` : ""}
+            ${d.fallback_return === "auto" ? this._row("fallback_stable_s", t("rowFbStable"), { unit: "s", hint: t("fbStableHint") }) : ""}
+            ${this._switchRow("fallback_listen", t("fbListen"), t("fbListenHint"))}
+          </div>` : ""}` : ""}
     </section>`;
   }
 
@@ -733,8 +761,10 @@ export class EditPage extends Page {
           <span><h2 id="t-adv">${t("tuning")}</h2><span class="hint">${t("owTuningSub")}</span></span>
           <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
-          <div class="grid2">${this._input("timeout", t("mbIdle"), { number: true, hint: t("owIdleHint") })}
-            ${d.link === "usb" ? this._input("owserver_cache_s", t("owCache"), { number: true, hint: t("owCacheHint") }) : ""}</div>
+          <div class="rows">
+            ${this._row("timeout", t("rowIdle"), { unit: "s", on: 300, hint: t("owIdleHint") })}
+            ${d.link === "usb" ? this._row("owserver_cache_s", t("rowOwCache"), { unit: "s", on: 15, hint: t("owCacheHint") }) : ""}
+          </div>
           ${this._trace()}` : ""}
       </section>
 
@@ -879,8 +909,10 @@ export class EditPage extends Page {
                 ${this._input("rs485", t("rs485"), { mono: true, hint: t("rs485Hint") })}
               </div></fieldset>
             <fieldset><legend>${t("connectionSide")}</legend>
-              <div class="opts">${this._check("kickolduser")}${this._check("chardelay")}</div>
-              <div class="grid2">${this._input("timeout", t("timeout"), { number: true })}${this._input("connector_retry_time", t("retry"), { number: true })}</div>
+              <div class="opts">
+                ${this._row("timeout", t("rowIdle"), { unit: "s", on: 300, hint: html`${t("rowIdleHint")} <span class="mono">timeout</span>` })}
+                ${this._row("connector_retry_time", t("rowRetry"), { unit: "s", hint: html`${t("rowRetryHint")} <span class="mono">connector-retry-time</span>` })}
+                ${this._check("kickolduser")}${this._check("chardelay")}</div>
               <div class="grid2">${this._input("banner", t("banner"))}${this._input("openstr", t("openstr"), { mono: true })}${this._input("closestr", t("closestr"), { mono: true })}</div>
             </fieldset>
             <fieldset><legend>${t("tcpSide")}</legend>
@@ -895,10 +927,11 @@ export class EditPage extends Page {
         <section class="card" aria-labelledby="t-app">
           <h2 id="t-app">${t("alerts")}</h2>
           <div class="opts">${this._check("notify_missing")}${this._check("notify_no_client")}${this._check("stuck_disconnect")}</div>
-          <div class="grid2">${this._input("silence_minutes", t("silence"), { number: true })}
+          <div class="opts">${this._row("silence_minutes", t("rowSilence"), { unit: "min", on: 30, hint: t("rowSilenceHint") })}</div>
+          ${d.silence_minutes || d.silence_restart ? html`<div class="grid2">
             <label class="fld"><span class="lbl">${t("silenceRestart")}</span><select class="inp" aria-invalid=${this._shown().silence_restart ? "true" : "false"} @change=${(e) => this._set({ silence_restart: e.target.value })}>
               ${["", "restart", ...(d.source === "device" || d.silence_restart === "usb" ? ["usb"] : [])].map((v) => html`<option value=${v} .selected=${(d.silence_restart || "") === v}>${t(`silenceRestart_${v || "off"}`)}</option>`)}</select>
-              ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>
+              ${this._err("silence_restart")}<span class="hint">${t("silenceRestartHint")}</span></label></div>` : ""}
         </section>`}
 
         ${d.kind === "onewire" ? "" : html`<section class="card" aria-labelledby="t-power">

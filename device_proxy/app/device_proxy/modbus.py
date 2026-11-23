@@ -77,6 +77,7 @@ WRITES_KEPT = 200  # the clients' last writes, for the log
 WRITES_SHOWN = 30
 EXCEPTIONS_KEPT = 30  # the different exception answers (unit, function, code, registers)
 CACHE_SIZE = 2000  # answers kept at most
+SHARED_WINDOW = 1.0  # seconds: the same read by another client this soon, a cache would answer
 BUFFER_MAX = 1 << 16  # bytes from the device kept unread at most
 CLOSE_TIMEOUT = 2.0  # s to wait for a closed connection to the device
 KEEPALIVE = (("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 10), ("TCP_KEEPCNT", 3))
@@ -710,6 +711,7 @@ class Stats:
     failed: int = 0  # requests the clients got 0x0A / 0x0B for
     blocked: int = 0  # writes refused by the write protection
     cached: int = 0  # reads answered from the cache or together with the same request
+    shared: int = 0  # with the cache off: reads another client made the same SHARED_WINDOW before
     probes: int = 0  # the app's own reads to see whether the device answers
     bytes_to_device: int = 0
     bytes_from_device: int = 0
@@ -983,6 +985,7 @@ class ModbusProxy:
         self._last_exchange = 0.0
         self._cache: dict[tuple[int, bytes], tuple[float, bytes]] = {}  # → (time, answer)
         self._writes = 0  # writes so far: a read answered across a write is not cached
+        self._last_reads: dict[tuple[int, bytes], tuple[float, str]] = {}  # → (time, client)
         self._inflight: dict[tuple[int, bytes], asyncio.Future[bytes | None]] = {}
         self.entity_values: dict[str, float | int | str | None] = {}  # register_entities
 
@@ -1170,6 +1173,8 @@ class ModbusProxy:
         most cache_ms old, and the same read while one is on its way waits for that one.
         A write empties the cache."""
         if not (self.c.cache_ms and pdu and pdu[0] in READ_FUNCTIONS):
+            if pdu and pdu[0] in READ_FUNCTIONS:
+                self._note_shared(unit, pdu, client)
             return await self._queued(unit, pdu, client)
         key = (unit, pdu)
         now = asyncio.get_running_loop().time()
@@ -1207,6 +1212,17 @@ class ModbusProxy:
                 self._cache.clear()
             self._cache[key] = (asyncio.get_running_loop().time(), answer)
         return answer
+
+    def _note_shared(self, unit: int, pdu: bytes, client: ClientInfo) -> None:
+        """Count the reads a cache would have answered: the same read by another client
+        within SHARED_WINDOW, so the tip to switch the cache on is measured, not guessed."""
+        key, now = (unit, pdu), time.monotonic()
+        last = self._last_reads.get(key)
+        if last is not None and now - last[0] <= SHARED_WINDOW and last[1] != client.address:
+            self.stats.shared += 1
+        if len(self._last_reads) >= CACHE_SIZE:
+            self._last_reads.clear()
+        self._last_reads[key] = (now, client.address)
 
     async def _queued(
         self,
@@ -1567,6 +1583,7 @@ class ModbusProxy:
             "failed": s.failed,
             "blocked": s.blocked,
             "cached": s.cached,
+            "shared": s.shared,
             "probes": s.probes,
             "units": [self.units[u].to_dict(u) for u in sorted(self.units)],
             "time_avg_ms": round(s.time_avg * 1000, 1),

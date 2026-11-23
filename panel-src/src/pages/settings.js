@@ -4,7 +4,7 @@ import { api, url } from "../api.js";
 import { Page } from "../app.js";
 import { LANGUAGES, changesText, fieldError, lang, noteText, t, tn } from "../i18n.js";
 import { look } from "../theme.js";
-import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, wholeNumber, withEffects } from "../ui.js";
+import { confirmDialog, copyText, effectsOf, effectsText, fmtAgo, fmtBytes, fmtDuration, fmtTime, icon, logo, radioKeys, radioTab, settingRow, switchRow, wholeNumber, withEffects } from "../ui.js";
 
 const REPEATS = 3; // from this many connections in a row a client counts as coming back all the time
 const ROWS_SHOWN = 8;
@@ -687,6 +687,16 @@ export class SettingsPage extends Page {
     return changesText(v.changes) || v.summary;
   }
 
+  /** A yes/no setting of the draft as a row with a switch; saved with its section. */
+  _switch(key, label, hint = "", disabled = false) {
+    return switchRow({ label, hint, checked: this.draft[key], disabled, onChange: (v) => { this.draft = { ...this.draft, [key]: v }; } });
+  }
+
+  /** A number of the draft as a row, its unit after the field; saved with its section. */
+  _number(key, label, { unit = "", hint = "", base, disabled = false } = {}) {
+    return settingRow({ id: `s-${key}`, label, hint, unit, base, disabled, value: this.draft[key], onValue: (v) => { this.draft = { ...this.draft, [key]: v }; } });
+  }
+
   render() {
     const s = this.state, d = this.draft;
     if (!d) return "";
@@ -748,7 +758,7 @@ export class SettingsPage extends Page {
         <section id="clients" class="card" aria-labelledby="t-clients">
           <div><h2 id="t-clients">${t("sClients")}</h2><p class="hint" style="margin-top:4px">${t("sClientsSub")}</p></div>
           ${this._clientList(s)}
-          <label class="chk"><input type="checkbox" .checked=${!!d.notify_new_clients} @change=${(e) => { this.draft = { ...this.draft, notify_new_clients: e.target.checked }; this._saveSettings({ notify_new_clients: e.target.checked }); }}><span>${t("notifyNewClients")}</span></label>
+          <div class="rows">${switchRow({ label: t("notifyNewClients"), checked: d.notify_new_clients, onChange: (v) => { this.draft = { ...this.draft, notify_new_clients: v }; this._saveSettings({ notify_new_clients: v }); } })}</div>
         </section>
 
         <section id="backup" class="card" aria-labelledby="t-backup">
@@ -777,8 +787,7 @@ export class SettingsPage extends Page {
           <div><h2 id="t-notify">${t("sNotify")}</h2><p class="hint" style="margin-top:4px">${t("sNotifySub")}</p></div>
           <div class="grp">
             <h3>${t("nWhat")}</h3>
-            <div class="grid2" style="gap:6px 24px">${[["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) =>
-              html`<label class="chk"><input type="checkbox" .checked=${!!d[k]} @change=${(e) => { this.draft = { ...this.draft, [k]: e.target.checked }; }}><span>${t(l)}</span></label>`)}</div>
+            <div class="rows">${[["notify_stuck", "notifyStuck"], ["notify_line_errors", "notifyLine"], ["notify_ser2net", "notifySer2net"]].map(([k, l]) => this._switch(k, t(l)))}</div>
             <div class="pills">${[["notify_missing", "nMissing"], ["notify_no_client", "nNoClient"], ["silence_minutes", "nNoData"]].map(([k, l]) => {
               const n = conns.filter((c) => c[k]).length;
               return html`<span class="chip ${n ? "ok" : ""}">${t(l)} · ${t("nOf", { n, m: conns.length })}</span>`;
@@ -786,17 +795,15 @@ export class SettingsPage extends Page {
           </div>
           <div class="grp">
             <h3>${t("nWhen")}</h3>
-            <div class="grid2">
-              <label class="fld"><span class="lbl">${t("notifyGrace")}</span><input class="inp" inputmode="numeric" .value=${String(d.notify_grace)}
-                @input=${(e) => { this.draft = { ...d, notify_grace: wholeNumber(e, d.notify_grace) }; }}><span class="hint">${t("notifyGraceHint")}</span></label>
-              <label class="fld"><span class="lbl">${t("noClientMinutes")}</span><input class="inp" inputmode="numeric" ?disabled=${!noClient} .value=${String(d.no_client_minutes)}
-                @input=${(e) => { this.draft = { ...d, no_client_minutes: wholeNumber(e, d.no_client_minutes) }; }}><span class="hint">${noClient ? t("noClientHint") : t("noClientOff")}</span></label>
+            <div class="rows">
+              ${this._number("notify_grace", t("rowNotifyGrace"), { unit: "s", hint: t("notifyGraceHint") })}
+              ${this._number("no_client_minutes", t("rowNoClient"), { unit: "min", hint: noClient ? t("noClientHint") : t("noClientOff"), disabled: !noClient })}
             </div>
           </div>
           <div class="grp">
             <h3>${t("nWhere")}</h3>
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("nBell")}</div>
-            <label class="chk"><input type="checkbox" .checked=${!!d.notify_dismiss} @change=${(e) => { this.draft = { ...this.draft, notify_dismiss: e.target.checked }; }}><span>${t("notifyDismiss")}</span></label>
+            <div class="rows">${this._switch("notify_dismiss", t("notifyDismiss"))}</div>
             <div class="grid2">
               <label class="fld"><span class="lbl">${t("notifyService")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_service: e.target.value }; }}>
                 <option value="" .selected=${!d.notify_service}>${t("notifyNone")}</option>
@@ -804,7 +811,7 @@ export class SettingsPage extends Page {
               <label class="fld"><span class="lbl">${t("notifyLanguage")}</span><select class="inp" @change=${(e) => { this.draft = { ...d, notify_language: e.target.value }; }}>
                 ${LANGUAGES.map(([code, name]) => html`<option value=${code} .selected=${d.notify_language === code}>${name}</option>`)}</select><span class="hint">${t("notifyLanguageHint")}</span></label>
             </div>
-            <label class="chk" style=${d.notify_service ? "" : "opacity:.5"}><input type="checkbox" ?disabled=${!d.notify_service} .checked=${!!d.notify_resolved} @change=${(e) => { this.draft = { ...this.draft, notify_resolved: e.target.checked }; }}><span>${t("notifyResolved")}${d.notify_service ? "" : html` <span class="hint">· ${t("notifyResolvedNeeds")}</span>`}</span></label>
+            <div class="rows">${this._switch("notify_resolved", t("notifyResolved"), d.notify_service ? "" : t("notifyResolvedNeeds"), !d.notify_service)}</div>
           </div>
           ${this._saveRow(ROWS.notify)}
         </section>
@@ -814,7 +821,7 @@ export class SettingsPage extends Page {
             ${mqttChip}</div>
           <details class="expert"><summary>${t("mqttWhat")}</summary>
             <ul class="hint" style="margin:8px 0 0;padding-left:18px">${["mqttWhatSerial", "mqttWhatModbus", "mqttWhatEnocean", "mqttWhatEvents"].map((k) => html`<li style="border:0;padding:0;display:list-item">${t(k)}</li>`)}</ul></details>
-          <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_enabled} @change=${(e) => { this.draft = { ...this.draft, mqtt_enabled: e.target.checked }; }}><span>${t("mqttOn")}</span></label>
+          <div class="rows">${this._switch("mqtt_enabled", t("mqttOn"))}</div>
           <div style="display:flex;flex-direction:column;gap:16px;${d.mqtt_enabled ? "" : "opacity:.5"}" ?inert=${!d.mqtt_enabled}>
             <div class="grp">
               <h3>${t("mqttBrokerTitle")}</h3>
@@ -828,7 +835,7 @@ export class SettingsPage extends Page {
                   <label class="fld"><span class="lbl">${t("mqttUser")}</span><input class="inp" autocomplete="off" .value=${d.mqtt_user} @input=${(e) => { this.draft = { ...this.draft, mqtt_user: e.target.value }; }}></label>
                   <label class="fld"><span class="lbl">${t("mqttPassword")}</span><input class="inp" type="password" autocomplete="new-password" .value=${d.mqtt_password} @input=${(e) => { this.draft = { ...this.draft, mqtt_password: e.target.value }; }}></label>
                 </div>
-                <label class="chk"><input type="checkbox" .checked=${!!d.mqtt_tls} @change=${(e) => { this.draft = { ...this.draft, mqtt_tls: e.target.checked }; }}><span>${t("mqttTls")}</span></label>`
+                <div class="rows">${this._switch("mqtt_tls", t("mqttTls"))}</div>`
                 : html`<div class="hint">${s.mqtt.broker ? t("mqttFound", { b: s.mqtt.broker }) : t("mqttNoneFound")}</div>`}
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-s" ?disabled=${this.mqttTest?.busy} @click=${this._testBroker}>${t("mqttTest")}</button>
                 ${this.mqttTest ? this.mqttTest.busy ? html`<span class="hint">${t("mqttTesting")}</span>`
@@ -842,8 +849,8 @@ export class SettingsPage extends Page {
                 <div class="grid2">
                   <label class="fld"><span class="lbl">${t("mqttPrefix")}</span><input class="inp mono" .value=${d.mqtt_prefix} @input=${(e) => { this.draft = { ...this.draft, mqtt_prefix: e.target.value }; }}><span class="hint">${t("mqttPrefixHint")}</span></label>
                   <label class="fld"><span class="lbl">${t("mqttBase")}</span><input class="inp mono" .value=${d.mqtt_base} @input=${(e) => { this.draft = { ...this.draft, mqtt_base: e.target.value }; }}></label>
-                  <label class="fld"><span class="lbl">${t("mqttInterval")}</span><input class="inp" inputmode="numeric" .value=${String(d.mqtt_interval)} @input=${(e) => { this.draft = { ...d, mqtt_interval: wholeNumber(e, d.mqtt_interval) }; }}></label>
                 </div>
+                <div class="rows">${this._number("mqtt_interval", t("rowMqttInterval"), { unit: "s" })}</div>
                 <p class="hint">${t("mqttNames")}</p>
               </div>
             </details>
@@ -862,14 +869,11 @@ export class SettingsPage extends Page {
             ${gateways ? html`<span class="chip ok">${tn("eoStatusOn", gateways, { n: gateways })}</span>` : html`<span class="chip">${t("eoStatusOff")}</span>`}</div>
           ${gateways ? "" : html`<div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}<span>${t("eoNoGateway")} <a href="#/edit/new">${t("addConnection")}</a></span></div>`}
           ${eoStatus?.port && !eoStatus.listening ? html`<div class="note bad" role="alert">${t("eoStatusClosed", { port: eoStatus.port, e: eoStatus.error || "?" })}</div>` : ""}
-          <label class="chk"><input type="checkbox" .checked=${!!d.enocean_discovery} @change=${(e) => { this.draft = { ...this.draft, enocean_discovery: e.target.checked }; }}>
-            <span>${t("eoDiscovery")}<br><span class="hint">${t("eoDiscoveryHint")}</span></span></label>
+          <div class="rows">${this._switch("enocean_discovery", t("eoDiscovery"), t("eoDiscoveryHint"))}</div>
           <details class="expert" ?open=${d.enocean_status_port !== 9199}>
             <summary>${t("eoAdvanced")}${d.enocean_status_port !== 9199 ? html` <span class="hint">· ${t("eoPortCustom")}</span>` : ""}</summary>
             <div class="expert-body">
-              <label class="fld"><span class="lbl">${t("eoStatusPort")}</span><input class="inp" inputmode="numeric" style="max-width:200px" .value=${String(d.enocean_status_port)}
-                @input=${(e) => { this.draft = { ...this.draft, enocean_status_port: wholeNumber(e, d.enocean_status_port) }; }}>
-                <span class="hint">${t("eoStatusPortHint")}</span></label>
+              <div class="rows">${this._number("enocean_status_port", t("eoStatusPort"), { hint: t("eoStatusPortHint"), base: 9199 })}</div>
             </div>
           </details>
           ${this._saveRow(ROWS.enocean)}
@@ -885,17 +889,16 @@ export class SettingsPage extends Page {
           </div>
           <div class="grp">
             <h3>${t("evTitle")}</h3>
-            <label class="fld" style="max-width:280px"><span class="lbl">${t("historyDays")}</span><input class="inp" inputmode="numeric" .value=${String(d.history_days)} @input=${(e) => { this.draft = { ...d, history_days: wholeNumber(e, d.history_days) }; }}></label>
-            <p class="hint">${t("historyDaysHint")}</p>
+            <div class="rows">${this._number("history_days", t("rowHistoryDays"), { unit: t("unitDays"), hint: t("historyDaysHint") })}</div>
             <div class="sentence">${t("debA")}<input class="inp num" inputmode="numeric" aria-label=${t("debA")} .value=${String(d.debounce_count)} @input=${(e) => { this.draft = { ...d, debounce_count: wholeNumber(e, d.debounce_count) }; }}>${t("debB")}<input class="inp num" inputmode="numeric" aria-label=${t("debB")} .value=${String(d.debounce_minutes)} @input=${(e) => { this.draft = { ...d, debounce_minutes: wholeNumber(e, d.debounce_minutes) }; }}>${t("debC")}</div>
             <p class="hint">${t("debHint")}</p>
           </div>
           <div class="grp">
             <h3>${t("trTitle")}</h3>
             <p class="hint">${t("trHint")}</p>
-            <div class="grid2">
-              <label class="fld"><span class="lbl">${t("traceMb")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_file_mb)} @input=${(e) => { this.draft = { ...d, trace_file_mb: wholeNumber(e, d.trace_file_mb) }; }}></label>
-              <label class="fld"><span class="lbl">${t("traceKeep")}</span><input class="inp" inputmode="numeric" .value=${String(d.trace_keep)} @input=${(e) => { this.draft = { ...d, trace_keep: wholeNumber(e, d.trace_keep) }; }}></label>
+            <div class="rows">
+              ${this._number("trace_file_mb", t("rowTraceMb"), { unit: "MB" })}
+              ${this._number("trace_keep", t("traceKeep"))}
             </div>
             <div class="note" style="display:flex;gap:8px;align-items:center">${icon("info")}${t("traceCalc", { mb: d.trace_file_mb * (1 + d.trace_keep), size: d.trace_file_mb, files: 1 + d.trace_keep })}</div>
           </div>

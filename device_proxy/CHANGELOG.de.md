@@ -16,6 +16,12 @@
 
 - **Modbus-Verbindung:** eine neue Karte „Fehlerantworten“ zeigt, worauf das Gerät mit einer Ausnahme geantwortet hat: Zeit, Client, Unit, Funktionscode, Adresse und Anzahl, der Ausnahme-Code mit Namen und wie oft. Dieselbe Anfrage mit derselben Antwort zählt hoch, statt die Liste zu füllen; so lässt sich ein harmloses „Adresse ungültig“ (ein Register, das dieses Modell nicht hat) von einem falschen Wert oder einem Gerätefehler unterscheiden ([#12](https://github.com/bertel2020/HA-Device-Proxy/issues/12)).
 
+### Geändert
+
+- **Modbus-Tipps:** der Tipp zum Zwischenspeicher erscheint nur noch, wenn der Proxy gemessen hat, dass die Clients wirklich dasselbe lesen: Er nennt, wie viele der Anfragen ein anderer Client in der Sekunde davor genauso gestellt hat, wo die Einstellung liegt und dass die Werte dann bis zu 1 s alt sind. Vorher kam er bei zwei Clients immer, auch wenn sie verschiedene Register lasen.
+- **Modbus-Verbindung, Erweitert:** die Einstellungen sind jetzt Zeilen: links Name und Erklärung, rechts ein schmales Feld mit Einheit (ms, s). Zwischenspeicher, Trennen untätiger Clients und Prüfabfrage haben einen Schalter statt „0 = aus“; ein geänderter Wert ist markiert, mit Link zurück zum Standard, und der zugeklappte Bereich zeigt, was abweicht. Unit-IDs umschreiben und Units anderer Verbindungen haben eine eigene Gruppe „Units“.
+- **Editor und Einstellungen:** überall dasselbe Aussehen: jede Ein/Aus-Option ist ein Schalter, Einstellungen wie Zeitgrenzen sind Zeilen mit der Einheit hinter einem schmalen Feld, und „0 = nie/aus“ ist ein eigener Schalter. Das gilt für „Erweitert“ von Seriell, EnOcean und 1-Wire, die Meldungen, den EnOcean-Puffer, das Ersatz-Gateway und auf der Einstellungsseite für Benachrichtigungen, MQTT, EnOcean und Protokolle. Was zusammengehört (Adresse und Port, Leitungseinstellungen, Broker-Zugang), steht weiter nebeneinander.
+
 ## 1.10.0 - 2026-11-19
 
 ### Neu

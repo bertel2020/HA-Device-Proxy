@@ -156,6 +156,27 @@ ${CARDS("table.cards.wide")}  }
   :is(.stats, .counters) > .well > .hint { align-self: end; }
   :is(.stats, .counters) b { font-size: calc(var(--num-l) * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
+  /* a setting as a row: name and explanation left, a narrow field with its unit (and a switch) right */
+  .rows { display: flex; flex-direction: column; container-type: inline-size; }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 20px; padding: 10px 0; border-top: 1px solid var(--line-2); }
+  :is(.rows, .opts) > .srow:first-child { border-top: none; padding-top: 2px; }
+  .srow .stext { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .srow .lblrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .srow .lbl { color: var(--text); font-size: calc(14px * var(--fs, 1)); }
+  .srow .lblrow .chip { min-height: 20px; padding: 0 8px; font-size: calc(11.5px * var(--fs, 1)); font-weight: 400; }
+  .sctl { display: flex; align-items: center; gap: 12px; justify-self: end; }
+  .unit { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .unit:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .unit input { width: 84px; border: none; border-radius: 0; text-align: right; min-height: 38px; padding: 0 10px; background: transparent; }
+  .unit input:focus-visible { outline: none; }
+  .unit:has(input[aria-invalid="true"]) { border-color: var(--bad); }
+  .unit span { display: flex; align-items: center; padding: 0 10px; border-left: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: calc(13px * var(--fs, 1)); min-width: 22px; justify-content: center; }
+  .reset { all: unset; cursor: pointer; color: var(--accent); white-space: nowrap; }
+  .reset:hover { text-decoration: underline; }
+  .reset:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .changed { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  /* little room: a field goes below its text; a switch alone stays on the right */
+  @container (max-width: 520px) { .srow:has(.unit) { grid-template-columns: minmax(0, 1fr); } .srow:has(.unit) .sctl { justify-self: start; } }
   .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
   .switch[aria-checked="true"] { background: var(--accent); }
   .switch span { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s; }

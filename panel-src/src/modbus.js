@@ -152,7 +152,9 @@ export function timingTips(c, m) {
     tips.push(["tipTimeoutDown", { t: timeout, m: Math.round(slow), s: roundUp(Math.max(slow * 3, 1500), 500) }]);
   }
   const clients = (c.clients || []).length;
-  if (!c.cache_ms && clients >= 2) tips.push(["tipCache", { n: clients }]);
+  // measured by the proxy: reads another client made the same just before, which a cache answers
+  const shared = (m.shared || 0) / m.requests;
+  if (!c.cache_ms && clients >= 2 && shared >= 0.1) tips.push(["tipCache", { p: Math.round(shared * 100) }]);
   if (c.cache_ms && m.cached) tips.push(["tipCacheSaves", { p: Math.round((m.cached / m.requests) * 100) }]);
   if ((m.queue_max || 0) >= 5) tips.push(["tipQueue", { q: m.queue_max, a: Math.round(m.time_avg_ms) }]);
   if (m.exceptions / m.requests >= 0.05) tips.push(["tipExceptions", { p: Math.round((m.exceptions / m.requests) * 100) }]);

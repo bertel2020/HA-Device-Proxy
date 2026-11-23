@@ -209,6 +209,31 @@ export const fmtSerial = (c) => `${c.baud} ${c.data_bits}${c.parity.toUpperCase(
 export const toggle = (checked, label, onChange, disabled = false) => html`<button type="button" class="switch" role="switch"
   aria-checked=${checked ? "true" : "false"} aria-label=${label} ?disabled=${disabled} @click=${() => onChange(!checked)}><span></span></button>`;
 
+/** One setting as a row: name and explanation left, a narrow field with its unit (and a switch) right.
+ * on: 0 means off, the switch sets this value or 0. base: the default; a value that differs is marked,
+ * with a link back to it. err: the field's error line (its id is describedBy). */
+export function settingRow({ id, label, hint = "", value, onValue, unit = "", on = null, base, err = "", invalid = false, describedBy = "", disabled = false }) {
+  const off = on !== null && !value, changed = base !== undefined && value !== base;
+  const was = on !== null && !base ? t("rowDefaultOff") : t("rowDefault", { v: `${base}${unit ? ` ${unit}` : ""}` });
+  return html`<div class="fld srow">
+    <div class="stext"><span class="lblrow"><label class="lbl" for=${id}>${label}</label>${changed ? html`<span class="chip info">${t("rowChanged")}</span>` : ""}</span>
+      ${hint || changed ? html`<span class="hint">${hint}${changed ? html` <button type="button" class="reset" ?disabled=${disabled} @click=${() => onValue(base)}>${was}</button>` : ""}</span>` : ""}
+      ${err}</div>
+    <div class="sctl">
+      ${off ? "" : html`<span class="unit"><input class="inp" id=${id} .value=${String(value ?? "")} inputmode="numeric" ?disabled=${disabled}
+        aria-invalid=${invalid ? "true" : "false"} aria-describedby=${describedBy || nothing} @input=${(e) => onValue(wholeNumber(e, value))}>${unit ? html`<span>${unit}</span>` : ""}</span>`}
+      ${on !== null ? toggle(!off, label, (v) => onValue(v ? on : 0), disabled) : ""}
+    </div></div>`;
+}
+
+/** A yes/no setting as a row with a switch; changed: marked as differing from the default. */
+export function switchRow({ label, hint = "", checked, onChange, changed = false, disabled = false }) {
+  return html`<div class="fld srow">
+    <div class="stext"><span class="lblrow"><span class="lbl">${label}</span>${changed ? html`<span class="chip info">${t("rowChanged")}</span>` : ""}</span>
+      ${hint ? html`<span class="hint">${hint}</span>` : ""}</div>
+    <div class="sctl">${toggle(!!checked, label, onChange, disabled)}</div></div>`;
+}
+
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
