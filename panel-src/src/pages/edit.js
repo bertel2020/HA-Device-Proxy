@@ -27,6 +27,8 @@ const MODBUS = { kind: "modbus", template: "modbus", link: "tcp", max_clients: 1
   write_access: "listed", write_clients: "127.0.0.1, 172.30.32.0/23" };
 
 const LINKS = ["tcp", "rtu", "rtu_tcp", "rtu_listen"];
+/** How many of these settings differ from the default (the head of a folded section). */
+const changedCount = (d, keys) => keys.filter((k) => JSON.stringify(d[k] ?? "") !== JSON.stringify(DEFAULTS[k] ?? "")).length;
 const onBus = (d) => d.link === "rtu" || d.link === "rtu_listen"; // a serial adapter of this host
 // Z-Wave and Zigbee sticks have no login and take commands: by default only Home Assistant and the other apps
 // (ZWAVE_CLIENTS in model.py, for one that names nobody)
@@ -388,7 +390,7 @@ export class EditPage extends Page {
 
   /** A yes/no setting of the draft as a row with a switch. */
   _switchRow(key, label, hint = "") {
-    return switchRow({ label, hint, checked: !!this.draft[key], changed: !!this.draft[key] !== !!DEFAULTS[key], onChange: (v) => this._set({ [key]: v }) });
+    return switchRow({ label, hint, checked: !!this.draft[key], base: !!DEFAULTS[key], onChange: (v) => this._set({ [key]: v }) });
   }
 
   /** What differs from the default in Modbus: Erweitert, short, for its head. */
@@ -398,7 +400,7 @@ export class EditPage extends Page {
       ["connect_delay_ms", "rowConnectDelay", ms], ["request_gap_ms", "rowGap", ms], ["cache_ms", "rowCache", ms],
       ["device_connections", "mbLinks", String], ["timeout", "rowIdle", s], ["kickolduser", "rowKick", null],
       ["low_latency", "rowLowLatency", null], ["unit_map", "mbUnitMap", null], ["unit_routes", "mbRoutes", null],
-      ["register_entities", "mbEntities", null], ["probe_seconds", "mbProbe", s], ["trace", "grpTrace", null],
+      ["register_entities", "mbEntities", null], ["probe_seconds", "mbProbe", s], ["trace", "grpTrace", (v) => `· ${t(`trmb_${v}`)}`],
     ];
     return items.filter(([k]) => d[k] !== (DEFAULTS[k] ?? "off")).map(([k, label, fmt]) => (fmt ? `${t(label)} ${fmt(d[k])}` : t(label)));
   }
@@ -473,7 +475,7 @@ export class EditPage extends Page {
 
   _modbusSections(chosen) {
     const d = this.draft;
-    const advancedCount = MODBUS_TUNING.concat("trace").filter((k) => d[k] !== (DEFAULTS[k] ?? "off")).length;
+    const advancedCount = changedCount(d, MODBUS_TUNING.concat("trace"));
     return html`
       <section class="card" aria-labelledby="t-mdev">
         <h2 id="t-mdev">${t("mbDevice")}</h2>
@@ -540,7 +542,7 @@ export class EditPage extends Page {
             <label class="fld"><span class="lbl">${t("mbEntitiesField")}</span>
               <textarea class="inp mono" rows="4" spellcheck="false" aria-invalid=${this._shown().register_entities ? "true" : "false"} placeholder="1 3 40083 int16 none 0.1 W power AC" .value=${d.register_entities || ""} @input=${(e) => this._set({ register_entities: e.target.value })}></textarea>
               ${this._err("register_entities")}<span class="hint">${t("mbEntitiesHint")}</span></label>
-            <div class="grid2">${this._input("entity_seconds", t("mbEntitySeconds"), { number: true, hint: t("mbEntitySecondsHint") })}</div></div>
+            <div class="rows">${this._row("entity_seconds", t("rowEntitySeconds"), { unit: "s", hint: t("mbEntitySecondsHint") })}</div></div>
           <div class="grp"><h3>${t("mbProbe")}</h3>
             <div class="rows">${this._row("probe_seconds", t("rowProbe"), { unit: "s", on: 60, hint: t("mbProbeSub") })}</div>
             <div class="grid2">
@@ -605,7 +607,7 @@ export class EditPage extends Page {
     const d = this.draft;
     const resting = !!this._mainOf(); // a fallback: its port and clients rest
     const serial = d.link === "serial";
-    const advancedCount = ENOCEAN_ADVANCED.filter((k) => d[k]).length + ["timeout"].filter((k) => d[k]).length + (d.trace !== "off" ? 1 : 0);
+    const advancedCount = changedCount(d, [...ENOCEAN_ADVANCED, "timeout", "trace"]);
     return html`
       <section class="card" aria-labelledby="t-eogw">
         <h2 id="t-eogw">${t("eoGateway")}</h2>
@@ -663,7 +665,7 @@ export class EditPage extends Page {
       <section class="card" aria-labelledby="t-adv">
         <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
           <span><h2 id="t-adv">${t("eoAccess")}</h2><span class="hint">${t("eoAccessSub")}</span></span>
-          <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+          <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
         ${this.advanced ? html`
           <div class="rows">
             ${this._row("timeout", t("rowIdle"), { unit: "s", on: 300, hint: t("rowIdleHint") })}
@@ -724,7 +726,7 @@ export class EditPage extends Page {
   /** 1-Wire: the owserver to share, the port for the programs, who may write. */
   _onewireSections() {
     const d = this.draft;
-    const advancedCount = (d.timeout ? 1 : 0) + (d.trace !== "off" ? 1 : 0) + (d.link === "usb" && d.owserver_cache_s !== 15 ? 1 : 0);
+    const advancedCount = changedCount(d, ["timeout", "trace", ...(d.link === "usb" ? ["owserver_cache_s"] : [])]);
     return html`
       <section class="card" aria-labelledby="t-owsrc">
         <h2 id="t-owsrc">${t("owSource")}</h2>
@@ -840,7 +842,7 @@ export class EditPage extends Page {
     if (!d) return skeleton("edit");
     const devices = this.state.devices;
     const chosen = devices.find((x) => x.stable === d.device || x.by_id.includes(d.device) || x.by_path.includes(d.device));
-    const advancedCount = ADVANCED.filter((k) => d[k]).length + ["rs485", "banner", "openstr", "closestr"].filter((k) => d[k]).length + (d.extra.length ? 1 : 0) + (d.trace !== "off" ? 1 : 0);
+    const advancedCount = changedCount(d, [...ADVANCED, "local", "chardelay", "meter_entities", "dtr", "rts", "rs485", "timeout", "connector_retry_time", "banner", "openstr", "closestr", "extra", "trace"]);
     const isNew = !d.id;
     return html`
       <p class="crumb"><a href="#/connections">${t("connectionsTitle")}</a> › ${isNew ? t("newConnection") : d.name}</p>
@@ -894,7 +896,7 @@ export class EditPage extends Page {
         <section class="card" aria-labelledby="t-adv">
           <button type="button" class="toggle-head" aria-expanded=${this.advanced ? "true" : "false"} @click=${() => { this.advanced = !this.advanced; }}>
             <span><h2 id="t-adv">${t("advanced")}</h2><span class="hint">${t("advancedSub")}</span></span>
-            <span class="chip">${t("set", { n: advancedCount })} · ${this.advanced ? t("closeA") : t("open")}</span></button>
+            <span class="chip">${advancedCount ? t("tuningSet", { n: advancedCount }) : t("tuningNone")} · ${this.advanced ? t("closeA") : t("open")}</span></button>
           ${this.advanced ? html`
             <fieldset><legend>${t("appSide")}</legend>
               <div class="opts">${this._check("keep_open")}${this._check("meter_entities")}</div>

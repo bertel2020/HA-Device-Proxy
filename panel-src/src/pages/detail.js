@@ -284,9 +284,9 @@ export class DetailPage extends Page {
     return foldCard("device_proxy.mbexceptions", "t-exc", t("mbExcLog"), tn("mbExcLogSub", seen.length, { n: seen.length }), html`
       <div class="scroll"><table class="cards wide"><thead><tr><th>${t("mbExcTh")}</th><th>Unit</th><th>FC</th><th>${t("mbAddress")}</th><th style="text-align:right">${t("mbExcTimes")}</th><th>${t("timeTh")}</th><th>${t("clientTh")}</th></tr></thead>
         <tbody>${seen.map((e) => html`<tr><td><span class="chip ${cls[e.code] ?? "bad"}">${e.code.toString(16).toUpperCase().padStart(2, "0")} · ${has(`ex_${e.code}`) ? t(`ex_${e.code}`) : t("ex_other")}</span></td>
-          <td data-l="Unit">${e.unit}</td><td data-l="FC">${String(e.function).padStart(2, "0")}</td><td data-l=${t("mbAddress")} class="mono">${e.address ?? "–"}${e.count > 1 ? ` ×${e.count}` : ""}</td>
+          <td data-l="Unit">${e.unit}</td><td data-l="FC">${String(e.function).padStart(2, "0")}</td><td data-l=${t("mbAddress")} class="mono">${e.address ?? "–"}${e.count > 1 ? `–${e.address + e.count - 1}` : ""}</td>
           <td data-l=${t("mbExcTimes")} style="text-align:right">${e.times.toLocaleString(lang)}</td>
-          <td data-l=${t("timeTh")} style="white-space:nowrap" title=${t("mbExcFirst", { t: fmtTime(e.first, false, true) })}>${fmtTime(e.ts, false, true)}</td>
+          <td data-l=${t("timeTh")} style="white-space:nowrap">${fmtTime(e.ts, false, true)}${e.times > 1 ? html` <span class="hint">${t("mbExcFirst", { t: fmtTime(e.first, false, true) })}</span>` : ""}</td>
           <td data-l=${t("clientTh")} class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${e.client}${clientName(e.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(e.client)}</b>` : ""}</td></tr>`)}</tbody></table></div>
       <p class="hint" style="margin:0">${t("mbExcLogHint")}</p>`);
   }
@@ -714,7 +714,7 @@ export class DetailPage extends Page {
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
     const rq = this._rqSamples || [];
     const problems = [["mbTimeouts", m.timeouts], ["mbExceptions", m.exceptions], ["mbErrors", m.errors], ["mbBlocked", m.blocked]].filter(([, v]) => v);
-    const summary = !m.requests ? t("mbNoRequests") : m.answered === m.requests ? t("mbAllAnswered") : t("mbSomeAnswered", { a: m.answered });
+    const summary = !m.requests ? t("mbNoRequests") : m.answered === m.requests ? (m.exceptions ? t("mbAllAnsweredExc", { e: m.exceptions.toLocaleString(lang) }) : t("mbAllAnswered")) : t("mbSomeAnswered", { a: m.answered });
     const rate = rq.length ? rq.slice(-5).reduce((x, y) => x + y, 0) / Math.min(rq.length, 5) : 0;
     return html`<section class="card" aria-labelledby="t-mb">
       <div class="row"><h2 id="t-mb">${t("mbStats")}</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
@@ -791,7 +791,7 @@ export class DetailPage extends Page {
               <span>${t("network")}</span><span>Port ${c.port}</span>
               <span>${t("who")}</span><span>${who(c, s)}</span>
               <span>${t("mbWrite")}</span><span>${writeRule(c)}</span>
-              ${c.timeout ? html`<span>${t("mbIdle")}</span><span>${c.timeout} s</span>` : ""}
+              ${c.timeout ? html`<span>${t("rowIdle")}</span><span>${c.timeout} s</span>` : ""}
               ${c.link === "usb" ? html`<span>${t("owCache")}</span><span>${c.owserver_cache_s ? `${c.owserver_cache_s} s` : t("owCacheOff")}</span>` : ""}
               ${c.http_port ? html`<span>${t("owHttpPort")}</span><span>${c.http_port}${c.write_access !== "all" ? ` · ${t("owHttpRo")}` : ""}</span>` : ""}
             </div>` : modbus ? html`<div class="kv">

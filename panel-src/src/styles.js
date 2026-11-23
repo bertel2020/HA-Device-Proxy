@@ -156,28 +156,37 @@ ${CARDS("table.cards.wide")}  }
   :is(.stats, .counters) > .well > .hint { align-self: end; }
   :is(.stats, .counters) b { font-size: calc(var(--num-l) * var(--fs, 1)); font-weight: 300; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .meter .chip { align-self: flex-start; min-height: 28px; padding: 0 12px; white-space: normal; }
-  /* a setting as a row: name and explanation left, a narrow field with its unit (and a switch) right */
+  /* a setting as a row: name and explanation left, a narrow field with its unit, then a switch, right;
+     in a group with switches every switch has the same column, so fields and switches line up */
   .rows { display: flex; flex-direction: column; container-type: inline-size; }
-  .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 20px; padding: 10px 0; border-top: 1px solid var(--line-2); }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line-2); }
+  :is(.rows, .opts):has(.switch) > .srow { grid-template-columns: minmax(0, 1fr) auto 52px; }
   :is(.rows, .opts) > .srow:first-child { border-top: none; padding-top: 2px; }
-  .srow .stext { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .srow .stext { display: flex; flex-direction: column; gap: 3px; min-width: 0; grid-column: 1; grid-row: 1; }
   .srow .lblrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .srow .lbl { color: var(--text); font-size: calc(14px * var(--fs, 1)); }
   .srow .lblrow .chip { min-height: 20px; padding: 0 8px; font-size: calc(11.5px * var(--fs, 1)); font-weight: 400; }
-  .sctl { display: flex; align-items: center; gap: 12px; justify-self: end; }
-  .unit { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .sctl { display: contents; }
+  .srow .unit { grid-column: 2; grid-row: 1; justify-self: end; }
+  .srow .switch { grid-column: -2; grid-row: 1; }
+  .srow.off .stext, .srow.off .unit { opacity: .5; }
+  .unit { display: flex; align-items: stretch; border: 1px solid var(--input-line); border-radius: var(--control-radius); overflow: hidden; background: var(--surface); min-height: 42px; }
   .unit:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .unit input { width: 84px; border: none; border-radius: 0; text-align: right; min-height: 38px; padding: 0 10px; background: transparent; }
+  .unit input { width: 96px; border: none; border-radius: 0; text-align: right; min-height: 40px; padding: 0 10px; background: transparent; }
   .unit input:focus-visible { outline: none; }
   .unit:has(input[aria-invalid="true"]) { border-color: var(--bad); }
-  .unit span { display: flex; align-items: center; padding: 0 10px; border-left: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: calc(13px * var(--fs, 1)); min-width: 22px; justify-content: center; }
+  .unit span { display: flex; align-items: center; padding: 0 10px; border-left: 1px solid var(--input-line); background: var(--surface-2); color: var(--muted); font-size: calc(13px * var(--fs, 1)); min-width: 22px; justify-content: center; }
   .reset { all: unset; cursor: pointer; color: var(--accent); white-space: nowrap; }
   .reset:hover { text-decoration: underline; }
   .reset:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
   .changed { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  /* little room: a field goes below its text; a switch alone stays on the right */
-  @container (max-width: 520px) { .srow:has(.unit) { grid-template-columns: minmax(0, 1fr); } .srow:has(.unit) .sctl { justify-self: start; } }
-  .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: #aeb6c1; }
+  /* little room: the switch stays top right next to the text, a field goes below the text */
+  @container (max-width: 520px) {
+    :is(.rows, .opts) > .srow, :is(.rows, .opts):has(.switch) > .srow { grid-template-columns: minmax(0, 1fr) auto; }
+    .srow .switch { grid-column: 2; align-self: start; }
+    .srow .unit { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  }
+  .switch { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; cursor: pointer; padding: 0; background: light-dark(#aeb6c1, #4a525d); }
   .switch[aria-checked="true"] { background: var(--accent); }
   .switch span { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s; }
   .switch[aria-checked="true"] span { left: 24px; }

@@ -414,3 +414,19 @@ async def test_the_stop_does_not_wait_for_an_open_panel(tmp_path: Path) -> None:
     await reader.readuntil(b"\r\n\r\n")  # answered; the connection stays open (keep-alive)
     await asyncio.wait_for(web.stop(), 3)
     writer.close()
+
+
+def test_the_panel_knows_the_settings_defaults() -> None:
+    """The settings page marks a value that differs from the default (SETTING_DEFAULTS in
+    panel-src/src/pages/settings.js); those must be Settings' own."""
+    import re
+    from dataclasses import fields
+
+    from device_proxy.model import Settings
+
+    source = (Path(__file__).parents[1] / "panel-src/src/pages/settings.js").read_text("utf-8")
+    block = re.search(r"SETTING_DEFAULTS = \{(.*?)\};", source, re.S)
+    assert block is not None
+    panel = {k: json.loads(v) for k, v in re.findall(r"(\w+): (true|false|\d+)", block.group(1))}
+    defaults = {f.name: f.default for f in fields(Settings)}
+    assert panel and {k: defaults[k] for k in panel} == panel

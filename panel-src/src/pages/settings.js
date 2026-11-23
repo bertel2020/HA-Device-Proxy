@@ -28,6 +28,14 @@ function lineDiff(before, after) {
   return out.filter((l) => !l.startsWith("  ")).join("\n") || "  (–)";
 }
 
+// the defaults of the settings shown as rows, as in Settings (model.py); a value that differs is marked
+// (test_web.py checks that they match)
+export const SETTING_DEFAULTS = {
+  notify_new_clients: true, notify_stuck: true, notify_line_errors: false, notify_ser2net: true, notify_grace: 30, no_client_minutes: 2,
+  notify_dismiss: true, notify_resolved: false, mqtt_enabled: true, mqtt_tls: false, mqtt_interval: 10, enocean_discovery: true,
+  enocean_status_port: 9199, history_days: 30, trace_file_mb: 5, trace_keep: 3,
+};
+
 export class SettingsPage extends Page {
   static properties = {
     state: { attribute: false }, section: {}, mqttIds: { state: true }, clientOpen: { state: true }, clientRange: { state: true }, clientHist: { state: true }, clientAll: { state: true }, blockAdd: { state: true }, draft: { state: true }, custom: { state: true }, customText: { state: true }, customCheck: { state: true }, customOpen: { state: true },
@@ -689,12 +697,12 @@ export class SettingsPage extends Page {
 
   /** A yes/no setting of the draft as a row with a switch; saved with its section. */
   _switch(key, label, hint = "", disabled = false) {
-    return switchRow({ label, hint, checked: this.draft[key], disabled, onChange: (v) => { this.draft = { ...this.draft, [key]: v }; } });
+    return switchRow({ label, hint, checked: this.draft[key], base: SETTING_DEFAULTS[key], disabled, onChange: (v) => { this.draft = { ...this.draft, [key]: v }; } });
   }
 
   /** A number of the draft as a row, its unit after the field; saved with its section. */
-  _number(key, label, { unit = "", hint = "", base, disabled = false } = {}) {
-    return settingRow({ id: `s-${key}`, label, hint, unit, base, disabled, value: this.draft[key], onValue: (v) => { this.draft = { ...this.draft, [key]: v }; } });
+  _number(key, label, { unit = "", hint = "", disabled = false } = {}) {
+    return settingRow({ id: `s-${key}`, label, hint, unit, base: SETTING_DEFAULTS[key], disabled, value: this.draft[key], onValue: (v) => { this.draft = { ...this.draft, [key]: v }; } });
   }
 
   render() {
@@ -758,7 +766,7 @@ export class SettingsPage extends Page {
         <section id="clients" class="card" aria-labelledby="t-clients">
           <div><h2 id="t-clients">${t("sClients")}</h2><p class="hint" style="margin-top:4px">${t("sClientsSub")}</p></div>
           ${this._clientList(s)}
-          <div class="rows">${switchRow({ label: t("notifyNewClients"), checked: d.notify_new_clients, onChange: (v) => { this.draft = { ...this.draft, notify_new_clients: v }; this._saveSettings({ notify_new_clients: v }); } })}</div>
+          <div class="rows">${switchRow({ label: t("notifyNewClients"), checked: d.notify_new_clients, base: SETTING_DEFAULTS.notify_new_clients, onChange: (v) => { this.draft = { ...this.draft, notify_new_clients: v }; this._saveSettings({ notify_new_clients: v }); } })}</div>
         </section>
 
         <section id="backup" class="card" aria-labelledby="t-backup">
@@ -873,7 +881,7 @@ export class SettingsPage extends Page {
           <details class="expert" ?open=${d.enocean_status_port !== 9199}>
             <summary>${t("eoAdvanced")}${d.enocean_status_port !== 9199 ? html` <span class="hint">· ${t("eoPortCustom")}</span>` : ""}</summary>
             <div class="expert-body">
-              <div class="rows">${this._number("enocean_status_port", t("eoStatusPort"), { hint: t("eoStatusPortHint"), base: 9199 })}</div>
+              <div class="rows">${this._number("enocean_status_port", t("eoStatusPort"), { hint: t("eoStatusPortHint") })}</div>
             </div>
           </details>
           ${this._saveRow(ROWS.enocean)}
