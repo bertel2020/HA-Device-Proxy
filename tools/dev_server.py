@@ -111,8 +111,10 @@ async def modbus_device(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         writer.close()
 
 
-async def modbus_client(port: int, stop: asyncio.Event) -> None:
-    await asyncio.sleep(1)
+async def modbus_client(port: int, stop: asyncio.Event, delay: float = 1.0) -> None:
+    """Reads the same registers every 2 s; a second one with a short delay asks what the
+    first just asked, so the panel's cache tip (reads a cache would answer) shows."""
+    await asyncio.sleep(delay)
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
     tid = 0
     while not stop.is_set():
@@ -604,6 +606,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
         alias = controller.config.connections[0].alias
         feeder = asyncio.create_task(meter(trace, alias, stop))
         poller = asyncio.create_task(modbus_client(15020 + offset, stop))
+        evcc = asyncio.create_task(modbus_client(15020 + offset, stop, delay=1.3))
         home_assistant = asyncio.create_task(enocean_client(19100 + offset, stop))
         sensors = asyncio.create_task(onewire_client(14304 + offset, stop))
         if case is not None and replayed is not None and replayed.kind == "serial":
@@ -615,6 +618,7 @@ async def main(port: int, offset: int = 0, replay: Path | None = None) -> None:
             stop.set()
             feeder.cancel()
             poller.cancel()
+            evcc.cancel()
             home_assistant.cancel()
             sensors.cancel()
             bus.close()
