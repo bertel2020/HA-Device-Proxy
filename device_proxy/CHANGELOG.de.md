@@ -10,7 +10,7 @@
 >
 > 🇬🇧 [English version](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.md)
 
-## Unreleased
+## 1.12.0 - 2026-11-27
 
 ### Neu
 
@@ -18,8 +18,7 @@
 - **Modbus-Verbindung, Status:** die Zahl der Fehlerantworten springt zur Karte „Fehlerantworten“ (aufgeklappt), der letzte Fehler zu den letzten Ereignissen derselben Seite ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
 - **Modbus-Tipps:** die Tipps zu Fehlerantworten und Timeouts zählen ebenfalls ab „Gesehen“ und gehen so mit den Zählern; der Tipp zu Fehlerantworten hat einen Link zur Karte „Fehlerantworten“.
 - **Modbus-Tabellen:** nach „Gesehen“ behält die Spalte „ohne Antwort“ je Unit und je Client ihre Summe, wird aber nur bei neuen orange.
-- **1-Wire-Verbindung:** auch hier lässt sich der letzte Fehler als gesehen markieren und führt zu den letzten Ereignissen.
-- **1-Wire-Verbindung:** „Gesehen“ auch für die Zähler Fehler, abgewiesene Schreibzugriffe und abgewiesene Verbindungen: sie zählen wieder ab 0, mit der Uhrzeit der Markierung.
+- **1-Wire-Verbindung:** auch hier „Gesehen“: Fehler, abgewiesene Schreibzugriffe und abgewiesene Verbindungen zählen wieder ab 0, mit der Uhrzeit der Markierung; der letzte Fehler ist bis zum nächsten ausgeblendet und führt zu den letzten Ereignissen.
 - **Serielle Verbindung:** „Gesehen“ für die Leitungsfehler (Frame, Parität, Overrun, Break, Puffer): sie zählen wieder ab 0, und „keine Leitungsfehler“ erscheint wieder. Der Sensor in Home Assistant und die Benachrichtigung zählen weiter seit dem Start; kommt der Adapter wieder, beginnen Zähler und Markierung neu.
 
 ## 1.11.0 - 2026-11-23

@@ -10,7 +10,7 @@
 >
 > 🇩🇪 [Änderungen auf Deutsch](https://github.com/bertel2020/HA-Device-Proxy/blob/main/device_proxy/CHANGELOG.de.md)
 
-## Unreleased
+## 1.12.0 - 2026-11-27
 
 ### New
 
@@ -18,8 +18,7 @@
 - **Modbus connection, status:** the exceptions count jumps to the "Exceptions" card (opened), the last error to the recent events of the same page ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
 - **Modbus tips:** the exceptions and timeout tips count from the "Seen" mark as well, so they go with the counters; the exceptions tip has a link to the "Exceptions" card.
 - **Modbus tables:** after "Seen", the column "no answer" per unit and per client keeps its total but turns orange only for new ones.
-- **1-Wire connection:** the last error can also be marked as seen and links to the recent events.
-- **1-Wire connection:** "Seen" also for the counters errors, refused writes and refused connections: they count from 0 again, with the time of the mark.
+- **1-Wire connection:** "Seen" too: errors, refused writes and refused connections count from 0 again, with the time of the mark; the last error is hidden until the next one and links to the recent events.
 - **Serial connection:** "Seen" for the line errors (frame, parity, overrun, break, buffer): they count from 0 again, and "no line errors" shows again. The Home Assistant sensor and the notification keep counting since the start; when the adapter comes back, counts and mark start anew.
 
 ## 1.11.0 - 2026-11-23
