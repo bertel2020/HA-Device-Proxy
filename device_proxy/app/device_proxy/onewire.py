@@ -171,6 +171,7 @@ class Stats:
     bad_requests: int = 0  # connections whose first bytes were no complete request
     last_error: str = ""
     last_error_at: float = 0.0
+    seen: dict[str, float] = field(default_factory=dict)  # marked as seen in the app
 
 
 @dataclass
@@ -1209,6 +1210,12 @@ class OneWireProxy:
             writer.close()
         return len(writers)
 
+    def acknowledge(self, what: str) -> None:
+        """Seen in the app: the last error hidden until the next one."""
+        if what != "last_error":
+            raise ValueError("last_error")
+        self.stats.seen["last_error_at"] = self.stats.last_error_at
+
     def state(self) -> dict[str, Any]:
         s = self.stats
         answers = list(self._answers)
@@ -1237,6 +1244,7 @@ class OneWireProxy:
             "target": self.c.upstream,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
+            "seen": dict(s.seen),
             # also the known ones that are missing now, first
             "devices": [
                 {**row, "type": row["chip"] or FAMILIES.get(row["family"], "")}

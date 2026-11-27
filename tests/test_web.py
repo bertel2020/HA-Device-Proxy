@@ -176,6 +176,9 @@ async def test_bodies_of_the_wrong_shape_and_trace_links(tmp_path: Path) -> None
     assert (await request(port, "PUT", "api/settings", [1, 2]))[0] == 400
     assert (await request(port, "POST", "api/import", {"text": "", "take": 5}))[0] == 400
     assert (await request(port, "POST", "api/import", {"text": "", "on_conflict": [1]}))[0] == 400
+    seen = "api/connections/0000abcd/acknowledge"
+    assert (await request(port, "POST", seen, {"what": "all"}))[0] == 400
+    assert (await request(port, "POST", seen, {"what": "counters"}))[0] == 409  # not running
     backup = json.dumps({"app": "device_proxy_backup", "config": "x"})
     assert (await request(port, "POST", "api/restore/preview", {"text": backup}))[0] == 400
     backup = json.dumps({"app": "device_proxy_backup", "config": {"connections": [5]}})

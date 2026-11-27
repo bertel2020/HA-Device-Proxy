@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api, url } from "./api.js";
 import { fieldError, lang, t, tn } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtSince, fmtTime, foldCard, icon, proxyTarget, toolsCard } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtSince, fmtTime, foldCard, icon, jumpTo, proxyTarget, toolsCard } from "./ui.js";
 
 export const TEMPLATES = {
   fam_usb: { esp_protocol: "esp2", model: "fam_usb", link: "serial", baud: 9600 },
@@ -265,7 +265,7 @@ export function meterCards(c) {
 
 export function issuesCard(list) {
   if (!list.length) return html`<div class="note ok" role="status">${t("eoAllWell")}</div>`;
-  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.link ? html` <a href=${i.link[0]}>${i.link[1]}</a>` : ""}${i.jump ? html` <a href="#" @click=${(ev) => { ev.preventDefault(); const target = ev.currentTarget.getRootNode().getElementById(i.jump); const fold = target?.querySelector("details"); if (fold) fold.open = true; target?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
+  return html`<div style="display:flex;flex-direction:column;gap:8px">${list.map((i) => html`<div class="note ${i.level}" role="status"><b style="font-weight:500">${i.title}</b><div>${i.text}${i.link ? html` <a href=${i.link[0]}>${i.link[1]}</a>` : ""}${i.jump ? html` <a href="#" @click=${(ev) => jumpTo(ev, i.jump)}>${t("showAddresses")}</a>` : ""}</div></div>`)}</div>`;
 }
 
 /** The tools card of one gateway; its own element, so typing does not wait for the state poll. */

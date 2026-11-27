@@ -5,7 +5,7 @@ import { issues, issuesCard, mainOf, meterCards, statusCard } from "../enocean.j
 import { clientsTable as owClients, oneWireCard, writesCard as owWrites } from "../onewire.js";
 import { DEVICE_CLASSES, TYPES, entityLine, fmtValue, identity, profileTiming, rows as decodeRows, sensorYaml, swapsFor, timingTips, width } from "../modbus.js";
 import { clientName, eventText, has, lang, retriesText, t, tn } from "../i18n.js";
-import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, lines16, proxyTarget, toggle, wholeNumber } from "../ui.js";
+import { changeNote, clientLabel, confirmDialog, movedNote, foldCard, toolsCard, connectionState, copyText, dirLabel, fmtAgo, fmtBytes, fmtRate, fmtSerial, fmtTime, icon, jumpTo, lastErrorNote, lines16, proxyTarget, seenButton, toggle, wholeNumber } from "../ui.js";
 
 const LIVE_MS = 1000;
 // the proxy's words for frames that are no radio telegram
@@ -288,7 +288,7 @@ export class DetailPage extends Page {
           <td data-l=${t("mbExcTimes")} style="text-align:right">${e.times.toLocaleString(lang)}</td>
           <td data-l=${t("timeTh")} style="white-space:nowrap">${fmtTime(e.ts, false, true)}${e.times > 1 ? html` <span class="hint">${t("mbExcFirst", { t: fmtTime(e.first, false, true) })}</span>` : ""}</td>
           <td data-l=${t("clientTh")} class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${e.client}${clientName(e.client) ? html` <b style="font-family:inherit;font-weight:500">${clientName(e.client)}</b>` : ""}</td></tr>`)}</tbody></table></div>
-      <p class="hint" style="margin:0">${t("mbExcLogHint")}</p>`);
+      <p class="hint" style="margin:0">${t("mbExcLogHint")}</p>`, false, "mbexceptions");
   }
 
   _exclusiveNote(c) {
@@ -713,7 +713,11 @@ export class DetailPage extends Page {
     const tips = timingTips(c, m);
     const reach = m.reachable === true ? ["mbReachable", "ok"] : m.reachable === false ? ["mbUnreachable", "bad"] : ["mbUnknown", ""];
     const rq = this._rqSamples || [];
-    const problems = [["mbTimeouts", m.timeouts], ["mbExceptions", m.exceptions], ["mbErrors", m.errors], ["mbBlocked", m.blocked]].filter(([, v]) => v);
+    // counted since they were marked as seen, if they were
+    const seen = m.seen || {};
+    const problems = [["timeouts", "mbTimeouts"], ["exceptions", "mbExceptions"], ["errors", "mbErrors"], ["blocked", "mbBlocked"]]
+      .map(([f, k]) => [k, Math.max(0, (m[f] ?? 0) - (seen[f] ?? 0))]).filter(([, v]) => v);
+    const excLog = (m.exception_log || []).length;
     const summary = !m.requests ? t("mbNoRequests") : m.answered === m.requests ? (m.exceptions ? t("mbAllAnsweredExc", { e: m.exceptions.toLocaleString(lang) }) : t("mbAllAnswered")) : t("mbSomeAnswered", { a: m.answered });
     const rate = rq.length ? rq.slice(-5).reduce((x, y) => x + y, 0) / Math.min(rq.length, 5) : 0;
     return html`<section class="card" aria-labelledby="t-mb">
@@ -724,7 +728,11 @@ export class DetailPage extends Page {
       <div class="row hint"><span>${t("mbTime")}</span><span>${m.answered ? t("mbTimeVal", { a: m.time_avg_ms, m: m.time_max_ms }) : "–"}</span></div>
       <div class="row hint"><span>${t("mbLastAnswer")}</span><span>${m.last_answer ? fmtAgo(m.last_answer) : t("never")}</span></div>
       ${problems.length || m.cached || m.probes || (m.queue ?? 0) > 1 ? html`<div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${problems.map(([k, v]) => html`<span class="chip warn">${v} ${t(k)}</span>`)}
+        ${problems.map(([k, v]) => k === "mbExceptions" && excLog
+          ? html`<button class="chip warn" @click=${(ev) => jumpTo(ev, "mbexceptions")} title=${t("jumpExceptions")}>${v} ${t(k)}${icon("link", 13)}</button>`
+          : html`<span class="chip warn">${v} ${t(k)}</span>`)}
+        ${problems.length ? seenButton(c.id, "counters") : ""}
+        ${problems.length && seen.counters_at ? html`<span class="hint" style="align-self:center">${t("seenSince", { t: fmtTime(seen.counters_at, true) })}</span>` : ""}
         ${m.cached ? html`<span class="chip">${m.cached} ${t("mbCached")}</span>` : ""}${m.probes ? html`<span class="chip">${m.probes} ${t("mbProbes")}</span>` : ""}
         ${(m.queue ?? 0) > 1 ? html`<span class="chip">${t("mbQueue")} ${m.queue} / ${m.queue_max ?? 0}</span>` : ""}</div>` : ""}
       ${m.listen_error ? html`<div class="note bad">${t("mbListenError", { e: m.listen_error })}</div>` : ""}
@@ -734,7 +742,7 @@ export class DetailPage extends Page {
           <div style="display:flex;flex-wrap:wrap;gap:6px">${m.listen.ranges.map((r) => html`<span class="chip mono" title=${fmtAgo(r.heard)}>Unit ${r.unit} · FC0${r.function} · ${r.first}${r.last > r.first ? `–${r.last}` : ""}</span>`)}</div>`
           : html`<div class="note warn">${t("mbListenNone")}</div>`}
         ${m.listen.dropped ? html`<span class="hint">${tn("mbListenDropped", m.listen.dropped, { n: m.listen.dropped.toLocaleString(lang) })}</span>` : ""}</div>` : ""}
-      ${m.last_error ? html`<div class="note ${m.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${m.last_error}${m.last_error_at ? ` · ${fmtTime(m.last_error_at, true, true)}` : ""}</div>` : ""}
+      ${lastErrorNote(c, m)}
       ${tips.length ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
         <b style="font-weight:500">${t("tipsTitle")}</b>
         ${tips.map(([key, values]) => html`<div class="note ${key === "tipCacheSaves" ? "ok" : "info"}">${t(key, values)}</div>`)}
@@ -873,7 +881,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             <div class="row hint" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))"><span>${t("sparkOld")}</span><span>${t("sparkPeak", { r: fmtRate(Math.max(...this._samples, 0)) })}</span><span>${t("sparkNow")}</span></div>
             <div class="row hint"><span>${t("lastData")}: ${c.last_data ? fmtAgo(c.last_data) : t("never")}</span><span>${t("sinceStart", { b: fmtBytes(c.bytes_from_device) })}</span></div>
           </section>`;
-    const recentCard = html`<section class="card" aria-labelledby="t-recent">
+    const recentCard = html`<section class="card" id="recent" aria-labelledby="t-recent">
             <div class="row"><h2 id="t-recent">${t("recent")}</h2><a href="#/events/${c.id}" style="font-size: calc(13px * var(--fs, 1))">${t("allEventsOf", { n: c.name })}</a></div>
             ${recent.length ? html`<ol class="recent">${recent.map((e) => html`<li><time>${fmtTime(e.ts)}</time><span class="dot" style="color:${e.level === "warning" ? "var(--warn)" : e.level === "error" ? "var(--bad)" : "var(--ok)"}"></span>
               <span class="txt">${eventText(e)}${e.count > 1 ? html` <span class="chip">${t("summed", { n: e.count, time: fmtTime(e.last_ts, true, true) })}</span>` : ""}</span></li>`)}</ol>`

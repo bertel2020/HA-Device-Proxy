@@ -1207,6 +1207,27 @@ def test_exception_answers_are_kept_by_request_and_bounded() -> None:
     assert len(log) == modbus.EXCEPTIONS_KEPT and log[-1]["address"] == modbus.EXCEPTIONS_KEPT + 4
 
 
+def test_trouble_marked_as_seen_counts_again_from_there() -> None:
+    c = Connection("Inverter", "", 0, kind="modbus", link="tcp", host="127.0.0.1", host_port=1)
+    proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda ch: None)
+    s = proxy.stats
+    s.exceptions, s.timeouts = 20, 3
+    proxy._error("[Errno 111] Connect call failed")
+    first = s.last_error_at
+    assert proxy.state()["seen"] == {}
+    proxy.acknowledge("counters")
+    proxy.acknowledge("last_error")
+    seen = proxy.state()["seen"]
+    assert (seen["exceptions"], seen["timeouts"], seen["errors"]) == (20, 3, 0)
+    assert seen["counters_at"] and seen["last_error_at"] == first
+    s.exceptions += 1  # the panel shows 21 - 20; the totals stay
+    assert proxy.state()["exceptions"] == 21
+    s.last_error_at = first + 1  # a newer error: shown again
+    assert proxy.state()["last_error_at"] > proxy.state()["seen"]["last_error_at"]
+    with pytest.raises(ValueError):
+        proxy.acknowledge("everything")
+
+
 def test_reads_a_cache_would_answer_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
     c = Connection("Inverter", "", 0, kind="modbus", link="tcp", host="127.0.0.1", host_port=1)
     proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda ch: None)

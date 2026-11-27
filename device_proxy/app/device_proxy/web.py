@@ -156,6 +156,7 @@ class WebServer:
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})", self.delete)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/enabled", self.enable)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/disconnect", self.disconnect)
+        self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/acknowledge", self.acknowledge)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/restart", self.restart)
         self._route("POST", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.exclusive)
         self._route("DELETE", r"api/connections/(?P<id>[0-9a-f]{8})/exclusive", self.end_exclusive)
@@ -448,6 +449,16 @@ class WebServer:
             return ok({"count": await self.c.disconnect_clients(request.params["id"], "ui")})
         except ValueError as err:
             raise HttpError(409, str(err)) from None
+
+    async def acknowledge(self, request: Request) -> Response:
+        what = request.json().get("what")
+        if what not in ("counters", "last_error"):
+            raise HttpError(400, "what: counters or last_error")
+        try:
+            self.c.acknowledge(request.params["id"], what)
+        except ValueError as err:
+            raise HttpError(409, str(err)) from None
+        return ok()
 
     async def restart(self, request: Request) -> Response:
         usb, power = request.json().get("usb", False), request.json().get("power", False)

@@ -721,6 +721,13 @@ class Stats:
     last_answer: float = 0.0
     last_error: str = ""
     last_error_at: float = 0.0
+    # marked as seen in the app: the counters shown start again from here, the last error
+    # stays hidden until a newer one; with the proxy (and its counters) they start anew
+    seen: dict[str, float] = field(default_factory=dict)
+
+
+# the counters of trouble the app shows, and can mark as seen
+PROBLEMS = ("timeouts", "exceptions", "errors", "blocked")
 
 
 @dataclass
@@ -1566,6 +1573,17 @@ class ModbusProxy:
             client.writer.close()
         return len(clients)
 
+    def acknowledge(self, what: str) -> None:
+        """Seen in the app: the trouble counters from 0 again, or the last error hidden
+        until the next one."""
+        s = self.stats
+        if what == "counters":
+            s.seen.update({k: getattr(s, k) for k in PROBLEMS}, counters_at=time.time())
+        elif what == "last_error":
+            s.seen["last_error_at"] = s.last_error_at
+        else:
+            raise ValueError("counters or last_error")
+
     def state(self) -> dict[str, Any]:
         s = self.stats
         return {
@@ -1596,6 +1614,7 @@ class ModbusProxy:
             "last_answer": s.last_answer or None,
             "last_error": s.last_error,
             "last_error_at": s.last_error_at or None,
+            "seen": dict(s.seen),
         }
 
 

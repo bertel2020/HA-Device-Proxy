@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { fieldError, lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, proxyTarget } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, lastErrorNote, proxyTarget } from "./ui.js";
 
 export const OWSERVER_PORT = 4304;
 // a new connection: the owserver of another computer, writes from every client as owserver itself does
@@ -44,7 +44,7 @@ export function oneWireCard(c) {
     ${o.owserver?.start_error ? html`<div class="note bad">${t("owOwnStartError", { e: o.owserver.start_error })}</div>` : ""}
     ${o.owserver?.log?.length ? html`<details><summary class="hint" style="cursor:pointer">${t("owOwnLog")}</summary>
       <div class="code" style="white-space:pre-wrap;margin-top:6px">${o.owserver.log.join("\n")}</div></details>` : ""}
-    ${o.last_error ? html`<div class="note ${o.reachable === false ? "bad" : "warn"}">${t("mbLastError")}: ${o.last_error}${o.last_error_at ? ` · ${fmtTime(o.last_error_at, true, true)}` : ""}</div>` : ""}
+    ${lastErrorNote(c, o)}
   </section>`;
 }
 

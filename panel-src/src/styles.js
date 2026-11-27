@@ -76,6 +76,13 @@ export const base = css`
   .chip.bad { background: var(--bad-soft); color: var(--bad); } .chip.info { background: var(--accent-soft); color: var(--accent-hover); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
   .note { border-radius: var(--control-radius); padding: 12px 14px; }
+  .note.acts { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
+  .note.acts > span { flex: 1; min-width: min(100%, 200px); overflow-wrap: anywhere; }
+  button.chip { border: 0; font-family: inherit; cursor: pointer; }
+  button.chip:focus-visible, button.seen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.seen { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 8px;
+    border-radius: 13px; cursor: pointer; color: inherit; font-size: max(10.5px, calc(12px * var(--fs, 1))); font-weight: 500; }
+  button.seen:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
   .note.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }
   .note.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }
   .note.ok { background: var(--ok-soft); color: var(--ok); }
@@ -214,7 +221,7 @@ ${CARDS("table.cards.wide")}  }
   .crumb { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
   /* touch: links, chips and the small buttons take taps in a taller area than they show; an invisible extension, so nothing moves */
   @media (max-width: 600px), (pointer: coarse) {
-    a:where(:not(.btn, .iconbtn, .act, nav a)), button.chip, button.tap { position: relative; }
-    a:where(:not(.btn, .iconbtn, .act, nav a))::after, button.chip::after, button.tap::after { content: ""; position: absolute; inset: -10px 0; }
+    a:where(:not(.btn, .iconbtn, .act, nav a)), button.chip, button.tap, button.seen { position: relative; }
+    a:where(:not(.btn, .iconbtn, .act, nav a))::after, button.chip::after, button.tap::after, button.seen::after { content: ""; position: absolute; inset: -10px 0; }
   }
 `;

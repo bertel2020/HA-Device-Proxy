@@ -1397,6 +1397,14 @@ class Controller:
             "writes_left": proxy.base_id_writes_left,
         }
 
+    def acknowledge(self, connection_id: str, what: str) -> None:
+        """Trouble seen in the app: its counters from 0 again, or the last error hidden
+        until the next one; for everyone who looks, until the proxy starts anew."""
+        proxy = self.proxies.get(connection_id)
+        if not isinstance(proxy, (ModbusProxy, OneWireProxy)):
+            raise ValueError("the connection is not active")
+        proxy.acknowledge(what)
+
     async def disconnect_clients(self, connection_id: str, source: str) -> int:
         """Close the connections of all clients of a connection; they may connect again."""
         c = self.config.connection(connection_id)
