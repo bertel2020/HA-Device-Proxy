@@ -143,7 +143,11 @@ export function timingTips(c, m) {
   const tips = [];
   if (!m || (m.requests || 0) < MIN_REQUESTS) return tips;
   const timeout = c.request_timeout_ms, slow = m.time_max_ms || 0;
-  const timeoutShare = m.timeouts / m.requests;
+  // trouble counts since the counters were marked as seen: a tip about it goes with the chip
+  const seen = m.seen || {};
+  const asked = m.requests - (seen.requests ?? 0);
+  const since = (f) => (asked >= MIN_REQUESTS ? Math.max(0, (m[f] || 0) - (seen[f] ?? 0)) / asked : 0);
+  const timeoutShare = since("timeouts");
   if (timeoutShare >= 0.02 && slow >= timeout * 0.7) {
     tips.push(["tipTimeoutUp", { p: Math.round(timeoutShare * 100), t: timeout, s: roundUp(Math.max(slow * 2, timeout + 1000), 500) }]);
   } else if (timeoutShare >= 0.02) {
@@ -157,6 +161,7 @@ export function timingTips(c, m) {
   if (!c.cache_ms && clients >= 2 && shared >= 0.1) tips.push(["tipCache", { p: Math.round(shared * 100) }]);
   if (c.cache_ms && m.cached) tips.push(["tipCacheSaves", { p: Math.round((m.cached / m.requests) * 100) }]);
   if ((m.queue_max || 0) >= 5) tips.push(["tipQueue", { q: m.queue_max, a: Math.round(m.time_avg_ms) }]);
-  if (m.exceptions / m.requests >= 0.05) tips.push(["tipExceptions", { p: Math.round((m.exceptions / m.requests) * 100) }]);
+  const exceptionShare = since("exceptions");
+  if (exceptionShare >= 0.05) tips.push(["tipExceptions", { p: Math.round(exceptionShare * 100) }]);
   return tips;
 }

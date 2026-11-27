@@ -745,7 +745,8 @@ export class DetailPage extends Page {
       ${lastErrorNote(c, m)}
       ${tips.length ? html`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-2);padding-top:10px">
         <b style="font-weight:500">${t("tipsTitle")}</b>
-        ${tips.map(([key, values]) => html`<div class="note ${key === "tipCacheSaves" ? "ok" : "info"}">${t(key, values)}</div>`)}
+        ${tips.map(([key, values]) => html`<div class="note ${key === "tipCacheSaves" ? "ok" : "info"}">${t(key, values)}${key === "tipExceptions" && excLog
+          ? html` <a href="#" @click=${(ev) => jumpTo(ev, "mbexceptions")}>${t("jumpExceptions")}</a>` : ""}</div>`)}
         <p class="hint" style="margin:0">${t("tipsHint")} <a href="#/edit/${c.id}">${t("edit")}</a></p></div>` : ""}
     </section>`;
   }

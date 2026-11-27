@@ -16,6 +16,7 @@
 
 - **Modbus-Verbindung, Status:** gesehene Probleme lassen sich als gesehen markieren. „Gesehen“ neben Timeouts, Fehlerantworten, Fehlern und abgewiesenen Schreibzugriffen zählt sie wieder ab 0 (mit „seit …“); „Gesehen“ am letzten Fehler blendet ihn bis zum nächsten aus. Ein neuer Fehler bringt beides zurück. Die Markierung hält die App, jeder Browser zeigt also dasselbe, bis die Verbindung neu startet; die Summen, die Statistik und die Karte „Fehlerantworten“ behalten alles. Solange das Gerät nicht erreichbar ist, bleibt sein letzter Fehler stehen ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
 - **Modbus-Verbindung, Status:** die Zahl der Fehlerantworten springt zur Karte „Fehlerantworten“ (aufgeklappt), der letzte Fehler zu den letzten Ereignissen derselben Seite ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
+- **Modbus-Tipps:** die Tipps zu Fehlerantworten und Timeouts zählen ebenfalls ab „Gesehen“ und gehen so mit den Zählern; der Tipp zu Fehlerantworten hat einen Link zur Karte „Fehlerantworten“.
 - **1-Wire-Verbindung:** auch hier lässt sich der letzte Fehler als gesehen markieren und führt zu den letzten Ereignissen.
 
 ## 1.11.0 - 2026-11-23

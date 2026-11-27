@@ -1578,7 +1578,9 @@ class ModbusProxy:
         until the next one."""
         s = self.stats
         if what == "counters":
-            s.seen.update({k: getattr(s, k) for k in PROBLEMS}, counters_at=time.time())
+            s.seen.update(
+                {k: getattr(s, k) for k in (*PROBLEMS, "requests")}, counters_at=time.time()
+            )
         elif what == "last_error":
             s.seen["last_error_at"] = s.last_error_at
         else:

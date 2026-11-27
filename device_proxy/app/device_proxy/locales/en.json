@@ -13,7 +13,7 @@
     "navSettings": "Settings",
     "navMain": "Sections",
     "tipsTitle": "Tips",
-    "tipsHint": "Suggestions from what the proxy measured since the start; check them against the vendor's documentation.",
+    "tipsHint": "Suggestions from what the proxy measured since the start (timeouts and exceptions: since the counters were marked as seen); check them against the vendor's documentation.",
     "tipTimeoutUp": "{p} % of the requests got no answer within {t} ms, and the slowest answer came close to it. A timeout of {s} ms should be enough.",
     "tipTimeoutsFast": "{p} % of the requests got no answer although the slowest answer took only {m} ms: the device drops requests. Check the unit id, for RS485 the wiring and the pause between requests; some devices take only one client at a time or need a pause after connecting.",
     "tipTimeoutDown": "No timeouts, the slowest answer took {m} ms. With a timeout of {s} ms instead of {t} ms the clients notice an outage sooner.",

@@ -13,7 +13,7 @@
     "navSettings": "Einstellungen",
     "navMain": "Bereiche",
     "tipsTitle": "Tipps",
-    "tipsHint": "Vorschläge aus dem, was der Proxy seit dem Start gemessen hat; prüfe sie gegen die Angaben des Herstellers.",
+    "tipsHint": "Vorschläge aus dem, was der Proxy seit dem Start gemessen hat (Timeouts und Fehlerantworten: seit „Gesehen“ an den Zählern); prüfe sie gegen die Angaben des Herstellers.",
     "tipTimeoutUp": "{p} % der Anfragen bekamen keine Antwort in {t} ms, und die langsamste Antwort lag nahe daran. Ein Timeout von {s} ms dürfte reichen.",
     "tipTimeoutsFast": "{p} % der Anfragen bekamen keine Antwort, obwohl die langsamste Antwort nur {m} ms brauchte: das Gerät lässt Anfragen fallen. Unit-ID prüfen, bei RS485 Verkabelung und Pause zwischen Anfragen; manche Geräte vertragen nur einen Client gleichzeitig oder brauchen Ruhe nach dem Verbinden.",
     "tipTimeoutDown": "Keine Zeitüberschreitung, die langsamste Antwort brauchte {m} ms. Mit einem Timeout von {s} ms statt {t} ms bemerken die Clients einen Ausfall schneller.",

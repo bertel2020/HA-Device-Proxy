@@ -16,6 +16,7 @@
 
 - **Modbus connection, status:** trouble you have looked at can be marked as seen. "Seen" next to the timeouts, exceptions, errors and refused writes counts them from 0 again (with "since …"); "Seen" on the last error hides it until the next one. A new error brings both back. The mark is kept by the app, so every browser shows the same, until the connection starts anew; the totals, the statistics and the "Exceptions" card keep everything. While the device is unreachable, its last error stays ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
 - **Modbus connection, status:** the exceptions count jumps to the "Exceptions" card (opened), the last error to the recent events of the same page ([#13](https://github.com/bertel2020/HA-Device-Proxy/issues/13)).
+- **Modbus tips:** the exceptions and timeout tips count from the "Seen" mark as well, so they go with the counters; the exceptions tip has a link to the "Exceptions" card.
 - **1-Wire connection:** the last error can also be marked as seen and links to the recent events.
 
 ## 1.11.0 - 2026-11-23
