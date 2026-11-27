@@ -272,7 +272,8 @@ Einstellungen: prüfe sie gegen die Dokumentation des Geräts.
 **Gesehen**: Ist ein Problem vorbei, etwa nach einem kurzen Ausfall des Geräts, markiert „Gesehen“
 neben Timeouts, Fehlerantworten, Fehlern und abgewiesenen Schreibzugriffen diese als gesehen: sie
 zählen wieder ab 0, mit „seit …“, und die Tipps zu Timeouts und Fehlerantworten rechnen ab da
-(erst nach 50 neuen Anfragen wieder). „Gesehen“ am letzten Fehler blendet ihn aus, bis ein
+(erst nach 50 neuen Anfragen wieder); „ohne Antwort“ je Unit und je Client bleibt als Summe
+stehen, ist aber erst wieder orange, wenn neue dazukommen. „Gesehen“ am letzten Fehler blendet ihn aus, bis ein
 neuer kommt. Die Markierung hält die App, jeder Browser zeigt also dasselbe; sie gilt, bis die
 Verbindung neu startet. Die Summen in der Statistik und die Karte **Fehlerantworten** behalten
 alles. Ist das Gerät gerade nicht erreichbar, gibt es am letzten Fehler kein „Gesehen“, der

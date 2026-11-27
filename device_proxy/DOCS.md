@@ -257,7 +257,8 @@ suggestions, not settings: check them against the device's documentation.
 **Seen**: once a problem is over, say after a short outage of the device, "Seen" next to the
 timeouts, exceptions, errors and refused writes marks them as seen: they count from 0 again,
 with "since …", and the tips on timeouts and exceptions count from there (only after 50 new
-requests again). "Seen" on the last error hides it until a new one comes. The app keeps the
+requests again); "no answer" per unit and per client stays as a total but is orange again only
+when new ones come. "Seen" on the last error hides it until a new one comes. The app keeps the
 mark, so every browser shows the same; it holds until the connection starts anew. The totals
 in the statistics and the **Exceptions** card keep everything. While the device is not
 reachable, the last error has no "Seen": that error is not over. The exceptions count and its

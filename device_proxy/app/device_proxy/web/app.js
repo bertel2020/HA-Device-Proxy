@@ -967,7 +967,7 @@ ${s.request_gap_ms?` \xB7 ${e("mbGapShort",{ms:s.request_gap_ms})}`:""}</span>
                 <td data-l=${e("mbRequests")} style="text-align:right;white-space:nowrap">${$.requests}${$.cached?n` <span class="hint">· ${e("mbCachedShort",{n:$.cached})}</span>`:""}</td>
                 <td data-l=${e("mbShare")}>${this._share(s,$)}</td>
                 <td data-l=${e("mbAnswer")} style="text-align:right;white-space:nowrap">${$.time_avg_ms?`${$.time_avg_ms} ms`:"\u2013"}</td><td data-l=${e("mbWait")} style="text-align:right;white-space:nowrap">${$.requests>$.cached?`${$.wait_avg_ms} ms`:"\u2013"}</td>
-                <td data-l=${e("mbFailed")} style="text-align:right;${$.failed?"color:var(--warn)":""}">${$.failed}</td><td data-l=${e("mbBlocked")} style="text-align:right">${$.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(s)}`:s.clients.length&&R?Ei(s,$=>Lt(this,$)):s.clients.length&&m?n`<div class="scroll"><table class="cards"><thead><tr>
+                <td data-l=${e("mbFailed")} style="text-align:right;${$.failed>($.failed_seen??0)?"color:var(--warn)":""}">${$.failed}</td><td data-l=${e("mbBlocked")} style="text-align:right">${$.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(s)}`:s.clients.length&&R?Ei(s,$=>Lt(this,$)):s.clients.length&&m?n`<div class="scroll"><table class="cards"><thead><tr>
               <th>${e("clientTh")}</th><th>${e("sinceTh")}</th><th>${e("eoReplay")}</th><th style="text-align:right">${e("toClient")}</th><th style="text-align:right">${e("fromClient")}</th></tr></thead>
               <tbody>${s.clients.map($=>n`<tr><td class="mono" style="font-size: max(10.5px, calc(12px * var(--fs, 1)))">${$.address}${Lt(this,$.address)}</td><td data-l=${e("sinceTh")}>${$.since?T($.since):"\u2013"}</td>
                 <td data-l=${e("eoReplay")}>${$.replay?n`<span class="chip info">${e("eoReplayChip")}</span>`:"\u2013"}</td>
@@ -981,7 +981,7 @@ ${s.request_gap_ms?` \xB7 ${e("mbGapShort",{ms:s.request_gap_ms})}`:""}</span>
             <div class="scroll"><table class="cards"><thead><tr><th>${e("mbUnit")}</th><th style="text-align:right">${e("mbRequests")}</th>
               <th style="text-align:right" title=${e("mbTipExceptions")}>${e("mbExceptions")}</th><th style="text-align:right" title=${e("mbTipFailed")}>${e("mbFailed")}</th><th style="text-align:right">${e("mbTimeShort")}</th><th>${e("mbLastAnswer")}</th></tr></thead>
               <tbody>${u.units.map($=>n`<tr><td class="mono"><span class="cardlbl">${e("mbUnit")} </span>${$.unit}</td><td data-l=${e("mbRequests")} style="text-align:right">${$.requests}</td>
-                <td data-l=${e("mbExceptions")} style="text-align:right">${$.exceptions}</td><td data-l=${e("mbFailed")} style="text-align:right;${$.failed?"color:var(--warn)":""}">${$.failed}</td>
+                <td data-l=${e("mbExceptions")} style="text-align:right">${$.exceptions}</td><td data-l=${e("mbFailed")} style="text-align:right;${$.failed>($.failed_seen??0)?"color:var(--warn)":""}">${$.failed}</td>
                 <td data-l=${e("mbTimeShort")} style="text-align:right">${$.answered?`${$.time_avg_ms} ms`:"\u2013"}</td><td data-l=${e("mbLastAnswer")}>${$.last_answer?q($.last_answer):e("never")}</td></tr>`)}</tbody></table></div></div>`:""}
           </section>`,I=h?this._modbusCard(u,s):m?xi(s):R?ki(s):n`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${e("line")}</h2>

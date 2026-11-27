@@ -852,7 +852,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
                 <td data-l=${t("mbRequests")} style="text-align:right;white-space:nowrap">${cl.requests}${cl.cached ? html` <span class="hint">· ${t("mbCachedShort", { n: cl.cached })}</span>` : ""}</td>
                 <td data-l=${t("mbShare")}>${this._share(c, cl)}</td>
                 <td data-l=${t("mbAnswer")} style="text-align:right;white-space:nowrap">${cl.time_avg_ms ? `${cl.time_avg_ms} ms` : "–"}</td><td data-l=${t("mbWait")} style="text-align:right;white-space:nowrap">${cl.requests > cl.cached ? `${cl.wait_avg_ms} ms` : "–"}</td>
-                <td data-l=${t("mbFailed")} style="text-align:right;${cl.failed ? "color:var(--warn)" : ""}">${cl.failed}</td><td data-l=${t("mbBlocked")} style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
+                <td data-l=${t("mbFailed")} style="text-align:right;${cl.failed > (cl.failed_seen ?? 0) ? "color:var(--warn)" : ""}">${cl.failed}</td><td data-l=${t("mbBlocked")} style="text-align:right">${cl.blocked}</td></tr>`)}</tbody></table></div>${this._sharing(c)}`
             : c.clients.length && onewire ? owClients(c, (address) => clientLabel(this, address))
             : c.clients.length && enocean ? html`<div class="scroll"><table class="cards"><thead><tr>
               <th>${t("clientTh")}</th><th>${t("sinceTh")}</th><th>${t("eoReplay")}</th><th style="text-align:right">${t("toClient")}</th><th style="text-align:right">${t("fromClient")}</th></tr></thead>
@@ -870,7 +870,7 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
             <div class="scroll"><table class="cards"><thead><tr><th>${t("mbUnit")}</th><th style="text-align:right">${t("mbRequests")}</th>
               <th style="text-align:right" title=${t("mbTipExceptions")}>${t("mbExceptions")}</th><th style="text-align:right" title=${t("mbTipFailed")}>${t("mbFailed")}</th><th style="text-align:right">${t("mbTimeShort")}</th><th>${t("mbLastAnswer")}</th></tr></thead>
               <tbody>${m.units.map((u) => html`<tr><td class="mono"><span class="cardlbl">${t("mbUnit")} </span>${u.unit}</td><td data-l=${t("mbRequests")} style="text-align:right">${u.requests}</td>
-                <td data-l=${t("mbExceptions")} style="text-align:right">${u.exceptions}</td><td data-l=${t("mbFailed")} style="text-align:right;${u.failed ? "color:var(--warn)" : ""}">${u.failed}</td>
+                <td data-l=${t("mbExceptions")} style="text-align:right">${u.exceptions}</td><td data-l=${t("mbFailed")} style="text-align:right;${u.failed > (u.failed_seen ?? 0) ? "color:var(--warn)" : ""}">${u.failed}</td>
                 <td data-l=${t("mbTimeShort")} style="text-align:right">${u.answered ? `${u.time_avg_ms} ms` : "–"}</td><td data-l=${t("mbLastAnswer")}>${u.last_answer ? fmtAgo(u.last_answer) : t("never")}</td></tr>`)}</tbody></table></div></div>` : ""}
           </section>`;
     const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : onewire ? oneWireCard(c) : html`<section class="card" aria-labelledby="t-line">

@@ -1212,6 +1212,7 @@ def test_trouble_marked_as_seen_counts_again_from_there() -> None:
     proxy = ModbusProxy(c, "lan", lambda *a, **k: None, lambda ch: None)
     s = proxy.stats
     s.requests, s.exceptions, s.timeouts = 400, 20, 3
+    unit = proxy.units.setdefault(2, modbus.UnitStats(failed=5))
     proxy._error("[Errno 111] Connect call failed")
     first = s.last_error_at
     assert proxy.state()["seen"] == {}
@@ -1220,6 +1221,9 @@ def test_trouble_marked_as_seen_counts_again_from_there() -> None:
     seen = proxy.state()["seen"]
     assert (seen["exceptions"], seen["timeouts"], seen["errors"]) == (20, 3, 0)
     assert seen["requests"] == 400  # the tips' shares count from here too
+    assert proxy.state()["units"][0]["failed_seen"] == 5  # the table's column too
+    unit.failed += 1
+    assert proxy.state()["units"][0]["failed"] == 6
     assert seen["counters_at"] and seen["last_error_at"] == first
     s.exceptions += 1  # the panel shows 21 - 20; the totals stay
     assert proxy.state()["exceptions"] == 21

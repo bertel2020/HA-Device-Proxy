@@ -688,6 +688,7 @@ class ClientInfo:
     since: float
     requests: int = 0
     failed: int = 0
+    failed_seen: int = 0  # failed when the counters were marked as seen in the app
     blocked: int = 0
     bytes_in: int = 0
     bytes_out: int = 0
@@ -738,6 +739,7 @@ class UnitStats:
     answered: int = 0
     exceptions: int = 0
     failed: int = 0
+    failed_seen: int = 0  # failed when the counters were marked as seen in the app
     time_avg: float = 0.0
     last_answer: float = 0.0
 
@@ -748,6 +750,7 @@ class UnitStats:
             "answered": self.answered,
             "exceptions": self.exceptions,
             "failed": self.failed,
+            "failed_seen": self.failed_seen,
             "time_avg_ms": round(self.time_avg * 1000, 1),
             "last_answer": self.last_answer or None,
         }
@@ -1581,6 +1584,10 @@ class ModbusProxy:
             s.seen.update(
                 {k: getattr(s, k) for k in (*PROBLEMS, "requests")}, counters_at=time.time()
             )
+            for unit in self.units.values():  # the tables' "no answer" too
+                unit.failed_seen = unit.failed
+            for client in self.clients.values():
+                client.info.failed_seen = client.info.failed
         elif what == "last_error":
             s.seen["last_error_at"] = s.last_error_at
         else:
@@ -1650,6 +1657,7 @@ def client_row(client: _Client) -> dict[str, Any]:
         "cached": info.cached,
         "blocked": info.blocked,
         "failed": info.failed,
+        "failed_seen": info.failed_seen,
         "busy": round(info.busy, 3),
         "time_avg_ms": round(info.time_avg * 1000, 1),
         "wait_avg_ms": round(info.wait_avg * 1000, 1),
