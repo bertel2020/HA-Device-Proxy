@@ -254,6 +254,16 @@ sooner), the cache when at least 10 % of the requests repeat another client's re
 second before (with that share), and what a long queue or many exceptions mean. They are
 suggestions, not settings: check them against the device's documentation.
 
+**Seen**: once a problem is over, say after a short outage of the device, "Seen" next to the
+timeouts, exceptions, errors and refused writes marks them as seen: they count from 0 again,
+with "since …", and the tips on timeouts and exceptions count from there (only after 50 new
+requests again). "Seen" on the last error hides it until a new one comes. The app keeps the
+mark, so every browser shows the same; it holds until the connection starts anew. The totals
+in the statistics and the **Exceptions** card keep everything. While the device is not
+reachable, the last error has no "Seen": that error is not over. The exceptions count and its
+tip jump to the **Exceptions** card, the link icon on the last error to the recent events at the
+bottom of the page.
+
 **Exceptions**: the card lists what the device answered with an exception, since the app
 started: exception code and name, unit, function, registers, how often, when last and since
 when, and which client asked. The same request with the same answer counts up instead of adding
@@ -509,6 +519,9 @@ while wiring. It does not count towards "missing".
 - **Bus errors**: the owserver card shows the owserver's CRC and bus errors since it started,
   with a hint when they rise, and the adapter's name and version and the owserver's version as
   the owserver reports them.
+- **Errors and refused**: errors, refused writes and refused connections are counted by the app
+  itself. "Seen" counts them from 0 again, "Seen" on the last error hides it until the next one;
+  as described for Modbus.
 
 85 °C and outliers are also events, at most once an hour per device.
 
@@ -623,7 +636,8 @@ Both are also buttons in Home Assistant (see below).
   (**Settings → Logs and retention**).
 - **Line errors** (frame, parity, overrun, break) come from the adapter's driver while the
   device is open. Rising numbers usually mean a wrong baud rate or format. Not every driver
-  counts them.
+  counts them. Once the cause is fixed, "Seen" counts them from 0 again on the page; the Home
+  Assistant sensor and the notification keep counting since the start.
 - **FTDI latency**: FTDI adapters wait 16 ms before passing data on; "low latency" sets 1 ms
   (better for Z-Wave). If the system does not let the app change it, the app says so.
 

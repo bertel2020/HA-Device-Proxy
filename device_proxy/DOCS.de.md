@@ -267,9 +267,21 @@ wenn Antworten nahe daran kommen, ein kürzerer, wenn das Gerät immer schnell a
 Ausfall früher auffällt), der Zwischenspeicher, wenn mindestens 10 % der Anfragen einen
 Lesezugriff eines anderen Clients aus der Sekunde davor wiederholen (mit diesem Anteil), und was
 eine lange Warteschlange oder viele Fehlerantworten bedeuten. Es sind Vorschläge, keine
-Einstellungen: prüfe sie gegen die Dokumentation des Geräts. Die Live-Ansicht und die Mitschnitte zeigen jede
-Anfrage und Antwort als Hex mit Unit, Funktion, Register und Anzahl (z. B.
-`unit 1 · FC03 read holding registers · @40000 ×4`).
+Einstellungen: prüfe sie gegen die Dokumentation des Geräts.
+
+**Gesehen**: Ist ein Problem vorbei, etwa nach einem kurzen Ausfall des Geräts, markiert „Gesehen“
+neben Timeouts, Fehlerantworten, Fehlern und abgewiesenen Schreibzugriffen diese als gesehen: sie
+zählen wieder ab 0, mit „seit …“, und die Tipps zu Timeouts und Fehlerantworten rechnen ab da
+(erst nach 50 neuen Anfragen wieder). „Gesehen“ am letzten Fehler blendet ihn aus, bis ein
+neuer kommt. Die Markierung hält die App, jeder Browser zeigt also dasselbe; sie gilt, bis die
+Verbindung neu startet. Die Summen in der Statistik und die Karte **Fehlerantworten** behalten
+alles. Ist das Gerät gerade nicht erreichbar, gibt es am letzten Fehler kein „Gesehen“, der
+Fehler ist ja nicht vorbei. Die Zahl der Fehlerantworten und der Tipp dazu springen zur Karte
+**Fehlerantworten**, das Link-Symbol am letzten Fehler zu den letzten Ereignissen unten auf der
+Seite.
+
+Die Live-Ansicht und die Mitschnitte zeigen jede Anfrage und Antwort als Hex mit Unit, Funktion,
+Register und Anzahl (z. B. `unit 1 · FC03 read holding registers · @40000 ×4`).
 
 **Fehlerantworten**: die Karte listet, worauf das Gerät mit einer Ausnahme geantwortet hat, seit
 die App läuft: Code und Name, Unit, Funktion, Register, wie oft, wann zuletzt und seit wann, und
@@ -543,6 +555,9 @@ zu nehmen, praktisch beim Verkabeln. Die Suche zählt nicht für „fehlt“.
 - **Busfehler**: Die owserver-Karte zeigt die CRC- und Busfehler des owserver seit seinem Start,
   mit einem Hinweis, wenn sie steigen, dazu Name und Version des Adapters und die Version des
   owserver, wie der owserver sie meldet.
+- **Fehler und Abgewiesene**: Fehler, abgewiesene Schreibzugriffe und abgewiesene Verbindungen
+  zählt die App selbst. „Gesehen“ lässt sie wieder ab 0 zählen, „Gesehen“ am letzten Fehler
+  blendet ihn bis zum nächsten aus; wie bei Modbus beschrieben.
 
 85 °C und Ausreißer sind auch Ereignisse, höchstens einmal pro Stunde und Gerät.
 
@@ -660,7 +675,9 @@ Beides gibt es auch als Buttons in Home Assistant (siehe unten).
   Protokolle und Aufbewahrung**).
 - **Leitungsfehler** (Frame, Parität, Überlauf, Break) kommen vom Treiber des Adapters, solange
   das Gerät offen ist. Steigende Zahlen bedeuten meist eine falsche Baudrate oder ein falsches
-  Format. Nicht jeder Treiber zählt sie.
+  Format. Nicht jeder Treiber zählt sie. Ist die Ursache behoben, lässt „Gesehen“ sie auf der
+  Seite wieder ab 0 zählen; der Sensor in Home Assistant und die Benachrichtigung zählen weiter
+  seit dem Start.
 - **FTDI-Latenz**: FTDI-Adapter warten 16 ms, bevor sie Daten weitergeben; „niedrige Latenz“
   setzt 1 ms (besser für Z-Wave). Lässt das System die App das nicht ändern, sagt die App das.
 
