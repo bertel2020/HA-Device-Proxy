@@ -4,7 +4,7 @@ import { LitElement, css, html } from "lit";
 import { api } from "./api.js";
 import { fieldError, lang, t } from "./i18n.js";
 import { base, tokens } from "./styles.js";
-import { confirmDialog, fmtAgo, fmtTime, lastErrorNote, proxyTarget } from "./ui.js";
+import { confirmDialog, fmtAgo, fmtTime, lastErrorNote, proxyTarget, seenButton } from "./ui.js";
 
 export const OWSERVER_PORT = 4304;
 // a new connection: the owserver of another computer, writes from every client as owserver itself does
@@ -22,7 +22,11 @@ export function oneWireCard(c) {
   const r = o.requests || {};
   const reach = o.reachable === true ? ["owReachable", "ok"] : o.reachable === false ? ["owUnreachable", "bad"] : ["owUnknown", ""];
   const total = Object.values(r).reduce((a, b) => a + b, 0);
-  const counters = [["owDevices", o.present ?? (o.devices || []).length], ["owMissing", (o.missing || []).length], ["owRequests", total], ["owErrors", o.errors], ["owBlocked", o.blocked], ["owRefused", o.refused]];
+  // trouble counted since it was marked as seen, if it was
+  const seen = o.seen || {};
+  const since = (f) => Math.max(0, (o[f] ?? 0) - (seen[f] ?? 0));
+  const trouble = since("errors") + since("blocked") + since("refused");
+  const counters = [["owDevices", o.present ?? (o.devices || []).length], ["owMissing", (o.missing || []).length], ["owRequests", total], ["owErrors", since("errors")], ["owBlocked", since("blocked")], ["owRefused", since("refused")]];
   return html`<section class="card" aria-labelledby="t-ow">
     <div class="row"><h2 id="t-ow">owserver</h2><span class="chip ${reach[1]}"><span class="dot"></span>${t(reach[0])}</span></div>
     <div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px">
@@ -37,6 +41,8 @@ export function oneWireCard(c) {
     </div>
     <div class="counters">${counters.map(([k, v]) => html`<div class="well"><b style=${["owErrors", "owBlocked", "owRefused", "owMissing"].includes(k) && v ? "color:var(--warn)" : ""}>${num(v)}</b>
       <span class="hint">${t(k)}</span></div>`)}</div>
+    ${trouble || seen.counters_at ? html`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:-4px">
+      ${trouble ? seenButton(c.id, "counters") : ""}${seen.counters_at ? html`<span class="hint">${t("seenCountersSince", { t: fmtTime(seen.counters_at, true) })}</span>` : ""}</div>` : ""}
     ${o.listen_error ? html`<div class="note bad">${t("mbListenError", { e: o.listen_error })}</div>` : ""}
     ${o.owserver && !(o.adapters || []).length ? html`<div class="note bad">${t("owAdapterGone")}</div>` : ""}
     ${o.http?.listen_error ? html`<div class="note bad">${t("mbListenError", { e: o.http.listen_error })}</div>` : ""}

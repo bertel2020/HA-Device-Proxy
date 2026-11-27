@@ -215,8 +215,12 @@ async def test_the_device_list_and_reachability(setup: Setup) -> None:
     setup.proxy.acknowledge("last_error")
     state = setup.proxy.state()
     assert state["seen"]["last_error_at"] == state["last_error_at"]
+    setup.proxy.stats.errors = 4
+    setup.proxy.acknowledge("counters")
+    seen = setup.proxy.state()["seen"]
+    assert (seen["errors"], seen["blocked"], seen["refused"]) == (4, 0, 0) and seen["counters_at"]
     with pytest.raises(ValueError):
-        setup.proxy.acknowledge("counters")  # 1-Wire has only the last error to mark
+        setup.proxy.acknowledge("everything")
     setup.proxy.c = c
     await setup.proxy.probe()
     assert setup.kinds()[-1] == "onewire_back"

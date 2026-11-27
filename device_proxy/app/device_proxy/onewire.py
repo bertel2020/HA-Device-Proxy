@@ -174,6 +174,10 @@ class Stats:
     seen: dict[str, float] = field(default_factory=dict)  # marked as seen in the app
 
 
+# the counters of trouble the app shows, and can mark as seen
+PROBLEMS = ("errors", "blocked", "refused")
+
+
 @dataclass
 class Watchdog:
     misses: int = 0  # device lists in a row without an answer
@@ -1211,10 +1215,15 @@ class OneWireProxy:
         return len(writers)
 
     def acknowledge(self, what: str) -> None:
-        """Seen in the app: the last error hidden until the next one."""
-        if what != "last_error":
-            raise ValueError("last_error")
-        self.stats.seen["last_error_at"] = self.stats.last_error_at
+        """Seen in the app: the trouble counters from 0 again, or the last error hidden
+        until the next one."""
+        s = self.stats
+        if what == "counters":
+            s.seen.update({k: getattr(s, k) for k in PROBLEMS}, counters_at=time.time())
+        elif what == "last_error":
+            s.seen["last_error_at"] = s.last_error_at
+        else:
+            raise ValueError("counters or last_error")
 
     def state(self) -> dict[str, Any]:
         s = self.stats

@@ -433,3 +433,43 @@ def test_the_panel_knows_the_settings_defaults() -> None:
     panel = {k: json.loads(v) for k, v in re.findall(r"(\w+): (true|false|\d+)", block.group(1))}
     defaults = {f.name: f.default for f in fields(Settings)}
     assert panel and {k: defaults[k] for k in panel} == panel
+
+
+async def test_line_errors_marked_as_seen_count_from_there(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = Database(tmp_path / "history.db")
+    controller = Controller(
+        Store(db, tmp_path / "config.json"),
+        EventLog(db),
+        tmp_path / "ser2net.yaml",
+        custom_file=tmp_path / "own.yaml",
+        trace=TraceHub(tmp_path / "trace", tmp_path / "shm"),
+    )
+    web = WebServer(controller, port=0, hosts=("127.0.0.1",), peers=None)
+    await web.start()
+    assert web._server is not None
+    port = web._server.sockets[0].getsockname()[1]
+    await request(
+        port,
+        "POST",
+        "api/connections",
+        {"connection": {"name": "eHZ", "device": "/dev/null", "port": 3335}},
+    )
+    c = controller.config.connections[0]
+    seen = f"api/connections/{c.id}/acknowledge"
+    assert (await request(port, "POST", seen, {"what": "counters"}))[0] == 409  # nothing read
+    keys = ("frame", "parity", "overrun", "break", "buffer_overrun")
+    read = {**dict.fromkeys(keys, 0), "parity": 5}  # what the kernel counted before the start
+    monkeypatch.setattr("device_proxy.controller.line_counters", lambda device: dict(read))
+    await controller._read_line_errors(c)  # the base
+    read["parity"] = 8
+    await controller._read_line_errors(c)
+    assert (await request(port, "POST", seen, {"what": "last_error"}))[0] == 409
+    assert (await request(port, "POST", seen, {"what": "counters"}))[0] == 200
+    assert controller.line_seen[c.id]["parity"] == 3 and controller.line_seen[c.id]["at"]
+    assert controller.line_errors[c.id] == {**dict.fromkeys(keys, 0), "parity": 3}  # totals
+    read["parity"] = 1  # the adapter came back: counts and the mark start anew
+    await controller._read_line_errors(c)
+    assert c.id not in controller.line_seen
+    await web.stop()

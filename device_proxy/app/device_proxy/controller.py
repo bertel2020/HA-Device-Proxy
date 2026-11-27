@@ -207,6 +207,8 @@ class Controller:
         self.rates: dict[str, tuple[float, int, int, float, float]] = {}  # alias → t, rx, tx, r/s
         self.line_errors: dict[str, dict[str, int] | None] = {}  # connection id → since start
         self._line_base: dict[str, dict[str, int]] = {}
+        # line errors marked as seen in the app: the counts then and when; gone with the base
+        self.line_seen: dict[str, dict[str, float]] = {}
         self.latency: dict[str, str] = {}  # connection id → result of set_low_latency
         self.ser2net_version = ""
         self.notifier = Notifier(path=notify_file)
@@ -1040,6 +1042,7 @@ class Controller:
         base = self._line_base.get(c.id)
         if base is None or any(counters[k] < base[k] for k in counters):
             base = self._line_base[c.id] = counters  # first read or the adapter came back
+            self.line_seen.pop(c.id, None)
         delta = {k: counters[k] - base[k] for k in counters}
         before = self.line_errors.get(c.id) or {}
         if sum(delta.values()) > sum(before.values()):
@@ -1401,9 +1404,15 @@ class Controller:
         """Trouble seen in the app: its counters from 0 again, or the last error hidden
         until the next one; for everyone who looks, until the proxy starts anew."""
         proxy = self.proxies.get(connection_id)
-        if not isinstance(proxy, (ModbusProxy, OneWireProxy)):
+        if isinstance(proxy, (ModbusProxy, OneWireProxy)):
+            proxy.acknowledge(what)
+            return
+        counts = self.line_errors.get(connection_id)
+        if proxy is not None or counts is None:
             raise ValueError("the connection is not active")
-        proxy.acknowledge(what)
+        if what != "counters":
+            raise ValueError("a serial connection has only counters")
+        self.line_seen[connection_id] = {**counts, "at": time.time()}
 
     async def disconnect_clients(self, connection_id: str, source: str) -> int:
         """Close the connections of all clients of a connection; they may connect again."""
@@ -2067,6 +2076,7 @@ class Controller:
                     "rate_to_device": rate[4] if rate else 0.0,
                     "last_data": flow.last_rx if flow else None,
                     "line_errors": self.line_errors.get(c.id),
+                    "line_errors_seen": self.line_seen.get(c.id),
                     "moved_to": self.moved_to(c),
                     "exclusive": self._exclusive_info(c.id),
                     "latency": self.latency.get(c.id),
@@ -2151,6 +2161,7 @@ class Controller:
             "rate_to_device": rate[4] if rate else 0.0,
             "last_data": flow.last_rx if flow else None,
             "line_errors": None,
+            "line_errors_seen": None,
             "moved_to": self.moved_to(c),
             "exclusive": self._exclusive_info(c.id),
             "latency": self.latency.get(c.id),

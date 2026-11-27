@@ -1118,6 +1118,7 @@
     "seen": "Seen",
     "seenCounters": "Mark as seen: the counters start again from 0, the Exceptions card keeps them all",
     "seenLastError": "Mark as seen: hidden until the next error",
+    "seenCountersSince": "Counted since they were marked as seen at {t}",
     "seenSince": "since {t}",
     "jumpRecent": "Show the recent events",
     "jumpExceptions": "Show which unit and registers",

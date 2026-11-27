@@ -1118,6 +1118,7 @@
     "seen": "Gesehen",
     "seenCounters": "Als gesehen markieren: die Zähler beginnen wieder bei 0, die Karte „Fehlerantworten“ behält alle",
     "seenLastError": "Als gesehen markieren: ausgeblendet bis zum nächsten Fehler",
+    "seenCountersSince": "Gezählt seit „Gesehen“ um {t}",
     "seenSince": "seit {t}",
     "jumpRecent": "Letzte Ereignisse zeigen",
     "jumpExceptions": "Zeigen, welche Unit und welche Register",

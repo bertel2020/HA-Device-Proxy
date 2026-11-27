@@ -37,6 +37,9 @@ function reach(c, s) {
   return nets.length ? t("listen_lan_n", { nets: nets.join(", ") }) : t("listen_lan_none");
 }
 
+/** The line counters shown: [text key, field of line_errors]. */
+const LINE_ERRORS = [["frame", "frame"], ["parity", "parity"], ["overrun", "overrun"], ["brk", "break"], ["bufOverrun", "buffer_overrun"]];
+
 export class DetailPage extends Page {
   static properties = {
     state: { attribute: false }, events: { attribute: false }, connectionId: {},
@@ -780,6 +783,10 @@ export class DetailPage extends Page {
     const [stateKey, stateClass] = connectionState(c, s.ser2net_running);
     const recent = this.events.filter((e) => e.connection === c.id).slice(-6).reverse();
     const le = c.line_errors;
+    // line errors counted since they were marked as seen, if they were
+    const lineSeen = c.line_errors_seen || {};
+    const lineSince = (f) => Math.max(0, ((le || {})[f] ?? 0) - (lineSeen[f] ?? 0));
+    const lineTrouble = LINE_ERRORS.some(([, f]) => lineSince(f));
     const usb = c.usb;
     const modbus = c.kind === "modbus", m = c.modbus || {};
     const enocean = c.kind === "enocean", eo = c.enocean || {};
@@ -868,10 +875,12 @@ ${c.request_gap_ms ? ` · ${t("mbGapShort", { ms: c.request_gap_ms })}` : ""}</s
           </section>`;
     const stateCard = modbus ? this._modbusCard(m, c) : enocean ? statusCard(c) : onewire ? oneWireCard(c) : html`<section class="card" aria-labelledby="t-line">
             <div class="row"><h2 id="t-line">${t("line")}</h2>
-              ${le && !Object.values(le).some(Boolean) ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
+              ${le && !lineTrouble ? html`<span class="chip ok">${t("noLineErrors")}</span>` : ""}</div>
             ${le ? html`<div class="counters">
-              ${[["frame", le.frame], ["parity", le.parity], ["overrun", le.overrun], ["brk", le.break], ["bufOverrun", le.buffer_overrun]].map(([k, v]) =>
-                html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>`
+              ${LINE_ERRORS.map(([k, f]) => [k, lineSince(f)]).map(([k, v]) =>
+                html`<div class="well"><span class="hint">${t(k)}</span><b style=${v ? "color:var(--warn)" : ""}>${v}</b></div>`)}</div>
+              ${lineTrouble || lineSeen.at ? html`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                ${lineTrouble ? seenButton(c.id, "counters") : ""}${lineSeen.at ? html`<span class="hint">${t("seenCountersSince", { t: fmtTime(lineSeen.at, true) })}</span>` : ""}</div>` : ""}`
               : ""}
             <p class="hint" style="margin:0">${le || !c.clients.length || c.line_errors !== null ? t("lineClosed") : t("lineUnsupported")}</p>
           </section>`;
